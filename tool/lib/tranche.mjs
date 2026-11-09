@@ -7,16 +7,16 @@
 // counted and reported only. The act is never reworded or rerouted. The throwaway branches are
 // kept, never deleted.
 // Close: once every layer is closed (or the plan says close), and with a `deploy` block once the
-// last round's deploy and walk ran and its findings are recorded (walkHold), main into the tranche and the
+// last round's walk ran (its internal walk, or the deploy and walk where none is configured) and its
+// findings are recorded (walkHold), then the release path (BD-R1), main into the tranche and the
 // tranche into main, each by a plain pull request through merge --plain; then --record writes the
 // close on the state branch, as layer close does.
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { deploys, roundsAt, walkFindings, walkHold } from './deploy.mjs';
-import { RELEASES_FILE } from './release.mjs';
-import { RELEASE_WALKS_FILE, internalRequired, releaseWalks, roundLine, runPassed, runSource, unplaced } from './rounds.mjs';
+import { deploys, roundAct, roundWhat, roundsAt, walkFindings, walkHold } from './deploy.mjs';
+import { RELEASE_PATH_GAP, RELEASE_WALKS_FILE, internalRequired, releaseWalks, releasesCut, roundLine, runPassed, runSource, unplaced } from './rounds.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { REFUSALS_FILE, recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
@@ -264,7 +264,7 @@ export function endActs(cfg, version, slug, branch) {
 // walk the deploy row records stands for it; without a release block, the tranche cuts no release.
 export function trancheEnd(root, cfg, t, { plan, slug, read }) {
   const w = walkFindings(root, cfg, t, { slug, read });
-  if (!w.last) fail(`the last round's deploy and walk are owed before the tranche closes: ${P3} deploy dev`);
+  if (!w.last) fail(`the last round's walk is owed before the tranche closes: ${roundAct(cfg)} (${roundWhat(cfg)})`);
   const hold = walkHold(w);
   if (hold) fail(`tranche close waits: ${hold}`);
   // The plan's close (PLN-5, your word) ends the tranche where it stands: the latest run's findings
@@ -283,11 +283,11 @@ export function trancheEnd(root, cfg, t, { plan, slug, read }) {
   if (!clean) fail(`tranche close waits: the latest ${iw ? 'internal walk' : 'walk'} (${runSource(w.last)}) is not clean (${iw ? `${w.last.internal_walk ? `ok ${w.last.internal_walk.ok}, ${Number(w.last.internal_walk.failures) || 0} failure(s)` : 'it did not run'}` : `ok ${w.last.ok}, ${Number(w.last.walk?.failures) || 0} failure(s)`}); its findings open the next round, and the rounds repeat until one is clean (BD-R1)`);
   if (!cfg.release) return { steps: [], gaps: [], release: null };
   // 2. The release deployment: a development release cut after that walk.
-  const rel = jsonl(readState(root, cfg.state_branch, RELEASES_FILE)).filter((r) => r.row === 'dev-release' && r.tranche === cfg.tranche && r.conclusion === 'success' && String(r.at) > String(w.last.at)).at(-1);
+  const rel = releasesCut(root, cfg, w.last.at);
   if (!rel) fail(`tranche close waits: no development release since the clean internal walk ${runSource(w.last)}: ${P3} release dev, then the release deployment and its walk (BD-R1)`);
   // 3. The walk of the release: of that release installed on a p3dev- deployment.
   const rw = releaseWalks(root, cfg).filter((r) => r.version === rel.version).at(-1);
-  if (!rw) fail(`tranche close waits: the release deployment of ${rel.version} and its walk are owed: ${P3} deploy release ${rel.version}; GAP: no path yet installs the cut, signed release onto a p3dev- deployment (no row in ${RELEASE_WALKS_FILE}), brought to Bob through the coordinator`);
+  if (!rw) fail(`tranche close waits: the release deployment of ${rel.version} and its walk are owed: ${P3} deploy release ${rel.version}; GAP: no path yet installs the cut, signed release onto a p3dev- deployment (no row in ${RELEASE_WALKS_FILE}; ${RELEASE_PATH_GAP}), brought to Bob through the coordinator`);
   if (!(rw.ok === true && !(Number(rw.failures) > 0))) fail(`tranche close waits: the walk of release ${rel.version} found ${Number(rw.failures) || 1} flaw(s); recorded as found marks, they open the next round (BD-R1)`);
   // 4 and 5. The installer, then the site: each on Bob's approval, named in order.
   const e = endActs(cfg, rel.version, slug, cfg.tranche);

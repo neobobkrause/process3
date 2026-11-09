@@ -15,7 +15,7 @@ import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { addressFile, fetchState, handoffFile, heldAct, heldWrites, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { ROUND_ACT, deploys, owedAt, walkHold } from './deploy.mjs';
+import { deploys, owedAt, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { laneSeatFor, lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { census, censusLines, openLayers, preflight, preflightLines } from './census.mjs';
@@ -567,17 +567,21 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     // No job work until the tranche open's grants check has passed (Build Plan Phase 3).
     out.open = openState(root, cfg);
     if (out.open.state !== 'open') log(openLine(out.open));
-    // The deploy and walk at a round close only, never between layers (Bob, 4 Nov); the act that
-    // closes the round starts it (Bob, 7 Nov: required, tool-started). Owed and not run, it is the
+    // The round's walk at its close only, never between layers (Bob, 4 Nov): the internal walk alone
+    // where one is configured (BD-R1, C43); the act that closes the round starts it (Bob, 7 Nov:
+    // required, tool-started). Then, once an internal walk is clean, the release path. Owed and not run, it is the
     // first act, printed before the notices and next work; it never holds job starts. Its
     // unrecorded findings hold tranche close.
     out.deploy = null;
     // Not before the tranche open has passed (a tranche merged into main reads every row stale).
     if (deploys(cfg) && !halt && out.open.state === 'open') {
-      const { owed, w, running } = owedAt(root, cfg, { ls: out.layer, ref: ref || 'HEAD', closed, at: { slug: offline ? null : slug, read: io.compare } });
+      const { owed, act, what, w, running, release } = owedAt(root, cfg, { ls: out.layer, ref: ref || 'HEAD', closed, at: { slug: offline ? null : slug, read: io.compare } });
       out.deploy = owed;
+      out.release = release;
       if (running) log(`the round-close run at ${String(running.commit).slice(0, 10)} (${running.slug}) was started by ${running.session || 'a session'} at ${running.at}, not yet recorded: running, or cut short; owed again after ${running.until}`);
-      if (owed !== null) log(`FIRST: the round-close run is owed (${owed}): ${ROUND_ACT} (the internal walk, then the deploy and its walk); job starts do not wait for it`);
+      if (owed !== null) log(`FIRST: the round-close run is owed (${owed}): ${act} (${what}); job starts do not wait for it`);
+      // A round's internal walk clean (BD-R1): the release path is the one next act; a live walk is owed nowhere else.
+      if (release) log(`FIRST: the release path is next (${release.why}): ${release.act}`);
       const hold = walkHold(w);
       if (hold) log(`tranche close waits: ${hold}`);
     }

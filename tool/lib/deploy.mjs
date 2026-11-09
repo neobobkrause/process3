@@ -1,8 +1,15 @@
-// deploy dev (Build Plan Phase 2, the deploy and walk; Bob's word, 3 Nov: development
-// deployments only, in the product's own Cloudflare account under his approvals). BOB runs it
-// at each round's close only, never between layers (Bob, 4 Nov), from the clean tranche tip: the
-// `deploy` block's dry run, refused unless every dry-run step printed guard_line; then the deploy;
-// then the walk; one row per run in deploys/dev.jsonl on the state branch. The shape is release dev's.
+// The round's walk (BD-R1, Bob, 8 Nov: "Once a walk completes, that ends the current round ...
+// until an internal walk doesn't find flaws, the release deployment happens, and the walk of the
+// release also doesn't identify flaws"; Bob, 8 Nov: "the internal walk would be the last step of a
+// round, but the live walk would only run once a round completed without any flaws identified in
+// the internal walk"). Where the product configures an internal walk, the round-close run is that
+// walk alone (walk round): no deploy and no live walk; a clean one makes the release path the next
+// act (release dev, then deploy release). Where it does not (Bob's exemption, or none set), the run
+// is deploy dev, as before (Build Plan Phase 2; Bob's word, 3 Nov: development deployments only, in
+// the product's own Cloudflare account under his approvals): the `deploy` block's dry run, refused
+// unless every dry-run step printed guard_line; then the deploy; then the walk. Either runs at a
+// round's close only, never between layers (Bob, 4 Nov), from the clean tranche tip, one row per run
+// in deploys/dev.jsonl on the state branch.
 import { appendFileSync, closeSync, constants, fstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, sep } from 'node:path';
@@ -11,14 +18,14 @@ import { deploys, internalWalkOf, reportPaths, stepsOf } from './deploycfg.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, flushState, jsonl, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { DEPLOYS_FILE, findingsOf, flawedModules, roundLine, roundState, runSource, walkHold } from './rounds.mjs';
+import { DEPLOYS_FILE, RELEASE_PATH_GAP, START_ROWS, WALK_ROWS, findingsOf, flawedModules, releaseNext, roundLine, roundState, runSource, walkHold } from './rounds.mjs';
 import { flowRows } from './layerflow.mjs';
 import { layersAt } from './layerbase.mjs';
 import { closedRows, layerState, onMainOf, status } from './status.mjs';
 import { install } from './suite.mjs';
 import { Fail, NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run, withTemp } from './util.mjs';
 
-export { DEPLOYS_FILE };
+export { DEPLOYS_FILE, RELEASE_PATH_GAP };
 export const SLUG_PREFIX = 'p3dev-';
 const MINUTE = 60000;
 const KEYS = ['slug_prefix', 'dry_run', 'deploy', 'walk', 'guard_line', 'timeout_minutes', 'walk_reports', 'internal_walk'];
@@ -103,21 +110,21 @@ export function redact(text, masks) {
   return s;
 }
 
-// The deploy rows of this tranche: its name, and its commit not yet on main (a row from a tranche
+// The round-walk rows of this tranche (WALK_ROWS: walk round's, or deploy dev's): its name, and its commit not yet on main (a row from a tranche
 // already merged into main is stale, as closedRows has it). A failed run is recorded and can be run again.
 export function deployRows(root, cfg, at = {}) {
   const onMain = onMainOf(root, at);
-  return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.row === 'dev-deploy' && r.tranche === cfg.tranche && !onMain(String(r.commit)));
+  return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => WALK_ROWS.includes(r.row) && r.tranche === cfg.tranche && !onMain(String(r.commit)));
 }
 
 // The round close (Bob, 4 Nov; BD-R1, Bob, 8 Nov): work runs in layers within rounds within
-// tranches (PLN-1), and a deploy and walk belong to the close of each round, never between layers.
+// tranches (PLN-1), and a round's walk belongs to its close, never between layers.
 // The first round closes when every layer of the plan is closed (with the completion layer the copy
 // opened under PD-12, its last use). A later round (rounds.mjs) closes when every layer it opened
 // has merged and no flawed module waits in a map layer after its last; its walk ends it, and the
 // walk's findings, recorded as found marks, open the next round. `plan` `close` (as the tranche
-// holds it) makes the current round the last, closed now. Only at a round close is a deploy and
-// walk owed or allowed; the tranche's end is its last round's close.
+// holds it) makes the current round the last, closed now. Only at a round close is the round's walk
+// owed or allowed; the tranche's end is its last round's close, then the release path (BD-R1).
 export function roundClose(root, cfg, { ls, plan = cfg.plan, closed = [], ref, w }) {
   const top = Math.max(0, ...closed.map((r) => r.layer)) || null;
   // Under plan close the round after a walk is open while its items or the walk's found marks
@@ -169,48 +176,71 @@ export function walkFindings(root, cfg, ref, at = {}) {
   return findingsOf(root, cfg, ref, deployRows(root, cfg, at).at(-1) || null);
 }
 
-// Owed at a round close: none yet, or the latest run had findings and the tranche has moved past
-// it (its round's work merged). A clean walk owes none however the tip moves after it (review: a
-// plain pull request, main into the tranche at its close, would owe a deploy mid-close).
-export const deployOwed = (rc, w, tip) => (!rc.closed ? null : !w.last ? `${rc.round} closed, not yet deployed` : w.failing && w.last.commit !== tip ? `${rc.round} closed since ${String(w.last.commit).slice(0, 10)} was deployed` : null);
+// The round's walk is the internal walk alone where the product configures one (C43, BD-R1); deploy
+// dev's deploy and walk where it does not (Bob's exemption, or none set), as before.
+export const walkOnly = (cfg) => { try { return !!internalWalkOf(cfg?.deploy?.internal_walk)?.walk; } catch { return false; } };
+// Owed at a round close: none yet; or, under the rounds, the round's layers merged after the latest
+// walk (BD-R1: a round ends at its walk; a walk with flaws opens the next round, which owes nothing
+// until its own layers merge, and a clean one owes the release path, not another walk); or, under
+// plan close (no rounds read), the latest run had findings and the tranche has moved past it. A
+// clean walk owes none however the tip moves after it (review: a plain pull request, main into the
+// tranche at its close, would owe a walk mid-close).
+export const deployOwed = (rc, w, tip, done = 'deployed') => {
+  if (!rc.closed) return null;
+  if (!w.last) return `${rc.round} closed, not yet ${done}`;
+  const since = `${rc.round} closed since ${String(w.last.commit).slice(0, 10)} was ${done}`;
+  if (rc.rounds) return rc.rounds.state === 'walk' ? since : null;
+  return w.failing && w.last.commit !== tip ? since : null;
+};
 // What is owed at `ref` (the tranche as status and ROOT's sweep read it): the round-close run's
-// reason, or null; and a run started and not yet recorded (`running`), which owes nothing more
-// while it may still be going. The plan as the tranche holds it, as deploy dev reads it.
+// reason, or null, and its act; a run started and not yet recorded (`running`), which owes nothing
+// more while it may still be going; and, with nothing owed, the release path once a round's walk is
+// clean (`release`: {why, act}, rounds.mjs releaseNext). The plan as the tranche holds it.
 export function owedAt(root, cfg, { ls, ref, closed = [], at = {} }) {
   const w = walkFindings(root, cfg, ref, at);
   let plan = cfg.plan;
   try { plan = loadConfig(root, ref).plan; } catch { plan = cfg.plan; }
   const tip = git(['rev-parse', ref], { cwd: root });
   const running = runningAt(root, cfg, tip);
-  return { owed: running ? null : deployOwed(roundClose(root, cfg, { ls, plan, closed, ref, w }), w, tip), w, running };
+  const rc = roundClose(root, cfg, { ls, plan, closed, ref, w });
+  const owed = running ? null : deployOwed(rc, w, tip, walkOnly(cfg) ? 'walked' : 'deployed');
+  const release = running || owed ? null : releaseNext(root, cfg, { rc, w, plan });
+  return { owed, act: owed ? roundAct(cfg) : null, what: roundWhat(cfg), w, running, release };
 }
-// A deploy dev started at `tip` and not recorded, within the longest it can run (each step's
+// A round's walk started at `tip` and not recorded, within the longest it can run (each step's
 // timeout, the internal walk's, and the install and build): it is running, or was cut short.
 export function runningAt(root, cfg, tip) {
   const rows = jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.tranche === cfg.tranche);
-  const start = rows.filter((r) => r.row === 'dev-deploy-start' && r.commit === tip).at(-1);
-  if (!start || rows.some((r) => r.row === 'dev-deploy' && r.commit === tip && r.at >= start.at)) return null;
+  const start = rows.filter((r) => START_ROWS.includes(r.row) && r.commit === tip).at(-1);
+  if (!start || rows.some((r) => WALK_ROWS.includes(r.row) && r.commit === tip && r.at >= start.at)) return null;
   let minutes = 180;
   try { const d = deployConfig(cfg); minutes = d.timeout_minutes * (d.dry_run.length + d.deploy.length + d.walk.length + 2) + (d.internal_walk?.timeout_minutes || 0); } catch { minutes = 180; }
   return Date.now() - Date.parse(start.at) < minutes * MINUTE ? { ...start, until: new Date(Date.parse(start.at) + minutes * MINUTE).toISOString() } : null;
 }
-// The one next act when the round-close run is owed and has not run.
+// The one next act when the round-close run is owed and has not run: walk round where the product
+// configures an internal walk, deploy dev where it does not.
 export const ROUND_ACT = `${P3} deploy dev, from a clean checkout of the tranche tip`;
+export const ROUND_WALK_ACT = `${P3} walk round, from a clean checkout of the tranche tip`;
+export const roundAct = (cfg) => (walkOnly(cfg) ? ROUND_WALK_ACT : ROUND_ACT);
+export const roundWhat = (cfg) => (walkOnly(cfg) ? 'the internal walk only; no deploy and no live walk until a round\'s internal walk is clean, then the release deployment and its walk (BD-R1)' : 'the deploy and its walk');
 
 // The round-close run, tool-started (Bob, 7 Nov: the internal walk is "Required, tool-started",
 // and it runs at "Round close only"; his 4 Nov rule stands, no walk between layers). The act that
 // closes a round starts it, so BOB need not remember it: layer merge of the round's last layer, and
 // the merge of a plain pull request into the tranche that closes it (plan close, or the completion
-// round's last item done). It is deploy dev, inline in the merging session, from a scratch worktree
-// at the tranche tip: the internal walk first, then the dry run, the deploy and its walk, one row.
-// Inline, not a dispatched workflow: the session holds the product's Cloudflare access (injected
-// for it, never a secret a workflow could read under Bob's rules), and the run's row and reports go
-// on the state branch as deploy dev's always have. The merge is recorded before the run begins, so
-// a run cut short loses nothing: with no row the run stays owed. When it cannot run here, it is
-// the one next act: printed now, first in status, and ROOT's sweep wakes BOB for it. A round still
-// open runs nothing.
+// round's last item done). Where the product configures an internal walk, it is walk round: that
+// walk alone, recorded as the round's walk, its findings the next round's found marks (BD-R1, Bob,
+// 8 Nov: "the live walk would only run once a round completed without any flaws identified in the
+// internal walk"); a clean one makes the release path the next act. Where it does not, deploy dev:
+// the dry run, the deploy and its walk. Inline in the merging session, from a scratch worktree at the
+// tranche tip, not a dispatched workflow: the session holds the product's access (never a secret a
+// workflow could read under Bob's rules), and the run's row and reports go on the state branch. The
+// merge is recorded before the run begins, so a run cut short loses nothing: with no row the run
+// stays owed. When it cannot run here, it is the one next act: printed now, first in status, and
+// ROOT's sweep wakes BOB for it. A round still open runs nothing.
 export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merge' } = {}) {
   let owed = null;
+  let act = ROUND_ACT;
   try {
     let cfg = loadConfig(root);
     const t = `origin/${cfg.tranche}`;
@@ -224,37 +254,41 @@ export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merg
     if (pendingWrites()) flushState({ log });
     fetchState(root, cfg.state_branch, { fresh: true });
     const tip = git(['rev-parse', t], { cwd: root });
-    const { rc, w } = roundAt(root, cfg, t, { io, slug: io.repo || repoSlug(root) });
+    const { rc, w, plan } = roundAt(root, cfg, t, { io, slug: io.repo || repoSlug(root) });
     const run = runningAt(root, cfg, tip);
     if (run) { log(`the round-close run at ${tip.slice(0, 10)} was started by ${run.session || 'a session'} at ${run.at} and is not recorded: running, or cut short; owed again after ${run.until}`); return { ran: false, owed: null, running: run }; }
-    owed = deployOwed(rc, w, tip);
+    const only = walkOnly(cfg);
+    act = roundAct(cfg);
+    owed = deployOwed(rc, w, tip, only ? 'walked' : 'deployed');
     if (!owed) {
-      if (!rc.closed) log(`no internal walk or deploy now: the round is open (${rc.why}); they run at its close, started by the act that closes it (Bob, 4 and 7 Nov)`);
-      return { ran: false, owed: null };
+      if (!rc.closed) log(`no ${only ? 'internal walk' : 'deploy and walk'} now: the round is open (${rc.why}); ${only ? 'it runs' : 'they run'} at its close, started by the act that closes it (Bob, 4 and 7 Nov)`);
+      const next = releaseNext(root, cfg, { rc, w, plan });
+      if (next) log(`the round's walk is done; the one next act is the release path (${next.why}): ${next.act}`);
+      return { ran: false, owed: null, ...(next ? { release: next } : {}) };
     }
-    log(`${owed}: ${by} starts the round-close run now (Bob, 7 Nov: required, tool-started): the internal walk, then the deploy and its walk; if it is cut short, the run stays owed: ${ROUND_ACT}`);
+    log(`${owed}: ${by} starts the round-close run now (Bob, 7 Nov: required, tool-started): ${roundWhat(cfg)}; if it is cut short, the run stays owed: ${act}`);
     const r = unbatched(() => withTemp('p3-round-', (tmp) => {
       const wt = join(tmp, 'w');
       git(['worktree', 'add', '-q', '--detach', wt, tip], { cwd: root });
       try {
         if (git(['ls-tree', tip, '--', '.gitmodules'], { cwd: root })) git(['submodule', 'update', '--init', '-q'], { cwd: wt, allowFail: true });
-        return (io.deployDev || deployDev)(wt, { log, io: io.deploy || {}, repo: io.repo || repoSlug(root) });
+        return (only ? io.walkRound || walkRound : io.deployDev || deployDev)(wt, { log, io: io.deploy || {}, repo: io.repo || repoSlug(root) });
       } finally { git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true }); }
     }, { root }));
     return { ran: true, ok: r.ok, owed };
   } catch (e) {
     const why = String(e?.message || e).split('\n')[0].slice(0, 200);
     if (!(e instanceof Fail)) log(`the round-close run stopped on an error: ${why}`);
-    log(`the round-close run did not run here (${why}); ${owed ? `it is owed (${owed})` : 'if the round closed, it is owed'}: the one next act is ${ROUND_ACT}; status puts it first and ROOT's sweep wakes BOB for it`);
-    return { ran: false, owed, act: ROUND_ACT, why };
+    log(`the round-close run did not run here (${why}); ${owed ? `it is owed (${owed})` : 'if the round closed, it is owed'}: the one next act is ${act}; status puts it first and ROOT's sweep wakes BOB for it`);
+    return { ran: false, owed, act, why };
   }
 }
 const defaultIO = { exec: run };
 
-export function deployDev(root, { slug, log = console.log, io: given = {}, repo = repoSlug(root) } = {}) {
-  const io = { ...defaultIO, ...given };
-  const cfg = loadConfig(root);
-  const dep = deployConfig(cfg);
+// The checks both round walks share: the checkout the clean tranche tip, the round closed at it and
+// not already walked clean there, no run of it going; then the start marker, pushed at once so status
+// and ROOT's sweep owe nothing while it runs (cold review of C23). `what` names the run in refusals.
+function roundRunAt(root, cfg, { io, repo, what, slugOf, startRow, log }) {
   const t = `origin/${cfg.tranche}`;
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${t}`], { cwd: root });
   const tip = git(['rev-parse', t], { cwd: root });
@@ -264,26 +298,51 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
   fetchState(root, cfg.state_branch, { fresh: true });
   const { rc, w } = roundAt(root, cfg, t, { io, slug: repo });
-  if (!rc.closed) fail(`no development deployment now: a deploy and walk belong to a round close, never between layers (${rc.why}); it becomes due when the round closes`);
-  if (w.last && w.last.ok && !w.failing && w.last.commit === tip) fail(`no development deployment now: ${tip.slice(0, 10)} is deployed and walked clean (${w.last.slug}); the next round's close makes the next one`);
-  const layer = rc.layer;
-  const s = checkSlug(slug === undefined ? `${dep.slug_prefix}${layer === null ? 'end' : `l${layer}`}` : String(slug));
-  // One run at a time per tip: a run started and not recorded is running, or was cut short; the
-  // start is pushed at once so status and ROOT's sweep owe nothing while it runs (cold review of C23).
+  if (!rc.closed) fail(`no ${what} now: a round's walk belongs to its close, never between layers (${rc.why}); it becomes due when the round closes`);
+  if (w.last && w.last.ok && !w.failing && w.last.commit === tip) fail(`no ${what} now: ${tip.slice(0, 10)} is ${w.last.row === 'round-walk' ? 'walked' : 'deployed and walked'} clean (${w.last.slug}); the next round's close makes the next one`);
+  const s = slugOf(rc.layer);
   const going = runningAt(root, cfg, tip);
-  if (going) fail(`no development deployment now: ${going.session || 'a session'} started one at ${tip.slice(0, 10)} (${going.slug}) at ${going.at}, not yet recorded: it is running, or was cut short; run deploy dev again after ${going.until}`);
+  if (going) fail(`no ${what} now: ${going.session || 'a session'} started one at ${tip.slice(0, 10)} (${going.slug}) at ${going.at}, not yet recorded: it is running, or was cut short; run it again after ${going.until}`);
   const session = (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
   // Best effort: the marker only holds off a second run; a state branch that refuses it refuses the
   // run's row too, and that failure is reported where the row is kept.
   try {
-    unbatched(() => writeState(root, cfg.state_branch, `development deployment ${s} started`, (wt) => {
+    unbatched(() => writeState(root, cfg.state_branch, `${what} ${s} started`, (wt) => {
       mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
-      appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify({ row: 'dev-deploy-start', tranche: cfg.tranche, slug: s, commit: tip, session, at: now() }) + '\n');
+      appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify({ row: startRow, tranche: cfg.tranche, slug: s, commit: tip, session, at: now() }) + '\n');
     }));
   } catch (e) {
     if (!(e instanceof Fail)) throw e;
     log(`the start was not recorded on the state branch (${String(e.message).split('\n')[0].slice(0, 160)}): a second run is not held off`);
   }
+  return { tip, rc, w, slug: s };
+}
+// The row and its stored reports on the state branch; on a failed write, where they were kept.
+function keepRow(root, cfg, { row, stored, logs, message, again, outcome, log }) {
+  writeFileSync(join(logs, 'row.json'), JSON.stringify(row) + '\n');
+  try {
+    writeState(root, cfg.state_branch, message, (wt) => {
+      for (const k of stored) { mkdirSync(dirname(join(wt, k.stored)), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
+      mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
+      appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify(row) + '\n');
+    });
+  } catch (e) {
+    log(`the state branch was not written (${outcome}); the row and the walk's reports are in ${logs} (row.json, report-*); \`${again}\` may be run again`);
+    throw e;
+  }
+}
+
+// deploy dev [--slug <s>]: the round's walk where the product configures no internal walk (Bob's
+// exemption, or none set): the dry run, the deploy and its walk. Where it configures one, refused:
+// the round's walk is the internal walk (walk round), and a live walk comes only with the release,
+// once a round's internal walk is clean (BD-R1, C43).
+export function deployDev(root, { slug, log = console.log, io: given = {}, repo = repoSlug(root) } = {}) {
+  const io = { ...defaultIO, ...given };
+  const cfg = loadConfig(root);
+  const dep = deployConfig(cfg);
+  if (dep.internal_walk) fail(`no development deployment now: with an internal walk configured, a round ends at its internal walk alone (\`${P3} walk round\`, started by the act that closes the round), and the deploy and its live walk come only once a round's internal walk is clean, as the release deployment: \`${P3} release dev\`, then \`${P3} deploy release <version>\` (BD-R1, Bob, 8 Nov)`);
+  const { tip, rc, slug: s } = roundRunAt(root, cfg, { io, repo, log, what: 'development deployment', startRow: 'dev-deploy-start', slugOf: (layer) => checkSlug(slug === undefined ? `${dep.slug_prefix}${layer === null ? 'end' : `l${layer}`}` : String(slug)) });
+  const layer = rc.layer;
   log(`development deployment ${s} of ${cfg.tranche} ${tip.slice(0, 10)}, ${rc.round} closed; development only`);
   const t0 = Date.now();
   const masks = new Set();
@@ -293,8 +352,6 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   log(`each step's whole output is kept under ${logs}`);
   const go = stepRunner(root, { io, log, logs, masks, results, dep, slug: s });
   const b = prepare(root, cfg, dep, { io, log, ref: tip, results });
-  // The internal walk first (K4111), from the built tip; never a gate (K4162): its result goes in the row.
-  const inner = !b.findings.length && dep.internal_walk ? internalWalk(root, cfg, dep.internal_walk, go) : null;
   let ok = !b.findings.length && go('dry_run', dep.dry_run, { guard: true });
   let stopped = b.findings.length ? 'build' : ok ? null : 'dry_run';
   if (ok) { ok = go('deploy', dep.deploy); if (!ok) stopped = 'deploy'; }
@@ -303,45 +360,68 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const minutes = Math.round((Date.now() - t0) / 6000) / 10;
   const row = { row: 'dev-deploy', tranche: cfg.tranche, slug: s, commit: tip, layer, ok, stopped, results, minutes, at: now() };
   // The walk's reports, as the walker wrote them (masked values as ***), under deploys/<slug>/<UTC
-  // time>/ on the state branch (the internal walk's under its internal/); one over max_file_bytes
-  // is recorded as not stored. report.json's counts go in the row (copy, 4 Nov: 77 screens'
-  // findings were lost with the log's head).
+  // time>/ on the state branch; one over max_file_bytes is recorded as not stored. report.json's
+  // counts go in the row (copy, 4 Nov: 77 screens' findings were lost with the log's head).
   const dir = `deploys/${s}/${row.at.replace(/[:.]/g, '-')}`;
   const max = cfg.max_file_bytes;
   const read = results.some((x) => x.stage === 'walk') ? dep.walk_reports.map((p) => ({ from: p, ...readReport(root, p, tWalk, max) })) : [];
-  const [kept, keptInner] = keepReports([{ dir, read }, { dir: `${dir}/internal`, read: inner?.read || [] }], masks, max);
+  const [kept] = keepReports([{ dir, read }], masks, max);
   if (kept.length) {
     const w = row.walk = summarize(kept);
     log(`walk: ${w.steps !== undefined ? `${w.steps} steps, ${w.steps_ok} ok, ${w.failures} failures ${JSON.stringify(w.by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ')}`);
   }
-  if (inner) {
-    row.internal_walk = innerRow(inner, keptInner, log);
-    if (!row.internal_walk.ok) log(`the internal walk's findings enter as found marks: \`${P3} found <module> "<finding>" --from "internal walk ${runSource(row)}"\` (not a gate: the deploy went on)`);
-  }
   // Kept beside the step files before the push, so a failed state-branch write loses nothing.
-  if (keptInner.some((k) => k.text !== undefined)) mkdirSync(join(logs, 'report-internal'), { recursive: true });
-  const stored = [...kept, ...keptInner].filter((x) => x.text !== undefined);
-  for (const k of stored) writeFileSync(join(logs, `report-${keptInner.includes(k) ? 'internal/' : ''}${basename(k.from)}`), k.text);
-  writeFileSync(join(logs, 'row.json'), JSON.stringify(row) + '\n');
-  try {
-    writeState(root, cfg.state_branch, `development deployment ${s}, ${rc.round}: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
-      for (const k of stored) { mkdirSync(dirname(join(wt, k.stored)), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
-      mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
-      appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify(row) + '\n');
-    });
-  } catch (e) {
-    log(`the state branch was not written (${ok ? 'the deployment itself succeeded' : `stopped at ${stopped}`}); the row and the walk's reports are in ${logs} (row.json, report-*); \`${P3} deploy dev\` may be run again`);
-    throw e;
-  }
+  const stored = kept.filter((x) => x.text !== undefined);
+  for (const k of stored) writeFileSync(join(logs, `report-${basename(k.from)}`), k.text);
+  keepRow(root, cfg, { row, stored, logs, log, message: `development deployment ${s}, ${rc.round}: ${ok ? 'ok' : `stopped at ${stopped}`}`, again: `${P3} deploy dev`, outcome: ok ? 'the deployment itself succeeded' : `stopped at ${stopped}` });
   if (stopped === 'dry_run') log(`refused: the dry run did not pass the guard (every dry-run step must exit 0 and print "${dep.guard_line}"); nothing was deployed`);
   log(`recorded development deployment ${s} at ${tip.slice(0, 10)}: ${ok ? 'deployed and walked' : `stopped at ${stopped}`}, ${minutes} min`);
-  // Findings enter as found marks and become the next round's items (PLN-4); tranche close waits
-  // on them (walkHold); at that round's close, deploy dev again.
-  const round = `, each with its item in the next round (${cfg.completion_file || 'completion_file'}); tranche close waits until each is recorded; at that round's close, \`${P3} deploy dev\` again`;
+  // Findings enter as found marks against named modules and open the next round (BD-R1); tranche
+  // close waits on them (walkHold); at that round's close, deploy dev again.
+  const round = '; the next round opens from them (BD-R1); tranche close waits until each is recorded';
   if (!ok && stopped !== 'dry_run') log(`each finding enters by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "${stopped} ${runSource(row)}"\` (or found "<finding>" when it names no module)${round}`);
   // A walk can report findings and still exit 0: they enter by the same route.
   if (ok) log(`findings of the walk, if any, enter by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "walk ${runSource(row)}"\`${round}`);
   return { ok, row };
+}
+
+// walk round: the round's walk where the product configures an internal walk (C43, BD-R1, Bob, 8 Nov:
+// "the internal walk would be the last step of a round, but the live walk would only run once a
+// round completed without any flaws identified in the internal walk"). The internal walk alone, from
+// the built tranche tip at a round's close, within its timeout, without the GitHub tokens or any
+// deploy secret: no dry run, no deploy, no live walk. One `round-walk` row in deploys/dev.jsonl, its
+// reports under walks/round/<slug>/<UTC time>/ on the state branch; its findings enter as found marks
+// and open the next round; a clean one makes the release path the next act.
+export function walkRound(root, { slug, log = console.log, io: given = {}, repo = repoSlug(root) } = {}) {
+  const io = { ...defaultIO, ...given };
+  const cfg = loadConfig(root);
+  const dep = deployConfig(cfg);
+  if (!dep.internal_walk) fail(`deploy.internal_walk is not set in process/config.json: the round's walk is \`${P3} deploy dev\` (the deploy and its walk)`);
+  const { tip, rc, slug: s } = roundRunAt(root, cfg, { io, repo, log, what: 'round walk', startRow: 'round-walk-start', slugOf: (layer) => { const x = slug === undefined ? `internal-${layer === null ? 'end' : `l${layer}`}` : String(slug); if (!/^[a-z0-9][a-z0-9-]{0,47}$/.test(x)) fail(`the walk's name must be lower case letters, digits and dashes, not ${JSON.stringify(x)}`); return x; } });
+  log(`the internal walk of ${cfg.tranche} ${tip.slice(0, 10)} (${s}), ${rc.round} closed: the round's walk; no deploy and no live walk (BD-R1)`);
+  const t0 = Date.now();
+  const masks = new Set();
+  const results = [];
+  // Kept on purpose, not withTemp: the step logs are the evidence the walk's output names (util.mjs keepStep).
+  const logs = io.logDir || mkdtempSync(join(tmpdir(), `p3-walk-${s}-`));
+  log(`each step's whole output is kept under ${logs}`);
+  const go = stepRunner(root, { io, log, logs, masks, results, dep, slug: s });
+  const b = prepare(root, cfg, dep, { io, log, ref: tip, results });
+  const inner = b.findings.length ? null : internalWalk(root, cfg, dep.internal_walk, go);
+  const minutes = Math.round((Date.now() - t0) / 6000) / 10;
+  // ok: the walk ran (its findings are counted in internal_walk, as deploy dev's walk's in walk).
+  const row = { row: 'round-walk', tranche: cfg.tranche, slug: s, commit: tip, layer: rc.layer, ok: !!inner, stopped: inner ? null : 'build', results, minutes, at: now() };
+  const dir = `walks/round/${s}/${row.at.replace(/[:.]/g, '-')}`;
+  const [kept] = keepReports([{ dir, read: inner?.read || [] }], masks, cfg.max_file_bytes);
+  if (inner) row.internal_walk = innerRow(inner, kept, log);
+  const stored = kept.filter((x) => x.text !== undefined);
+  for (const k of stored) writeFileSync(join(logs, `report-${basename(k.from)}`), k.text);
+  const clean = !!inner && row.internal_walk.ok;
+  keepRow(root, cfg, { row, stored, logs, log, message: `round walk ${s}, ${rc.round}: ${!inner ? 'stopped at build' : clean ? 'clean' : 'findings'}`, again: `${P3} walk round`, outcome: inner ? 'the internal walk ran' : 'stopped at build' });
+  log(`recorded the round walk ${s} at ${tip.slice(0, 10)}: ${!inner ? 'stopped at build, the internal walk did not run' : clean ? 'clean' : 'findings'}, ${minutes} min`);
+  if (!clean) log(`each finding enters as a found mark against its module: \`${P3} found <module> "<finding>" --from "internal walk ${runSource(row)}"\` (or found "<finding>" when it names no module), or a known gap on Bob's word; the next round opens from them (BD-R1); no deploy and no live walk until a round's internal walk is clean`);
+  else log(`the internal walk is clean: the release path is next: \`${P3} release dev\` (the cut, signed release), then \`${P3} deploy release <version>\`, its release deployment and live walk (BD-R1)`);
+  return { ok: clean, row };
 }
 
 // A runner of steps, each in the product root, {slug} substituted, without the GitHub tokens (and
@@ -455,7 +535,6 @@ export function walkInternal(root, { log = console.log, io: given = {} } = {}) {
 // release-tier install-from-scratch or upgrade fixture (none in the product's workflows), not the
 // installer module (an interactive sign-in, its Worker pasted by hand). The act is named, with the
 // gap, and nothing is deployed or recorded: no deploy step is invented. Exit 1.
-export const RELEASE_PATH_GAP = 'no path yet installs the cut, signed release artifact onto a p3dev- deployment through the release\'s own installer path (process-dev-release cuts the draft release only; the product has no release-tier install-from-scratch or upgrade fixture; the installer installs only by an interactive sign-in)';
 export function deployRelease(root, version, { log = console.log } = {}) {
   if (typeof version !== 'string' || !version.trim()) fail('deploy release <version>, the development release to install on a p3dev- deployment and walk');
   log(`deploy release ${version}: the release deployment and its walk (BD-R1): the cut, signed release ${version} installed onto a p3dev- deployment, then walked; a clean walk lets the tranche close, and its findings open the next round`);

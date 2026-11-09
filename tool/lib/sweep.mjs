@@ -15,7 +15,7 @@ import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, liveJobIds, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { flowRows, layerMergeLine, layerStartAct, needsSlot, readOpenLayer } from './layerflow.mjs';
-import { ROUND_ACT, deploys, owedAt } from './deploy.mjs';
+import { deploys, owedAt } from './deploy.mjs';
 import { publishedJobs, slotNote, slotUse } from './slots.mjs';
 import { openState } from './tranche.mjs';
 
@@ -319,14 +319,17 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const ls = layerState(root, cfg, rows, tranche);
         const mergeLine = layerMergeLine(view);
         if (mergeLine) found.push(mergeLine);
-        // The round-close run owed and not run (the act that closed the round could not run it):
-        // BOB's first act, and the sweep wakes BOB for it (Bob, 7 Nov: required, tool-started).
+        // The round-close run owed and not run (the act that closed the round could not run it), or,
+        // after a clean internal walk, the release path (BD-R1): BOB's first act, and the sweep wakes
+        // BOB for it (Bob, 7 Nov: required, tool-started).
         // Unread, it is a finding, and next work is still read (cold review of C23).
         if (deploys(cfg)) {
           try {
             if (openState(root, cfg).state === 'open') {
-              const o = owedAt(root, cfg, { ls, ref: tranche }).owed;
-              if (o) owed.push(`the round-close run is owed (${o}): ${ROUND_ACT}, first`);
+              const o = owedAt(root, cfg, { ls, ref: tranche });
+              if (o.owed) owed.push(`the round-close run is owed (${o.owed}): ${o.act}, first`);
+              // A named gap BOB cannot act on is reported, not a wake each sweep: the coordinator brings it to Bob.
+              else if (o.release) (o.release.gap ? found : owed).push(`the release path is next (${o.release.why}): ${o.release.act}, first`);
             }
           } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`round-close run: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
         }

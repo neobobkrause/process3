@@ -11,7 +11,11 @@
 // later map layer joins this round and one in an earlier map layer waits for the next (coordinator,
 // 8 Nov). A map layer with no flawed module is skipped. A round ends at its walk: every layer it
 // opened merged, no flawed module in a map layer after its last one, and a walk recorded after its
-// last merge. A new round opens from that walk once its findings are recorded.
+// last merge. That walk is the internal walk alone where the product configures one (C43; Bob, 8 Nov:
+// "the internal walk would be the last step of a round, but the live walk would only run once a
+// round completed without any flaws identified in the internal walk"), deploy dev's deploy and walk
+// where it does not. A new round opens from that walk once its findings are recorded; a clean one
+// leads to the release path (releaseNext): the cut, signed release, its deployment and its live walk.
 import { NO_MODULE, foundFile, foundMarks, FOUND_DIR } from './found.mjs';
 import { completionItems } from './completion.mjs';
 import { entryFile, ledgerIds, readLedgerTexts } from './ledger.mjs';
@@ -25,6 +29,15 @@ export const DEPLOYS_FILE = 'deploys/dev.jsonl';
 // No path writes them yet (C39 gap: no install of the cut, signed release onto a p3dev- deployment
 // exists); tranche close reads them, and names `deploy release <version>` until one is recorded.
 export const RELEASE_WALKS_FILE = 'deploys/release.jsonl';
+// The development releases cut (release dev --record's rows; release.mjs re-exports it).
+export const RELEASES_FILE = 'releases/dev.jsonl';
+// The rows a round's walk writes in DEPLOYS_FILE (C43, BD-R1): `round-walk`, the internal walk only,
+// where the product configures one; `dev-deploy`, deploy dev's deploy and its walk, where it does not
+// (Bob's exemption, or none set). Either ends a round; each has its start marker.
+export const WALK_ROWS = ['round-walk', 'dev-deploy'];
+export const START_ROWS = ['round-walk-start', 'dev-deploy-start'];
+// The release path's gap (deploy.mjs deployRelease names it; status and tranche close print it).
+export const RELEASE_PATH_GAP = 'no path yet installs the cut, signed release artifact onto a p3dev- deployment through the release\'s own installer path (process-dev-release cuts the draft release only; the product has no release-tier install-from-scratch or upgrade fixture; the installer installs only by an interactive sign-in)';
 const P3 = 'node .process/tool/p3.mjs';
 
 const textAt = (root, ref, f) => (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null);
@@ -51,10 +64,10 @@ export function flawedModules(root, cfg, ref) {
 // Findings no module owns yet: a round cannot place them until BOB names one.
 export const unplaced = (root, ref) => foundMarks(textAt(root, ref, NO_MODULE));
 
-// This tranche's latest deploy row (deploy dev: the internal walk, the deploy and its walk), not
-// an earlier tranche's of the same name (its commit on main).
+// This tranche's round walks (WALK_ROWS: the round-close run's internal walk, or deploy dev's deploy
+// and walk), not an earlier tranche's of the same name (its commit on main).
 export function deployRowsOf(root, cfg) {
-  return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.row === 'dev-deploy' && r.tranche === cfg.tranche && !onMain(root, String(r.commit)));
+  return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => WALK_ROWS.includes(r.row) && r.tranche === cfg.tranche && !onMain(root, String(r.commit)));
 }
 
 // A run's findings and how many are recorded at `ref` (deploy.mjs walkFindings reads it): a failed
@@ -79,7 +92,8 @@ export function findingsOf(root, cfg, ref, last) {
   return { last, failing, marks, recorded: marks + gaps };
 }
 // The hold while a run's findings are not all recorded (tranche close, release dev, a new round's open).
-export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's), or a known gap (a completion item "deferred: <reason>" naming ${runSource(w.last)}); the next round opens from them (BD-R1)` : null);
+const runName = (row) => (row.row === 'round-walk' ? 'internal walk' : 'deploy and walk');
+export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest ${runName(w.last)} (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's), or a known gap (a completion item "deferred: <reason>" naming ${runSource(w.last)}); the next round opens from them (BD-R1)` : null);
 
 // Where the rounds stand at `ref` (the tranche), read from the layers (layersAt: the map's and those
 // past it), each layer's flow rows (flows(n), layerflow.mjs flowRows), the flawed modules and the
@@ -128,7 +142,7 @@ export const roundLine = (rs) => ({
   next: () => `round ${rs.round} is open: layer ${rs.next.n} (round ${rs.round}, map layer ${rs.next.of}) is next, for ${rs.next.mods.join(', ')}: \`${P3} layer open ${rs.next.n}\``,
   walk: () => `every layer of round ${rs.round} has merged: its walk ends it (the round-close run)`,
   new: () => `the walk ${rs.walk} ended round ${rs.round - 1}; round ${rs.round} opens from its findings: layer ${rs.next.n} (round ${rs.round}, map layer ${rs.next.of}) for ${rs.next.mods.join(', ')}: \`${P3} layer open ${rs.next.n}\``,
-  clean: () => `the walk ${rs.walk} ended round ${rs.round}, and no module is flawed`,
+  clean: () => `the walk ${rs.walk} ended round ${rs.round}, and no module is flawed: the release path follows a clean internal walk (BD-R1)`,
 }[rs.state]());
 
 // The walk is clean (BD-R1: "doesn't find flaws"): the run's internal walk ran ok with no failure.
@@ -142,4 +156,20 @@ export const runClean = (cfg, row) => (internalRequired(cfg, row) ? internalClea
 // The run passes (release dev, tranche close): clean, or every finding of it a known gap (a completion
 // item deferred naming it, by Bob's word) and none a found mark, so no flaw is left for a round.
 export const runPassed = (cfg, w) => !!w?.last && (runClean(cfg, w.last) || (w.failing > 0 && w.marks === 0 && w.recorded >= w.failing));
+// The release path, once a round's internal walk is clean (BD-R1, C43): the one next act, or null.
+// Owed when the round closed at a walk after its last merge ('clean'), that walk's findings are all
+// recorded and none is a flaw (runPassed: known gaps deferred on Bob's word pass), and the product
+// cuts releases: first the cut, signed release (release dev) after that walk, then its release
+// deployment and live walk (deploy release, a named gap today). A release walk recorded, clean or
+// not, owes nothing here: tranche close reads it, and its findings open the next round. Under plan
+// close the tranche ends where it stands, and no release is owed (tranche.mjs trancheEnd).
+export function releaseNext(root, cfg, { rc, w, plan }) {
+  if (plan === 'close' || !cfg.release || !rc?.closed || rc.rounds?.state !== 'clean' || !w?.last || walkHold(w) || !runPassed(cfg, w)) return null;
+  const rel = releasesCut(root, cfg, w.last.at);
+  if (!rel) return { why: `${rc.round}'s ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} ${runSource(w.last)} is clean, and no release is cut since`, act: `${P3} release dev, from a clean checkout of the tranche tip (the cut, signed release), then ${P3} deploy release <version>, its release deployment and live walk (BD-R1)` };
+  if (releaseWalks(root, cfg).some((r) => r.version === rel.version)) return null;
+  return { why: `release ${rel.version} is cut since the clean ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} ${runSource(w.last)}`, act: `${P3} deploy release ${rel.version}, its release deployment and live walk (BD-R1); GAP: ${RELEASE_PATH_GAP}, brought to Bob through the coordinator`, gap: true };
+}
+// The latest successful development release of this tranche cut after `since`.
+export const releasesCut = (root, cfg, since) => jsonl(readState(root, cfg.state_branch, RELEASES_FILE)).filter((r) => r.row === 'dev-release' && r.tranche === cfg.tranche && r.conclusion === 'success' && String(r.at) > String(since)).at(-1) || null;
 export const releaseWalks = (root, cfg) => jsonl(readState(root, cfg.state_branch, RELEASE_WALKS_FILE)).filter((r) => r.row === 'release-walk' && r.tranche === cfg.tranche && !onMain(root, String(r.commit)));

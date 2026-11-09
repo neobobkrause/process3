@@ -1,6 +1,6 @@
 // release dev (Build Plan Phase 3, the release row; Bob's word, 3 Nov: development only, there is
 // no public release). BOB cuts a development release from the tranche tip at a round's close only,
-// never between layers (Bob, 5 Nov), once that round is deployed and walked: the tool
+// never between layers (Bob, 5 Nov), once that round's walk is clean (BD-R1: the internal walk, C43): the tool
 // prints the dispatch of the product's shim process-dev-release.yml on the tranche (checks and
 // assemble on read-only tokens, then publish, in the environment p3dev-release, which runs no
 // product code: the tag p3dev-<version> and a draft release, never published, never latest).
@@ -16,7 +16,7 @@ import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { loadRanges, platformRows } from './size.mjs';
 import { collectMasks, redact, roundAt, runSource, walkHold } from './deploy.mjs';
-import { internalRequired, runPassed } from './rounds.mjs';
+import { RELEASES_FILE, internalRequired, runPassed } from './rounds.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -24,7 +24,7 @@ import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, r
 export const SHIM = '.github/workflows/process-dev-release.yml';
 export const RUN_PREFIX = 'p3dev-release ';
 export const TAG_PREFIX = 'p3dev-';
-export const RELEASES_FILE = 'releases/dev.jsonl';
+export { RELEASES_FILE };
 export const MARKER = 'p3:dev-release';
 const MINUTE = 60000;
 const KEYS = ['checks', 'assemble', 'out', 'full_history', 'sign_secret', 'timeout_minutes'];
@@ -68,25 +68,22 @@ export function releaseConfig(cfg) {
   return { checks, assemble, out: out.replace(/\/+$/, ''), full_history: !!r.full_history, sign_secret: s || null, assemble_timeout_minutes: deflt };
 }
 
-// The release's round rule (Bob, 5 Nov): a release only when the current round of the tranche
-// closes, never between layers, as deploy dev reads the round (roundAt). The round's close runs
-// close, internal walk, deploy dev, live walk, findings, then release dev: so the round needs its
-// deploy row (deploy dev is refused before a round close, so the latest row is this round's or an
-// earlier round's clean one, as deployOwed reads it) and that run's findings recorded, as tranche
-// close holds them (walkHold). Not the tip: recording a finding moves it (review, 5 Nov). Found
-// marks reopen the round as the completion round; once met they no longer count as recorded, so
-// the release waits for that round's own deploy; known gaps (deferred items) let it go.
+// The release's round rule (Bob, 5 Nov; BD-R1, Bob, 8 Nov; C43): a release only when a round of
+// the tranche closes, never between layers, as the round-close run reads the round (roundAt). A
+// round ends at its walk: the internal walk only, where the product configures one (deploy dev's
+// deploy and walk where it does not). The release follows a clean one: "until an internal walk
+// doesn't find flaws, the release deployment happens". So the round needs its walk row, recorded
+// after its last merge, its findings all recorded (tranche close's hold, walkHold), and none of them
+// a flaw (runPassed: known gaps deferred on Bob's word pass). Not the tip: recording a finding moves
+// it (review, 5 Nov). The release deployment and its live walk come after the cut (deploy release).
 export function releaseReady({ rc, w }, cfg = null) {
   if (!rc.closed) return { ok: false, why: `a release belongs to a round close, never between layers (${rc.why}); it becomes due when the round closes` };
-  if (!w.last) return { ok: false, why: `${rc.round} is closed but not yet deployed: \`${P3} deploy dev\` first, then its walk's findings, then the release` };
+  if (!w.last) return { ok: false, why: `${rc.round} is closed but not yet walked: its round-close run first (the internal walk, or deploy dev where none is configured), then its findings, then the release` };
   const hold = walkHold(w);
   if (hold) return { ok: false, why: hold };
-  // BD-R1 (Bob, 8 Nov): the release deployment comes once "an internal walk doesn't find flaws":
-  // the round's walk ran after its last merge, no module is left flawed, and the run's internal walk
-  // (where the run has one) found nothing.
-  if (rc.rounds?.state === 'walk') return { ok: false, why: `${rc.round}'s layers merged after the latest walk (${runSource(w.last)}): its walk is owed first (\`${P3} deploy dev\`)` };
+  if (rc.rounds?.state === 'walk') return { ok: false, why: `${rc.round}'s layers merged after the latest walk (${runSource(w.last)}): its walk is owed first (the round-close run)` };
   if (cfg && !runPassed(cfg, w)) return { ok: false, why: `the ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} of ${runSource(w.last)} is not clean: its findings open the next round, and the release comes once an internal walk is clean (BD-R1)` };
-  return { ok: true, why: `${rc.round} closed, deployed and walked (${runSource(w.last)}${w.failing ? `, ${w.failing} finding(s) recorded` : ''})` };
+  return { ok: true, why: `${rc.round} closed, its walk clean (${runSource(w.last)}${w.failing ? `, ${w.failing} finding(s) recorded` : ''}); the release deployment and its live walk follow the cut: \`${P3} deploy release <version>\`` };
 }
 
 const runId = (url) => {
@@ -101,8 +98,8 @@ const defaultIO = {
   remoteRefs: (root, refs) => git(['ls-remote', 'origin', ...refs], { cwd: root }),
 };
 
-// release dev [--version <v>]: refused until the current round has closed and been deployed and
-// walked, its findings recorded; and refused unless the checkout is the tranche tip with a clean
+// release dev [--version <v>]: refused until the current round has closed at a clean walk (the internal
+// walk where one is configured), its findings recorded; and refused unless the checkout is the tranche tip with a clean
 // tree and the config has a valid release block. Prints BOB's acts.
 // release dev --record <run url>: one row for the run on the state branch.
 export function releaseDev(root, { version, record, log = console.log, io: given = {}, slug = repoSlug(root) } = {}) {
