@@ -360,13 +360,17 @@ export function surfaceAt(root, ref, opts) {
 }
 
 // The export names added, removed or changed between base and head.
-export function exportChanges(root, base, head, opts) {
-  const a = surfaceAt(root, base, opts).names;
-  const b = surfaceAt(root, head, opts).names;
+export const exportChanges = (root, base, head, opts) => { const { removed, added, changed } = exportRead(root, base, head, opts); return { removed, added, changed }; };
+// The same, with the entry files read on either side (PD-20: an import at triage counts as read only
+// when the file it names is one of them).
+export function exportRead(root, base, head, opts) {
+  const sa = surfaceAt(root, base, opts);
+  const sb = surfaceAt(root, head, opts);
+  const [a, b] = [sa.names, sb.names];
   const removed = [...a.keys()].filter((k) => !b.has(k)).sort();
   const added = [...b.keys()].filter((k) => !a.has(k)).sort();
   const changed = [...a.keys()].filter((k) => b.has(k) && a.get(k) !== b.get(k)).sort().map((k) => ({ name: k, before: a.get(k), after: b.get(k) }));
-  return { removed, added, changed };
+  return { removed, added, changed, files: [...new Set([...sa.files, ...sb.files])].sort() };
 }
 // For tests: forget every read kept.
 export function forgetReads() { TEXTS.clear(); SPECS.clear(); WORDS.clear(); JOINS.clear(); textChars = 0; }
