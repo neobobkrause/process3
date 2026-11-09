@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEPLOYS_FILE, ROUND_ACT, checkSlug, deployConfig, deployDev, deploys, owedAt, readReport, redact, roundCloseRun, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
+import { DEPLOYS_FILE, ROUND_ACT, ROUND_WALK_ACT, checkSlug, deployConfig, deployDev, deploys, owedAt, readReport, redact, roundCloseRun, walkFindings, walkInternal, walkRound, walkSummary } from '../lib/deploy.mjs';
 import { status } from '../lib/status.mjs';
 import { flushState, stateBatch, writeState } from '../lib/state.mjs';
 import { trancheClose } from '../lib/tranche.mjs';
@@ -72,7 +72,7 @@ function withOrigin(files) {
 const statusIO = { openPRs: () => [], checkRun: () => null, compare: () => null };
 const io = { compare: () => null };
 const repo = 'o/p';
-const rows = (bare) => git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare }).split('\n').map((l) => JSON.parse(l)).filter((r) => r.row === 'dev-deploy');
+const rows = (bare, kind = 'dev-deploy') => git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare }).split('\n').map((l) => JSON.parse(l)).filter((r) => r.row === kind);
 
 test('deploy dev at a round close: dry run, deploy, walk, one row; secrets never printed; then refused while that tip is deployed clean', () => {
   const { root, bare } = withOrigin(product());
@@ -199,7 +199,7 @@ test('deploy dev between layers: layer 4 closed, 5 to 11 open (the first round o
   push(root, { 'x.txt': 'the tranche past main\n' });
   assert.equal(closeLayer(root, '4').ok, true);
   git(['checkout', '-q', 'origin/tranche'], { cwd: root });
-  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: a deploy and walk belong to a round close, never between layers \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\); it becomes due when the round closes/);
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: a round's walk belongs to its close, never between layers \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\); it becomes due when the round closes/);
   const before = see(root);
   assert.equal(before.s.deploy, null);
   assert.doesNotMatch(before.text, /round-close run is owed/);
@@ -209,10 +209,10 @@ test('deploy dev between layers: layer 4 closed, 5 to 11 open (the first round o
   git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
   push(root, { 'process/config.json': { deploy: DEP, completion_file: 'build/round.md', plan: 'close' } });
   const after = see(root);
-  assert.match(after.text, /FIRST: the round-close run is owed \(the last round \(plan close\) closed, not yet deployed\): node \.process\/tool\/p3\.mjs deploy dev, from a clean checkout of the tranche tip \(the internal walk, then the deploy and its walk\); job starts do not wait for it/);
+  assert.match(after.text, /FIRST: the round-close run is owed \(the last round \(plan close\) closed, not yet deployed\): node \.process\/tool\/p3\.mjs deploy dev, from a clean checkout of the tranche tip \(the deploy and its walk\); job starts do not wait for it/);
   assert.match(after.text, /build\/requirements\/m5\.md: 1 \(layer 5\)/, 'next work beside the deploy act');
   assert.ok(after.s.next.length);
-  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /the last round's deploy and walk are owed before the tranche closes/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /the last round's walk is owed before the tranche closes: node \S+ deploy dev, from a clean checkout of the tranche tip \(the deploy and its walk\)/);
   const r = deployDev(root, { io, repo, log: quiet });
   assert.equal(r.ok, true);
   assert.equal(r.row.slug, 'p3dev-l4');
@@ -244,7 +244,7 @@ test('a failed walk holds tranche close until its findings are recorded; a deplo
   // The completion round's job merges: F1 met, its item ticked. Held again until a fresh deploy.
   push(root, { 'build/requirements/m5.md': unmet, 'build/round.md': `- [x] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on ${run}; deferred: a known gap (Bob)\n`, fixed: 'x\n' });
   const owed = see(root).text;
-  assert.match(owed, /FIRST: the round-close run is owed \(the last round \(plan close\) closed since \w+ was deployed\): node \.process\/tool\/p3\.mjs deploy dev, from a clean checkout of the tranche tip \(the internal walk, then the deploy and its walk\); job starts do not wait for it/);
+  assert.match(owed, /FIRST: the round-close run is owed \(the last round \(plan close\) closed since \w+ was deployed\): node \.process\/tool\/p3\.mjs deploy dev, from a clean checkout of the tranche tip \(the deploy and its walk\); job starts do not wait for it/);
   const g = deployDev(root, { io, repo, log: quiet });
   assert.equal(g.ok, true);
   assert.equal(g.row.walk.failures, 0);
@@ -317,6 +317,11 @@ test('walkSummary: any shape of report.json gives counts or nothing, never a thr
   assert.equal(Object.keys(many.by_kind).length, 51);
   assert.equal(many.by_kind['(other kinds)'], 150);
   for (const p of ['.', 'out/', 'out/./r.txt', 'a//b', '/abs', '.gitignore', 'out/.git', '']) assert.throws(() => deployConfig(cfgWith({ ...DEP, walk_reports: [p] })), /walk_reports/, p);
+  // BD-R5: the journeys the walker marks AI-assisted, from steps or journeys.
+  assert.deepEqual(walkSummary(JSON.stringify({ steps: [{ journey: 'assist', ai: true, ok: true }, { journey: 'plain', ok: true }], journeys: [{ name: 'draft', ai: true }], failures: [] })).ai_journeys, ['assist', 'draft']);
+  assert.equal(walkSummary(JSON.stringify({ steps: [{ journey: 'plain' }] })).ai_journeys, undefined);
+  // journey-check's notes for the assistant steps it did not walk (walk.ai off).
+  assert.deepEqual(walkSummary(JSON.stringify({ steps: [], walk: { notes: ['ask: not walked, the assistant does not work (K3717)', 'other note'] }, notes: ['draft: not walked, x'] })).not_walked, ['ask', 'draft']);
 });
 
 test('deploy dev: a mask declared in a later report, or held JSON-escaped, is *** in every stored report; a failed state write leaves the row and reports beside the step files', () => {
@@ -348,6 +353,16 @@ test('no per-layer deploy wording left in the README, the tool, its prompts or t
     const hits = readFileSync(join(top, f), 'utf8').split('\n').filter((l) => PER_LAYER.test(l));
     assert.deepEqual(hits, [], f);
   }
+});
+
+// C43 (Bob, 8 Nov): "the internal walk would be the last step of a round, but the live walk would
+// only run once a round completed without any flaws identified in the internal walk". No text left
+// says a round's close runs the internal walk, then the deploy and its walk.
+test('no wording left that a round close runs the internal walk, then the deploy and its live walk (C43)', () => {
+  const top = join(import.meta.dirname, '..', '..');
+  const files = ['README.md', 'tool/p3.mjs', ...['tool/lib', 'rulebooks', 'governing'].flatMap((d) => readdirSync(join(top, d)).filter((f) => /\.(mjs|md)$/.test(f)).map((f) => `${d}/${f}`))];
+  const OLD = /internal walk, then the deploy and its walk|before the dry run|internal walk first, then the dry run|close, internal walk, `?deploy dev`?, live walk/i;
+  for (const f of files) assert.deepEqual(readFileSync(join(top, f), 'utf8').split('\n').filter((l) => OLD.test(l)), [], f);
 });
 
 // BD-R1 (Bob, 8 Nov): a walk ends the round; its findings, as found marks, open the next round
@@ -400,15 +415,16 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   const state = (files) => { onState(root, files); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
   const close = () => trancheClose(root, { slug: repo, io: closeIO, log: quiet });
   // 1. The internal walk found a flaw, recorded against a: the next round is owed, not the close.
-  const r1 = deployDev(root, { io, repo, log: quiet });
+  const r1 = walkRound(root, { io, repo, log: quiet });
   assert.equal(r1.row.internal_walk.ok, false);
+  assert.equal(r1.row.row, 'round-walk');
   push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: internal walk ${r1.row.slug} ${r1.row.commit.slice(0, 10)})* step\n` });
-  assert.throws(close, /tranche close waits: the walk p3dev-\S+ \w{10} ended round 1; round 2 opens from its findings: layer 2 \(round 2, map layer 1\) for a/);
+  assert.throws(close, /tranche close waits: the walk internal-\S+ \w{10} ended round 1; round 2 opens from its findings: layer 2 \(round 2, map layer 1\) for a/);
   // a fixed and walked again: a clean internal walk. 2. no release yet.
   push(root, { fixed: 'x\n', 'build/requirements/a.md': 'all met\n' });
-  const r2 = deployDev(root, { io, repo, log: quiet });
+  const r2 = walkRound(root, { io, repo, log: quiet });
   assert.equal(r2.row.internal_walk.ok, true);
-  assert.throws(close, /tranche close waits: no development release since the clean internal walk p3dev-\S+ \w{10}: node \S+ release dev, then the release deployment and its walk \(BD-R1\)/);
+  assert.throws(close, /tranche close waits: no development release since the clean internal walk internal-\S+ \w{10}: node \S+ release dev, then the release deployment and its walk \(BD-R1\)/);
   // A release cut before that walk does not count; one after it does: 3. its walk owed, no path (gap).
   const later = new Date(Date.parse(r2.row.at) + 1000).toISOString();
   state({ 'releases/dev.jsonl': `${JSON.stringify({ row: 'dev-release', tranche: 'tranche', version: 'v0', conclusion: 'success', commit: r2.row.commit, at: '2000-01-01T00:00:00Z' })}\n` });
@@ -418,7 +434,10 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   // The release walk found a flaw: refused; clean: the close goes on.
   state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: false, failures: 2, at: later })}\n` });
   assert.throws(close, /tranche close waits: the walk of release v1 found 2 flaw\(s\); recorded as found marks, they open the next round \(BD-R1\)/);
-  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, at: later })}\n` });
+  // BD-R5: clean with no AI account: the non-AI journeys only; the end acts wait for a clean walk with AI on.
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, ai: false, not_walked: ['assistant'], at: later })}\n` });
+  assert.throws(close, /tranche close waits: the walk of release v1 is clean on the non-AI journeys only \(no AI account configured; not walked: assistant\); the installer and site updates wait until a release walk with AI on is clean too/);
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, ai: true, at: later })}\n` });
   const c = close();
   assert.equal(c.ok, true);
   assert.equal(c.release, 'v1');
@@ -464,55 +483,120 @@ test('internal walk config: optional; run an argv or argvs, timeout_minutes defa
   assert.throws(() => deployConfig(cfgWith({ ...DEP, internal_walk: { ...IW, reports: ['../x'] } })), /internal_walk.reports must be a list/);
 });
 
-test('deploy dev with an internal walk: it runs first, without the tokens or Cloudflare secrets; one failure does not stop the deploy; the row carries it; its findings count for tranche close', () => {
+// C43 (BD-R1, Bob, 8 Nov: "the internal walk would be the last step of a round, but the live walk
+// would only run once a round completed without any flaws identified in the internal walk"): with an
+// internal walk configured, the round's walk is that walk alone; deploy dev is refused.
+test('walk round with an internal walk: the walk alone, without the tokens or Cloudflare secrets; no dry run, deploy or live walk; one round-walk row; its findings count for tranche close; deploy dev refused', () => {
   const dep = { ...DEP, internal_walk: IW };
   const { root, bare } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', environment: ['P3_DEPLOY_SECRET'] }, 'out/.gitignore': '*\n' });
   assert.equal(closeLayer(root, '1').ok, true);
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: with an internal walk configured, a round ends at its internal walk alone \(`node \S+ walk round`.*`node \S+ release dev`, then `node \S+ deploy release <version>` \(BD-R1, Bob, 8 Nov\)/);
   const seen = [];
   const exec = (c, a, o) => { seen.push(o.unset); return run(c, a, o); };
   const env = { CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN, GH_TOKEN: process.env.GH_TOKEN };
   process.env.CLOUDFLARE_API_TOKEN = 'cf-secret'; process.env.GH_TOKEN = 'gh-secret';
   const out = [];
   let r;
-  try { r = deployDev(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) }); } finally { for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  try { r = walkRound(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) }); } finally { for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   const text = out.join('\n');
-  assert.equal(r.ok, true, text);
-  assert.deepEqual(r.row.results.map((x) => x.stage), ['internal_walk', 'dry_run', 'dry_run', 'deploy', 'walk'], 'before the dry run and the deploy');
+  assert.equal(r.ok, false, 'a finding: not clean');
+  assert.equal(r.row.ok, true, 'the walk ran');
+  assert.equal(r.row.slug, 'internal-l1');
+  assert.deepEqual(r.row.results.map((x) => x.stage), ['internal_walk'], 'no dry run, no deploy, no live walk');
   const iw = r.row.internal_walk;
-  assert.equal(iw.steps, 7);
-  assert.equal(iw.steps_ok, 6);
-  assert.equal(iw.failures, 1);
+  assert.deepEqual([iw.steps, iw.steps_ok, iw.failures, iw.ok, iw.exit], [7, 6, 1, false, 1]);
   assert.deepEqual(iw.by_kind, { step: 1 });
-  assert.equal(iw.ok, false);
-  assert.equal(iw.exit, 1);
   assert.equal(typeof iw.seconds, 'number');
-  assert.equal(iw.reports.length, 2);
-  assert.match(iw.reports[0].stored, /^deploys\/p3dev-l1\/[^/]+\/internal\/report\.json$/);
+  assert.match(iw.reports[0].stored, /^walks\/round\/internal-l1\/[^/]+\/report\.json$/);
   const stored = JSON.parse(git(['show', `process-state:${iw.reports[0].stored}`], { cwd: bare }));
   assert.equal(stored.failures[0].detail, 'cf none gh none', 'no Cloudflare secret and no GitHub token in its environment');
   assert.ok(seen[0].includes('P3_DEPLOY_SECRET') && seen[0].includes('CLOUDFLARE_API_TOKEN'), 'the config\'s environment names unset too');
-  assert.deepEqual(rows(bare), [r.row]);
-  const run10 = `p3dev-l1 ${r.row.commit.slice(0, 10)}`;
+  assert.deepEqual(rows(bare, 'round-walk'), [r.row]);
+  assert.deepEqual(rows(bare), [], 'no deploy row');
+  const run10 = `internal-l1 ${r.row.commit.slice(0, 10)}`;
   assert.match(text, new RegExp(`--from "internal walk ${run10}"`));
-  // Its finding is owed a record, as a live walk's is; a found mark naming it records it.
+  assert.match(text, /no deploy and no live walk until a round's internal walk is clean/);
+  // Its finding is owed a record; a found mark naming it records it.
   const cfg = loadConfig(root);
   assert.deepEqual([walkFindings(root, cfg, 'origin/tranche').failing, walkFindings(root, cfg, 'origin/tranche').recorded], [1, 0]);
   commit(root, { 'build/requirements/d.md': `${unmet}- **F1** *(not yet met: internal walk ${run10})* step s4\n` });
   assert.equal(walkFindings(root, cfg, 'HEAD').recorded, 1);
+  // Refused between layers, as deploy dev is.
+  const { root: open } = withOrigin({ ...product(dep, {}), 'out/.gitignore': '*\n' });
+  assert.throws(() => walkRound(open, { io, repo, log: quiet }), /no round walk now: a round's walk belongs to its close, never between layers \(the first round is open: layer[s]? .*not closed\)/);
 });
 
-test('deploy dev: an internal walk that times out is recorded as such, and the deploy still runs', () => {
+// C43, Bob, 8 Nov: as many walkers as is reasonable, within Cloudflare's limits (walkcfg.mjs).
+test('walk concurrency reaches each walk stage: the internal walk the runner\'s count, the live walk its capped count and browser-start rate, as env and {concurrency}', () => {
+  const seen = [];
+  const exec = (c, a, o) => { seen.push({ a, env: o.env }); return run(c, a, o); };
+  const dep = { ...DEP, internal_walk: { run: ['node', '-e', 'process.exit(0)', '{concurrency}', '{assistant}'], reports: [] } };
+  const { root } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', walk: { internal_concurrency: 6 } } });
+  assert.equal(closeLayer(root, '1').ok, true);
+  const out = [];
+  walkRound(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) });
+  const iw = seen.find((x) => x.a.includes('process.exit(0)'));
+  assert.deepEqual(iw.env, { P3_WALK_CONCURRENCY: '6', P3_WALK_AI: '0' });
+  assert.equal(iw.a.at(-1), '6', '{concurrency} substituted; {assistant} dropped with walk.ai off');
+  assert.match(out.join('\n'), /internal walk: 6 at once/);
+  // No internal walk: deploy dev's live walk, held to Workers Free's cap though the config asks for more.
+  seen.length = 0;
+  const { root: r2 } = withOrigin({ ...product(), 'process/config.json': { deploy: { ...DEP, walk: [[...DEP.walk[0], '{assistant}']] }, plan: 'close', walk: { live_concurrency: 9, ai: true } } });
+  assert.equal(closeLayer(r2, '1').ok, true);
+  const said = [];
+  deployDev(r2, { io: { ...io, exec }, repo, log: (m) => said.push(m) });
+  const walk = seen.at(-1);
+  assert.deepEqual(walk.env, { P3_WALK_CONCURRENCY: '2', P3_WALK_BROWSER_STARTS_PER_MINUTE: '2', P3_WALK_AI: '1' });
+  assert.equal(walk.a.at(-1), '--assistant', 'walk.ai on (BD-R5): {assistant} is --assistant');
+  assert.ok(seen.slice(0, -1).every((x) => x.env === undefined), 'the dry run and the deploy get none');
+  assert.match(said.join('\n'), /live walk: 2 at once .*held to the cap/);
+  assert.throws(() => deployConfig({ ...cfgWith(DEP), walk: { live_concurrency: -1 } }), /walk.live_concurrency must be a whole number/);
+});
+
+test('walk round: an internal walk that times out is recorded as such; a failed build runs no walk and counts one finding', () => {
   const dep = { ...DEP, internal_walk: { ...IW, timeout_minutes: 1 } };
   const { root } = withOrigin(product(dep));
   assert.equal(closeLayer(root, '1').ok, true);
   const exec = (c, a, o) => (a.some((x) => x.includes("arm: 'local'")) ? { code: 1, stdout: '', stderr: 'killed', seconds: 60, timedOut: true } : run(c, a, o));
-  const r = deployDev(root, { io: { ...io, exec }, repo, log: quiet });
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.row.results.map((x) => x.stage), ['internal_walk', 'dry_run', 'dry_run', 'deploy', 'walk']);
+  const r = walkRound(root, { io: { ...io, exec }, repo, log: quiet });
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.row.results.map((x) => x.stage), ['internal_walk']);
   assert.equal(r.row.results[0].timed_out, true);
   assert.equal(r.row.internal_walk.timed_out, true);
   assert.equal(r.row.internal_walk.ok, false);
   assert.deepEqual(r.row.internal_walk.reports.map((x) => x.stored), ['not written by this walk', 'not written by this walk']);
+  assert.equal(walkFindings(root, loadConfig(root), 'origin/tranche').failing, 1);
+  // A failed build: no internal walk runs; the row stops at build and counts one finding.
+  const { root: r2 } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', lockfiles: ['nope/package-lock.json'] } });
+  assert.equal(closeLayer(r2, '1').ok, true);
+  const b = walkRound(r2, { io, repo, log: quiet });
+  assert.deepEqual([b.ok, b.row.ok, b.row.stopped, b.row.internal_walk], [false, false, 'build', undefined]);
+  assert.equal(walkFindings(r2, loadConfig(r2), 'origin/tranche').failing, 1);
+});
+
+// Cold review of C43: under the rounds, a product with no internal walk keeps deploy dev's rule: a run
+// that did not complete, its finding deferred as a known gap, is owed again once the tip moves; the
+// release path is not next until a run completes clean.
+test('no internal walk, under the rounds: a deploy that stopped, its finding a known gap, is owed again when the tip moves, not the release', () => {
+  const dep = { ...DEP, deploy: node("process.exit(require('fs').existsSync('fixed') ? 0 : 4)") };
+  const { root } = withOrigin({
+    'process/config.json': { deploy: dep, completion_file: 'build/round.md', release: { checks: [['true']], assemble: ['true'], out: 'out/rel' } },
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n',
+    'build/requirements/a.md': 'all met\n', 'process/ledger/a.json': done('a'), 'test/a/x.test.mjs': PASS, 'build/round.md': '# round\n',
+  });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  git(['checkout', '-q', '--detach', 'origin/tranche'], { cwd: root });
+  const f = deployDev(root, { io, repo, log: quiet });
+  assert.equal(f.row.stopped, 'deploy');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
+  push(root, { 'build/round.md': `# round\n- [ ] C-1 · whole product · wrangler on ${f.row.slug} ${f.row.commit.slice(0, 10)}; deferred: a known gap (Bob)\n` });
+  const v = see(root);
+  assert.match(v.text, /FIRST: the round-close run is owed \(the first round closed since \w{10} was deployed\): node \S+ deploy dev/);
+  assert.equal(v.s.release, null);
+  assert.doesNotMatch(v.text, /release path is next/);
 });
 
 test('walk internal: the internal walk alone, any time; its reports under walks/internal/ on the state branch, no deploy row', () => {
@@ -531,8 +615,9 @@ test('walk internal: the internal walk alone, any time; its reports under walks/
 
 // Bob, 7 Nov: the internal walk is "Required, tool-started", at "Round close only" (his 4 Nov rule
 // stands). The act that closes a round starts the run itself, from a scratch worktree at the
-// tranche tip; between layers it runs nothing; when it cannot run, it is the one next act.
-test('round-close run: nothing between layers; at the round close it runs from the tranche tip (internal walk, deploy, walk) and is then not owed; when it cannot run, the one next act', () => {
+// tranche tip; between layers it runs nothing; when it cannot run, it is the one next act. With an
+// internal walk configured, the run is that walk alone (C43, BD-R1).
+test('round-close run: nothing between layers; at the round close it runs the internal walk alone from the tranche tip and is then not owed; when it cannot run, the one next act', () => {
   const ILOCAL = node("require('fs').mkdirSync('out', { recursive: true }); require('fs').writeFileSync('out/inner.json', JSON.stringify({ steps: [{ ok: true }], failures: [] }))");
   const dep = { ...DEP, internal_walk: { run: ILOCAL, reports: ['out/inner.json'] } };
   const { root, bare } = withOrigin({ ...LIVE({ deploy: dep }), 'out/.gitignore': '*\n' });
@@ -544,11 +629,12 @@ test('round-close run: nothing between layers; at the round close it runs from t
   const head = git(['rev-parse', 'HEAD'], { cwd: root });
   // Between layers: no walk, no deploy, nothing owed.
   let called = 0;
+  const stub = { walkRound: () => { called++; return { ok: true }; }, deployDev: () => { called++; return { ok: true }; } };
   const out = [];
-  const open = roundCloseRun(root, { log: (m) => out.push(m), io: { ...rio, deployDev: () => { called++; return { ok: true }; } }, by: 'layer merge 4' });
+  const open = roundCloseRun(root, { log: (m) => out.push(m), io: { ...rio, ...stub }, by: 'layer merge 4' });
   assert.deepEqual([open.ran, open.owed, called], [false, null, 0]);
-  assert.match(out.join('\n'), /no internal walk or deploy now: the round is open \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\)/);
-  // The round closes (plan close): the run starts itself, at the tip, the internal walk first.
+  assert.match(out.join('\n'), /no internal walk now: the round is open \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\)/);
+  // The round closes (plan close): the run starts itself, at the tip: the internal walk alone.
   push(root, { 'process/config.json': { deploy: dep, completion_file: 'build/round.md', plan: 'close' } });
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
   git(['checkout', '-q', '--detach', head], { cwd: root });
@@ -557,30 +643,128 @@ test('round-close run: nothing between layers; at the round close it runs from t
   const r = roundCloseRun(root, { log: (m) => said.push(m), io: rio, by: 'merge 7' });
   assert.equal(r.ran, true);
   assert.equal(r.ok, true);
-  assert.match(said.join('\n'), /the last round \(plan close\) closed, not yet deployed: merge 7 starts the round-close run now \(Bob, 7 Nov: required, tool-started\)/);
-  const row = rows(bare).at(-1);
+  assert.match(said.join('\n'), /the last round \(plan close\) closed, not yet walked: merge 7 starts the round-close run now \(Bob, 7 Nov: required, tool-started\): the internal walk only; no deploy and no live walk until a round's internal walk is clean/);
+  const row = rows(bare, 'round-walk').at(-1);
   assert.equal(row.commit, tip);
-  assert.deepEqual(row.results.map((x) => x.stage), ['internal_walk', 'dry_run', 'dry_run', 'deploy', 'walk']);
+  assert.deepEqual(row.results.map((x) => x.stage), ['internal_walk']);
   assert.equal(row.internal_walk.ok, true);
+  assert.deepEqual(rows(bare), [], 'no deploy row: no deploy and no live walk');
   assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head, 'the checkout stays where it was');
   assert.equal(readFileSync(join(root, 'scratch.txt'), 'utf8'), 'the merging session\'s own checkout, untouched\n');
   assert.equal(git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').filter((l) => l.startsWith('worktree ')).length, 1, 'the scratch worktree removed');
   // Run and clean: not owed, nothing runs again.
-  const again = roundCloseRun(root, { log: quiet, io: { ...rio, deployDev: () => { called++; return { ok: true }; } } });
+  const again = roundCloseRun(root, { log: quiet, io: { ...rio, ...stub } });
   assert.deepEqual([again.ran, again.owed, called], [false, null, 0]);
-  // Cannot run here (no Cloudflare access, say): the one next act, still owed.
+  // Cannot run here: the one next act, still owed.
   const { root: r2 } = withOrigin({ ...LIVE({ deploy: dep, plan: 'close' }), 'out/.gitignore': '*\n' });
   opened(r2);
   git(['push', '-q', 'origin', 'main'], { cwd: r2 });
   push(r2, { 'x.txt': 'past main\n' });
   const told = [];
-  const no = roundCloseRun(r2, { log: (m) => told.push(m), io: { ...rio, deployDev: () => { throw new (class extends Error {})('wrangler: not authenticated'); } } });
+  const no = roundCloseRun(r2, { log: (m) => told.push(m), io: { ...rio, walkRound: () => { throw new (class extends Error {})('out of disk'); } } });
   assert.equal(no.ran, false);
-  assert.equal(no.act, ROUND_ACT);
-  assert.match(no.owed, /the last round \(plan close\) closed, not yet deployed/);
-  assert.match(told.join('\n'), /the round-close run did not run here \(wrangler: not authenticated\); it is owed \(the last round \(plan close\) closed, not yet deployed\): the one next act is node \S+ deploy dev, from a clean checkout of the tranche tip; status puts it first and ROOT's sweep wakes BOB for it/);
-  assert.match(see(r2).text, /^FIRST: the round-close run is owed/m);
-  assert.equal(owedAt(r2, loadConfig(r2), { ls: null, ref: 'origin/tranche' }).owed, 'the last round (plan close) closed, not yet deployed');
+  assert.equal(no.act, ROUND_WALK_ACT);
+  assert.match(no.owed, /the last round \(plan close\) closed, not yet walked/);
+  assert.match(told.join('\n'), /the round-close run did not run here \(out of disk\); it is owed \(the last round \(plan close\) closed, not yet walked\): the one next act is node \S+ walk round, from a clean checkout of the tranche tip; status puts it first and ROOT's sweep wakes BOB for it/);
+  assert.match(see(r2).text, /^FIRST: the round-close run is owed \(the last round \(plan close\) closed, not yet walked\): node \S+ walk round, from a clean checkout of the tranche tip \(the internal walk only; no deploy and no live walk until a round's internal walk is clean, then the release deployment and its walk \(BD-R1\)\)/m);
+  assert.equal(owedAt(r2, loadConfig(r2), { ls: null, ref: 'origin/tranche' }).owed, 'the last round (plan close) closed, not yet walked');
+  // Without an internal walk (none set, or Bob's exemption): deploy dev, as before.
+  const { root: r3 } = withOrigin({ ...LIVE({ plan: 'close' }), 'out/.gitignore': '*\n' });
+  opened(r3);
+  git(['push', '-q', 'origin', 'main'], { cwd: r3 });
+  push(r3, { 'x.txt': 'past main\n' });
+  const b = roundCloseRun(r3, { log: quiet, io: { ...rio, deployDev: () => { throw new (class extends Error {})('wrangler: not authenticated'); } } });
+  assert.equal(b.act, ROUND_ACT);
+  assert.match(b.owed, /the last round \(plan close\) closed, not yet deployed/);
+});
+
+// C43 (BD-R1, Bob, 8 Nov): "This successive set of rounds continues until an internal walk doesn't
+// find flaws, the release deployment happens, and the walk of the release also doesn't identify
+// flaws." A round whose internal walk finds flaws closes with no deploy and no live walk, and the next
+// round opens on its marks; a clean internal walk makes the release path the next act; nothing else
+// owes a live walk.
+test('rounds with an internal walk: flaws close the round with no deploy or live walk, the next round opens on its marks; a clean walk makes the release path the one next act; no live walk owed elsewhere', () => {
+  const inner = node(`const fs = require('fs'); fs.mkdirSync('out/local', { recursive: true }); const ok = fs.existsSync('fixed'); fs.writeFileSync('out/local/report.json', JSON.stringify({ steps: [{ ok }], failures: ok ? [] : [{ kind: 'step' }] })); process.exit(ok ? 0 : 1)`);
+  const dep = { ...DEP, internal_walk: { run: inner, reports: ['out/local/report.json'] } };
+  const REL = { checks: [['true']], assemble: ['true'], out: 'out/rel' };
+  const { root, bare } = withOrigin({
+    'process/config.json': { deploy: dep, release: REL },
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n',
+    'build/requirements/a.md': 'all met\n', 'process/ledger/a.json': done('a'), 'test/a/x.test.mjs': PASS, 'out/.gitignore': '*\n',
+  });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  const state = (files) => { onState(root, files); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
+  const rio = { repo, compare: () => null, status: statusIO, deploy: io };
+  const noLive = () => assert.throws(() => { git(['checkout', '-q', '--detach', 'origin/tranche'], { cwd: root }); deployDev(root, { io, repo, log: quiet }); }, /no development deployment now: with an internal walk configured/);
+  // Round 1 closed: the internal walk is owed, as walk round.
+  let v = see(root);
+  assert.match(v.text, /FIRST: the round-close run is owed \(the first round closed, not yet walked\): node \S+ walk round/);
+  assert.equal(v.s.release, null);
+  noLive();
+  // The round-close run: the internal walk alone, with a flaw. No deploy, no live walk.
+  const r1 = roundCloseRun(root, { log: quiet, io: rio, by: 'layer merge 1' });
+  assert.deepEqual([r1.ran, r1.ok], [true, false]);
+  assert.deepEqual(rows(bare), [], 'no deploy row');
+  const w1 = rows(bare, 'round-walk').at(-1);
+  assert.deepEqual([w1.slug, w1.internal_walk.failures], ['internal-l1', 1]);
+  v = see(root);
+  assert.doesNotMatch(v.text, /round-close run is owed|release path is next/);
+  assert.match(v.text, /tranche close waits: the latest internal walk \(internal-l1 \w{10}\) walked with 1 finding\(s\), 0 recorded/);
+  noLive();
+  // Its finding recorded against a: round 2 opens on a's marks; nothing owed, no live walk.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
+  push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: internal walk internal-l1 ${w1.commit.slice(0, 10)})* step\n` });
+  v = see(root);
+  assert.doesNotMatch(v.text, /round-close run is owed|release path is next/);
+  assert.equal(v.s.deploy, null);
+  assert.match(v.text, /layer flow: layer 2 \(round 2, map layer 1, from the walk internal-l1 \w{10}; a\) is next and not open/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /tranche close waits: the walk internal-l1 \w{10} ended round 1; round 2 opens from its findings: layer 2 \(round 2, map layer 1\) for a/);
+  noLive();
+  // Round 2's layer opens and merges with a's fix: its internal walk is owed, and only that.
+  state({ 'layerflow/2/open.json': JSON.stringify({ row: 'open', layer: 2, tranche: 'tranche', at: new Date().toISOString(), round: { n: 2, of: 1, mods: ['a'], items: [] } }) });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
+  push(root, { 'build/requirements/a.md': 'all met\n', fixed: 'x\n' });
+  state({ 'layerflow/2/merged.json': JSON.stringify({ row: 'merged', layer: 2, at: new Date().toISOString() }) });
+  v = see(root);
+  assert.match(v.text, /FIRST: the round-close run is owed \(round 2 closed since \w{10} was walked\): node \S+ walk round/);
+  noLive();
+  const r2 = roundCloseRun(root, { log: quiet, io: rio, by: 'layer merge 2' });
+  assert.deepEqual([r2.ran, r2.ok], [true, true]);
+  assert.deepEqual(rows(bare), [], 'still no deploy row');
+  const w2 = rows(bare, 'round-walk').at(-1);
+  assert.equal(w2.slug, 'internal-l2');
+  // Clean: the release path is the one next act; no further walk is owed, and none runs.
+  v = see(root);
+  assert.doesNotMatch(v.text, /round-close run is owed/);
+  assert.match(v.text, new RegExp(`FIRST: the release path is next \\(round 2's internal walk internal-l2 ${w2.commit.slice(0, 10)} is clean, and no release is cut since\\): node \\S+ release dev, from a clean checkout of the tranche tip \\(the cut, signed release\\), then node \\S+ deploy release <version>, its release deployment and live walk \\(BD-R1\\)`));
+  const said = [];
+  const again = roundCloseRun(root, { log: (m) => said.push(m), io: rio });
+  assert.equal(again.ran, false);
+  assert.match(again.release.act, /release dev/);
+  assert.match(said.join('\n'), /the one next act is the release path/);
+  noLive();
+  // The release cut after it: its deployment and live walk are next, a named gap today.
+  const later = new Date(Date.parse(w2.at) + 1000).toISOString();
+  state({ 'releases/dev.jsonl': `${JSON.stringify({ row: 'dev-release', tranche: 'tranche', version: 'v1', conclusion: 'success', commit: w2.commit, at: later })}\n` });
+  v = see(root);
+  assert.equal(v.s.release.gap, true);
+  assert.match(v.text, /FIRST: the release path is next \(release v1 is cut since the clean internal walk internal-l2 \w{10}\): node \S+ deploy release v1, its release deployment and live walk \(BD-R1\); GAP: no path yet installs the cut, signed release artifact onto a p3dev- deployment/);
+  // Its walk recorded: nothing more owed here (tranche close reads it).
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: w2.commit, ok: true, failures: 0, ai: false, at: later })}\n` });
+  // BD-R5: clean with AI off: the AI-assisted journeys are Bob's next, reported as a gap.
+  v = see(root);
+  assert.equal(v.s.release.gap, true);
+  assert.match(v.text, /FIRST: the release path is next \(release v1's walk is clean on the non-AI journeys \(no AI account configured, BD-R5\)\): Bob configures the AI account; then walk.ai is set true/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /clean on the non-AI journeys only/);
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: w2.commit, ok: true, failures: 0, ai: true, at: later })}\n` });
+  v = see(root);
+  assert.equal(v.s.release, null);
+  assert.doesNotMatch(v.text, /round-close run is owed|release path is next/);
+  assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
 });
 
 // Cold review of C23: the merge commands hold their state writes until they end. The round-close

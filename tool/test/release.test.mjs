@@ -41,7 +41,7 @@ test('version and tag naming', () => {
   for (const v of ['', '-x', 'a/b', 'a..b', 'a b', 'x.lock', 'x.', 'a'.repeat(65), 'v$1']) assert.throws(() => checkVersion(v), /the version must be/, v);
 });
 
-test('the round rule (Bob, 5 Nov): a release only at a round close, deployed and walked, its findings recorded', () => {
+test('the round rule (Bob, 5 Nov; BD-R1, C43): a release only at a round close, its walk clean, its findings recorded', () => {
   const open = { closed: false, why: 'the first round is open: layer 2 not closed' };
   const shut = { closed: true, round: 'the first round', layer: 2 };
   const none = { last: null, failing: 0, marks: 0, recorded: 0 };
@@ -49,12 +49,12 @@ test('the round rule (Bob, 5 Nov): a release only at a round close, deployed and
   const between = releaseReady({ rc: open, w: none });
   assert.equal(between.ok, false);
   assert.match(between.why, /a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
-  assert.match(releaseReady({ rc: shut, w: none }).why, /the first round is closed but not yet deployed: `node \.process\/tool\/p3\.mjs deploy dev` first/);
+  assert.match(releaseReady({ rc: shut, w: none }).why, /the first round is closed but not yet walked: its round-close run first \(the internal walk, or deploy dev where none is configured\)/);
   const held = releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 1 } });
   assert.equal(held.ok, false);
   assert.match(held.why, /with 2 finding\(s\), 1 recorded/);
-  assert.deepEqual(releaseReady({ rc: shut, w: { ...none, last: row() } }), { ok: true, why: 'the first round closed, deployed and walked (p3dev-l2 bbbbbbbbbb)' });
-  assert.match(releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 2 } }).why, /deployed and walked \(p3dev-l2 bbbbbbbbbb, 2 finding\(s\) recorded\)/);
+  assert.deepEqual(releaseReady({ rc: shut, w: { ...none, last: row() } }), { ok: true, why: 'the first round closed, its walk clean (p3dev-l2 bbbbbbbbbb); the release deployment and its live walk follow the cut: `node .process/tool/p3.mjs deploy release <version>`' });
+  assert.match(releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 2 } }).why, /its walk clean \(p3dev-l2 bbbbbbbbbb, 2 finding\(s\) recorded\)/);
   // BD-R1: with the config, release dev reads cleanliness as tranche close does (cold review of C39):
   // a walk with findings, or a required internal walk that did not run, is not clean.
   // A found mark among them is a flaw for the next round; known gaps alone (Bob's deferrals) pass.
@@ -107,12 +107,12 @@ test('release dev between layers (Bob, 5 Nov): layer 1 closed, layer 2 open: ref
   assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
 });
 
-test('release dev at a closed round: refused until the round is deployed and walked, then BOB\'s acts; refused off the tranche tip, on a dirty tree, without a release block, on a taken version', () => {
+test('release dev at a closed round: refused until the round is walked, then BOB\'s acts; refused off the tranche tip, on a dirty tree, without a release block, on a taken version', () => {
   const { root } = withOrigin(product());
   assert.equal(closeLayer(root, '1').ok, true);
   assert.equal(closeLayer(root, '2').ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
-  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the first round is closed but not yet deployed: `node \.process\/tool\/p3\.mjs deploy dev` first/);
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the first round is closed but not yet walked: its round-close run first/);
   deployed(root, tip);
   const out = [];
   const r = releaseDev(root, { io, slug, log: (m) => out.push(m) });
@@ -160,7 +160,7 @@ test('release dev after a failed walk: held until its findings are recorded; a k
   // plan close: the last round, closed now, with its deploy row.
   const { root: r2 } = withOrigin(product());
   push(r2, { 'process/config.json': { release: REL, plan: 'close' } });
-  assert.throws(() => releaseDev(r2, { io, slug, log: quiet }), /the last round \(plan close\) is closed but not yet deployed/);
+  assert.throws(() => releaseDev(r2, { io, slug, log: quiet }), /the last round \(plan close\) is closed but not yet walked/);
   deployed(r2, git(['rev-parse', 'origin/tranche'], { cwd: r2 }));
   assert.equal(releaseDev(r2, { io, slug, log: quiet }).ok, true);
 });

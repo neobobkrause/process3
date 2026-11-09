@@ -228,6 +228,11 @@ test('C44: a run whose internal walk was clean counts its live arm\'s findings; 
   // Set aside, a live-arm mark records none of the internal walk's findings.
   push(root, mark('c', 1, 'a live finding', 'walk p3dev-r 0123456789, covers 3'));
   assert.equal(f(row(3, 5)).recorded, 0);
+  // A round walk (C43, the internal walk alone): only what names the internal walk records it, for
+  // every reader (coordinator: as the stopped deploy dev run's internal findings).
+  const rw = { row: 'round-walk', slug: 'p3dev-r', commit: '0123456789abcdef', ok: true, internal_walk: { ok: false, failures: 3 } };
+  assert.deepEqual([f(rw).failing, f(rw).recorded, findingsOf(root, cfg, 'origin/tranche', rw).recorded], [3, 0, 0]);
   push(root, mark('d', 1, 'one flaw', 'internal walk p3dev-r 0123456789, covers 3'));
   assert.equal(f(row(3, 5)).recorded, 3);
+  assert.deepEqual([f(rw).recorded, findingsOf(root, cfg, 'origin/tranche', rw).recorded], [3, 3]);
 });

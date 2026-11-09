@@ -18,7 +18,7 @@ import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs'
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { capCheck } from './lib/cap.mjs';
-import { deployDev, deployRelease, walkInternal } from './lib/deploy.mjs';
+import { deployDev, deployRelease, walkInternal, walkRound } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
 import { hold, OWED_FILE, owe, owes, paidUpTo, paysOwed } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
@@ -410,14 +410,18 @@ const commands = {
   // prints the dispatch on the tranche, the run to watch and the record.
   // release dev --record <run url>: the run's row (version, commit, run, draft release, checks) on the state branch.
   'release dev': (a, root) => (releaseDev(root, { version: a.version === true ? fail('--version <v>') : a.version, record: a.record === true ? fail('--record <run url>') : a.record }).ok ? 0 : 1),
-  // deploy dev [--slug <s>]: BOB's development deployment and walk at a round close (development
-  // only, the product's own Cloudflare account): dry run behind the guard line, deploy, walk, one row.
+  // deploy dev [--slug <s>]: the round's walk where no internal walk is configured: BOB's development
+  // deployment and walk at a round close (development only, the product's own Cloudflare account):
+  // dry run behind the guard line, deploy, walk, one row. Refused where an internal walk is configured.
   'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
   // deploy release <version>: the release deployment and its walk (BD-R1); no path installs a cut
   // release on a p3dev- deployment yet, so it names the act and the gap, and exits 1.
   'deploy release': (a, root) => (deployRelease(root, String(one(a, 'version'))).ok ? 0 : 1),
   // walk internal: the product's internal walk (deploy.internal_walk) alone, any time, no deploy; its reports on the state branch.
   'walk internal': (a, root) => (walkInternal(root).ok ? 0 : 1),
+  // walk round [--slug <s>]: the round's walk where an internal walk is configured (BD-R1, C43): the
+  // internal walk alone at a round's close, from the clean tranche tip, one round-walk row; no deploy.
+  'walk round': (a, root) => (walkRound(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
   // release run checks|assemble [--out <results.json>] [--log-dir <dir>]: the shim's read-only jobs
   // (process-dev-release.yml); --log-dir keeps each step's whole output where the job uploads it.
   'release run': (a, root) => {
