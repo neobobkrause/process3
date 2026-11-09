@@ -20,7 +20,6 @@ import { basename, dirname } from 'node:path';
 import { blobAt } from './anchor.mjs';
 import { CONFIG_FILE, LEDGER_DIR, git, isRecordPath, laneOfPath, underPath } from './util.mjs';
 import { normPath } from './suite.mjs';
-import { SCRIPT } from './basered.mjs';
 
 export const CLASSES = ['record-only', 'pin-only', 'full'];
 export const LIGHT = ['record-only', 'pin-only'];
@@ -39,7 +38,7 @@ const textAt = (root, rev, f) => { const r = git(['show', `${rev}:${f}`], { cwd:
 // gate's requirementsOnly) }. Returns { class, why, reqs?: [{ module, file, readers }], lanes }.
 // Pin-only here is a candidate only: pinOnly decides it, with the process clone.
 export function gateClass(root, cfg, ctx) {
-  const { job, branch, changed = [], entries = [], refresh, pass, layer, bootstrap, readers } = ctx;
+  const { job, branch, changed = [], entries = [], rows = [], refresh, pass, layer, bootstrap, readers } = ctx;
   const lanes = changed.some((f) => laneOfPath(cfg, f, entries));
   const out = (r) => ({ ...r, lanes });
   if (job) return out(full("a job's pull request"));
@@ -65,12 +64,55 @@ export function gateClass(root, cfg, ctx) {
     if (modeAt(root, 'HEAD', f) !== '100644') return out(full(`${f} is not a regular file in the merged tree`));
     const other = entries.find((o) => o.id !== e.id && inModule(o, f));
     if (other) return out(full(`${f}, ${e.id}'s requirements file, is inside ${other.id}'s paths or tests`));
+    // Read by another name, or by anything outside its own module's tests: a symlink to it or its
+    // folder, any file (of any kind) naming it, or a file naming its folder as a path (cold review A3).
+    const links = linksTo(root, 'HEAD', f);
+    if (links === null) return out(full(`the symlinks of the merged tree could not be read`));
+    if (links.length) return out(full(`${links[0]} is a symlink to ${f} or its folder`));
+    const own = (g) => (e.tests || []).some((t) => underPath(g, normPath(t)));
+    const reqFile = (g) => entries.some((x) => typeof x.requirements === 'string' && normPath(x.requirements) === g);
+    const notMine = (g) => g !== f && !own(g) && !GOVERNING(cfg, g) && !reqFile(g);
+    const byName = grep(root, 'HEAD', ['-F', '-e', basename(f)]);
+    if (byName === null) return out(full(`the search for what reads ${f} failed`));
+    const reader = byName.find(notMine);
+    if (reader) return out(full(`${reader}, outside ${e.id}'s tests, names ${basename(f)}`));
+    const dir = dirname(f);
+    if (dir !== '.') {
+      // The folder as a whole ('req', 'req/' + f, `req/${f}`), not a path to one file in it.
+      const byDir = grep(root, 'HEAD', ['-E', '-e', `(^|['"\`/(\\s])${esc(dir)}/?(['"\`)\\s$]|$)`]);
+      if (byDir === null) return out(full(`the search for what reads ${dir} failed`));
+      const dr = byDir.find(notMine);
+      if (dr) return out(full(`${dr}, outside ${e.id}'s tests, names the folder ${dir}`));
+    }
     const why = [];
     const files = readers(e, f, (l) => why.push(String(l)));
     if (files === null) return out(full(`${f}: ${why.pop() || 'its readers could not be told'}`));
     reqs.push({ module: e.id, file: f, readers: files });
   }
-  return out({ class: 'record-only', why: `only ${reqs.map((r) => r.file).join(', ')} changed, read by ${reqs.reduce((n, r) => n + r.readers.length, 0)} test file(s)`, reqs });
+  return out({ class: 'record-only', builds: rows.length > 0, why: `only ${reqs.map((r) => r.file).join(', ')} changed, read by ${reqs.reduce((n, r) => n + r.readers.length, 0)} test file(s)`, reqs });
+}
+
+// The files at rev that match, every blob read as text (no file is exempt by .gitattributes or
+// as binary: cold review A1); null when the search fails.
+function grep(root, rev, args) {
+  const r = git(['grep', '-a', '--no-textconv', '-l', '-z', ...args, rev, '--', '.'], { cwd: root, allowFail: true });
+  if (r.code === 1 && !r.stdout) return [];
+  if (r.code !== 0) return null;
+  return r.stdout.split('\0').filter(Boolean).map((x) => x.slice(rev.length + 1)).filter((f) => !f.split('/').includes('node_modules'));
+}
+const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// The tracked symlinks at rev whose target is under p (a requirements file read by another name: cold review A3).
+function linksTo(root, rev, p) {
+  const r = git(['ls-tree', '-r', '-z', rev], { cwd: root, allowFail: true });
+  if (r.code !== 0) return null;
+  const out = [];
+  for (const l of r.stdout.split('\0').filter(Boolean)) {
+    const m = l.match(/^120000 blob ([0-9a-f]+)\t(.*)$/);
+    if (!m) continue;
+    const to = normPath(`${dirname(m[2])}/${git(['cat-file', 'blob', m[1]], { cwd: root })}`);
+    if (underPath(to, p) || underPath(p, to)) out.push(m[2]);
+  }
+  return out;
 }
 
 // What names the pin, a token a product file or row could read it by. `.process` as a path
@@ -80,20 +122,17 @@ const GREP = ['-e', '(^|[^A-Za-z0-9_$])\\.process([^A-Za-z0-9_$-]|$)', '-e', 'gi
 // Never product code: the gate's own governing files, which run in sessions or on GitHub, not in the suite.
 const GOVERNING = (cfg, f) => f === '.gitmodules' || f === normPath(cfg.approvals?.file || 'CLAUDE.md') || underPath(f, '.github') || underPath(f, '.claude') || underPath(f, PIN) || isRecordPath(cfg, f);
 // The files at rev that name the pin, governing files aside; null when the search fails.
-function namingPin(root, cfg, rev) {
-  const r = git(['grep', '-I', '-l', '-z', '-E', ...GREP, rev, '--', '.'], { cwd: root, allowFail: true });
-  if (r.code === 1 && !r.stdout) return [];
-  if (r.code !== 0) return null;
-  return r.stdout.split('\0').filter(Boolean).map((x) => x.slice(rev.length + 1)).filter((f) => !GOVERNING(cfg, f) && !f.split('/').includes('node_modules'));
+function namingPin(root, cfg, rev, args = ['-E', ...GREP]) {
+  const hits = grep(root, rev, args);
+  return hits === null ? null : hits.filter((f) => !GOVERNING(cfg, f));
 }
-// A .md file naming the pin counts only when a script names it (as a requirements file is read):
-// prose about the pin is no reader of it.
-function readMd(root, rev, md) {
-  const name = basename(md);
-  const r = git(['grep', '-I', '-l', '-z', '-F', '-e', name, rev, '--', '.'], { cwd: root, allowFail: true });
-  if (r.code === 1 && !r.stdout) return null;
-  if (r.code !== 0) return md;
-  return r.stdout.split('\0').filter(Boolean).map((x) => x.slice(rev.length + 1)).find((f) => SCRIPT.test(f) && !f.split('/').includes('node_modules')) || null;
+// A .md file naming the pin counts only when another file, governing files aside, names it (as a
+// requirements file is read): prose about the pin is no reader of it. Any file, not only a script
+// (cold review A5: a package.json script, a doctest runner's config).
+function readMd(root, cfg, rev, md) {
+  const hits = grep(root, rev, ['-F', '-e', basename(md)]);
+  if (hits === null) return md;
+  return hits.find((f) => f !== md && !GOVERNING(cfg, f)) || null;
 }
 
 // A pin-only candidate judged: { class, why, findings }. ctx: { mb, head, entries (at the head),
@@ -114,8 +153,22 @@ export function pinOnly(root, cfg, ctx) {
     if (hits === null) return full(`the search for what names ${PIN} failed at ${rev === 'HEAD' ? 'the merged tree' : rev.slice(0, 10)}`);
     for (const f of hits) {
       if (!f.endsWith('.md')) return full(`${f} names ${PIN} (${rev === 'HEAD' ? 'the merged tree' : 'the head'})`);
-      const by = readMd(root, rev, f);
+      const by = readMd(root, cfg, rev, f);
       if (by) return full(`${f} names ${PIN}, and ${by} names ${f}`);
+    }
+    // The other files the change touches (the approvals file, the shims) are read by nothing that
+    // runs: no file names them or their folder, and no module holds them (cold review A2).
+    for (const f of changed.filter((x) => x !== PIN && !isRecordPath(cfg, x))) {
+      const holder = entries.find((e) => inModule(e, f));
+      if (holder) return full(`${f} is inside ${holder.id}'s paths or tests`);
+      const tokens = [basename(f), ...(f.startsWith(WORKFLOWS) ? ['.github/workflows', '.github'] : [])];
+      const named = namingPin(root, cfg, rev, ['-F', ...tokens.flatMap((t) => ['-e', t])]);
+      if (named === null) return full(`the search for what reads ${f} failed`);
+      for (const g of named) {
+        if (!g.endsWith('.md')) return full(`${g} names ${f} or its folder`);
+        const by = readMd(root, cfg, rev, g);
+        if (by) return full(`${g} names ${f} or its folder, and ${by} names ${g}`);
+      }
     }
   }
   for (const e of [...entries, ...merged]) {
@@ -124,6 +177,17 @@ export function pinOnly(root, cfg, ctx) {
   if (NAMES_PIN.test(JSON.stringify([rows, cfg.lockfiles ?? null, cfg.lanes ?? null]))) return full(`a generated row, lock file or lane in ${CONFIG_FILE} names ${PIN}`);
   const approvals = normPath(cfg.approvals?.file || 'CLAUDE.md');
   const product = changed.filter((f) => !isRecordPath(cfg, f));
+  // The pin itself first: an unreleased or backward pin is red here whatever else the change holds
+  // (cold review B4), and nothing is read at it.
+  const pinWhy = now !== was ? `the pin ${was ? was.slice(0, 10) : 'none'} to ${now.slice(0, 10)}${product.length > 1 ? `, with ${product.filter((f) => f !== PIN).join(', ')}` : ''}` : null;
+  if (now !== was) {
+    if (!repo.released(now)) F(PIN, `the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
+    else if (was && !repo.descends(was, now)) F(PIN, `the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
+    if (findings.length) return { class: 'pin-only', why: pinWhy, findings };
+  }
+  // A shim-named workflow deleted is no pin move's: full (cold review B5).
+  const gone = product.find((f) => f.startsWith(WORKFLOWS) && !blobAt(root, head, f));
+  if (gone) return full(`it deletes ${gone}`);
   // The approvals file: the base's text with the old pin's process lines replaced by the new pin's, exactly.
   if (product.includes(approvals)) {
     if (modeAt(root, head, approvals) !== '100644') return full(`${approvals} is not a regular file at the head`);
@@ -144,16 +208,13 @@ export function pinOnly(root, cfg, ctx) {
     const blob = blobAt(root, head, f);
     if (!shim || !blob || blob !== shim || modeAt(root, head, f) !== '100644') F(f, `${f} is not the pin ${now.slice(0, 10)}'s own shim, byte for byte (copy .process/shims/${name})`);
   }
-  if (now !== was) {
-    if (!repo.released(now)) F(PIN, `the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
-    else if (was && !repo.descends(was, now)) F(PIN, `the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
-  }
-  return { class: 'pin-only', why: now !== was ? `the pin ${was ? was.slice(0, 10) : 'none'} to ${now.slice(0, 10)}${product.length > 1 ? `, with ${product.filter((f) => f !== PIN).join(', ')}` : ''}` : `only ${product.join(', ')}, as the pin ${now.slice(0, 10)} has them`, findings };
+  return { class: 'pin-only', why: pinWhy || `only ${product.join(', ')}, as the pin ${now.slice(0, 10)} has them`, findings };
 }
 
 // Whether the run needs the product's browser: not for a pin-only run, nor a record-only one
-// whose requirements no test reads, unless it touches a lane's folder (its checks may use it).
-export const browserNeeded = (c) => !!c.lanes || !(c.class === 'pin-only' || (c.class === 'record-only' && (c.reqs || []).every((r) => !r.readers.length)));
+// whose requirements no test reads and that builds nothing (a generator may drive the browser:
+// cold review A4), unless it touches a lane's folder (its checks may use it).
+export const browserNeeded = (c) => !!c.lanes || !(c.class === 'pin-only' || (c.class === 'record-only' && !c.builds && (c.reqs || []).every((r) => !r.readers.length)));
 
 // The process clone as the gate reads it (merge.mjs processRepo), with a file's text at a pin.
 export function gateRepo(processRepo, dir) {

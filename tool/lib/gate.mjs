@@ -356,7 +356,8 @@ export function gate(root, opts) {
         // into; failures the base has too are not the PR's. Never for the tranche into main,
         // where every failure tolerated on the way is owed.
         // Its own budget, not what the suite left (copy, 4 Nov: plane's suite takes 19-20 of 20 min).
-        const br = branch !== cfg.tranche && !reqOnly && !/ETIMEDOUT/.test(s.output)
+        // A record-only module has no base-red; one the build sent to full has, as before (cold review B1).
+        const br = branch !== cfg.tranche && !(reqOnly && only !== null) && !/ETIMEDOUT/.test(s.output)
           ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout, ...(exec ? { exec } : {}), log, prepared })
           : null;
         if (br?.ok) {
