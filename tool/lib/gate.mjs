@@ -14,6 +14,7 @@ import { layerMode, layerOfBranch } from './layerbase.mjs';
 import { layerCover } from './layerflow.mjs';
 import { buildGenerated, committedGenerated, verifyGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
+import { LIGHT, gateClass, pinOnly } from './gateclass.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
 import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneChecks, laneOfPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
@@ -66,7 +67,8 @@ export const noCodeYet = (root, e, { at } = {}) => {
 export const ownPaths = (e) => [...e.paths, ...e.tests, ...(e.requirements ? [e.requirements] : []), entryFile(e.id), metricsFile(e.id)];
 
 // The comment for one gate run: the lead line and the row, as job post writes it.
-export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${String(r.sha).slice(0, 10)}\`: ${r.ok ? 'green' : `red, ${r.findings} finding(s)`}, ${r.trigger}, ${r.minutes} min.`);
+// A light class (gateclass.mjs) is named on the lead line, from a fixed list, never the row's own text.
+export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${String(r.sha).slice(0, 10)}\`: ${r.ok ? 'green' : `red, ${r.findings} finding(s)`}, ${r.trigger}${LIGHT.includes(r.class) ? ` (${r.class})` : ''}, ${r.minutes} min.`);
 
 // The config the gate runs with: the base's, the trusted side. At the first close (bootstrap: a
 // base with no Process3, anchor.mjs) the base has none, so the defaults would install no lock
@@ -270,12 +272,19 @@ export function gate(root, opts) {
       runRow.through = c.through;
       runRow.uncovered = c.uncovered.length;
     }
-    const scope = entry ? [entry] : entries.filter((e) => touched.some((f) => inModule(e, f)));
+    // The gate's class (gateclass.mjs, C45b): record-only and pin-only plain pull requests run light.
+    const cls = classOf(root, cfg, { job, branch, changed, entries, rows: gen.rows, refresh: !!plain?.length, pass: passPR, layer: layerOfBranch(branch) !== null, bootstrap: !!bootstrap, mb, head, repo: opts.repo });
+    runRow.class = cls.class;
+    runRow.class_why = cls.why;
+    findings.push(...(cls.findings || []));
+    if (cls.class !== 'full') log(`the gate's class: ${cls.class} (${cls.why})`);
+    const reqOnly = cls.class === 'record-only' ? new Map(cls.reqs.map((r) => [r.module, r.file])) : null;
+    const scope = cls.class === 'pin-only' ? [] : entry ? [entry] : reqOnly ? entries.filter((e) => reqOnly.has(e.id)) : entries.filter((e) => touched.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
     // A pull request that is not a job's, touching no module's files, still has the generated rows
     // regenerated when it changes anything but records: a generator reads files outside every module
     // (the copy, 6 Nov: modules.json gained 7 rows and order.mjs went stale while the gate passed).
-    const genRun = scope.length > 0 || (!job && gen.rows.length > 0 && touched.some((f) => !isRecordPath(cfg, f)));
+    const genRun = scope.length > 0 || (cls.class !== 'pin-only' && !job && gen.rows.length > 0 && touched.some((f) => !isRecordPath(cfg, f)));
     if (genRun && !scope.length) log('no module in scope: the generated rows are regenerated, as this change may be one a generator reads');
     // Base-red's tree (basered.mjs startBase): its install and build beside the head's, ready if
     // the suite fails. Not for the tranche into main, which tolerates nothing, nor with a stand-in
@@ -284,9 +293,13 @@ export function gate(root, opts) {
     // to know whether a suite runs at all, and again once the generated files are built.
     // Not for a job PR into a layer branch: its land must carry a run of the whole suite, which
     // the layer's merge reads (confirming review N1).
-    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche && !layerJob && !passPR ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
-    // Only a suite whose failures can be read per test can be base-red.
-    const mayBaseRed = scope.some((e) => reportsEvents(e.suite.command) && (onlyAt(e) === null || onlyAt(e).length));
+    // A plain pull request is narrowed only in the record-only class, each module to the tests that
+    // read its own requirements file (a ledger or config edit beside it runs the whole suite).
+    const onlyAt = (e, l = () => {}) => (reqOnly ? requirementsOnly(root, cfg, e, { changed: [reqOnly.get(e.id)], rows: gen.rows, log: l })
+      : job && branch !== cfg.tranche && !layerJob && !passPR ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
+    // Only a suite whose failures can be read per test can be base-red. A record-only run has no
+    // base-red: its id tests pass or the run is red.
+    const mayBaseRed = !reqOnly && scope.some((e) => reportsEvents(e.suite.command) && (onlyAt(e) === null || onlyAt(e).length));
     const prepared = mayBaseRed && branch !== cfg.tranche && !exec && opts.prepareBase !== false
       ? startBase(root, { base: revertBase, cfg, rows: gen.rows, timeout, log }) : null;
     // GAT-5: every lock file, installed where it sits.
@@ -311,7 +324,21 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      const only = onlyAt(e, log);
+      const why = [];
+      const only = onlyAt(e, (l) => { why.push(String(l)); log(l); });
+      // The readers read again once the build is done: one found now runs the whole suite, as full.
+      if (reqOnly && only === null) {
+        runRow.class = 'full';
+        runRow.class_why = `after the build, ${why.pop() || `${e.id}'s requirements file has a reader outside its tests`}`;
+        log(`the gate's class: full (${runRow.class_why})`);
+      }
+      // The browser was not installed (the shim's gate-class step, before the build), so no product
+      // test runs here: red, never green on tests that skip without it.
+      if (opts.browserSkipped && !(only && !only.length)) {
+        findings.push(F('gate-class', e.tests[0], `the browser was not installed (the gate's class was light before the build), but the ${e.id} suite would run ${only ? `${only.length} test file(s)` : 'whole'}${runRow.class_why ? ` (${runRow.class_why})` : ''}: red, never green on tests that skip without it; bring this to the coordinator`));
+        results.push({ exit: 1, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], failing: [], output: '' });
+        continue;
+      }
       if (only && !only.length) { (runRow.requirements_only ||= []).push({ module: e.id, files: [] }); results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
       if (only) (runRow.requirements_only ||= []).push({ module: e.id, files: only });
       // Never for the tranche into main, which tolerates nothing (a new module is never in its scope).
@@ -329,7 +356,8 @@ export function gate(root, opts) {
         // into; failures the base has too are not the PR's. Never for the tranche into main,
         // where every failure tolerated on the way is owed.
         // Its own budget, not what the suite left (copy, 4 Nov: plane's suite takes 19-20 of 20 min).
-        const br = branch !== cfg.tranche && !/ETIMEDOUT/.test(s.output)
+        // A record-only module has no base-red; one the build sent to full has, as before (cold review B1).
+        const br = branch !== cfg.tranche && !(reqOnly && only !== null) && !/ETIMEDOUT/.test(s.output)
           ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout, ...(exec ? { exec } : {}), log, prepared })
           : null;
         if (br?.ok) {
@@ -473,6 +501,34 @@ export function gate(root, opts) {
   runRow.ok = findings.length === 0;
   runRow.minutes = Math.round(((Date.now() - started) / MINUTE) * 100) / 100;
   return { run: runRow, findings, changed };
+}
+
+// The gate's class for this run (gateclass.mjs): pin-only judged with the process clone (repo,
+// given by the command: merge.mjs processRepo at the tool's own clone), else full. Exported for
+// the shim's gate-class step, which reads it before the browser install.
+export function classOf(root, cfg, ctx) {
+  const c = gateClass(root, cfg, { ...ctx, readers: (e, req, log) => requirementsOnly(root, cfg, e, { changed: [req], rows: ctx.rows, log }) });
+  if (!c.candidate) return c;
+  if (!ctx.repo) return { class: 'full', why: 'no process clone to judge the pin with', lanes: c.lanes };
+  try {
+    return { ...pinOnly(root, cfg, { ...ctx, merged: entriesAt(root, 'HEAD') }), lanes: c.lanes };
+  } catch (e) { return { class: 'full', why: `the pin could not be judged (${printable(e.message, 200)})`, lanes: c.lanes }; }
+}
+
+// The shim's gate-class step (before the browser install, so before any product code runs): the
+// class as gate() reads it for a ready run, from the same inputs. Bootstrap and anything unread
+// are full: the browser is then installed as before.
+export function gateClassAt(root, { base, head, branch, repo }) {
+  if (isBootstrap(root, base)) return { class: 'full', why: 'bootstrap: the base has no Process3', lanes: false };
+  const cfg = loadConfig(root, lastConfigAt(root, base) || base);
+  const mb = git(['merge-base', head, base], { cwd: root });
+  const changed = diffNames(root, mb, head);
+  const entries = entriesAt(root, head);
+  const job = branchModule(branch, new Set(entries.map((e) => e.id)));
+  const gen = generatedRows(cfg);
+  const genChanged = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f)) : [];
+  const refresh = genChanged.some((f) => entries.some((e) => inModule(e, f)));
+  return classOf(root, cfg, { job, branch, changed, entries, rows: gen.rows, refresh, pass: !job && PASS_BRANCH.test(branch || ''), layer: layerOfBranch(branch) !== null, bootstrap: false, mb, head, repo });
 }
 
 const committed = (root, sha) => /^[0-9a-f]{40}$/.test(String(sha)) && git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code === 0;
