@@ -13,6 +13,7 @@ import { browserNeeded, gateRepo } from './lib/gateclass.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync, layerPin, layerPinOpen } from './lib/layerflow.mjs';
 import { layerMode, layersAt } from './lib/layerbase.mjs';
+import { directJobs } from './lib/direct.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { TOOL_ROOT, jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
 import { branchModule, checkLedger, homeRef, ledgerIds } from './lib/ledger.mjs';
@@ -165,6 +166,11 @@ const commands = {
   // nothing that judges the layer; else printed for the coordinator's --layers choice. The pin-move session runs --open after its merge.
   // layer merge <n> [--no-wait] [--defer-done "<why>"]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
+  // The direct flow (PD-25, merge_strategy "direct"): no layer opens; every job is based on the tranche.
+  // direct jobs: the ready jobs (work, no job open, every upstream module settled), all at once up to
+  // the slot cap, and each waiting module with what it waits on. Publish and land keep the layer
+  // commands: layer publish <id> onto the tranche, layer land <pr> into it (the merge tool's).
+  'direct jobs': (a, root) => (directJobs(root).ok ? 0 : 1),
   'layer open': (a, root) => (layerOpen(root, layerArg(a, root), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer jobs': (a, root) => (layerJobs(root, layerArg(a, root)).ok ? 0 : 1),
   // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next

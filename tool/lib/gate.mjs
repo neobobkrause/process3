@@ -10,8 +10,8 @@ import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, staleAtBase, startBase, testId } from './basered.mjs';
-import { layerMode, layerOfBranch } from './layerbase.mjs';
-import { layerCover } from './layerflow.mjs';
+import { directKey, directMode, layerMode, layerOfBranch } from './layerbase.mjs';
+import { LAND_TITLE, landJudge, layerCover } from './layerflow.mjs';
 import { buildGenerated, committedGenerated, verifyGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { LIGHT, gateClass, pinOnly } from './gateclass.mjs';
@@ -213,7 +213,8 @@ export function gate(root, opts) {
   // A ready job PR into a layer branch (layerflow.mjs) runs its suite even when it changes only
   // records: a rescheduled user re-publishes with no code change, and its run on the new layer tip,
   // against its provider's new version, is the evidence the layer's merge reads (cold review 1).
-  const layerJob = !!job && layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null;
+  // PD-25: a ready job PR into the tranche under the direct flow is the same: its whole suite runs.
+  const layerJob = !!job && ((layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null) || (directMode(cfg) && (live?.base?.ref ?? null) === cfg.tranche));
   const recordOnly = !(layerJob && !draft) && (changed.every((f) => isRecordPath(cfg, f)) || !!lanePR);
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
@@ -603,7 +604,21 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
 
 export function jobMerge(root, cfg, c, { slug, io }) {
   const no = (why) => ({ ok: false, why });
-  const n = Number(git(['log', '-1', '--format=%s', c], { cwd: root }).match(MERGE_TITLE)?.[1]);
+  const subject = git(['log', '-1', '--format=%s', c], { cwd: root });
+  // PD-25: a direct flow's land on the tranche ("Merge layer PR <n>", into the tranche itself), judged
+  // as the layer gate judges a land (layerflow.mjs landJudge: GitHub's merge of the job PR, its
+  // newest gate run on its head a verified green run of its whole suite; base-red does not cover
+  // here), so main runs that suite only when a module it uses changed after the land.
+  if (LAND_TITLE.test(subject)) {
+    const p = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+    if (p.length !== 2) return no('names a land but is not a merge of two parents');
+    const v = landJudge(root, cfg, { branch: cfg.tranche, ids: ledgerIds(root, p[0]), key: directKey(cfg.tranche), slug, io, green: ['pass'] })(c);
+    if (!v.id) return no(v.why);
+    const e = git(['show', `${p[0]}:${entryFile(v.id)}`], { cwd: root, allowFail: true });
+    if (e.code !== 0) return no(`is PR ${v.pr}'s land, but the tranche had no ledger entry for ${v.id}`);
+    return { ok: true, pr: v.pr, id: v.id, own: ownPaths(JSON.parse(e.stdout)), land: true };
+  }
+  const n = Number(subject.match(MERGE_TITLE)?.[1]);
   if (!n) return no('is not a job merge');
   const p = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
   if (p.length !== 2) return no(`names PR ${n} but is not a merge of two parents`);

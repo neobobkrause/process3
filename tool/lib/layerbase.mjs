@@ -1,15 +1,23 @@
 // The shared layer branch and the job's base (design note "Shared Layer Branch", Bob, 5 Nov; the
 // only flow since the merge train was removed, Bob, 6 Nov). A job of the open layer's module works
 // on a branch cut from layer/<n>, publishes onto it, and the layer merges into the tranche once.
-// process/config.json "merge_strategy" is "layer" or absent (util.mjs refuses any other value).
+// process/config.json "merge_strategy" is "layer" (or absent), or "direct" (PD-25, Bob, 9 Nov: every
+// job based on the tranche, its rows under layerflow/direct-<tranche>/; direct.mjs).
 // This file has no imports from job.mjs, so job.mjs can read it.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { exists, fail, fetchBranch, git } from './util.mjs';
 import { fetchState, readState } from './state.mjs';
 
-export const STRATEGIES = ['layer'];
+export const STRATEGIES = ['layer', 'direct'];
 export const layerMode = (cfg) => (cfg?.merge_strategy ?? 'layer') === 'layer';
+// PD-25: the direct flow. Every job's base is the tranche; its flow rows (start, run, test, land,
+// reschedule, gate, retest) sit under one key per tranche, layerflow/direct-<tranche>/, so the layer
+// flow's row readers and writers serve it unchanged.
+export const directMode = (cfg) => cfg?.merge_strategy === 'direct';
+export const directKey = (tranche) => `direct-${String(tranche).replace(/[^A-Za-z0-9._-]+/g, '-')}`;
+// The branch a flow job publishes onto: its layer's, or under the direct flow the tranche itself.
+export const flowBase = (cfg) => (cfg.layer?.direct ? cfg.layer.tranche : cfg.tranche);
 export const LAYER_BRANCH = /^layer\/(\d+)$/;
 export const layerBranch = (n) => `layer/${n}`;
 export const layerOfBranch = (b) => { const m = String(b || '').match(LAYER_BRANCH); return m ? Number(m[1]) : null; };
@@ -88,6 +96,8 @@ const hasRef = (root, r) => git(['rev-parse', '-q', '--verify', r], { cwd: root,
 // layer branch takes the tranche's place in the job's start, sync, complete and test, and
 // `layer` names it ({ n, tranche: the real tranche }).
 export function jobCfg(root, cfg, id, { push = true, merged = null } = {}) {
+  // PD-25: the tranche stays the base; `layer` names the tranche's flow key (no layer branch).
+  if (directMode(cfg) && !cfg.layer) return { ...cfg, layer: { n: directKey(cfg.tranche), tranche: cfg.tranche, direct: true } };
   if (!layerMode(cfg) || cfg.layer) return cfg;
   const tr = push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`;
   // The state branch first: a completion layer's modules are read from its open row (C33).
@@ -122,4 +132,4 @@ function mergedOnState(root, cfg, n) {
   if (f.code !== 0) return false;
   return git(['cat-file', '-e', `refs/remotes/origin/${sb}:${flowFile(n, 'merged')}`], { cwd: root, allowFail: true }).code === 0;
 }
-export const refuseInLayer = (cfg, what) => { if (cfg.layer) fail(`${what} is not part of the layer flow (merge_strategy "layer", ${cfg.tranche}): start the job plainly, or ask BOB`); };
+export const refuseInLayer = (cfg, what) => { if (cfg.layer && !cfg.layer.direct) fail(`${what} is not part of the layer flow (merge_strategy "layer", ${cfg.tranche}): start the job plainly, or ask BOB`); };

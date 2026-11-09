@@ -21,7 +21,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { LEDGER_DIR } from './ledger.mjs';
 import { addFound, found, foundFile, foundLine, foundMarks, moduleFiles, nextFound, pinnedIds, reopenKey } from './found.mjs';
-import { layerOf, layerName, layersAt, roundLayerName } from './layerbase.mjs';
+import { directMode, layerOf, layerName, layersAt, roundLayerName } from './layerbase.mjs';
+import { directJobs, directRoundsAt } from './direct.mjs';
 import { flowRows, layerJobs, layerOpen, needLayerMode, nextRound } from './layerflow.mjs';
 import { deployRowsOf, findingsOf, internalClean, owedReopens, releaseNext, roundState, runSource, unplaced, walkHold } from './rounds.mjs';
 import { createPR, editPR, getPR, openPRs } from './github.mjs';
@@ -159,8 +160,10 @@ function routeOf(root, cfg, ref, e, from, { owed, prHeads }) {
 export function roundPlan(root, cfg, { findingsFile = null, io = {} } = {}) {
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
-  if (!layers.length) fail(`no layer map (${cfg.layers_file}) on ${cfg.tranche}: rounds run over the map's layers (BD-R1)`);
-  const rs = nextRound(root, cfg, layers, tr);
+  const direct = directMode(cfg);
+  if (!layers.length && !direct) fail(`no layer map (${cfg.layers_file}) on ${cfg.tranche}: rounds run over the map's layers (BD-R1)`);
+  // PD-25: under the direct flow the rounds read the modules, not the layers.
+  const rs = direct ? directRoundsAt(root, cfg, { io, slug: io.slug }) : nextRound(root, cfg, layers, tr);
   const last = deployRowsOf(root, cfg).at(-1) || null;
   const w = findingsOf(root, cfg, tr, last, { round: true });
   const plan = { rs, last, w, layers, tr, entries: [], hold: null, loose: unplaced(root, tr) };
@@ -207,7 +210,7 @@ const mapLayer = (plan, id) => layerOf(plan.layers.filter((L) => !L.completion &
 // round next [--apply] [--findings <file>]: see the head of this file.
 export function roundNext(root, { apply = false, findingsFile = null, io = {}, log = console.log, by = 'bob' } = {}) {
   const cfg = loadConfig(root);
-  needLayerMode(cfg, 'round next');
+  if (!directMode(cfg)) needLayerMode(cfg, 'round next');
   if (!io.offline) {
     fetchBranch(root, cfg.tranche);
     fetchState(root, cfg.state_branch, { fresh: true });
@@ -225,6 +228,12 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     log(`${layerName(rs.layer, rs.layer.n, cfg.tranche)} is open; its jobs, each started by BOB (create_session, then the command):`);
     const j = layerJobs(root, rs.layer.n, { io: lio, log });
     return { ok: true, state: 'layer', layer: rs.layer.n, startable: j.startable };
+  }
+  // PD-25: a round open under the direct flow: its ready jobs, all at once up to the slot cap.
+  if (rs.state === 'open') {
+    log(`round ${rs.round} is open under the direct flow; its ready jobs, each started by BOB (create_session, then the command):`);
+    const j = directJobs(root, { io: lio, log });
+    return { ok: true, state: 'open', round: rs.round, startable: j.startable };
   }
   if (rs.state === 'walk') {
     log(`every layer of round ${rs.round} has merged: its walk ends it, the round-close run (the act that closed it starts it; else \`${P3} walk round\` where an internal walk is configured, \`${P3} deploy dev\` where not); then \`${ROUND_NEXT}\``);
@@ -256,7 +265,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     log(why);
     return { ok: true, state: 'findings', plan };
   }
-  const nx = predicted(root, cfg, plan);
+  const nx = directMode(cfg) ? null : predicted(root, cfg, plan);
   if (nx) log(`then: ${roundLayerName(nx.round, nx.of, nx.n, cfg.tranche)} opens for ${nx.mods.join(', ')}, one layer for every flawed module (PD-24); ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
   if (loose.length) {
     const why = `${loose.length} finding(s) name no known module (${loose.map((e) => `${e.module ? `${e.module}: ` : ''}${e.text}`).slice(0, 5).join('; ')}): give their modules in a file of \`<module>: <text>\` lines (\`, covers <n>\` at a line's end for one flaw behind n failures), then \`${ROUND_NEXT} --findings <file>\``;
@@ -283,6 +292,11 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
   if (plan.loose.length) fail(`round ${plan.rs.round} cannot place ${plan.loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), then \`${ROUND_NEXT} --apply\``);
   if (plan.rs.state === 'clean') return releasePath(root, cfg, plan, { log });
   if (plan.rs.state !== 'new') fail(`after recording, the rounds stand at ${plan.rs.state}, not a new round: \`${P3} status --role bob\``);
+  if (directMode(cfg)) {
+    log(`round ${plan.rs.round} opens under the direct flow: every flawed module at once (${plan.rs.mods.join(', ')}); its ready jobs:`);
+    const j = directJobs(root, { io: lio, log });
+    return { ok: true, state: 'opened', round: plan.rs.round, startable: j.startable };
+  }
   return openNext(root, plan.rs.next, { apply, io: lio, log, by, dry, what: `round ${plan.rs.round}'s first layer`, tranche: cfg.tranche });
 }
 

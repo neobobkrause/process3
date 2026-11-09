@@ -565,7 +565,7 @@ export function configOf(c, where = CONFIG_FILE) {
   if (pp) fail(`${where}: ${pp}`);
   setPacing(c.pacing);
   const ms = c.merge_strategy ?? DEFAULTS.merge_strategy;
-  if (ms !== 'layer') fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)}: the merge train was removed (Bob, 6 Nov); the shared layer branch is the only flow, so set "merge_strategy": "layer" or leave the key out`);
+  if (ms !== 'layer' && ms !== 'direct') fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)}: the merge train was removed (Bob, 6 Nov); set "merge_strategy": "layer" (or leave the key out) or "direct" (PD-25)`);
   return {
     ...DEFAULTS, ...c,
     // A null tranche is the default one, as the anchor reads it (second confirming review of PR 97).
