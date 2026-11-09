@@ -11,7 +11,7 @@ import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { compare, prPresence } from './github.mjs';
 import { diffNames } from './gate.mjs';
-import { exists, fail, git, isRecordPath, isShallow, requirementBlocks, underPath } from './util.mjs';
+import { exists, fail, git, isRecordPath, isShallow, requirementBlocks, underPath, withTemp } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -238,6 +238,45 @@ export function readNoticePR(slug, n, { getPR, presence = prPresence }) {
     return { missing: { status: p.status, why: `PR ${n} does not exist in ${slug} (GitHub ${p.status})` } };
   }
 }
+// Whether this repository's own history holds a merge of PR n, on the tranche or main: 'merged',
+// 'none', or 'unknown' (read failed: the caller fails closed). GitHub hides a suspended account's
+// PRs and answers 404 for them (copy run 42277392893, 7 Nov), so a 404 alone cannot tell a hidden
+// real PR from one that never existed (cold review of C48); its merge commit stays on the branch.
+// The merge tool titles it "Merge PR n: ...", GitHub's button "Merge pull request #n from ...", a
+// squash "... (#n)". A full clone reads its own fetched refs. A shallow clone is not deepened (a
+// date fetch can also cut history the merge train fetched deep): a throwaway bare clone of each
+// branch back to a week before the notice's own time (the notice is written at its PR's merge) is
+// read instead; a notice without a readable time is 'unknown' there.
+export const MERGE_SUBJECT = (n) => new RegExp(`^Merge PR ${n}:|^Merge pull request #${n} |\\(#${n}\\)$`);
+export function mergedHere(root, cfg, n, { at = null } = {}) {
+  const refs = [...new Set([cfg.tranche, 'main'].filter(Boolean))];
+  const hit = (dir, revs) => {
+    const r = git(['log', '--format=%s', ...revs], { cwd: dir, allowFail: true });
+    if (r.code !== 0) return null;
+    return r.stdout.split('\n').some((l) => MERGE_SUBJECT(n).test(l.trim()));
+  };
+  if (!isShallow(root)) {
+    for (const ref of refs) if (git(['fetch', '-q', 'origin', `+refs/heads/${ref}:refs/remotes/origin/${ref}`], { cwd: root, allowFail: true }).code !== 0) return 'unknown';
+    const h = hit(root, refs.map((r) => `refs/remotes/origin/${r}`));
+    return h === null ? 'unknown' : h ? 'merged' : 'none';
+  }
+  const t = Date.parse(at || '');
+  if (!Number.isFinite(t)) return 'unknown';
+  const since = new Date(t - 7 * 24 * 3600 * 1000).toISOString();
+  const url = git(['remote', 'get-url', 'origin'], { cwd: root, allowFail: true });
+  if (url.code !== 0) return 'unknown';
+  return withTemp('p3-merged-', (dir) => {
+    for (const ref of refs) {
+      const d = join(dir, ref.replace(/[^\w.-]/g, '_'));
+      const c = git(['clone', '-q', '--bare', '--filter=blob:none', `--shallow-since=${since}`, '--single-branch', '--branch', ref, url.stdout.trim(), d], { cwd: dir, allowFail: true });
+      if (c.code !== 0) return 'unknown';
+      const h = hit(d, [ref]);
+      if (h === null) return 'unknown';
+      if (h) return 'merged';
+    }
+    return 'none';
+  });
+}
 const writeWithdrawn = (root, sb, key, row) => writeState(root, sb, `withdraw provider notice ${key}`, (wt) => {
   const f = join(wt, withdrawFile(key));
   if (!resolve(f).startsWith(resolve(wt, NOTICES_DIR) + sep)) throw new Error(`refused: ${withdrawFile(key)} is outside ${NOTICES_DIR}/`);
@@ -245,13 +284,19 @@ const writeWithdrawn = (root, sb, key, row) => writeState(root, sb, `withdraw pr
   if (!existsSync(f)) writeFileSync(f, JSON.stringify(row) + '\n');
   return {};
 });
-export function withdrawNotice(root, cfg, key, { getPR, presence = prPresence, slug, as = 'bob', log = console.log, compare: compareRead = compare }) {
+export function withdrawNotice(root, cfg, key, { getPR, presence = prPresence, merged = mergedHere, slug, as = 'bob', log = console.log, compare: compareRead = compare }) {
   const sb = cfg.state_branch;
   if (!fetchState(root, sb, { fresh: true })) fail(`no ${sb} on origin: no provider notice ${key}`);
   const n = notices(root, sb).find((x) => x.key === key);
   if (!n) fail(readState(root, sb, withdrawFile(key)) !== null ? `provider notice ${key} is already withdrawn` : `no provider notice ${key} on ${sb} (${noticeFile(key)})`);
+  // The row's own PR number, as its key names it (a hand-edited "12x" would 404 for a real PR 12).
+  if (!Number.isInteger(n.pr) || n.pr < 1 || n.key !== noticeKey(n.provider, n.pr)) fail(`refused: provider notice ${key} names pull request ${JSON.stringify(n.pr)}, not the whole number its key names`);
   const { pr, missing } = readNoticePR(slug, n.pr, { getPR, presence });
   if (missing) {
+    const here = merged(root, cfg, n.pr, { at: n.at });
+    if (here !== 'none') fail(here === 'merged'
+      ? `refused: GitHub serves no pull request ${n.pr} in ${slug} (${missing.status}), but this repository's history holds its merge: a real PR GitHub hides; provider notice ${key} stands`
+      : `refused: GitHub serves no pull request ${n.pr} in ${slug} (${missing.status}), but whether this repository's history holds its merge could not be read; provider notice ${key} stands; run it again`);
     const row = { row: 'withdrawn', at: new Date().toISOString(), key, provider: n.provider, pr: n.pr, by: as, why: missing.why, missing: true, users: n.users.length };
     writeWithdrawn(root, sb, key, row);
     log(`provider notice ${key} withdrawn: ${row.why}; ${n.open.length} unanswered user(s) no longer owe it`);

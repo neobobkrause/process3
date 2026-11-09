@@ -171,6 +171,11 @@ export function prPresence(slug, n, { run = ghRun } = {}) {
   if (!notFound(pulls)) return { missing: false, unread: said(pulls) || `exit ${pulls.code}` };
   const repo = run(['api', `repos/${slug}`]);
   if (repo.code !== 0) return { missing: false, unread: `GitHub did not serve ${slug} itself: ${said(repo)}` };
+  // The repository GitHub served is the one asked for (cold review of C48: a renamed or moved
+  // repository answers for another name, and a 404 there says nothing of the slug's own PRs).
+  let full = null;
+  try { full = JSON.parse(repo.stdout)?.full_name; } catch { /* unread below */ }
+  if (typeof full !== 'string' || full.toLowerCase() !== String(slug).toLowerCase()) return { missing: false, unread: `GitHub served ${full || 'an unreadable repository'} for ${slug}` };
   const issue = run(['api', `repos/${slug}/issues/${n}`]);
   if (issue.code === 0) {
     let body = null;
