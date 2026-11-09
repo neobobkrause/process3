@@ -800,7 +800,8 @@ export async function main(argv) {
     // An unbatched command pushed its writes as it went; its pushes are shared at its end all the same (C47 cold review).
     if (!batched) { if (ledger && name !== 'github hook') shareAtEnd(ledger, 0); return null; }
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
-    // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
+    // Not from the hook here (cold review of R17c: it pushed from plain Bash calls): a hook run starts a
+    // detached share only after a connector write (C52, ghhook.mjs hookShare), never for Bash.
     // A push others must count is shared now, whatever the 15 minutes (C47); a share that fails or
     // leaves one behind is said, never the act's failure.
     if (ledger && name !== 'github hook') shareAtEnd(ledger, realPendingWrites());
