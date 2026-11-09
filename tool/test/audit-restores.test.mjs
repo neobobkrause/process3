@@ -1,5 +1,5 @@
-// AUD-1 (JOB-12), AUD-2 (JOB-7, SES-12): the reviewed revert exemption, and every receipt
-// disagreement counted toward the false-done rate. Fast: no suite runs here.
+// AUD-1 (JOB-12), AUD-2 (JOB-7, SES-12): the reviewed revert exemption, and every red run
+// counted toward the false-done rate. Fast: no suite runs here.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BOT, GATE, REVERT_EXEMPT, block, parseBlock } from '../lib/github.mjs';

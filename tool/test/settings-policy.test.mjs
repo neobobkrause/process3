@@ -49,11 +49,13 @@ test('the R17c settings of each product (copy, probes) pass setup check\'s deny-
   assert.deepEqual(admitCheck(files['neobobkrause/process3'], told), []);
 });
 
-test('the hooks a product may carry (the shim) are exactly the R17c files\' hooks', () => {
+// PD-22: the pacing hooks are retired; a product carries its SessionStart hook at most.
+test('the hooks a product may carry (the shim) are exactly the R17c files\' hooks: no PreToolUse', () => {
   const allowed = JSON.parse(readFileSync(join(ROOT, HOOKS_SHIM), 'utf8')).hooks;
+  assert.equal(allowed.PreToolUse, undefined);
   for (const repo of [PRODUCT, 'neobobkrause/process3-probes']) {
-    const h = r17cFiles()[repo].hooks;
-    assert.deepEqual(h.PreToolUse, allowed.PreToolUse, `${repo}: PreToolUse`);
+    const h = r17cFiles()[repo].hooks || {};
+    assert.equal(h.PreToolUse, undefined, `${repo}: PreToolUse`);
     if (h.SessionStart) assert.deepEqual(h.SessionStart, allowed.SessionStart, `${repo}: SessionStart`);
   }
 });
@@ -63,7 +65,7 @@ test('setup check still refuses settings that block the tool\'s push, refuse a t
   s.permissions.deny.push('Bash(node *)');
   assert.match(judge(s)['deny-list'].detail, /holds Bash\(node \*\), which blocks a session's push of its own branch/);
   const t = structuredClone(r17cFiles()[PRODUCT]);
-  t.hooks.PreToolUse.push({ matcher: 'Write', hooks: [{ type: 'command', command: 'echo hi' }] });
+  t.hooks = { ...(t.hooks || {}), PreToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'echo hi' }] }] };
   assert.match(judge(t)['shim-drift'].detail, /carries a PreToolUse hook the pin does not allow \(echo hi\)/);
 });
 

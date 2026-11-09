@@ -32,7 +32,7 @@ export const CLOUDFLARE_LIMITS = {
   free: { browsers: 3, browser_starts_per_minute: 3 },
   paid: { browsers: 200, browser_starts_per_minute: 180 },
 };
-// As pacing.target (pace.mjs): 85% of the published limit, never above it.
+// As pacing.target (pace.mjs, PD-22): 85% of the published limit, never above it.
 export const WALK_TARGET = 0.85;
 const KEYS = ['internal_concurrency', 'live_concurrency', 'cloudflare_plan', 'ai'];
 const count = (v, what) => (v === undefined || v === null ? null : Number.isInteger(v) && v >= 1 && v <= 1024 ? v : fail(`walk.${what} must be a whole number from 1 to 1024, not ${JSON.stringify(v)}`));

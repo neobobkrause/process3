@@ -1,5 +1,11 @@
 # GitHub limit conformance (R17, 6 Nov)
 
+**PD-22 (9 Nov) replaced what follows.** Bob: "If github usage reporting is expensive then don't do it
+beyond just making sure that we don't exceed published limits." The tool now keeps no ledger, share,
+audit or hook. It reads GitHub's `/rate_limit` before a job or lane start and after a gh call GitHub
+refuses (403/429) or fails (5xx), and backs off at 85% of a limit until its reset, or for Retry-After
+(`tool/lib/pace.mjs`). The rest of this note is R17's history.
+
 The civicsmith account was suspended at 19:19Z on 6 Nov, most likely for automated bulk activity: GitHub's Acceptable Use Policies, section 4, and the API terms' "excessively frequent requests".
 
 Bob, 6 Nov ~21:10Z: "If github publishes limits, then we should introduce process3 tooling that conforms to those limits. But rather than limiting usage to a small fraction of github's stated limits, I'd suggest that the tooling limit usage to 80% or 90% of github's published limits. That feels like the proper balance."

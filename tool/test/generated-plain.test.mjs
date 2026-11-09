@@ -2,9 +2,6 @@
 // manifests was refused by merge --plain as "module files, which go through a job"; a plain pull
 // request may now change a module's committed generated files when that is all it changes of any
 // module and the gate regenerated them from its commit byte-identical, the row recording it.
-// Copy (ai-use) PR 105: a receipt-only commit after a green code gate was refused because the
-// record-since-green run left attempt 3 "present"; it is now checked against that code run when
-// it was made on the tree that run tested, and refused, with the act that clears it, when not.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

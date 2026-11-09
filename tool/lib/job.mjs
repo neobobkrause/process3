@@ -88,7 +88,7 @@ export function readingSet(root, entry, extra = [], cfg = null) {
   return set;
 }
 
-// PD-19: in a layer, the jobs this module is a companion of, and the companions it waits on; null outside one.
+// PD-19: in a layer, the jobs this module is a companion of, and its own companions; null outside one.
 function companionFor(root, cfg, id) {
   if (!cfg.layer) return null;
   try {
@@ -131,9 +131,9 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   // PD-19: a companion's dependent jobs and their need; a dependent job's companions.
   if (companion?.of?.length) {
     const jobs = [...new Set(companion.of.map((c) => c.job))];
-    L.push('', `## Companion (PD-19)`, '', `You are a companion job: ${companion.of.map((c) => `\`${c.job}\` in this layer needs this module changed: ${c.why}`).join('; ')}. Change only what ${jobs.join(', ')} need${jobs.length > 1 ? '' : 's'}, nothing beyond it; ${jobs.join(', ')} land${jobs.length > 1 ? '' : 's'} only after your land.`);
+    L.push('', `## Companion (PD-19)`, '', `You are a companion job: ${companion.of.map((c) => `\`${c.job}\` in this layer needs this module changed: ${c.why}`).join('; ')}. Change only what ${jobs.join(', ')} need${jobs.length > 1 ? '' : 's'}, nothing beyond it; you land in the same layer as ${jobs.join(', ')}, in any order (PD-19b).`);
   }
-  if (companion?.waits?.length) L.push('', `Your land waits on your companion${companion.waits.length > 1 ? 's' : ''} in this layer (PD-19): ${companion.waits.map((c) => `\`${c.module}\` (${c.why})`).join(', ')}. \`layer land\` refuses yours until each has landed and your branch holds it: once it lands, run \`${P3} layer publish ${id}\` again.`);
+  if (companion?.waits?.length) L.push('', `Your companion${companion.waits.length > 1 ? 's' : ''} in this layer (PD-19): ${companion.waits.map((c) => `\`${c.module}\` (${c.why})`).join(', ')}. You land in the same layer, in any order (PD-19b).`);
   if (freshRestart) L.push('', `This attempt replaces a job session that stopped, on a fresh branch cut from the tranche. BOB saw: ${freshRestart}`);
   // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
   if (notices.length) {

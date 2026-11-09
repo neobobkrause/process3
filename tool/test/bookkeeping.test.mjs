@@ -17,14 +17,15 @@ function product() {
   const root = makeRepo({ 'README.md': 'x\n' });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['config', 'core.logAllRefUpdates', 'always'], { cwd: bare });
   git(['remote', 'add', 'origin', bare], { cwd: root });
   git(['push', '-q', 'origin', 'main'], { cwd: root });
   writeState(root, SB, 'seed', (dir) => { writeFileSync(join(dir, 'seed.txt'), 's\n'); return {}; });
   return { root, bare };
 }
-// Pushes, not commits: each push of the state branch stamps its last commit (P3-Push); the seed's
-// first write counts as one too.
-const pushes = (bare) => git(['log', '--format=%(trailers:key=P3-Push,valueonly)', `refs/heads/${SB}`], { cwd: bare }).split('\n').filter((l) => l.trim()).length;
+// Pushes, not commits: each push moves the state branch once in origin's reflog; the seed's first
+// write counts as one too.
+const pushes = (bare) => git(['reflog', 'show', '--format=%H', `refs/heads/${SB}`], { cwd: bare, allowFail: true }).stdout.split('\n').filter((l) => l.trim()).length;
 
 test('a command that writes only bookkeeping pushes nothing; its record waits in the clone, read there, and rides the next real write', () => {
   const { root, bare } = product();
@@ -63,47 +64,6 @@ test('an unbatched write (job start, replay) leaves the waiting records waiting;
   assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 9']);
 });
 
-
-test('a usage share rides a real write as bookkeeping; with none, the share-alone rule stands (a clone that only reads still reaches the ledger)', async () => {
-  const { shareUsage } = await import('../lib/ghshare.mjs');
-  const { realPendingWrites } = await import('../lib/state.mjs');
-  const { reserve, sharesOf, PENDING_AT, PACING_DEFAULTS } = await import('../lib/pace.mjs');
-  const { root, bare } = product();
-  const was = process.env.P3_GITHUB_LOG;
-  delete process.env.P3_GITHUB_LOG;
-  try {
-    const P = { ...PACING_DEFAULTS, gh_interval_ms: 0 };
-    reserve({ points: 5, content: 1 }, 'gh pr comment', root, { p: P });
-    // A command with a real write: the share rides it, one push.
-    let before = pushes(bare);
-    stateBatch(true);
-    try {
-      writeState(root, SB, 'layer join: y', (dir) => { writeFileSync(join(dir, 'y.txt'), 'y\n'); return {}; });
-      assert.ok(shareUsage(root, { state_branch: SB }, { pending: realPendingWrites(), atEnd: true }) >= 1);
-      assert.ok(sharesOf(root).some((x) => x.at === PENDING_AT), 'pending until its push');
-      flushState();
-    } finally { stateBatch(false); }
-    assert.equal(pushes(bare), before + 1, 'one push: the write and the share');
-    assert.ok(sharesOf(root).every((x) => x.at !== PENDING_AT), 'settled by its push');
-    // A read command (no real write) with content to report, 16 min on: the share-alone rule pushes it.
-    reserve({ points: 5, content: 1 }, 'gh pr comment', root, { p: P });
-    before = pushes(bare);
-    stateBatch(true);
-    try { assert.ok(shareUsage(root, { state_branch: SB }, { pending: realPendingWrites(), atEnd: true, now: () => Date.now() + 16 * 60e3 }) >= 1); flushState(); } finally { stateBatch(false); }
-    assert.equal(pushes(bare), before + 1, 'alone, as R17e allows');
-    // Within 15 min of that share, even with content: nothing.
-    reserve({ points: 5, content: 1 }, 'gh pr comment', root, { p: P });
-    before = pushes(bare);
-    assert.equal(shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 20 * 60e3 }), 0, 'the 15-minute rule');
-    // Past 15 min, reads alone (the content row shared first): nothing.
-    stateBatch(true);
-    try { shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 40 * 60e3 }); flushState(); } finally { stateBatch(false); }
-    reserve({ points: 1, content: 0 }, 'gh pr view', root, { p: P });
-    before = pushes(bare);
-    assert.equal(shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 60 * 60e3 }), 0, 'reads alone are no reason to push');
-    assert.equal(pushes(bare), before);
-  } finally { if (was !== undefined) process.env.P3_GITHUB_LOG = was; }
-});
 
 test('a write kept for replay leaves the waiting records in the clone: the replay pushes the write alone, the next batched write the records, once each (cold reviews of C18)', () => {
   const { root, bare } = product();
