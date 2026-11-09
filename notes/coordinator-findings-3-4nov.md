@@ -1298,3 +1298,4 @@
 - 20:52Z hourly: unchanged. Copy stopped since ~16:45Z; no new ROOT; Bob not yet answered (push sent 19:52Z). Nothing moves until a ROOT starts.
 - 21:52Z hourly: unchanged. Copy stopped since ~16:45Z (5 h); no new ROOT; Bob not answered. Waiting on Bob's "go".
 - 22:52Z hourly: unchanged; copy stopped ~6 h; waiting on Bob's "go" for ROOT.
+- 23:52Z hourly: unchanged; copy stopped ~7 h; waiting on Bob's "go" for ROOT.
