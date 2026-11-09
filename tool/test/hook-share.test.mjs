@@ -56,6 +56,10 @@ test('a share that cannot start is one line on stderr and never the call\'s fail
   const f = logTo(t);
   const root = makeRepo({ 'README.md': 'x\n' });
   row(f, { kind: 'gh', points: 5, content: 1, connector: true });
+  // As a session runs it (CI sets GITHUB_ACTIONS, under which nothing is started): set below.
+  const was = process.env.GITHUB_ACTIONS;
+  delete process.env.GITHUB_ACTIONS;
+  t.after(() => { if (was === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = was; });
   const errs = [];
   const opts = { p: P, rateLimit: () => undefined };
   assert.equal(hookRun({ tool_name: 'mcp__github__create_pull_request', tool_input: { owner: 'o', repo: 'p' } }, root, { share: fakeShare(), later: () => { throw new Error('EACCES: the marker\nmore'); }, err: (m) => errs.push(m), opts }), 0);
@@ -65,9 +69,7 @@ test('a share that cannot start is one line on stderr and never the call\'s fail
   assert.equal(hookRun({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }, root, { share: fakeShare(), later: () => later.push(1), kick: () => false, err: (m) => errs.push(m) }), 0);
   assert.deepEqual([later.length, errs.length], [0, 1]);
   // In a workflow: none started.
-  const was = process.env.GITHUB_ACTIONS;
   process.env.GITHUB_ACTIONS = 'true';
-  t.after(() => { if (was === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = was; });
   hookRun({ tool_name: 'mcp__github__create_pull_request', tool_input: {} }, root, { share: fakeShare(), later: () => later.push(1), err: (m) => errs.push(m), opts });
   assert.equal(later.length, 0);
 });
