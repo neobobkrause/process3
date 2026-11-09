@@ -51,6 +51,11 @@ export function pinOf(root, name, toolRoot = TOOL, ref = `origin/${name}`) {
 }
 
 // Every hook of a settings file, one key per command, so order and grouping do not matter.
+// R17c's GitHub pacing hook, retired by PD-22 (C58): it prints "not governed" and exits 0, so a
+// settings file still carrying it is a warning, not drift (C60). Known by its own text, narrowly.
+const RETIRED_PACING = 'retired GitHub pacing hook (PD-22): harmless; Bob may remove it';
+const retiredPacingHook = (event, command) => event === 'PreToolUse' && typeof command === 'string'
+  && command.includes('GitHub pacing hook') && (command.includes('.process/tool/hook.mjs') || command.includes('github hook'));
 const hookKeys = (hooks) => Object.entries(hooks && typeof hooks === 'object' ? hooks : {}).flatMap(([event, groups]) =>
   [].concat(groups || []).flatMap((g) => [].concat(g?.hooks || []).map((h) => JSON.stringify([event, g?.matcher ?? '', h?.type ?? '', h?.command ?? '', h?.timeout ?? null]))));
 
@@ -335,11 +340,14 @@ export const readers = {
     let hooks = {};
     try { hooks = text === null ? {} : JSON.parse(text).hooks; } catch { gaps.push(`.claude/settings.json on ${x.where} is not JSON`); }
     const extra = hookKeys(hooks).filter((k) => !allowed.includes(k));
+    const warnings = [];
     for (const k of extra) {
       const [event, , , command] = JSON.parse(k);
+      if (retiredPacingHook(event, command)) { warnings.push(RETIRED_PACING); continue; }
       gaps.push(`.claude/settings.json carries a ${event} hook the pin does not allow (${command}): the file is the owner's, so Bob removes it through GitHub's website, or BOB opens a plain pull request into ${x.cfg.tranche} that adds it to ${HOOKS_SHIM} in the process`);
     }
-    return gaps.length ? missing(gaps.join('; ')) : set(`${shims.join(', ')} equal the pin ${pin.sha.slice(0, 10)}'s shims; ${hookKeys(hooks).length} hook(s), each allowed`);
+    const warn = [...new Set(warnings)].map((w) => `; warning: ${w}`).join('');
+    return gaps.length ? missing(gaps.join('; ') + warn) : set(`${shims.join(', ')} equal the pin ${pin.sha.slice(0, 10)}'s shims; ${hookKeys(hooks).length - warnings.length} hook(s), each allowed${warn}`);
   },
 
   // C23 (Bob, 7 Nov: the internal walk "Required, tool-started", at "Round close only").
