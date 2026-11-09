@@ -152,6 +152,11 @@ export function scaleFixture({ modules = 60, commits = 1000, stateRows = 3000, l
   git(['config', 'user.email', 'noreply@github.com'], { cwd: work });
   git(['config', 'user.name', 'Pin session'], { cwd: work });
   git(['config', 'commit.gpgsign', 'false'], { cwd: work });
+  // No automatic gc or maintenance: after many small fetches git starts one detached, and its prune
+  // rewrites the shallow file under the next fetch ("shallow file has changed since we read it"; CI's
+  // git 2.56 on this fixture). A session's clone can meet that too; a test must not depend on it.
+  git(['config', 'gc.auto', '0'], { cwd: work });
+  git(['config', 'maintenance.auto', 'false'], { cwd: work });
   return { dir, origin, work, tip, ids, cfg, pin: pinSha, open, noEntry: ids.filter((_, i) => noEntry(i)) };
 }
 
