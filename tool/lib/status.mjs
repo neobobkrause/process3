@@ -875,7 +875,10 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   // The requirement and found files at ref in one batch (C50: two git spawns per file, per module,
   // at every status and idle check); a file elsewhere is read as before. As git show prints a file.
-  const pre = ref ? treeBlobs(root, ref, [`${dir}/`, `${FOUND_DIR}/`]) : null;
+  // Only for a plain directory name (cold review of C50: "./build/requirements" names a path
+  // rev-parse resolves and ls-tree does not print); any other is read one by one as before.
+  const plain = /^[^./][^]*$/.test(dir) && !/(^|\/)\.{1,2}(\/|$)|\/\/|\/$/.test(dir);
+  const pre = ref && plain ? treeBlobs(root, ref, [`${dir}/`, `${FOUND_DIR}/`]) : null;
   const batched = (f) => pre && (f.startsWith(`${dir}/`) || f.startsWith(`${FOUND_DIR}/`));
   const read = (f) => (ref ? (batched(f) ? (pre.has(f) ? pre.get(f).replace(/\n$/, '') : null) : exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const map = read(cfg.layers_file);

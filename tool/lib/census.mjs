@@ -25,7 +25,7 @@
 import { entryFile, validate } from './ledger.mjs';
 import { readModules } from './notice.mjs';
 import { layersAt } from './layerbase.mjs';
-import { DEFAULTS, LEDGER_DIR, exists, git, treeBlobs, unmetIds } from './util.mjs';
+import { DEFAULTS, LEDGER_DIR, exists, git, run, unmetIds } from './util.mjs';
 
 const ls = (root, ref, dir) => {
   const r = git(['ls-tree', '-r', '--name-only', ref, '--', dir], { cwd: root, allowFail: true });
@@ -34,8 +34,29 @@ const ls = (root, ref, dir) => {
 const show = (root, ref, p) => { const r = git(['show', `${ref}:${p}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; };
 
 // Every file under dirs at ref, path to text, read in two git calls (cold review of R15: a census of
-// a 220-module product took about 700 git spawns, once per file): util's treeBlobs.
-const blobs = (root, ref, dirs) => treeBlobs(root, ref, dirs) || new Map();
+// a 220-module product took about 700 git spawns, once per file). Its paths as ls-tree prints them
+// without -z (a quoted name never matches an entry or a requirements file), as it always has.
+function blobs(root, ref, dirs) {
+  const t = git(['ls-tree', '-r', ref, '--', ...dirs], { cwd: root, allowFail: true });
+  if (t.code !== 0) return new Map();
+  const list = t.stdout.split('\n').map((l) => l.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/)).filter(Boolean).map((m) => [m[1], m[2]]);
+  if (!list.length) return new Map();
+  const r = run('git', ['cat-file', '--batch'], { cwd: root, input: list.map(([sha]) => sha).join('\n') + '\n', encoding: 'buffer', maxBuffer: 1 << 30 });
+  const out = new Map();
+  if (r.code !== 0) return out;
+  const buf = Buffer.isBuffer(r.stdout) ? r.stdout : Buffer.from(r.stdout);
+  let at = 0;
+  for (const [, path] of list) {
+    const nl = buf.indexOf(10, at);
+    if (nl < 0) break;
+    const head = buf.subarray(at, nl).toString('utf8').split(' ');
+    const size = Number(head[2]);
+    if (head[1] !== 'blob' || !Number.isFinite(size)) break;
+    out.set(path, buf.subarray(nl + 1, nl + 1 + size).toString('utf8'));
+    at = nl + 1 + size + 1;
+  }
+  return out;
+}
 
 // The suite of a module's neighbours: the one most entries use whose tests share its first test
 // path's top directory; null when none (the suite is then BOB's to name).
@@ -107,10 +128,10 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   const gap = (id, kind, fix, extra = {}) => gaps.push({ id, kind, layer: layerOf(id), fix, ...extra });
   // Whether a path is on ref, files and folders, from one ls-tree of the whole tree when first asked
   // (C50: a rev-parse per path of each module built before the ledger); a path ls-tree cannot
-  // answer for (empty, ./, .., a leading /) is asked of git as before.
+  // answer for (empty, ./, .., a leading or trailing /) is asked of git as before.
   let tree;
   const onRef = (p) => {
-    if (!p || /^\.{0,2}\/|(^|\/)\.{1,2}(\/|$)|\/\//.test(p)) return exists(root, ref, p);
+    if (!p || /^\.{0,2}\/|(^|\/)\.{1,2}(\/|$)|\/\/|\/$/.test(p)) return exists(root, ref, p);
     if (tree === undefined) { const t = git(['ls-tree', '-r', '-t', '--name-only', '-z', ref], { cwd: root, allowFail: true }); tree = t.code === 0 ? new Set(t.stdout.split('\0').filter(Boolean)) : null; }
     return tree ? tree.has(p) : exists(root, ref, p);
   };

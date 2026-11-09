@@ -52,15 +52,16 @@ test('setup check --at HEAD at the copy\'s scale: its findings, in a bounded num
   assert.ok(lines.includes(`census: ${fx.noEntry.length} gap(s) at ${first.out.at.slice(0, 10)} (no-entry); status --role bob lists the open layer's with their fixes`), lines.join('\n'));
   assert.deepEqual(first.out.missing, ['deny-list']);
   // Measured on this fixture (C50): 661 git spawns before, 102 of them fetches (the approvals'
-  // commits one by one, each a round trip to GitHub in a pin session); 100 after, 4 fetches. The
-  // bound leaves room for a few reads, never one per module (60), per approvals commit (50) or per row.
-  assert.ok(first.git <= 150, `setup check: ${first.git} git spawns`);
-  assert.ok(first.fetch <= 8, `setup check: ${first.fetch} fetches`);
+  // commits one by one, each a round trip to GitHub in a pin session); 124 after, 10 fetches (the
+  // approvals history in chunks of 8). The bound leaves room for a few reads, never one per module
+  // (60), per approvals commit (50) or per row.
+  assert.ok(first.git <= 160, `setup check: ${first.git} git spawns`);
+  assert.ok(first.fetch <= 16, `setup check: ${first.fetch} fetches`);
   // The second check of a pin move reads the same.
   lines.length = 0;
   const second = run();
   assert.equal(second.out.census, first.out.census);
-  assert.ok(second.git <= 150, `second setup check: ${second.git} git spawns`);
+  assert.ok(second.git <= 160, `second setup check: ${second.git} git spawns`);
 });
 
 test('the idle check BOB\'s commands run first reads the state branch\'s layer rows in a bounded number of git spawns', () => {
@@ -99,7 +100,10 @@ test('rehearsal: a pin move\'s two `setup check --at HEAD` runs at the copy\'s s
   const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
   writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nexec '${real}' "$@"\n`, { mode: 0o755 });
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'o/r', P3_GH_INTERVAL_MS: '0' };
-  delete env.NODE_TEST_CONTEXT; // as a session runs it: the idle check before, the ledger share after
+  // As a session runs it: the idle check before, the ledger share after (neither runs under the test
+  // runner or in GitHub Actions, where CI runs this test).
+  delete env.NODE_TEST_CONTEXT;
+  delete env.GITHUB_ACTIONS;
   const runs = [];
   for (let k = 0; k < 2; k++) {
     writeFileSync(log, '');

@@ -52,6 +52,7 @@ const GITHUB_COMMITTER = 'noreply@github.com';
 // needAll (C50): fetches the commits it is given in one fetch (the copy's shallow pin clone fetched
 // each of the file's commits and their parents by a fetch of its own, a network round trip each);
 // whatever it leaves out is fetched one by one by need, as before.
+const CHUNK = 8;
 export function ownerBlock(root, refs, file, heading, isOwner, { history, need, needAll } = {}) {
   const memo = new Map();
   const blockOf = (rev) => {
@@ -74,9 +75,18 @@ export function ownerBlock(root, refs, file, heading, isOwner, { history, need, 
   for (const ref of refs) {
     const r = history ? history(ref) : git(['--literal-pathspecs', 'log', '--format=%H %ct %ce %P', ref, '--', file], { cwd: root, allowFail: true });
     if (r.code !== 0) continue;
-    prefill([...new Set(r.stdout.split('\n').filter(Boolean).flatMap((l) => { const [sha, , , ...ps] = l.split(' '); return [sha, ...ps]; }).filter(Boolean))]);
+    // In chunks of the log as the walk reaches them, so the commits fetched are about those the walk
+    // reads (cold review of C50: the whole log fetched left older commits as shallow roots in the clone).
+    const all = r.stdout.split('\n').filter(Boolean);
+    let filled = 0;
+    const fill = (i) => {
+      if (i < filled) return;
+      filled = i + CHUNK;
+      prefill([...new Set(all.slice(i, filled).flatMap((l) => { const [sha, , , ...ps] = l.split(' '); return [sha, ...ps]; }).filter(Boolean))]);
+    };
     const tip = blockOf(ref);
-    for (const l of r.stdout.split('\n').filter(Boolean)) {
+    for (const [i, l] of all.entries()) {
+      fill(i);
       const [sha, at, ce, ...parents] = l.split(' ');
       if (blockOf(sha) !== tip || parents.some((p) => blockOf(p) === tip)) continue;
       if (ce === GITHUB_COMMITTER && isOwner(sha)?.ok === true && (!best || Number(at) > best.at)) best = { ref, sha, at: Number(at), block: tip };

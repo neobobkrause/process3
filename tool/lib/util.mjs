@@ -45,7 +45,7 @@ export function run(cmd, args = [], opts = {}) {
   for (const k of opts.unset || []) delete env[k];
   const r = spawnSync(cmd, args, {
     cwd: opts.cwd, env, encoding: opts.encoding === 'buffer' ? undefined : 'utf8', // 'buffer': stdout as bytes (git cat-file --batch)
-    maxBuffer: 256 * 1024 * 1024, input: opts.input, timeout: opts.timeout,
+    maxBuffer: opts.maxBuffer || 256 * 1024 * 1024, input: opts.input, timeout: opts.timeout,
   });
   return {
     code: r.status === null ? (r.error ? 127 : 1) : r.status,
@@ -77,7 +77,9 @@ export function git(args, opts = {}) {
   // asked each closed layer's commit against main two or three times, each a shallow clone's settle).
   // Kept per process, keyed by the clone and both ids; a name (a ref) is never kept, since it moves.
   const memoKey = ancQ && SHA.test(String(args[2])) && SHA.test(String(args[3])) ? `${resolve(opts.cwd)}\0${args[2]}\0${args[3]}` : null;
-  if (memoKey && ANCESTRY.has(memoKey) && !(opts.cut && ANCESTRY.get(memoKey).code !== 0)) return opts.allowFail ? ANCESTRY.get(memoKey) : ANCESTRY.get(memoKey).stdout.replace(/\n$/, '');
+  // A kept no answers only a caller that takes failures (allowFail) and does not read the cut itself;
+  // any other caller asks git again, as before (cold review of C50).
+  if (memoKey && ANCESTRY.has(memoKey) && (ANCESTRY.get(memoKey).code === 0 || (opts.allowFail && !opts.cut))) return opts.allowFail ? ANCESTRY.get(memoKey) : ANCESTRY.get(memoKey).stdout.replace(/\n$/, '');
   let r = once();
   // A push GitHub refused for its rate limit pauses every session, as a gh call's refusal does (cold
   // review of R17g: a push's 429 was never read). A dry run pushes nothing.
