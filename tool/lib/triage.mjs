@@ -11,7 +11,7 @@ import { specifiers, ownerOf } from './checks.mjs';
 import { resolveSpec } from './exports.mjs';
 import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
-import { NOTICES_DIR, answerFile, mergedRange, noticeRecords } from './notice.mjs';
+import { NOTICES_DIR, answerFile, mergedRange, noticeRecords, readNoticePR } from './notice.mjs';
 import { fetchJobs } from './lead.mjs';
 import { jobBranch, ledgerIds, startBranch } from './ledger.mjs';
 import { rowsAt } from './metrics.mjs';
@@ -87,8 +87,10 @@ function find(root, cfg, key) {
 
 // The provider's changed requirements, before and after, from the PR's merge commit (as merge
 // run again on a merged pull request reads it).
-function changes(root, cfg, n, { slug, read, compare }) {
-  const pr = read(slug, n.pr);
+// A PR GitHub definitively says does not exist (PD-18) is { missing }: no brief can be written.
+function changes(root, cfg, n, { slug, read, compare, presence }) {
+  const { pr, missing } = readNoticePR(slug, n.pr, { getPR: read, ...(presence ? { presence } : {}) });
+  if (missing) return { missing };
   const m = pr?.merge_commit_sha;
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
   const { head: h, mb } = mergedRange(root, m, { slug, n: n.pr, ...(compare ? { read: compare } : {}) });
@@ -189,7 +191,11 @@ export function noticeTriage(root, key, { log = console.log, io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${tranche}`], { cwd: root, allowFail: true });
   const sha = git(['rev-parse', tranche], { cwd: root });
-  const changed = changes(root, cfg, n, { slug: io.slug || repoSlug(root), read: io.getPR || getPR, compare: io.compare });
+  const changed = changes(root, cfg, n, { slug: io.slug || repoSlug(root), read: io.getPR || getPR, compare: io.compare, presence: io.presence });
+  if (changed.missing) {
+    log(`provider notice ${key}: ${changed.missing.why}, so what it changed can never be read and no brief can be written; it clears only by withdrawal, BOB's act: ${P3} notice withdraw ${key}`);
+    return { owed, missing: changed.missing };
+  }
   const mods = sizes(root, cfg, owed, tranche, n.provider);
   const parts = shares(mods, { bytes: cfg.triage_share_bytes, modules: cfg.triage_share_modules });
   if (parts.length === 1) {
