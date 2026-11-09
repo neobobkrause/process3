@@ -19,7 +19,7 @@
 import { NO_MODULE, REOPENS_DIR, coversOf, foundFile, foundMarks, FOUND_DIR } from './found.mjs';
 import { completionItems } from './completion.mjs';
 import { entryFile, ledgerIds, readLedgerTexts } from './ledger.mjs';
-import { layerOf, layersAt, roundOf } from './layerbase.mjs';
+import { layerOf, layersAt, roundLayerName, roundOf } from './layerbase.mjs';
 import { internalWalkOf } from './deploycfg.mjs';
 import { jsonl, readState } from './state.mjs';
 import { exists, git } from './util.mjs';
@@ -186,10 +186,10 @@ export function roundState(root, cfg, ref, { layers, flows, lastWalk = null, fla
   return next ? { state: 'new', round: round + 1, next, walk } : { state: 'clean', round, walk };
 }
 export const roundLine = (rs) => ({
-  layer: () => `round ${rs.round} is open: ${rs.layer.round ? `layer ${rs.layer.n} (round ${rs.round}, map layer ${rs.layer.round.of})` : `layer ${rs.layer.n}`} has not merged`,
-  next: () => `round ${rs.round} is open: layer ${rs.next.n} (round ${rs.round}, map layer ${rs.next.of}) is next, for ${rs.next.mods.join(', ')}: \`${P3} layer open ${rs.next.n}\``,
+  layer: () => `round ${rs.round} is open: ${rs.layer.round ? roundLayerName(rs.round, rs.layer.round.of, rs.layer.n) : `layer ${rs.layer.n}`} has not merged`,
+  next: () => `round ${rs.round} is open: ${roundLayerName(rs.round, rs.next.of, rs.next.n)} is next, for ${rs.next.mods.join(', ')}: \`${P3} layer open ${rs.next.n}\` (or \`${P3} round next --apply\`, with its job starts)`,
   walk: () => `every layer of round ${rs.round} has merged: its walk ends it (the round-close run)`,
-  new: () => `the walk ${rs.walk} ended round ${rs.round - 1}; round ${rs.round} opens from its findings: layer ${rs.next.n} (round ${rs.round}, map layer ${rs.next.of}) for ${rs.next.mods.join(', ')}: \`${P3} layer open ${rs.next.n}\``,
+  new: () => `the walk ${rs.walk} ended round ${rs.round - 1}; round ${rs.round} opens from its findings: ${roundLayerName(rs.round, rs.next.of, rs.next.n)} for ${rs.next.mods.join(', ')}: \`${P3} layer open ${rs.next.n}\` (or \`${P3} round next --apply\`, with its job starts)`,
   clean: () => `the walk ${rs.walk} ended round ${rs.round}, and no module is flawed: the release path follows a clean internal walk (BD-R1)`,
 }[rs.state]());
 

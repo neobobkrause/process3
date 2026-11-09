@@ -15,6 +15,7 @@ import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, liveJobIds, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { flowRows, layerMergeLine, layerStartAct, needsSlot, readOpenLayer } from './layerflow.mjs';
+import { roundLayerName } from './layerbase.mjs';
 import { deploys, owedAt } from './deploy.mjs';
 import { publishedJobs, slotNote, slotUse } from './slots.mjs';
 import { openState } from './tranche.mjs';
@@ -110,7 +111,8 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
   for (const y of inWork.slice(0, empty - k)) why.push(`${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`);
   const rest = empty - k - Math.min(inWork.length, empty - k);
   if (rest > 0) {
-    const where = open ? (view.ready ? `layer ${view.n} can merge (${P3} layer merge ${view.n})` : `layer ${view.n} lists no job to start`) : view?.kind === 'next' ? `layer ${view.n} is next and not open (${P3} layer open ${view.n})` : 'no open layer';
+    const nm = view?.round ? roundLayerName(view.round, view.of, view.n) : `layer ${view?.n}`;
+    const where = open ? (view.ready ? `${nm} can merge (${P3} layer merge ${view.n})` : `${nm} lists no job to start`) : view?.kind === 'next' ? `${nm} is next and not open (${P3} ${view.round ? 'round next --apply' : `layer open ${view.n}`})` : 'no open layer';
     why.push(`${rest} x no startable work: ${where}`);
   }
   return { kind, since: iso(since), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind], ...(open ? { layer: view.n } : {}), ...(fill.length ? { fill } : {}), reasons: why };

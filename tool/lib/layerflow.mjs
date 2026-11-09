@@ -38,7 +38,7 @@ import { completionItems, openItems, parseCompletion } from './completion.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
 import { landedFrom } from './landed.mjs';
-import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundOf, safeName } from './layerbase.mjs';
+import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundLayerName, roundOf, safeName } from './layerbase.mjs';
 import { deployRowsOf, findingsOf, flawedModules, roundLine, roundState, unplaced, walkHold } from './rounds.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
@@ -603,7 +603,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
   if (rs?.state === 'new' || rs?.state === 'clean') {
     const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null, { round: true }));
     const loose = unplaced(root, tr);
-    if (hold || loose.length) return { kind: 'done', round: rs.state === 'new' ? rs.round : rs.round + 1, rounds: 'held', why: hold || `${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module` };
+    if (hold || loose.length) return { kind: 'done', round: rs.state === 'new' ? rs.round : rs.round + 1, rounds: 'held', ...(hold ? { findings: true } : {}), why: hold || `${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module` };
   }
   if (rs?.next) return { kind: 'next', n: rs.next.n, round: rs.next.round, of: rs.next.of, mods: rs.next.mods, ...(rs.state === 'new' ? { walk: rs.walk } : {}) };
   if (rs) return { kind: 'done', round: rs.round, rounds: rs.state };
@@ -762,7 +762,9 @@ export const layerMergeLine = (v) => (v?.kind === 'open' && v.ready ? `layer ${v
 export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
   : v?.kind === 'open' && v.ready ? `${P3} layer merge ${v.n}`
     : v?.kind === 'open' && v.early?.length ? `${P3} layer jobs ${v.n}, then each early start it lists (layer ${v.early_next})`
+    : v?.kind === 'next' && v.round ? `${P3} round next --apply (opens layer ${v.n}, round ${v.round}, and prints its job starts)`
     : v?.kind === 'next' ? `${P3} layer open ${v.n}`
+    : v?.kind === 'done' && v.rounds === 'held' && v.findings ? `${P3} round next, then ${P3} round next --apply (records the walk's findings, opens round ${v.round})`
       : `${P3} status --role bob (the layer flow's next act)`);
 
 // The lines status --role bob prints in the layer flow: the open layer's modules by state and the
@@ -773,15 +775,15 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   const v = view || openLayer(root, cfg, { slug, io });
   const { n } = v;
   if (v.kind === 'stale') return [`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`];
-  if (v.kind === 'next') return [`layer flow: layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : v.round ? ` (round ${v.round}, map layer ${v.of}${v.walk ? `, from the walk ${v.walk}` : ''}; ${v.mods.join(', ')})` : ''} is next and not open: \`${P3} layer open ${n}\``];
+  if (v.kind === 'next') return [`layer flow: ${v.round ? `${roundLayerName(v.round, v.of, n)} (${v.walk ? `from the walk ${v.walk}; ` : ''}${v.mods.join(', ')})` : `layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : ''}`} is next and not open: \`${P3} layer open ${n}\`${v.round ? `, or \`${P3} round next --apply\`, which opens it and prints its \`job start\` commands (C46)` : ''}`];
   if (v.kind === 'none') return [`layer flow: no layer map (${cfg.layers_file}): jobs start on the tranche from next work`];
-  if (v.kind === 'done' && v.rounds === 'held') return [`layer flow: round ${v.round} opens from the walk's findings once each is recorded: ${v.why}`];
+  if (v.kind === 'done' && v.rounds === 'held') return [`layer flow: round ${v.round} opens from the walk's findings once each is recorded: ${v.why}`, ...(v.findings ? [`the one next act: \`${P3} round next\` (a dry run), then \`${P3} round next --apply\`: each finding recorded, the round's first layer opened, its \`job start\` commands printed (C46)`] : [])];
   if (v.kind === 'done') return [v.rounds === 'walk' ? `layer flow: every layer of round ${v.round} has merged; its walk ends it (the round-close run, BD-R1)` : v.rounds === 'clean' ? `layer flow: every layer has merged; the walk ended round ${v.round}, and no module is flawed; once that walk's findings are recorded and none is a flaw, the release path follows it (BD-R1)` : 'layer flow: every layer has merged'];
-  const L = [...(v.sync ? [v.sync.line] : []), `layer flow: layer ${n}${v.round ? ` (round ${v.round}, map layer ${v.of})` : ''} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
+  const L = [...(v.sync ? [v.sync.line] : []), `layer flow: ${v.round ? roundLayerName(v.round, v.of, n) : `layer ${n}`} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
   if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? afterNote(q.after) : ''}`));
   if (v.early?.length) L.push(earlyHead(n, v.early_next), ...v.early.map((q) => `- ${q.cmd}`));
-  if (v.ready && merge) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
+  if (v.ready && merge) L.push(`${v.round ? roundLayerName(v.round, v.of, n) : `layer ${n}`} can merge: \`${P3} layer merge ${n}\``);
   return L;
 }
 
@@ -942,7 +944,7 @@ export function roundLayer(root, cfg, layers, n, tr, log = () => {}) {
   }
   const x = rs.next;
   const skipped = (layers.filter((L) => !L.completion && !L.round).map((L) => L.n)).filter((k) => k < x.of && k > (rs.state === 'new' ? 0 : Math.max(0, ...layers.filter((L) => L.round && L.round.n === x.round).map((L) => L.round.of))));
-  log(`layer ${n} is round ${x.round}'s pass over map layer ${x.of}${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')})${skipped.length ? `; map layer${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped, no flawed module` : ''}`);
+  log(`${roundLayerName(x.round, x.of, n, cfg.tranche)} is round ${x.round}'s pass over layer ${x.of}${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')})${skipped.length ? `; layer${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped, no flawed module` : ''}`);
   return { n, mods: x.mods, round: { n: x.round, of: x.of, mods: x.mods, items: x.items, ...(x.walk ? { walk: x.walk } : {}) } };
 }
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
@@ -1019,12 +1021,12 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
     fetchBranch(root, b);
     log(`${b} cut from ${cfg.tranche} ${short(at)}`);
   } else log(`${b} is on origin at ${short(at)}`);
-  if (!rows.open) writeRows(root, cfg.state_branch, `layer ${n} open on ${b}${comp ? ` (round ${comp.round.n}, map layer ${comp.round.of})` : ''}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by, ...(comp ? { round: comp.round } : {}) }]]);
+  if (!rows.open) writeRows(root, cfg.state_branch, `${comp ? roundLayerName(comp.round.n, comp.round.of, n, cfg.tranche) : `layer ${n}`} open on ${b}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by, ...(comp ? { round: comp.round } : {}) }]]);
   // Holds on this layer's modules end at its open, recorded as hold --end records them.
   const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startableOf(L);
-  log(`${layerName(layers.find((x) => x.n === n), n)}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
+  log(`${layerName(layers.find((x) => x.n === n), n, cfg.tranche)}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended, round: roundOf(layers.find((x) => x.n === n)) };
 }
@@ -1040,7 +1042,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const sync = syncOwed(root, cfg, n);
   if (sync) log(sync.line);
   const s = startableOf(L);
-  const name = layerName(L.layers.find((x) => x.n === n), n);
+  const name = layerName(L.layers.find((x) => x.n === n), n, cfg.tranche);
   log(s.length ? `${name}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `${name}: no job can start`);
   for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   // The early list is a suggestion: unread, layer jobs still lists the layer's own (cold review of R14).
@@ -1059,7 +1061,7 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   const ahead = cutAhead(root, cfg.state_branch, n);
   if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
-  log(`${layerName(L.layers.find((x) => x.n === n), n)}, round ${roundOf(L.layers.find((x) => x.n === n))}:`);
+  log(`${layerName(L.layers.find((x) => x.n === n), n, cfg.tranche)}, round ${roundOf(L.layers.find((x) => x.n === n))}:`);
   for (const s of L.states) log(`${s.id}: ${s.state} (${s.why})`);
   const ready = mergeReady(L.states) && !L.holding.length && !L.joinable?.length;
   const done = L.states.filter((s) => s.done_work);
@@ -1821,7 +1823,8 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
     writeFileSync(p, (existsSync(p) ? readFileSyncSafe(p) : '') + JSON.stringify(closed) + '\n');
     return {};
   });
-  log(`layer ${n} merged into ${cfg.tranche}${r.sha ? ` at ${short(r.sha)}` : ''}, ${merged.hours} h after it opened; the next layer opens from the new tranche: ${P3} layer open ${n + 1}`);
+  const mName = layerName(L.layers?.find((q) => q.n === n), n, cfg.tranche);
+  log(`${mName} merged into ${cfg.tranche}${r.sha ? ` at ${short(r.sha)}` : ''}, ${merged.hours} h after it opened; the next layer opens from the new tranche: ${roundOf(L.layers?.find((q) => q.n === n)) > 1 || n >= (L.layers?.filter((q) => !q.round && !q.completion).at(-1)?.n ?? Infinity) ? `\`${P3} round next --apply\` (the round's next layer, with its job starts, or its walk)` : `${P3} layer open ${n + 1}`}`);
   // The round's last layer closes the round: the merge starts the round-close run itself (Bob,
   // 7 Nov: required, tool-started); any other layer's merge runs no walk (Bob, 4 Nov). Its outcome
   // never undoes the merge, which is recorded.
