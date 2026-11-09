@@ -19,7 +19,7 @@
 // Repository-scoped endpoints only (sessions' proxies refuse users/* paths): the account's activity
 // is every login but bots and the repository's owner, or the --login given. Paced like any gh call.
 import { gh } from './util.mjs';
-import { pacing, slugOf, usage } from './pace.mjs';
+import { lastShared, pacing, readLog, slugOf, usage } from './pace.mjs';
 
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 const sessionIn = (msg) => (String(msg || '').match(/Claude-Session:\s*\S*?(session_[A-Za-z0-9]+)/) || [])[1] || null;
@@ -118,6 +118,11 @@ export function githubAudit(root, { since, repos = [], product = null, stateBran
       L.push(`pushes, ${repo} ${stateBranch}: ${commits.length} commit(s) in the window (pushes ≤ commits: one coalesced push carries several) vs ledger ${ls} state push(es)${sgap ? ': at least 1 the ledger lacks' : ''}`);
     }
   }
+  // This clone's rows no share has carried yet (C47): counted here, but not by the other clones.
+  const after = lastShared(root);
+  const held = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push', 'fetch'].includes(r.kind));
+  const heldPushes = held.filter((r) => r.kind === 'push' && !r.state).length;
+  if (held.length) L.push(`this clone: ${held.length} row(s) in its log not shared to the ledger yet${heldPushes ? ` (${heldPushes} push(es) other than state pushes)` : ''}; the next p3 command in this clone shares them`);
   if (pushGap) {
     unexplained = true;
     L.push(`UNEXPLAINED pushes: ${pushGap}: ${named.slice(0, 10).map((x) => `${x.branch}@${x.sha} by ${x.actor}${x.session ? ` (${x.session})` : ''}`).join('; ')}`);

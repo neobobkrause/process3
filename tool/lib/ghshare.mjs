@@ -268,6 +268,8 @@ export function stateShare(root, cfg, { now = Date.now, url, readOnly = false } 
     share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? realPendingWrites() : 0, ledgerRepo })),
     // At a command's end: with its own state push when it has one (pending), else by shareUsage's rule.
     shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true, ledgerRepo })),
+    // What this clone holds that no share carried (C47): said when a share at the end leaves a push behind.
+    unshared: () => unshared(root, ledgerRepo),
   };
 }
 
@@ -287,6 +289,14 @@ onBookkeeping('share', (dir, { path, rows, since }) => {
   writeFileSync(join(dir, path), [...kept, ...rows.map((r) => JSON.stringify(r))].join('\n') + '\n');
 });
 export const SHARE_ALONE_S = 900;
+// A push the ledger's history does not count: any push but a state push of the ledger's own repository.
+export const owedPush = (r, ledgerRepo) => r.kind === 'push' && !(r.state && (r.repo || null) === (ledgerRepo || null));
+// This clone's logged rows no share has carried yet: { rows, pushes } (pushes: those owed, owedPush).
+export function unshared(root, ledgerRepo = null) {
+  const after = lastShared(root);
+  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push', 'fetch'].includes(r.kind));
+  return { rows: log.length, pushes: log.filter((r) => owedPush(r, ledgerRepo)).length };
+}
 // A share kept by a refused flush and pushed later by `state replay` is settled then (cold review
 // of R17e: left pending, its rows counted from this clone's log and again from the ledger).
 export const SHARE_SUBJECT = /^github: \d+ minute\(s\) of use \(rows to (\d+)\)/;
@@ -304,8 +314,13 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     // during a command is a commit, though no push).
     // When the last share was made (a riding one's push may not be made yet: cold review of R17e).
     const lastAt = Math.max(0, ...shares.map((x) => x.made ?? (x.at === PENDING_AT ? 0 : x.at || 0)));
-    if (now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
-    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && (r.repo || null) === (ledgerRepo || null))))) return 0;
+    // A push others must count is shared at the end of the command that made it, whatever the
+    // 15 minutes (C47: a push left in a notes clone's log waited for a p3 command that never came,
+    // and the audit found it unexplained). The share's own push is a state push of the ledger, so
+    // this never shares again for its own sake.
+    const pushAtEnd = atEnd && log.some((r) => owedPush(r, ledgerRepo));
+    if (!pushAtEnd && now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
+    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || owedPush(r, ledgerRepo))) return 0;
   }
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg?.state_branch || LEDGER_BRANCH);
