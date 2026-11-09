@@ -14,19 +14,17 @@ import { test } from 'node:test';
 import { flowRows, layerOpen, layerPublish, layerSync } from '../lib/layerflow.mjs';
 import { mergePlain, processRepo } from '../lib/merge.mjs';
 import { REFUSALS_FILE } from '../lib/metrics.mjs';
-import { useShared } from '../lib/pace.mjs';
 import { pinMove } from '../lib/pin.mjs';
 import { WAKES_FILE, fetchState, heldWrites, stateReplay, writeState } from '../lib/state.mjs';
 import { OPEN_FILE, TRANCHE_CLOSED_FILE, recordOpen, trancheClose, trancheOpen } from '../lib/tranche.mjs';
 import { Fail, git } from '../lib/util.mjs';
-import { commit, entry, later, makeRepo, write } from './helpers.mjs';
+import { commit, entry, later, makeRepo, write, refusePushes } from './helpers.mjs';
 
 const REFUSED = 'GitHub budget: 68 of the 80 content-creating requests a minute used account-wide, the target 85% (68): acts on GitHub wait until 2026-11-06T23:59:00Z (16 min); then rerun `node .process/tool/p3.mjs <the command>`';
-// Every push refused, as a stopped account refuses them.
-const stopped = { read: () => ({ pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'secondary rate limit', stopped: true }, use: [] }), pause: () => null };
 const quiet = () => {};
 const SB = 'process-state';
-const refusal = /GitHub budget/;
+// A refusal: GitHub's (the stand-ins' rate limit) or a push GitHub refused (refusePushes).
+const refusal = /GitHub budget|p3-push-refused/;
 
 // The io stand-ins with the governor's refusal thrown at call `refuseAt` (1-based), once; the
 // count runs on across the rerun, as GitHub's state does. Nested objects of stand-ins too.
@@ -79,7 +77,7 @@ function plainGitHub(r, repo = { released: () => false, shim: () => null, descen
 const plainOpts = { slug: 'o/r', noReview: 'a test', log: quiet };
 
 test('merge --plain: refused at each GitHub step in turn, then rerun: one merge; the merge\'s own refusal is said as the refusal, not as an unread reply', async (t) => {
-  t.after(() => useShared(null));
+  t.after(() => refusePushes(false));
   const clean = plainRepo();
   const c = refusing(plainGitHub(clean).io);
   assert.equal(mergePlain(clean.root, 4, { ...plainOpts, io: c.io }).merged, true);
@@ -118,14 +116,14 @@ function pinMoveRepo() {
   return { ...r, sha: git(['rev-parse', `refs/heads/${r.head}`], { cwd: r.root }), proc: p };
 }
 
-test('merge --plain of a pin move: the wake\'s state write refused by a stopped account; the merge stands, the wake is printed once and its record kept, replayed once; a rerun merges nothing again', (t) => {
-  t.after(() => useShared(null));
+test('merge --plain of a pin move: the wake\'s state write refused by GitHub; the merge stands, the wake is printed once and its record kept, replayed once; a rerun merges nothing again', (t) => {
+  t.after(() => refusePushes(false));
   const r = pinMoveRepo();
   const g = plainGitHub(r, processRepo(r.proc));
   const logs = [];
-  useShared(stopped);
+  refusePushes(true);
   const out = mergePlain(r.root, 4, { ...plainOpts, noReview: 'a pin move', as: 'pin', io: g.io, log: (l) => logs.push(l) });
-  useShared(null);
+  refusePushes(false);
   assert.equal(out.merged, true);
   assert.equal(g.s.merges, 1);
   assert.equal(logs.filter((l) => /^next act: wake BOB/.test(l)).length, 1, 'the wake printed once');
@@ -191,15 +189,15 @@ async function publishing() {
   return { root, bare };
 }
 
-test('layer publish: its sync refused, or its run row\'s push refused by a stopped account, then rerun: published, one run row on origin per run, the refused one kept', async (t) => {
-  t.after(() => useShared(null));
+test('layer publish: its sync refused, or its run row\'s push refused by GitHub, then rerun: published, one run row on origin per run, the refused one kept', async (t) => {
+  t.after(() => refusePushes(false));
   for (const at of ['sync', 'row']) {
     const { root } = await publishing();
     let runs = 0;
     const g = refusing({ sync: async () => ({ ok: true }) }, at === 'sync' ? 1 : 0);
-    const complete = () => { runs++; if (at === 'row' && runs === 1) useShared(stopped); return { done: Promise.resolve({ code: 0 }), kill() {} }; };
+    const complete = () => { runs++; if (at === 'row' && runs === 1) refusePushes(true); return { done: Promise.resolve({ code: 0 }), kill() {} }; };
     const first = await attempt(() => layerPublish(root, 'c', { sync: g.io.sync, complete, log: quiet }));
-    useShared(null);
+    refusePushes(false);
     assert.match(String(first), refusal, `${at}: the run stops on the refusal`);
     assert.equal(runs, at === 'sync' ? 0 : 1, `${at}: ${at === 'sync' ? 'nothing ran' : 'the run ran'}`);
     assert.deepEqual(runRows(root), [], `${at}: no row on origin yet`);
@@ -244,7 +242,7 @@ function syncGitHub(bare, { stopAfterMerge = false } = {}) {
         s.merges++;
         const r = ghMerge(bare, 'layer/1', sha, title);
         s.prs.find((p) => p.number === k).state = 'closed';
-        if (stopAfterMerge) useShared(stopped);
+        if (stopAfterMerge) refusePushes(true);
         return r;
       },
     },
@@ -254,21 +252,21 @@ const syncBranches = (bare) => git(['ls-remote', '--heads', bare, 'refs/heads/la
 const syncRows = (root) => { fetchState(root, SB, { fresh: true }); return flowRows(root, SB, 1).syncs; };
 
 test('layer sync: refused at each GitHub step in turn (each gh call, its branch\'s push, its row\'s push), then rerun: one branch, one pull request, one merge, one sync row', async (t) => {
-  t.after(() => useShared(null));
+  t.after(() => refusePushes(false));
   const clean = syncOwed();
   const c = syncGitHub(clean.bare);
   const cr = refusing(c.io);
   assert.equal((await layerSync(clean.root, 1, { io: cr.io, log: quiet })).synced, true);
   const steps = cr.s.calls;
   assert.ok(steps >= 5, `${steps} GitHub steps`);
-  // 1..steps: each gh call; then the branch's push, then the row's push, refused by a stopped account.
+  // 1..steps: each gh call; then the branch's push, then the row's push, refused by GitHub.
   for (let k = 1; k <= steps + 2; k++) {
     const { root, bare } = syncOwed();
     const g = syncGitHub(bare, { stopAfterMerge: k === steps + 2 });
     const f = refusing(g.io, k <= steps ? k : 0);
-    if (k === steps + 1) useShared(stopped);
+    if (k === steps + 1) refusePushes(true);
     const first = await attempt(() => layerSync(root, 1, { io: f.io, log: quiet }));
-    useShared(null);
+    refusePushes(false);
     assert.match(String(first), refusal, `step ${k}: the run stops on the refusal`);
     const r = await layerSync(root, 1, { io: f.io, log: quiet });
     assert.equal(r.ok, true, `step ${k}: the rerun completes`);
@@ -346,19 +344,19 @@ const refs = (bare) => git(['for-each-ref', '--format=%(refname) %(objectname)']
 const T0 = Date.parse('2026-11-07T00:00:00Z');
 const ACTS = ['push', 'pr-open', 'pr-comment', 'pr-merge', 'session-start', 'session-archive', 'task-create', 'task-delete'];
 
-test('tranche open: no GitHub act of its own (it prints the same steps, with the account stopped and again); --record\'s push refused, then rerun: one row per act, one refusal row', (t) => {
-  t.after(() => useShared(null));
+test('tranche open: no GitHub act of its own (it prints the same steps, with pushes refused and again); --record\'s push refused, then rerun: one row per act, one refusal row', (t) => {
+  t.after(() => refusePushes(false));
   const { root, bare } = withOrigin({ 'README.md': 'x\n' });
   const before = refs(bare);
   const a = trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 });
-  useShared(stopped);
+  refusePushes(true);
   const b = later(() => trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 }));
   assert.deepEqual([b.n, b.steps, b.call], [a.n, a.steps, a.call], 'the same steps, the same throwaway branch');
   assert.equal(refs(bare), before, 'nothing pushed');
   // --record: its state write refused; nothing written, nothing counted; the rerun writes each once.
   const recs = [...ACTS.map((x) => `${x}|1|${x === 'session-archive' ? 'refused' : 'ok'}`)];
-  assert.throws(() => recordOpen(root, recs, { session: 'bob', log: quiet }), /GitHub budget: .*every GitHub call is stopped/s);
-  useShared(null);
+  assert.throws(() => recordOpen(root, recs, { session: 'bob', log: quiet }), refusal);
+  refusePushes(false);
   assert.equal(onOrigin(bare, OPEN_FILE).length, 0);
   const refusals = () => { try { return readFileSync(join(root, REFUSALS_FILE), 'utf8').split('\n').filter(Boolean).length; } catch { return 0; } };
   assert.equal(refusals(), 0, 'the refusal row waits for the push');
@@ -373,7 +371,7 @@ const closeFiles = { 'build/layers.md': LAYERS, 'build/requirements/a.md': '- **
 const closeIO = () => ({ compare: () => null, status: { openPRs: () => [], checkRun: () => null, compare: () => null } });
 
 test('tranche close: refused at each GitHub read in turn, then rerun: the same steps; --record refused at its read and at its push, then rerun: one close row', async (t) => {
-  t.after(() => useShared(null));
+  t.after(() => refusePushes(false));
   const { root, bare } = withOrigin(closeFiles);
   // main moved: the steps merge it into the tranche first.
   git(['checkout', '-q', 'main'], { cwd: root });
@@ -396,9 +394,9 @@ test('tranche close: refused at each GitHub read in turn, then rerun: the same s
   git(['push', '-q', 'origin', 'main'], { cwd: root });
   const f = refusing(closeIO(), 1);
   assert.match(String(await attempt(() => trancheClose(root, { slug: 'o/p', io: f.io, record: true, log: quiet }))), refusal);
-  useShared(stopped);
-  assert.throws(() => trancheClose(root, { slug: 'o/p', io: f.io, record: true, log: quiet }), /GitHub budget: .*every GitHub call is stopped/s);
-  useShared(null);
+  refusePushes(true);
+  assert.throws(() => trancheClose(root, { slug: 'o/p', io: f.io, record: true, log: quiet }), refusal);
+  refusePushes(false);
   assert.equal(onOrigin(bare, TRANCHE_CLOSED_FILE).length, 0);
   assert.equal(trancheClose(root, { slug: 'o/p', io: f.io, record: true, log: quiet }).ok, true);
   assert.equal(onOrigin(bare, TRANCHE_CLOSED_FILE).length, 1, 'one close row');
