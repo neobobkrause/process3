@@ -12,9 +12,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { setupCheck } from '../lib/setup.mjs';
-import { idleCheck } from '../lib/sweep.mjs';
+import { beforeAct, idleCheck } from '../lib/sweep.mjs';
+import { ownerBlock } from '../lib/record.mjs';
 import { SPAWNS, git, loadConfig } from '../lib/util.mjs';
-import './helpers.mjs';
+import { commit, makeRepo } from './helpers.mjs';
 import { fakeGh, scaleFixture, stubGitHub } from './scale-fixture.mjs';
 
 const TOOL = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -124,11 +125,57 @@ test('rehearsal: a pin move\'s two `setup check --at HEAD` runs at the copy\'s s
     assert.match(r.out, /- missing: deny-list:/);
     assert.match(r.out, /- set: approvals: one block/);
     assert.match(r.out, /census: \d+ gap\(s\) at [0-9a-f]{10} \(no-entry\)/);
-    // Measured (C50): the first check (the idle check before it) 2176 git spawns before, 545 after;
-    // the second (the idle check's row fresh, so not run) 463 before, 99 after; 20 and 2 fetches.
-    assert.ok(r.spawns <= (k ? 200 : 800), `check ${k + 1}: ${r.spawns} git spawns`);
+    // Measured (C50): the first check 2172 git spawns before (BOB's idle check ran before it, the pin
+    // session taken for BOB), 135 after; the second 459 before, 112 after; 10 and 2 fetches after.
+    assert.ok(r.spawns <= 250, `check ${k + 1}: ${r.spawns} git spawns`);
     assert.ok(r.fetches <= 30, `check ${k + 1}: ${r.fetches} fetches`);
   }
-  // The idle check ran before the first (the sweep's live count is 20 minutes old) and judged.
-  assert.match(runs[0].out, /IDLE CAPACITY: 4 job sessions/);
+  // A pin session's setup check runs no idle check, though the sweep's live count is 20 minutes old
+  // and a layer is open (coordinator on C50: the idle check is BOB's alone).
+  for (const r of runs) assert.doesNotMatch(r.out, /IDLE CAPACITY|idle check not run/);
+});
+
+// Coordinator on C50, 9 Nov: "The idle check is BOB's alone." beforeAct runs it only when the
+// command's sender is BOB, known by --as or by this session's address; a pin move's commands never.
+test('the idle check before a command runs for BOB\'s commands only: never a pin move\'s, never an unknown sender\'s', () => {
+  const fx = pinSession();
+  const cfg = loadConfig(fx.work);
+  const bin = fakeGh(fx, 'o/r');
+  const was = { PATH: process.env.PATH, GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY, S: process.env.CLAUDE_CODE_REMOTE_SESSION_ID };
+  process.env.PATH = `${bin}:${process.env.PATH}`;
+  process.env.GITHUB_REPOSITORY = 'o/r';
+  const as = (session) => { if (session) process.env.CLAUDE_CODE_REMOTE_SESSION_ID = session; else delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID; };
+  const before = (name, a = {}) => beforeAct(fx.work, cfg, name, { _: [], ...a }, { env: {}, log: () => {}, err: (m) => assert.fail(m) });
+  try {
+    // Skipped, each before any read of the open layer: no session id (the sender unknown), a
+    // session no role is addressed to, a pin move's commands even from BOB's session, --as pin.
+    as(null);
+    assert.equal(before('merge'), null);
+    as('session_someone_else');
+    assert.equal(before('merge'), null);
+    as('session_bob');
+    assert.equal(before('setup check'), null);
+    assert.equal(before('pin check'), null);
+    assert.equal(before('merge', { as: 'pin' }), null);
+    // BOB's own command (its session's address, or --as bob): the check runs and judges the layer.
+    const row = before('merge');
+    assert.equal(row?.row, 'check');
+    assert.equal(row.idle_capacity?.layer, fx.open);
+  } finally {
+    process.env.PATH = was.PATH;
+    if (was.GITHUB_REPOSITORY === undefined) delete process.env.GITHUB_REPOSITORY; else process.env.GITHUB_REPOSITORY = was.GITHUB_REPOSITORY;
+    as(was.S);
+  }
+});
+
+// A block set by the root commit (C50: a root commit's empty %P read as a parent '', whose "file" was
+// the index's copy, the tip's block, so the root was never taken as its setter).
+test('the approvals block set by the root commit is found as set by it', () => {
+  const r = makeRepo({ 'CLAUDE.md': '## Standing approvals from Bob\n\nThe owner\'s words.\n' });
+  const first = git(['rev-parse', 'HEAD'], { cwd: r });
+  commit(r, { 'README.md': 'x' }, 'later');
+  const asked = [];
+  const top = ownerBlock(r, ['HEAD'], 'CLAUDE.md', '## Standing approvals from Bob', (sha) => { asked.push(sha); return { ok: true }; });
+  assert.equal(top?.sha, first);
+  assert.deepEqual(asked, [first]);
 });

@@ -184,7 +184,7 @@ export function stubGitHub(fx, slug = 'o/r') {
     if (/\/branches\/[^/]+$/.test(p)) return { protected: true, protection: { enabled: false } };
     if ((m = p.match(/\/commits\?sha=([0-9a-f]+)&path=([^&]+)/))) {
       const log = git(['--literal-pathspecs', 'log', '--format=%H %cI %P', '-n', '100', m[1], '--', decodeURIComponent(m[2])], { cwd: fx.origin, allowFail: true });
-      return log.stdout.split('\n').filter(Boolean).map((l) => { const [sha, date, ...ps] = l.split(' '); return { sha, commit: { committer: { date, email: 'noreply@github.com' } }, parents: ps.map((s) => ({ sha: s })) }; });
+      return log.stdout.split('\n').filter(Boolean).map((l) => { const [sha, date, ...ps] = l.split(' '); return { sha, commit: { committer: { date, email: 'noreply@github.com' } }, parents: ps.filter(Boolean).map((s) => ({ sha: s })) }; });
     }
     if (/\/commits\/[0-9a-f]+$/.test(p)) return { committer: { login: 'web-flow' }, author: { login: OWNER }, commit: { verification: { verified: true } } };
     if (p.includes('/pulls?')) return [];

@@ -87,7 +87,10 @@ export function ownerBlock(root, refs, file, heading, isOwner, { history, need, 
     const tip = blockOf(ref);
     for (const [i, l] of all.entries()) {
       fill(i);
-      const [sha, at, ce, ...parents] = l.split(' ');
+      // A root commit's %P is empty: no parent, never '' (C50: '' read the index's copy of the file,
+      // the tip's block, so a block set by the root commit was never found).
+      const [sha, at, ce, ...ps] = l.split(' ');
+      const parents = ps.filter(Boolean);
       if (blockOf(sha) !== tip || parents.some((p) => blockOf(p) === tip)) continue;
       if (ce === GITHUB_COMMITTER && isOwner(sha)?.ok === true && (!best || Number(at) > best.at)) best = { ref, sha, at: Number(at), block: tip };
       break;
