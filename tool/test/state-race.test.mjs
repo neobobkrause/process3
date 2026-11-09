@@ -301,7 +301,6 @@ test('every jsonl file the state branch holds is declared a line log or named or
   const lib = join(dn(fileURLToPath(import.meta.url)), '..', 'lib');
   // jsonl paths the tool names that are not on the state branch.
   const NOT_STATE = {
-    'p3-github.jsonl': "the clone's own pacing log (pace.mjs), never pushed",
     'failing.jsonl': "a suite's failures file in a temp dir (basered, gate)",
     'closed.jsonl': "a triage lane's register in its repository folder (register.mjs)",
     'process/metrics/refusals.bob.jsonl': 'a repository file, committed by a plain pull request',

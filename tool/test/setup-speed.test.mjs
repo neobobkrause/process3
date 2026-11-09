@@ -106,7 +106,7 @@ test('rehearsal: a pin move\'s two `setup check --at HEAD` runs at the copy\'s s
   // A git that logs its arguments, then runs the real one.
   const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
   writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf '%s\\n' "$*" >> '${log}'\nexec '${real}' "$@"\n`, { mode: 0o755 });
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'o/r', P3_GH_INTERVAL_MS: '0' };
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'o/r' };
   // As a session runs it: the idle check before, the ledger share after (neither runs under the test
   // runner or in GitHub Actions, where CI runs this test).
   delete env.NODE_TEST_CONTEXT;

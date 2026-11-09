@@ -115,13 +115,6 @@ const batch = { on: false, pending: new Map() };
 export function stateBatch(on = true) { batch.on = !!on; }
 // fn with writes pushed at once, whatever the command's batching (a pause every session must see).
 export function unbatched(fn) { const was = batch.on; batch.on = false; try { return fn(); } finally { batch.on = was; } }
-// fn() once the command's pending state writes are pushed (never, if they are not).
-// Keyed by the clone and branch whose push it waits on (cold review of R17e); dropped if that push
-// is refused (its writes are kept for replay).
-const flushedFns = new Map();
-export function onFlushed(root, sb, fn) { const k = `${root}\0${sb}`; flushedFns.set(k, [...(flushedFns.get(k) || []), fn]); }
-// Pending writes that are not bookkeeping: what a usage share may ride (C18).
-export const realPendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.filter((w) => !w.book).length, 0);
 export const pendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.length, 0);
 const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
 const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
@@ -269,7 +262,6 @@ export function flushState({ log = () => {} } = {}) {
       });
       dropPending(root);
       fetched.delete(key);
-      flushedFns.delete(key); // settled when a later write pushes them (pushedBooks)
       continue;
     }
     // A real write: the clone's waiting bookkeeping rides it, read and dropped under the lock that
@@ -293,12 +285,11 @@ export function flushState({ log = () => {} } = {}) {
           // refuses there left out and reported once the others are pushed, never kept.
           const redo = () => { refused.length = 0; dropped.length = 0; out.clear(); for (const [i, x] of list.entries()) { const r = applyOne(wt, x, (l) => { log(l); console.error(l); }); if (r.refused !== undefined) refused.push(`${x.msg}: ${r.refused}`); if (r.dropped !== undefined) dropped.push(x.msg); if (r.o === undefined) out.add(i); } };
           redo();
-          pushRetry(wt, sb, { redo, log, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) });
+          pushRetry(wt, sb, { redo, log, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) });
         }, { root });
         if (waiting.length) dropDeferred(root, sb, waiting);
       });
     } catch (e) {
-      flushedFns.delete(key);
       const all = git(['for-each-ref', '--format=%(refname)', PENDING], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
       for (const r of all.filter((x) => out.has(Number(x.split('/').pop())))) git(['update-ref', '-d', r], { cwd: root });
       const kept = all.filter((x) => !out.has(Number(x.split('/').pop())));
@@ -313,9 +304,6 @@ export function flushState({ log = () => {} } = {}) {
     n += list.length - refused.length - dropped.length;
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(key); }
     lost.push(...refused);
-    // What waited on this push (R17e: a usage share carried by it records when it went).
-    for (const fn of flushedFns.get(key) || []) { try { fn(); } catch { /* a record only */ } }
-    flushedFns.delete(key);
   }
   if (lost.length) fail(`${lost.length} state write(s) of this command refused on the state branch as it stands now, so not written (the command's other writes are pushed): ${lost.join('; ')}`);
   return n;
@@ -346,7 +334,7 @@ function writeStateNow(root, sb, msg, change, { park = true } = {}) {
     // never kept for a replay that would refuse it too.
     let lost = null;
     const again = () => { lost = null; const r = applyOne(wt, { msg, change }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
-    try { tip = pushRetry(wt, sb, { redo: again, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
+    try { tip = pushRetry(wt, sb, { redo: again, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       if (!park) throw e;
       const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;

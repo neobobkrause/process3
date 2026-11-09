@@ -5,7 +5,7 @@ For the watcher, read once at start, after your prompt. Your prompt wins where t
 ## Principles (TXT-4)
 
 1. No session starts its own successor; you take over as ROOT only when `watch` says so (PLT-5, SES-1). Held by `watch`.
-2. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). A GitHub pause or stop the tool reports holds your GitHub acts until it ends; `p3 github budget` shows it (P27). Held by the tool's pacing.
+2. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). A GitHub rate limit the tool reports holds your GitHub acts until its reset; `p3 github budget` reads it (P27). Held by the tool's back-off.
 
 ## Rules
 

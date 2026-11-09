@@ -10,7 +10,7 @@ import { jobBlock, jobComplete, jobStart, jobSync, jobTest, pinAt } from '../lib
 import { readEntry } from '../lib/ledger.mjs';
 import { send } from '../lib/state.mjs';
 import { git, run } from '../lib/util.mjs';
-import { commit, entry, makeRepo, write } from './helpers.mjs';
+import { commit, entry, makeRepo, write, refusePushes } from './helpers.mjs';
 
 // The tool's own `git submodule update` reads a file:// process clone in these tests.
 process.env.GIT_CONFIG_COUNT = '1';
@@ -402,9 +402,8 @@ test('#5: block after BOB\'s push names job sync, not "run block again" forever'
 // (its push through the governed git, and each gh call), then rerun: one receipt for the pushed
 // head, the pull request ready, nothing lost.
 test('job complete: refused at each GitHub step in turn, then rerun: one receipt for its head, ready, nothing lost', async (t) => {
-  const { useShared } = await import('../lib/pace.mjs');
   const { Fail } = await import('../lib/util.mjs');
-  t.after(() => useShared(null));
+  t.after(() => refusePushes(false));
   const REFUSED = 'GitHub budget: 68 of the 80 content-creating requests a minute used account-wide, the target 85% (68): acts on GitHub wait until 2026-11-06T23:59:00Z (16 min); then rerun `node .process/tool/p3.mjs job complete alpha`';
   const run = (refuseAt, pushRefused) => {
     const { root, f } = bobMerged();
@@ -413,10 +412,10 @@ test('job complete: refused at each GitHub step in turn, then rerun: one receipt
     let calls = 0;
     const wrap = (fn) => (...a) => { calls++; if (calls === refuseAt) throw new Fail(REFUSED); return fn(...a); };
     const gh1 = Object.fromEntries(Object.entries(f.gh).map(([k, v]) => [k, wrap(v)]));
-    if (pushRefused) useShared({ read: () => ({ pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }), pause: () => null });
+    if (pushRefused) refusePushes(true);
     let first = null;
     try { jobComplete(root, 'alpha', { gh: gh1, log: quiet }); } catch (e) { first = e.message; }
-    useShared(null);
+    refusePushes(false);
     const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
     return { root, f, r, first, calls };
   };
