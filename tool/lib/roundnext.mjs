@@ -257,7 +257,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     return { ok: true, state: 'findings', plan };
   }
   const nx = predicted(root, cfg, plan);
-  if (nx) log(`then: ${roundLayerName(nx.round, nx.of, nx.n, cfg.tranche)} opens for ${nx.mods.join(', ')}, the lowest layer with a flawed module; ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
+  if (nx) log(`then: ${roundLayerName(nx.round, nx.of, nx.n, cfg.tranche)} opens for ${nx.mods.join(', ')}, one layer for every flawed module (PD-24); ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
   if (loose.length) {
     const why = `${loose.length} finding(s) name no known module (${loose.map((e) => `${e.module ? `${e.module}: ` : ''}${e.text}`).slice(0, 5).join('; ')}): give their modules in a file of \`<module>: <text>\` lines (\`, covers <n>\` at a line's end for one flaw behind n failures), then \`${ROUND_NEXT} --findings <file>\``;
     if (apply) fail(`${why}; nothing was recorded`);

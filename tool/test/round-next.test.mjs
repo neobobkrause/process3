@@ -132,7 +132,7 @@ test('round next: the findings grouped one entry per distinct flaw, with covers;
   assert.throws(() => parseFindings('b: a **F2** mark\n'), /must not hold a mark of its own/);
 });
 
-test('round next: a walk with flaws in two map layers opens the lower first and prints its job starts; the higher opens from the same command once it merges', () => {
+test('round next (PD-24): a walk with flaws in two map layers opens one layer for both and prints every job start at once; once it merges the round\'s walk is next', () => {
   const root = product();
   const row = walked(root, { failures: FLAWS, min: 10 });
   const src = `internal walk ${row.slug} ${row.commit.slice(0, 10)}`;
@@ -144,12 +144,12 @@ test('round next: a walk with flaws in two map layers opens the lower first and 
   assert.match(d.text, /round 1 ended at the internal walk internal-w\d+ \w{10}: 6 finding\(s\), 0 recorded \(dry run: `round next --apply` does it\)/);
   assert.match(d.text, /b \(layer 1\):\n {4}- to record, found mark in req\/b\.md: the b button overlaps the footer \(covers 2\)\n {6}node \.process\/tool\/p3\.mjs found b "the b button overlaps the footer" --from "internal walk internal-w\d+ \w{10}" --covers 2\n {4}- to record, found mark in req\/b\.md: http-500: GET \/b returned 500/);
   assert.match(d.text, /d \(layer 3\):\n {4}- to record, owed reopen \(test\/d\/ids\.test\.mjs pins its ids\): the d form loses its draft \(covers 3\)/);
-  assert.match(d.text, /then: tranche tranche · round 2 · layer 1 \(internal layer 4\) opens for b, the lowest layer with a flawed module/);
+  assert.match(d.text, /then: tranche tranche · round 2 · layer 3 \(internal layer 4\) opens for b, d, one layer for every flawed module \(PD-24\)/);
   assert.equal(git(['rev-parse', 'origin/tranche'], { cwd: root }), before);
   assert.equal(owedReopens(root, loadConfig(root)).length, 0);
   assert.equal(made.length, 0);
   // --apply: d's owed reopen on the state branch, b's two marks in one plain pull request merged,
-  // layer 4 (round 2, map layer 1) opened for b, and b's job start printed.
+  // layer 4 (round 2's one layer) opened for b and d, and both job starts printed.
   const a = run(root, io, { apply: true });
   assert.equal(a.state, 'opened');
   assert.equal(a.layer, 4);
@@ -157,31 +157,27 @@ test('round next: a walk with flaws in two map layers opens the lower first and 
   assert.match(made[0].head, /^found\/round-2-internal-w\d+$/);
   assert.match(reqAt(root, 'b'), /- \*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}, covers 2\)\* the b button overlaps the footer\n- \*\*F2\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* http-500: GET \/b returned 500$/);
   assert.deepEqual(owedReopens(root, loadConfig(root)).map((x) => [x.module, x.finding, x.source]), [['d', 'the d form loses its draft', `${src}, covers 3`]]);
-  assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['b']);
-  assert.deepEqual(a.startable.map((x) => x.cmd), [`node .process/tool/p3.mjs job start b --sessions <file> --reopen "F1: the b button overlaps the footer (${src}, covers 2); F2: http-500: GET /b returned 500 (${src})"`]);
+  assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['b', 'd']);
+  assert.deepEqual(a.startable.map((x) => x.cmd).sort(), [`node .process/tool/p3.mjs job start b --sessions <file> --reopen "F1: the b button overlaps the footer (${src}, covers 2); F2: http-500: GET /b returned 500 (${src})"`, `node .process/tool/p3.mjs job start d --sessions <file> --reopen "O1: the d form loses its draft (${src}, covers 3; owed reopen: add it as your own F mark and admit it in test/d/ids.test.mjs)"`]);
   assert.match(a.text, /\n {2}node \.process\/tool\/p3\.mjs job start b --sessions <file> --reopen "F1: the b button overlaps the footer/, 'the job start printed');
-  assert.doesNotMatch(a.text, /job start d\b/, 'd waits for its own layer');
+  assert.match(a.text, /\n {2}node \.process\/tool\/p3\.mjs job start d --sessions <file> --reopen "O1: the d form loses its draft/, 'd starts at once, in the same layer');
   assert.match(a.text, /next: BOB starts each job above \(create_session for its session, then the `job start` command\)/);
-  // Named as Bob reads it (9 Nov): tranche · round 2 · layer 1, the internal number in parentheses.
-  assert.match(a.text, /tranche tranche · round 2 · layer 1 \(internal layer 4\): 1 module\(s\)/);
-  assert.equal(layerArg({ _: [], round: '2', layer: '1' }, root), 4);
-  assert.equal(layerArg({ _: [], round: '2', 'plan-layer': '1' }, root), 4);
+  // Named as Bob reads it (9 Nov): tranche · round 2 · layer 3 (the map's last it passes over), the internal number in parentheses.
+  assert.match(a.text, /tranche tranche · round 2 · layer 3 \(internal layer 4\): 2 module\(s\)/);
+  assert.equal(layerArg({ _: [], round: '2', layer: '3' }, root), 4);
+  assert.equal(layerArg({ _: [], round: '2', 'plan-layer': '3' }, root), 4);
   assert.equal(layerArg({ _: ['4'] }, root), '4');
-  assert.throws(() => layerArg({ _: [], round: '2', 'plan-layer': '2' }, root), /no layer is tranche tranche · round 2 · layer 2/);
+  assert.throws(() => layerArg({ _: [], round: '2', 'plan-layer': '1' }, root), /no layer is tranche tranche · round 2 · layer 1/);
   assert.throws(() => layerArg({ _: ['4'], round: '2', 'plan-layer': '1' }, root), /name the layer once/);
   // Again, while the layer is open: its jobs, nothing recorded twice.
   const again = run(root, io, { apply: true });
   assert.deepEqual([again.state, again.layer], ['layer', 4]);
   assert.equal(made.length, 1);
-  // b's job meets its marks; layer 4 merges: round 2's next layer is d's (map layer 3), from the same command.
+  // b's job meets its marks (d's owed reopen is held by the layer); layer 4 merges: no second layer, the round's walk is next.
   push(root, { 'req/b.md': `${req('b')}- **F1** met\n- **F2** met\n` }, 'b met');
   merged(root, 4, 30);
-  // The round's next layer, not yet open, by its round and layer (--layer, or --plan-layer).
-  assert.equal(layerArg({ _: [], round: '2', 'plan-layer': '3' }, root), 5);
   const nxt = run(root, io, { apply: true });
-  assert.deepEqual([nxt.state, nxt.layer, nxt.round], ['opened', 5, 2]);
-  assert.deepEqual(flowRows(root, SB, 5).open.round.mods, ['d']);
-  assert.match(nxt.startable[0].cmd, /^node \.process\/tool\/p3\.mjs job start d --sessions <file> --reopen "O1: the d form loses its draft \(internal walk internal-w\d+ \w{10}, covers 3; owed reopen: add it as your own F mark and admit it in test\/d\/ids\.test\.mjs\)"$/);
+  assert.equal(nxt.state, 'walk');
 });
 
 test('round next: run again after a partial run, it goes on where it stopped', () => {
@@ -263,12 +259,12 @@ test('round next: PD-16, a deploy dev run whose internal walk found flaws sets i
   assert.match(d.text, /1 finding\(s\) name no known module \(somewhere\): give their modules in a file of `<module>: <text>` lines/);
   assert.throws(() => run(root, io, { apply: true }), /name no known module[^\n]*; nothing was recorded/);
   assert.equal(made.length, 0);
-  // BOB's file places it; the round opens at c's map layer.
+  // BOB's file places it; the round's one layer holds b and c (PD-24).
   const f = join(mkdtempSync(join(tmpdir(), 'p3-findings-')), 'f.txt');
   writeFileSync(f, 'b: the b page is somewhere it should not be\n');
   const a = run(root, io, { apply: true, findingsFile: f });
   assert.deepEqual([a.state, a.layer], ['opened', 4]);
-  assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['b'], 'b (map layer 1) first; a, the live arm\'s module, not flawed');
+  assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['b', 'c'], 'b (map layer 1) and c (map layer 2) in one layer; a, the live arm\'s module, not flawed');
   assert.match(reqAt(root, 'c'), /\*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* c 404s$/);
   assert.match(reqAt(root, 'b'), /\*\*R3\*\* c\n- \*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* the b page is somewhere it should not be$/);
   assert.equal(reqAt(root, 'a'), req('a').trimEnd(), 'the live arm\'s findings recorded nowhere');
@@ -310,17 +306,15 @@ test('round next rehearsal: round close walk with flaws, round next, jobs, layer
   assert.equal(w1.ok, false);
   assert.match(w1.text, /the one next act: `node \.process\/tool\/p3\.mjs round next`/);
   const o4 = run(root, io, { apply: true });
-  assert.deepEqual([o4.state, o4.layer, o4.startable.map((x) => x.id)], ['opened', 4, ['b']]);
-  assert.match(o4.startable[0].cmd, /--reopen "F1: the b button overlaps the footer \(internal walk internal-l3 \w{10}, covers 2\)"/);
-  // b's job: its mark met and its fix; layer 4 merges; the same command opens d's layer.
-  push(root, { 'req/b.md': `${req('b')}- **F1** met\n`, 'fixed-b': 'x\n' }, 'b fixed');
+  // PD-24: round 2 is one layer, b and d (map layers 1 and 3) starting at once.
+  assert.deepEqual([o4.state, o4.layer, o4.startable.map((x) => x.id).sort()], ['opened', 4, ['b', 'd']]);
+  const cmdOf = (id) => o4.startable.find((x) => x.id === id).cmd;
+  assert.match(cmdOf('b'), /--reopen "F1: the b button overlaps the footer \(internal walk internal-l3 \w{10}, covers 2\)"/);
+  assert.match(cmdOf('d'), /--reopen "O1: the d form loses its draft \(internal walk internal-l3 \w{10}; owed reopen/);
+  // b's job: its mark met and its fix; d's job takes its owed reopen as its own F mark, met; layer 4
+  // merges: the round's walk is owed, no second layer.
+  push(root, { 'req/b.md': `${req('b')}- **F1** met\n`, 'fixed-b': 'x\n', 'req/d.md': `${req('d')}- **F1** met\n`, 'fixed-d': 'x\n' }, 'b and d fixed');
   mergedNow(4);
-  const o5 = run(root, io, { apply: true });
-  assert.deepEqual([o5.state, o5.layer, o5.startable.map((x) => x.id)], ['opened', 5, ['d']]);
-  assert.match(o5.startable[0].cmd, /--reopen "O1: the d form loses its draft \(internal walk internal-l3 \w{10}; owed reopen/);
-  // d's job takes its owed reopen as its own F mark, met; layer 5 merges: the round's walk is owed.
-  push(root, { 'req/d.md': `${req('d')}- **F1** met\n`, 'fixed-d': 'x\n' }, 'd fixed');
-  mergedNow(5);
   const w = run(root, io, { apply: true });
   assert.equal(w.state, 'walk');
   assert.match(w.text, /every layer of round 2 has merged: its walk ends it, the round-close run/);
