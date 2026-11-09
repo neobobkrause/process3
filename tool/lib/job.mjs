@@ -3,7 +3,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileS
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, REVERT_EXEMPT, addComment, aheadBy, block, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
+import { REVERT_EXEMPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, markReady, prsFromBranch, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
 import { branchModule, checkLedger, entryFile, homeRef, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
 import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
@@ -12,7 +12,7 @@ import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
 import { refuseUnpushable } from './pushcheck.mjs';
-import { movedText, retiredIds, unanswered, withdrawnKeys } from './notice.mjs';
+import { movedText, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
@@ -142,7 +142,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   }
   if (restart) {
     L.push('', `You replace the job session that stopped. BOB saw: ${restart.why}`);
-    L.push(`Continue from pull request ${restart.pr} as it is (last commit \`${restart.last}\`; receipt ${restart.receipt}): read its commits and comments first. An act it was refused is never rerouted: report it to your coordinator.`);
+    L.push(`Continue from pull request ${restart.pr} as it is (last commit \`${restart.last}\`; ${restart.state}): read its commits and comments first. An act it was refused is never rerouted: report it to your coordinator.`);
   }
   if (takeIn) {
     // The marker line (carry.mjs TAKEN): the pull request it names has a job.
@@ -167,9 +167,9 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit; \`${P3} job sync ${id}\` pushes it each turn (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
   // The shared layer branch (layerflow.mjs): the job publishes onto its layer; the merge tool lands it.
   const lay = layerOfBranch(tranche);
-  if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your fast checks (CI runs the suite), pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
-  else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. CI runs the suite and checks your receipt. The gate fails a changed test that still passes with your change reverted (JOB-12); a refactor's \`--exempt-revert "<why>"\` asks a reviewer to exempt it.`);
-  L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
+  if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id}\`. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your fast checks (CI runs the suite), pushes and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
+  else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id}\`. It pushes and marks the PR ready; if it stops, rerun it. CI runs the suite. The gate fails a changed test that still passes with your change reverted (JOB-12); a refactor needs a reviewer's exemption (\`revert exempt\`).`);
+  L.push(`${n + 4}. When it says the job is complete, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: "urgency is fully supported in process3's initial release"; the wait, at most
   // decision_minutes, is the coordinator's chain.
@@ -276,7 +276,7 @@ function provable(root, id, branch, tranche, from) {
 // The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
 function setupOrStop(root, cfg, slug, setup, log) {
   // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
-  const s = setup(root, { slug, log, anchor: true });
+  const s = setup(root, { slug, log, anchor: true, cache: true });
   // A session not started from the tranche (Bob, 2 Nov, before the log; unverified): say so plainly, with the check's own
   // words for what to do (re-review of PR 24).
   if (s.missing.includes('session-branch')) {
@@ -768,14 +768,11 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
     log(`draft pull request opened for the BLOCKED ${branch}: ${pr.html_url || `#${pr.number}`}`);
   }
   const last = git(['log', '-1', '--format=%h %s', `origin/${branch}`], { cwd: root });
-  const tipSha = git(['rev-parse', `origin/${branch}`], { cwd: root });
-  const r = latestReceipt(notes(slug, pr.number), pr.user?.login);
-  const receipt = !r ? 'none posted' : r.sha === tipSha ? `posted for the branch's tip` : `posted for ${String(r.sha).slice(0, 10)}, not the branch's tip`;
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
     entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
     notices: named(noticesFor(root, cfg, id, true), startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()),
-    restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
+    restart: { why, pr: pr.html_url || `#${pr.number}`, last, state },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
   const launch = sessionCall({ slug, revision: tip, title: `job ${id} (restart)`, prompt: start, model, clone: cfg.clone });
@@ -803,67 +800,6 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
 
 // The unmet marks of a requirement file, by the one parser status counts with (util's unmetIds).
 export const markedIds = (text) => unmetIds(text);
-
-// The marks the branch struck against the base, each with the test the job names for it with
-// --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
-// before anything is marked or pushed when one is missing or does not hold. A mark is struck only
-// when its id is not retired in a split and did not become unmet, with the same text, in another
-// requirement file this branch changed: a moved id owes no test, which would only pin the id
-// (coordinator, 4 Nov). Ids are numbered per file, so the id alone is not a move (review of PR 122).
-// Provider notices are answered by the START row at merge or by a triage row, never by a test.
-function struckTests(root, entry, base, given) {
-  const at = (ref, f = entry.requirements) => git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
-  const [was, now] = [at(base), at('HEAD')];
-  const left = new Set(markedIds(now));
-  const entries = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter((e) => e?.requirements && e.requirements !== entry.requirements);
-  const files = (ref) => entries(ref).map((e) => e.requirements);
-  const body = (t) => new Map(String(t).split('\n').map((l) => [l.match(/\*\*([RF][\w.-]+)\*\*/)?.[1], l.replace(/\*\(not yet met.*?\)\*/g, '').replace(/^[\s*+\d.-]*/, '').replace(/\s+/g, ' ').trim()]).filter(([id]) => id));
-  const gone = markedIds(was).filter((r) => !left.has(r));
-  const other = new Set(gone.length ? files('HEAD') : []);
-  const mine = body(was);
-  const moved = new Set(git(['diff', '--name-only', base, 'HEAD'], { cwd: root }).split('\n').filter((f) => other.has(f)).flatMap((f) => {
-    const [b, h] = [new Set(markedIds(at(base, f))), at('HEAD', f)];
-    const lines = body(h);
-    return markedIds(h).filter((r) => !b.has(r) && lines.get(r) === mine.get(r));
-  }));
-  const retired = new Set(retiredIds(was, now, gone));
-  // Moved out by a split (coordinator, 5 Nov: jurisdictions R109 and four more, copied to
-  // jurisdictions-b and -c, each line "was jurisdictions R<n>"): an id whose line is no longer in
-  // the module's file at the attempt's head, and that another module's file names as moved from it
-  // (or holds unchanged), owes no test; the receipt names it moved, and where to. A line deleted
-  // with no such destination still owes its test (review: else a job could drop what it cannot meet).
-  const here = body(now);
-  const esc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const heads = gone.some((r) => !here.has(r)) ? entries('HEAD').map((e) => ({ id: e.id, text: at('HEAD', e.requirements) })) : [];
-  const into = (r) => {
-    const re = new RegExp(`(?<![\\w.-])was ${esc(entry.id)} ${esc(r)}(?![\\w.-])`);
-    // The same line, still unmet, at HEAD counts whether or not this branch wrote it: a split that
-    // copied the lines before the attempt's base (coordinator, 5 Nov: interface-shell, installer,
-    // control-plane). Residual: an unrelated module with the same id and line (review).
-    return heads.filter((e) => re.test(e.text) || (body(e.text).get(r) === mine.get(r) && markedIds(e.text).includes(r))).map((e) => e.id);
-  };
-  const movedOut = gone.filter((r) => !here.has(r) && !retired.has(r)).map((r) => ({ req: r, to: into(r) })).filter((m) => m.to.length);
-  const out = movedOut.map((m) => m.req);
-  const struck = gone.filter((r) => !moved.has(r) && !retired.has(r) && !out.includes(r));
-  const named = new Map();
-  for (const g of given) {
-    if (/^notice:/.test(String(g))) continue; // accepted and ignored, for jobs started when the START asked for it
-    const m = /^([RF][\w.-]+)=(.+?)::(.+)$/.exec(String(g));
-    if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>" (F<n>= for a found mark)`);
-    if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
-    named.set(m[1], { req: m[1], file: m[2], name: m[3] });
-  }
-  const missing = struck.filter((r) => !named.has(r));
-  if (missing.length) fail(`not complete, nothing pushed or marked: the branch struck ${missing.join(', ')} with no --test; add --test ${missing[0]}="<test file>::<test name>" for each`);
-  const holds = (label, t) => {
-    if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${label}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
-    const text = git(['show', `HEAD:${t.file}`], { cwd: root, allowFail: true });
-    if (text.code !== 0) fail(`--test ${label}: ${t.file} is not committed on this branch`);
-    if (!text.stdout.includes(t.name)) fail(`--test ${label}: ${t.file} does not contain "${t.name}"`);
-    return t;
-  };
-  return { tests: struck.map((r) => holds(r, named.get(r))), moved: movedOut };
-}
 
 // The base after the job's own merge of its tranche or layer (C36, the coordinator, 8 Nov: on the
 // copy a layer-12 job's publish refused "job screens-inquiry may change only its own entry" for
@@ -943,7 +879,7 @@ const short = (sha) => String(sha).slice(0, 10);
 // and #4): the job runs .process, so after a merge of the tranche that moved the pin it ran the
 // old tool, and a branch started on an old pin ran a tool without the tranche's fixes, while the
 // gate runs the tranche's. Refused before any work, naming the step that fixes it. A tool newer
-// than both stands (a COMPLETE job moves .process to amend its receipt: copy PR 40).
+// than both stands (a COMPLETE job may move .process to a newer pin: copy PR 40).
 export function pinCheck(root, id, { toolRoot = TOOL_ROOT, tranche = null, what = 'it' } = {}) {
   const have = git(['rev-parse', 'HEAD'], { cwd: toolRoot, allowFail: true }).stdout.trim();
   if (!have) return;
@@ -1126,11 +1062,11 @@ export function jobSync(root, id, { push = true, pushBranch = true, compare: cmp
 }
 
 // The job: fast checks (ledger, records, install, build, the module's checks; never a suite:
-// AUD-7, PLT-4), then COMPLETE, push, receipt, ready (JOB-5, JOB-7). CI runs the suite.
+// AUD-7, PLT-4), then COMPLETE, push, ready (JOB-5). CI runs the suite.
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing, or,
 // with commits after the COMPLETE commit and its pull request open, completes a new attempt.
 export function jobComplete(root, id, opts = {}) {
-  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log, costUsd, session } = opts;
+  const { noSuite, push = true, exec, log = console.log, costUsd, session } = opts;
   // The job's own cost (coordinator, 4 Nov: job_usd unmeasured for all 52 jobs on the copy): BOB
   // writes it at the merge (merge --job-cost-usd), read from get_session on the job's idle session;
   // a job reading its own mid-turn has no usage yet (measured 4 Nov, 11:49). A nonzero --cost-usd
@@ -1144,16 +1080,14 @@ export function jobComplete(root, id, opts = {}) {
   // named cse_, BOB's and get_session session_, so a delta never found the other's row).
   const sid = sessionForm(typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null);
   if (cost !== null && !sid) fail('--cost-usd needs the session it is the cost of: --session <your session id>; the row counts only that session\'s cost since its last row');
-  const io = { findPR, addComment, markReady, comments, toDraft, getPR, editPR, ...(opts.gh || {}) };
-  if (exemptRevert === true) fail('--exempt-revert needs a reason');
+  const io = { findPR, markReady, ...(opts.gh || {}) };
   const branch = onBranch(root, id);
   const cfg = jobCfg(root, loadConfig(root), id, { push });
   if (push) fetchRef(root, cfg.tranche);
   pinCheck(root, id, { toolRoot: opts.toolRoot, tranche: push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`, what: 'job complete' });
   // BOB's merge pushed to job/<id>: the job's push would be refused (defect sweep 4 Nov, #5).
   if (push && originAhead(root, branch)) fail(`origin's ${branch} has commits this checkout lacks (BOB's merge of the tranche, or a push from elsewhere): run \`${P3} job sync ${id}\`, then job complete again; nothing was run`);
-  // A COMPLETE job may move .process to a newer pin to amend its receipt with that pin's tool;
-  // it commits nothing, so the moved submodule is not work to commit (copy PR 40, 4 Nov).
+  // A COMPLETE job may move .process to a newer pin; it commits nothing, so the moved submodule is not work to commit (copy PR 40, 4 Nov).
   const done = readEntry(root, id).status.state === 'COMPLETE';
   if (dirty(root, done)) fail(dirty(root, true) ? 'commit your work first: tracked files have changes' : '.process is not at the pin this branch records, and a job never commits .process: run `git submodule update .process`, then job complete again');
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
@@ -1167,16 +1101,12 @@ export function jobComplete(root, id, opts = {}) {
   let again = null;
 
   if (entry.status.state === 'COMPLETE') {
-    // Resume: the receipt was saved in the COMPLETE commit's row; its SHA is that commit.
+    // Resume: the COMPLETE commit is the one job complete made.
     const row = readRows(root, id).filter((r) => r.event === 'complete').pop();
-    if (!row?.receipt) fail(`${id} is COMPLETE but no receipt was saved; ask your coordinator`);
     // By its message, not the last touch of the metrics file: BOB's merge row touches it too.
     const at = completeCommit(root, id);
     if (!at) fail(`${id} is COMPLETE but this clone's history holds no "job complete ${id}" commit; run \`${P3} job sync ${id}\`, then job complete again`);
-    if (at === git(['rev-parse', 'HEAD'], { cwd: root })) {
-      if (opts.tests?.length || noSuite) log('the job is COMPLETE: its commands and tests stand as saved; only --exempt-revert and --not-verified amend the receipt');
-      return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert }, again: !!row.receipt.after });
-    }
+    if (at === git(['rev-parse', 'HEAD'], { cwd: root })) return finish(root, { id, slug, pr, branch, push, io, log });
     // Commits after the COMPLETE commit, its pull request still open (copy PR 79, 4 Nov: the
     // gate went red and the job pushed fixes): a new attempt, checked and tested as a fresh
     // complete, with its own start row (nextAttempt counts them) dated at its first commit.
@@ -1184,10 +1114,9 @@ export function jobComplete(root, id, opts = {}) {
     // start dated before attempt 1's complete row would take that row from attempt 1 (review of
     // PR 81); never before that row in any case.
     const first = new Date(git(['log', '--first-parent', '--reverse', '--format=%cI', `${at}..HEAD`], { cwd: root }).split('\n')[0]).toISOString().replace(/\.\d+Z$/, 'Z');
-    again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
+    again = { after: at, pr: pr?.number ?? null, from: row?.at && first < row.at ? row.at : first };
   } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
-  const { tests, moved } = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
   const home = cfg.layer ? homeRef(root, cfg.layer.tranche) : null;
@@ -1208,15 +1137,13 @@ export function jobComplete(root, id, opts = {}) {
   const built = installed0(inst) ? buildModuleGenerated(root, cfg, { timeout, exec, log }) : null;
   if (built) for (const c of built.commands) commands.push(c);
   const installed = !inst.findings.length && !(built && built.findings.length);
-  const notv = [...notVerified];
   try {
     // The module's checks are product code: without the GitHub tokens, as the gate runs it.
     for (const c of installed ? entry.checks || [] : []) {
       const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
       commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
     }
-    // AUD-7, PLT-4, JOB-5: no test suite runs in the session. The module's suite runs in CI (the
-    // gate), which checks this receipt against its own run (AUD-2); the receipt claims it passes.
+    // AUD-7, PLT-4, JOB-5: no test suite runs in the session. The module's suite runs in CI (the gate).
     if (noSuite) log('--no-suite is the default: job complete runs no suite; the gate runs it in CI');
   } finally {
     if (built) restoreGenerated(root, built.ran, log);
@@ -1229,92 +1156,41 @@ export function jobComplete(root, id, opts = {}) {
     return { ok: false, commands };
   }
   const attempt = again ? nextAttempt(root, id) : nextAttempt(root, id) - 1;
-  // The receipt is saved in the COMPLETE commit, so a rerun after a failed push can post it.
-  const receipt = {
-    kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
-    commands, tests, ...(moved.length ? { moved } : {}), not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
-    ...(again ? { after: again.after } : {}),
-    ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}),
-  };
   try {
     if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), branch, again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, ...(sid ? { session: sid } : {}), receipt, ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, ...(sid ? { session: sid } : {}), tool: toolPin(), ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
     if (cost !== null) {
       // The session's cost since its own last row: a session that completes twice is counted once.
       const { usd, prior } = costDelta(readRows(root, id), sid, cost);
       appendRow(root, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: usd });
       if (usd === 'unmeasured') log(`job ${id}'s cost: unmeasured (session ${sid} read ${cost}, its last row ${prior}: get_session's usage has not moved since); BOB reads it at the merge: merge --job-cost-usd`);
     }
-    receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
+    commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
   } catch (e) {
     restore(root, [entryFile(id), metricsFile(id)]);
     throw e;
   }
-  return finish(root, { id, slug, pr, branch, push, io, log, receipt, again: !!again });
+  return { ...finish(root, { id, slug, pr, branch, push, io, log }), commands };
 }
 
-// A COMPLETE job's rerun with --exempt-revert or --not-verified: the saved receipt (its commands
-// and tests stand) carrying the claims of the newest receipt posted at the same commit, so a
-// second amendment keeps the first's (review of PR 64), with the revert exemption set and the
-// not-verified lines added (never removed: dropping one would claim a check nobody ran), and
-// what it replaced. Null when nothing changes. The COMPLETE commit's row keeps the original.
-export function amendReceipt(saved, { notVerified = [], exemptRevert } = {}, prior = null) {
-  const at = prior?.sha === saved.sha ? prior : null;
-  const was = {
-    exempt: { ...(saved.exempt || {}), ...(at?.exempt || {}) },
-    not_verified: [...new Set([...(saved.not_verified || []), ...(at?.not_verified || [])])],
-  };
-  const exempt = exemptRevert ? { ...was.exempt, revert: exemptRevert } : was.exempt;
-  const not_verified = [...was.not_verified, ...notVerified.filter((x) => !was.not_verified.includes(x))];
-  if (sameClaims({ exempt, not_verified }, at || saved)) return null;
-  return { ...saved, exempt, not_verified, amended: { at: now(), tool: toolPin(), was: at ? { exempt: at.exempt || {}, not_verified: at.not_verified || [] } : was } };
-}
-const sameClaims = (a, b) => JSON.stringify([a?.exempt || {}, a?.not_verified || []]) === JSON.stringify([b?.exempt || {}, b?.not_verified || []]);
-
-// Push, confirm the push landed (REC-5), post the receipt once, mark ready. Each step is
-// skipped when it is already done, so a half-finished job complete can simply run again.
-// An amended receipt is posted unless the newest one already makes the same claims.
-// A new attempt on a ready pull request first makes it a draft again, so the push's gate run
-// skips and the run on ready reads the new receipt, as on a first complete.
-function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = null, again = false }) {
+// Push, confirm the push landed (REC-5), mark ready. Each step is skipped when it is already
+// done, so a half-finished job complete can simply run again.
+function finish(root, { id, slug, pr, branch, push, io, log }) {
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
-  if (!push) {
-    const a = amend && amendReceipt(receipt, amend);
-    return { ok: true, receipt: a || receipt };
-  }
+  if (!push) return { ok: true, sha };
   if (remoteTip(root, branch) !== sha) {
     refuseUnpushable(root, loadConfig(root), { branch });
-    if (again && !pr.draft) pr = { ...pr, ...io.toDraft(slug, pr), draft: true };
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again${originAhead(root, branch) ? `, after \`${P3} job sync ${id}\`: origin's ${branch} has commits this checkout lacks` : ''}`);
   }
   if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
-  const all = io.comments(slug, pr.number);
-  let posted = latestBlock(slug, pr.number, RECEIPT, all, { from: pr.user?.login || null });
-  let url = posted?.comment?.html_url;
-  const amendedReceipt = amend && amendReceipt(receipt, amend, posted?.data);
-  const amended = !!amendedReceipt;
-  if (amended) receipt = amendedReceipt;
-  if (posted?.data?.sha !== sha || amended) {
-    // A new attempt pushed while the pull request was ready (a run stopped after its push, or a
-    // push by hand) and never given its receipt: a draft first, so the ready below starts the
-    // gate run that reads this receipt; the push's own run had none to read.
-    if (again && !pr.draft && posted?.data?.sha !== sha) pr = { ...pr, ...io.toDraft(slug, pr), draft: true };
-    const what = amended ? 'Amended receipt' : 'Receipt';
-    const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `${what} for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
-    url = c.html_url;
-    posted = { comment: { ...c, created_at: c.created_at || now() }, data: receipt };
-  }
-  // The ready below starts the gate run that reads the receipt. An amended receipt changes no
-  // claim the gate reads, so a pull request already ready is not gated again.
   if (pr.draft) io.markReady(slug, pr.number);
-  log(`receipt: ${url}`);
   // The job's report: its pull request is ready for BOB's merge once the gate passes.
   // Its session named, for BOB's merge to read the job's cost from (merge --job-cost-usd).
   const sid = readRows(root, id).filter((r) => r.event === 'complete').pop()?.session;
   log(wakeLine(`job ${id} complete, PR #${pr.number} ready${sid ? `, session ${sid}` : ''}`, jobSender(id)));
-  return { ok: true, receipt: receipt || posted?.data };
+  return { ok: true, sha };
 }
 
 // The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed. Commits only

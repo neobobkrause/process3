@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { gate } from '../lib/gate.mjs';
-import { RECEIPT, block } from '../lib/github.mjs';
 import { git } from '../lib/util.mjs';
 import { specifiers } from '../lib/checks.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const io = (head) => ({
-  comments: () => [{ id: 1, body: block(RECEIPT, { kind: 'receipt', module: 'alpha', attempt: 1, sha: head, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: { revert: 'fixture' } }), user: { login: 'u' } }],
+  comments: () => [],
   getPR: () => ({ user: { login: 'u' } }), addComment: () => ({}), verify: () => false,
 });
 const passing = "import test from 'node:test'; test('ok', () => {});\n";

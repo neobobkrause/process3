@@ -16,7 +16,7 @@ Every kept or modified Ledger line, and where it is held: built (named code), a 
 | JOB-8, GAT-4 | No check that a job commits no generated artifact, and no regeneration step, though the CI table lists one; Phase 2 now runs a layer's jobs at once, which is when they conflict | Phase 2 |
 | P18 | The pipeline is a nudge in BOB's prompt only | As the earlier process version held it: the cycle itself (all of a layer's jobs at once, each close straight into the next open, Phase 3) and BOB's preparation in order of value (Phase 2 prompt); BOB's idle time measured before anything more. A listed set of preparation acts with Stop guards was removed by Bob in an earlier product as too inefficient (K5787) |
 | P9, PLN-3 | Status prints no reports to route | Phase 2, in the status row |
-| P7 | Nothing shows each struck requirement has a test; the mechanical pass has no procedure | Phase 2: the receipt names the test for each struck mark and the review brief checks it; mechanical pass a later gate |
+| P7 | Nothing shows each struck requirement has a test; the mechanical pass has no procedure | The review brief asks the reviewer to check each struck mark has a test (PD-21: no receipt); mechanical pass a later gate |
 | REC-8, P20 | The reading audit has no build | Later gate |
 | TXT-1 | The product's CLAUDE.md holds only the approvals; no pin or fetch line | Phase 3, with the shims |
 | TXT-3, TXT-5 | No rulebooks and no skill written | Phase 3, with the shims, as Text to write says |
@@ -109,7 +109,7 @@ Every kept or modified Ledger line, and where it is held: built (named code), a 
 | JOB-4 | Never restarted for a process reason | Pin by pull request; BOB's prompt | Nudge; Built |
 | JOB-5 | Fast local checks; gate in CI; never a full suite in the session (Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-7) | job complete | Built |
 | JOB-6 | Restart a dead job | job start restarts from the branch and pull request | Phase 2 |
-| JOB-7 | Receipt, checked against CI's own run of the job's tests; every disagreement counts in the false-done rate (Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-2) | job complete | Built |
+| JOB-7 | CI's own run of the job's tests is the evidence; no receipt (Bob, 9 Nov, PD-21) | gate | Built |
 | JOB-8 | No generated artifact committed | Nothing | **Gap** (Phase 2) |
 | JOB-9 | Turn ends COMPLETE or on a named wait | status and the sweep | Nudge; Built |
 | JOB-10 | Reading set and tokens per attempt | metrics | Built |

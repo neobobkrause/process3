@@ -2,17 +2,14 @@
 // manifests was refused by merge --plain as "module files, which go through a job"; a plain pull
 // request may now change a module's committed generated files when that is all it changes of any
 // module and the gate regenerated them from its commit byte-identical, the row recording it.
-// Copy (ai-use) PR 105: a receipt-only commit after a green code gate was refused because the
-// record-since-green run left attempt 3 "present"; it is now checked against that code run when
-// it was made on the tree that run tested, and refused, with the act that clears it, when not.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { gate as gateRun, gateComment } from '../lib/gate.mjs';
-import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
-import { merge, mergePlain, unread } from '../lib/merge.mjs';
+import { BOT, GATE, block, parseBlock } from '../lib/github.mjs';
+import { mergePlain } from '../lib/merge.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { setupCheck } from '../lib/setup.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -135,77 +132,6 @@ test('records pushed after the green refresh run keep its comparison', () => {
   const head2 = commit(p.root, { 'process/metrics/alpha.jsonl': '{}\n' });
   const r2 = gate(p.root, { base: p.base, head: head2, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet });
   assert.deepEqual([r2.run.trigger, r2.run.refresh?.result], ['record-since-green', 'identical']);
-});
-
-// ai-use PR 105: attempt 1 agreed on the code run; attempt 3 was a receipt-only commit after it.
-const realTest = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('x is 2', () => a.equal(x, 2));\n";
-const receiptOf = (attempt, sha, exit = 0, extra = {}) => ({ kind: 'receipt', module: 'alpha', attempt, sha, commands: [{ cmd: 'node --test', exit, suite: true }], exempt: {}, ...extra });
-function jobPR({ testFile = realTest } = {}) {
-  const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }), 'src/alpha/index.mjs': SRC, 'test/alpha/old.test.mjs': PASS });
-  git(['branch', 'tranche'], { cwd: root });
-  const base = git(['rev-parse', 'HEAD'], { cwd: root });
-  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
-  const c0 = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'src/alpha/extra.mjs': 'export const y = 1;\n', 'test/alpha/x.test.mjs': testFile });
-  git(['rm', '-q', 'src/alpha/extra.mjs'], { cwd: root });
-  const code = commit(root, {});
-  const g = gateIO([{ id: 1, body: block(RECEIPT, receiptOf(1, code)), user: { login: 'acmewidget' } }]);
-  const first = gate(root, { base, head: code, branch: 'job/alpha', pr: 105, slug: 'o/r', io: g.io, log: quiet });
-  assert.deepEqual([first.run.trigger, first.run.receipt, first.run.revert, first.run.ok], ['code', 'agrees', 'pass', true]);
-  // Attempt 3: job complete's commit writes only the entry and the metrics.
-  const head = commit(root, { 'process/ledger/alpha.json': entry('alpha', { status: { state: 'COMPLETE' } }), 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":3}\n' });
-  const again = (receipt) => {
-    g.state.comments.push({ id: g.state.comments.length + 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } });
-    return gate(root, { base, head, branch: 'job/alpha', pr: 105, slug: 'o/r', io: g.io, log: quiet });
-  };
-  return { root, c0, code, head, again };
-}
-
-test('a later attempt on a receipt-only commit after a green code run is checked against that run, and agrees (AUD-2)', () => {
-  const j = jobPR();
-  const r = j.again(receiptOf(3, j.head));
-  assert.deepEqual([r.run.trigger, r.run.after, r.run.receipt, r.run.receipt_attempt, r.run.receipt_measured, r.run.ok], ['record-since-green', j.code, 'agrees', 3, j.code, true]);
-});
-
-test('a later attempt claiming what the code run did not find disagrees, and is a finding', () => {
-  const j = jobPR();
-  const r = j.again(receiptOf(3, j.head, 1));
-  assert.equal(r.run.receipt, 'disagrees');
-  assert.match(r.findings.find((f) => f.check === 'receipt').message, new RegExp(`the receipt claims the suite failed; the gate's run on ${j.code.slice(0, 10)} passed`));
-});
-
-test('a later attempt made on code no run measured gets a code run that checks it, and merge says what clears an old row', () => {
-  // The fast path cannot stand on the earlier run (copy PR 247): the gate runs the suite on this head.
-  const j = jobPR();
-  const r = j.again(receiptOf(3, j.c0));
-  assert.deepEqual([r.run.trigger, r.run.suite, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['code', 'pass', 'agrees', 3, true]);
-  // merge names the act for a row that did not check the receipt: an earlier pin's 'present', or 'unmeasured'.
-  const row = (receipt, receipt_attempt = 3) => ({ sha: 'h'.repeat(40), trigger: 'record-since-green', ok: true, receipt, receipt_attempt });
-  assert.equal(unread([row('agrees')], 'h'.repeat(40), 3), '');
-  for (const w of ['present', 'unmeasured']) assert.match(unread([row(w)], 'h'.repeat(40), 3), new RegExp(`its newest run left the receipt ${w}, not checked against CI's run of its tests: give the gate on hhhhhhhhhh a new event`), w);
-  assert.match(unread([row('agrees', 2)], 'h'.repeat(40), 3), /its newest run read attempt 2: give the gate on hhhhhhhhhh a new event \(edit the pull request\)$/);
-});
-
-test('merge refuses a later attempt no green run read, with the words that clear it', () => {
-  const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha') });
-  git(['branch', 'tranche'], { cwd: root });
-  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
-  git(['init', '-q', '--bare', bare], { cwd: root });
-  git(['remote', 'add', 'origin', bare], { cwd: root });
-  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
-  const head = commit(root, { 'src/alpha/a.mjs': 'x' });
-  git(['push', '-q', 'origin', 'tranche', 'job/alpha', 'main'], { cwd: root });
-  git(['checkout', '-q', 'main'], { cwd: root });
-  const io = {
-    getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
-    comments: () => [
-      { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 3, sha: head }), user: { login: 'acmewidget' } },
-      { id: 2, body: block(GATE, { runs: [{ sha: head, trigger: 'record-since-green', after: 'c'.repeat(40), ok: true, receipt: 'present', receipt_attempt: 2, run_id: 11 }] }), user: { login: BOT } },
-    ],
-    checkRun: () => ({ status: 'completed', conclusion: 'success' }),
-    verify: () => true,
-    mergePR: () => assert.fail('nothing merges'),
-  };
-  assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /checked receipt attempt 3 and agreed with it; its newest run read attempt 2: give the gate on .* a new event \(edit the pull request\)/);
 });
 
 // Review 1 of PR 95.
