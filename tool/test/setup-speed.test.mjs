@@ -7,7 +7,7 @@
 // end to end through the CLI (PD-17).
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -92,8 +92,14 @@ test('the idle check BOB\'s commands run first reads the state branch\'s layer r
 // product's .process, with the idle check before it and the GitHub ledger after it, git counted.
 test('rehearsal: a pin move\'s two `setup check --at HEAD` runs at the copy\'s scale', () => {
   const fx = pinSession();
-  rmSync(join(fx.work, '.process'), { recursive: true, force: true });
-  symlinkSync(TOOL, join(fx.work, '.process'));
+  // .process as a product's is: a clone holding the pin commit (never a link: git 2.56 refuses a
+  // fetch while a submodule path is a symbolic link), with this checkout's tool files laid over it so
+  // the code under test is what runs.
+  const proc = join(fx.work, '.process');
+  rmSync(proc, { recursive: true, force: true });
+  git(['clone', '-q', '--shared', '--no-checkout', TOOL, proc], { cwd: fx.work });
+  git(['checkout', '-q', '--detach', fx.pin], { cwd: proc });
+  for (const d of ['tool', 'shims', 'setup']) cpSync(join(TOOL, d), join(proc, d), { recursive: true });
   const bin = fakeGh(fx, 'o/r');
   const log = join(fx.dir, 'git.log');
   // A git that logs its arguments, then runs the real one.
