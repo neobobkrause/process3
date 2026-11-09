@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { walkRound } from '../lib/deploy.mjs';
 import { flowRows, writeRows } from '../lib/layerflow.mjs';
 import { owedReopens } from '../lib/rounds.mjs';
-import { parseFindings, roundNext, walkEntries, withFile } from '../lib/roundnext.mjs';
+import { oneLine, parseFindings, roundNext, walkEntries, withFile } from '../lib/roundnext.mjs';
 import { fetchState, writeState } from '../lib/state.mjs';
 import { Fail, git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -70,9 +70,10 @@ const merged = (root, n, min) => { writeRows(root, SB, `merged ${n}`, [[`layerfl
 
 // GitHub, stood in: the open pull requests, a create that records one, and the merge tool's plain
 // merge as a fast-forward of the tranche to the pull request's branch.
-function gh(root, { failMerge = 0, failCreate = 0 } = {}) {
+function gh(root, { failMerge = 0, failCreate = 0, conflicted = new Set() } = {}) {
   const prs = [];
   const made = [];
+  const closed = [];
   let n = 100;
   let fails = failMerge;
   let createFails = failCreate;
@@ -80,6 +81,8 @@ function gh(root, { failMerge = 0, failCreate = 0 } = {}) {
     slug: 'o/p',
     comments: () => [],
     openPRs: () => prs.map((p) => ({ number: p.number, head: { ref: p.head } })),
+    getPR: (slug, num) => ({ number: num, mergeable: !conflicted.has(num) }),
+    closePR: (slug, num) => { const p = prs.find((x) => x.number === num); prs.splice(prs.indexOf(p), 1); closed.push(num); },
     createPR: (slug, pr) => { if (createFails > 0) { createFails--; throw new Fail('GitHub did not return a pull request'); } const p = { number: ++n, ...pr }; prs.push(p); made.push(p); return { number: p.number }; },
     mergePlain: (r, num, opts) => {
       assert.match(opts.noReview, /found marks only, no code/);
@@ -92,7 +95,7 @@ function gh(root, { failMerge = 0, failCreate = 0 } = {}) {
       return { ok: true };
     },
   };
-  return { io, prs, made };
+  return { io, prs, made, closed, conflicted };
 }
 const run = (root, io, opts = {}) => { const out = []; const r = roundNext(root, { io, log: (l) => out.push(String(l)), ...opts }); return { ...r, text: out.join('\n') }; };
 const reqAt = (root, id) => git(['show', `origin/tranche:req/${id}.md`], { cwd: root });
@@ -120,6 +123,10 @@ test('round next: the findings grouped one entry per distinct flaw, with covers;
   assert.deepEqual(lines.map((l) => [l.module, l.text, l.covers]), [['b', 'the footer is laid over the b button', null], ['c', 'c is slow', 4]]);
   // b's two entries (3 failures) are one line, which takes all 3; d keeps the walk's; c is added.
   assert.deepEqual(withFile(e, lines).map((x) => [x.module, x.text, x.covers]), [['d', 'the d form loses its draft', 3], ['b', 'the footer is laid over the b button', 3], ['c', 'c is slow', 4]]);
+  // One module's flaws of the same words are one finding (found keys them alike); words cut clean.
+  assert.deepEqual(walkEntries([{ module: 'b', kind: 'k1', message: 'timeout' }, { module: 'b', kind: 'k2', message: 'timeout' }]), [{ module: 'b', text: 'timeout', covers: 2 }]);
+  assert.equal(oneLine(`${'x'.repeat(199)} y`), 'x'.repeat(199));
+  assert.equal(oneLine('not  yet\u00a0met'), 'not met');
   assert.throws(() => parseFindings('b the text\n'), /--findings line 1: `<module>: <text>`/);
   assert.throws(() => parseFindings('b: a **F2** mark\n'), /must not hold a mark of its own/);
 });
@@ -202,6 +209,37 @@ test('round next: the marks pushed and their pull request not opened: a re-run o
   assert.equal(made.length, 1);
   assert.match(a.text, /was pushed by an earlier run with no pull request: pull request \d+ opened from it/);
   assert.equal((reqAt(root, 'b').match(/\*\*F\d\*\*/g) || []).length, 2, 'each mark once');
+});
+
+test('round next: a conflicted marks pull request is closed and the marks cut again; a printed found act\'s number is skipped; findings recorded under other words wait on BOB', () => {
+  const root = product();
+  const row = walked(root, { failures: FLAWS.slice(0, 3), min: 10 });
+  // BOB's own `found b ...` act, its branch pushed with F1 and not yet merged: round next numbers past it.
+  git(['push', '-q', 'origin', 'origin/tranche:refs/heads/found/b-f1'], { cwd: root });
+  git(['checkout', '-q', '-b', 'fb', 'origin/tranche'], { cwd: root });
+  commit(root, { 'req/b.md': `${req('b')}- **F1** *(not yet met: review)* other\n` }, 'found b F1');
+  git(['push', '-q', '-f', 'origin', 'fb:refs/heads/found/b-f1'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const { io, prs, closed, conflicted, made } = gh(root, { failMerge: 1 });
+  assert.throws(() => run(root, io, { apply: true }), /the gate did not finish/);
+  assert.match(git(['show', `origin/${made[0].head}:req/b.md`], { cwd: root }), /\*\*F2\*\*[^\n]*the b button[^\n]*\n- \*\*F3\*\*/);
+  // The tranche moves under it: GitHub finds it conflicted; the re-run closes it and cuts the marks again.
+  conflicted.add(prs[0].number);
+  const a = run(root, io, { apply: true });
+  assert.deepEqual(closed, [made[0].number]);
+  assert.equal(made.length, 2);
+  assert.match(made[1].head, /^found\/round-2-internal-w\d+-2$/);
+  assert.deepEqual([a.state, a.layer], ['opened', 4]);
+  // A walk whose findings are part recorded by hand, in other words: nothing is recorded again.
+  const root2 = product();
+  const r2 = walked(root2, { failures: FLAWS.slice(0, 3), min: 10 });
+  push(root2, { 'req/b.md': `${req('b')}- **F1** *(not yet met: internal walk ${r2.slug} ${r2.commit.slice(0, 10)})* b's footer, as BOB put it\n` });
+  const g2 = gh(root2);
+  const d = run(root2, g2.io);
+  assert.match(d.text, /1 finding\(s\) of this walk are recorded under other words[^\n]*the 2 not yet recorded/);
+  assert.throws(() => run(root2, g2.io, { apply: true }), /recorded under other words[^\n]*; nothing was recorded/);
+  assert.equal(g2.made.length, 0);
+  void row;
 });
 
 test('round next: PD-16, a deploy dev run whose internal walk found flaws sets its live arm aside; findings no module owns wait on BOB\'s file', () => {

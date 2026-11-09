@@ -24,7 +24,7 @@ import { addFound, found, foundFile, foundLine, foundMarks, moduleFiles, nextFou
 import { layerOf, layersAt } from './layerbase.mjs';
 import { flowRows, layerJobs, layerOpen, needLayerMode, nextRound } from './layerflow.mjs';
 import { deployRowsOf, findingsOf, internalClean, owedReopens, releaseNext, roundState, runSource, unplaced, walkHold } from './rounds.mjs';
-import { createPR, openPRs } from './github.mjs';
+import { createPR, editPR, getPR, openPRs } from './github.mjs';
 import { mergePlain } from './merge.mjs';
 import { fetchState, readState } from './state.mjs';
 import { fail, fetchBranch, git, loadConfig, repoSlug, withTemp } from './util.mjs';
@@ -36,7 +36,7 @@ export const ROUND_NEXT = `${P3} round next`;
 const NO_REVIEW = 'work found elsewhere: found marks only, no code (round next)';
 
 // One line of text, as a found mark can carry it: no control characters, no mark of its own (found.mjs clean).
-export const oneLine = (s) => String(s ?? '').replace(/[\x00-\x1f\x7f]+/g, ' ').replace(/\*\*/g, '').replace(/not yet met/gi, 'not met').replace(/\s+/g, ' ').trim().slice(0, 200);
+export const oneLine = (s) => String(s ?? '').replace(/[\x00-\x1f\x7f]+/g, ' ').replace(/\s+/g, ' ').replace(/\*\*/g, '').replace(/not\s*yet\s*met/gi, 'not met').slice(0, 200).trim();
 
 // Whether the run's findings are its internal walk's (PD-16, C43): a round walk is its internal walk
 // alone; a deploy dev run's internal walk that found flaws sets its live arm aside.
@@ -85,7 +85,18 @@ export function walkEntries(failures) {
     if (e) e.covers++;
     else by.set(k, { module, text: textOf(f), covers: 1 });
   }
-  return [...by.values()];
+  return sameText([...by.values()]);
+}
+// Entries of one module with the same text are one finding (found keys an owe by module and text,
+// and a second mark of the same words is the same mark): their counts summed.
+export function sameText(entries) {
+  const out = [];
+  for (const e of entries) {
+    const had = out.find((x) => x.module === e.module && x.text === e.text);
+    if (had) had.covers += e.covers;
+    else out.push({ ...e });
+  }
+  return out;
 }
 
 // BOB's file: one finding a line, `<module>: <text>`, optionally ending `, covers <n>`; blank lines
@@ -124,7 +135,7 @@ export function withFile(entries, lines) {
     const rest = Math.max(bare.length, counted(id) - said);
     mine.forEach((l) => out.push({ module: id, text: l.text, covers: l.covers || (l === bare[0] ? rest - (bare.length - 1) : 1), file: true }));
   }
-  return out;
+  return sameText(out);
 }
 
 // How each entry is recorded, and whether it is: an owed reopen (its module's test pins its
@@ -236,6 +247,15 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
   const todo = need > 0 ? plan.entries.filter((e) => !e.recorded) : [];
   const loose = todo.filter((e) => e.route === 'no-module' || e.route === 'unknown');
   const short = need > 0 && covered(todo) < need;
+  // Findings of this run recorded under other words (by hand, or from another --findings file):
+  // which entries they stand for is not known, so none is recorded again until BOB says (cold review A).
+  const others = w.recorded - covered(plan.entries.filter((e) => e.recorded));
+  if (need > 0 && others > 0 && todo.length) {
+    const why = `${others} finding(s) of this walk are recorded under other words (by hand, or from another findings file), and which of the entries below they stand for is not known: give the rest in a file of \`<module>: <text>[, covers <n>]\` lines, the ${need} not yet recorded (\`${ROUND_NEXT} --findings <file>\`), or record them with \`${P3} found\``;
+    if (apply) fail(`${why}; nothing was recorded`);
+    log(why);
+    return { ok: true, state: 'findings', plan };
+  }
   const nx = predicted(root, cfg, plan);
   if (nx) log(`then: layer ${nx.n} opens (round ${nx.round}, map layer ${nx.of}) for ${nx.mods.join(', ')}, the lowest map layer with a flawed module; ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
   if (loose.length) {
@@ -255,7 +275,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
   for (const e of todo.filter((x) => x.route === 'owe')) found(root, e.module, e.text, { from: plan.from, covers: e.covers > 1 ? e.covers : undefined, by, offline: !!io.offline, log: (l) => log(`  ${l}`) });
   // 2. The found marks, all in one plain pull request into the tranche, merged by the merge tool.
   const marks = todo.filter((x) => x.route === 'mark');
-  if (marks.length) marksPR(root, cfg, plan, marks.filter((x) => !x.pending), { io: lio, log });
+  if (marks.length) marksPR(root, cfg, plan, marks, { io: lio, log });
   // 3. Read again: the round opens once each finding is recorded.
   if (!io.offline) { fetchBranch(root, cfg.tranche); fetchState(root, cfg.state_branch, { fresh: true }); }
   plan = roundPlan(root, cfg, { findingsFile, io: lio });
@@ -290,12 +310,25 @@ function marksPR(root, cfg, plan, marks, { io, log }) {
   const slug = io.slug;
   const base = plan.branch;
   let pr = plan.prs[0] || null;
+  // An open one GitHub finds conflicted (the tranche moved under it) is closed, never merged as it
+  // is, and the marks cut again from the tranche tip (cold review A: else every re-run fails on it).
+  let dropped = null;
+  if (pr) {
+    let st = null;
+    try { st = (io.getPR || getPR)(slug, pr.number); } catch { st = null; }
+    if (st?.mergeable === false) {
+      (io.closePR || ((sl, n) => editPR(sl, n, { state: 'closed' })))(slug, pr.number);
+      log(`pull request ${pr.number} (${pr.head?.ref}) conflicts with ${cfg.tranche}: closed (its branch kept), and the marks cut again from the tranche tip`);
+      dropped = pr.head?.ref || null;
+      pr = null;
+    }
+  }
   const heads = git(['ls-remote', '--heads', 'origin', `refs/heads/${base}*`], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split(/\s+/)).filter(([sha, ref]) => sha && ref && isMine(base, ref.replace(/^refs\/heads\//, ''))).map(([sha, ref]) => ({ sha, branch: ref.replace(/^refs\/heads\//, '') }));
   // A branch of this run pushed with no pull request (its create failed): its marks, not yet on the
   // tranche, are opened as they are, not pushed again under another name.
   if (!pr && marks.length) {
     git(['fetch', '-q', 'origin', ...heads.map((h) => `+refs/heads/${h.branch}:refs/remotes/origin/${h.branch}`)], { cwd: root, allowFail: true });
-    const left = heads.find((h) => git(['merge-base', '--is-ancestor', h.sha, plan.tr], { cwd: root, allowFail: true }).code !== 0 && git(['merge-base', '--is-ancestor', plan.tr, h.sha], { cwd: root, allowFail: true }).code === 0);
+    const left = heads.find((h) => h.branch !== dropped && git(['merge-base', '--is-ancestor', h.sha, plan.tr], { cwd: root, allowFail: true }).code !== 0 && git(['merge-base', '--is-ancestor', plan.tr, h.sha], { cwd: root, allowFail: true }).code === 0);
     if (left) {
       pr = (io.createPR || createPR)(slug, { head: left.branch, base: cfg.tranche, title: `found: round ${plan.opens}, mark(s) from the ${plan.from}`, body: `Found marks from the ${plan.from} (\`round next\`, C46). Only unmet found marks are added; no code.`, draft: false });
       log(`${left.branch} was pushed by an earlier run with no pull request: pull request ${pr.number} opened from it into ${cfg.tranche}`);
@@ -318,7 +351,7 @@ function marksPR(root, cfg, plan, marks, { io, log }) {
           const read = (f) => { try { return readFileSync(join(wt, f), 'utf8'); } catch { return null; } };
           let text = read(file);
           for (const e of es) {
-            const n = nextFound(text, read(foundFile(id)));
+            const n = nextFound(text, read(foundFile(id)), pendingFound(root, id, plan.tr));
             const line = foundLine(n, e.text, e.covers > 1 ? `${plan.from}, covers ${e.covers}` : plan.from);
             text = addFound(text, line, e.title);
             out.push(`${id} F${n}: ${e.text}`);
@@ -341,6 +374,16 @@ function marksPR(root, cfg, plan, marks, { io, log }) {
   (io.mergePlain || mergePlain)(root, pr.number, { noReview: NO_REVIEW, log, slug });
 }
 function writeFile(p, text) { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); }
+
+// The marks a printed `found` act holds on a found/<module>-f<n> branch, on origin or here, not yet
+// on the tranche, as found.mjs numbers past them: two marks never share a number.
+function pendingFound(root, id, tr) {
+  const remote = git(['ls-remote', '--heads', 'origin', `refs/heads/found/${id}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  const local = git(['for-each-ref', '--format=%(objectname) %(refname)', `refs/heads/found/${id}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  const written = (sha) => git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0 || git(['merge-base', '--is-ancestor', sha, tr], { cwd: root, allowFail: true }).code !== 0;
+  return `${remote}\n${local}`.split('\n').map((l) => l.trim().split(/\s+/)).filter(([sha, name]) => sha && name && written(sha))
+    .map(([, name]) => name.match(new RegExp(`^refs/heads/found/${id}-f(\\d+)$`))?.[1]).filter(Boolean).map((k) => `**F${k}**`).join(' ');
+}
 
 // The layer opened (apply) or named (dry run), and its jobs' `job start` commands printed.
 function openNext(root, nx, { apply, io, log, by, dry, what }) {
