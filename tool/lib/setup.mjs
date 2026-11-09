@@ -534,7 +534,7 @@ export function laneModuleCheck(cfg, entries, { log = console.log } = {}) {
 // than "layer" (or the key absent). Informational here; loadConfig refuses it once the pin moves.
 export function strategyCheck(cfg) {
   const ms = cfg?.merge_strategy;
-  if (ms === undefined || ms === 'layer') return null;
+  if (ms === undefined || ms === 'layer' || ms === 'direct') return null;
   return `BLOCKER before a pin move: process/config.json on the tranche says "merge_strategy": ${JSON.stringify(ms)}; the merge train was removed and every command (the gate included) refuses it at the new pin. First a plain pull request setting "merge_strategy": "layer" (or removing the key), merged under the current pin`;
 }
 

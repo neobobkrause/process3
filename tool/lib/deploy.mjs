@@ -20,7 +20,8 @@ import { fetchState, flushState, jsonl, pendingWrites, readState, unbatched, wri
 import { completionItems, openItems } from './completion.mjs';
 import { DEPLOYS_FILE, RELEASE_PATH_GAP, START_ROWS, WALK_ROWS, findingsOf, flawedModules, releaseNext, roundLine, roundState, runSource, walkHold } from './rounds.mjs';
 import { flowRows } from './layerflow.mjs';
-import { layerMode, layersAt } from './layerbase.mjs';
+import { directMode, layerMode, layersAt } from './layerbase.mjs';
+import { directRoundsAt } from './direct.mjs';
 import { closedRows, layerState, onMainOf, status } from './status.mjs';
 import { install } from './suite.mjs';
 import { walkConcurrency, walkEnv, walkLine } from './walkcfg.mjs';
@@ -142,6 +143,13 @@ export function roundClose(root, cfg, { ls, plan = cfg.plan, closed = [], ref, w
     const items = w?.last ? openItems(completionItems(root, cfg, ref)).map((x) => x.id) : [];
     if (items.length || (w?.last && w.marks)) return { closed: false, why: `the last round (plan close) is open: ${[items.length ? `${items.join(', ')} open in ${cfg.completion_file}` : '', w.marks ? `${w.marks} found mark(s) of ${w.last.slug} unmet` : ''].filter(Boolean).join('; ')}` };
     return { closed: true, round: 'the last round (plan close)', layer: top };
+  }
+  // PD-25: under the direct flow a round closes once every module is settled (direct.mjs).
+  if (directMode(cfg)) {
+    let rs;
+    try { rs = directRoundsAt(root, cfg); } catch (e) { return { closed: false, why: `the direct flow could not be read (${String(e.message || e).slice(0, 160)})` }; }
+    if (rs.state === 'open' || rs.state === 'new') return { closed: false, why: `round ${rs.round} is open (the direct flow): ${rs.mods.length} module(s) not settled: ${rs.mods.slice(0, 8).join(', ')}${rs.mods.length > 8 ? ', ...' : ''}`, rounds: rs };
+    return { closed: true, round: rs.round === 1 ? 'the first round' : `round ${rs.round}`, layer: null, rounds: rs };
   }
   if (!ls) return { closed: false, why: `there is no layer map (${cfg.layers_file}) and the plan is not close` };
   const open = ls.layers.filter((L) => !L.closed).map((L) => L.n);

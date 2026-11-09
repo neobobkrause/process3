@@ -4,6 +4,7 @@
 // session calls it; start record <role> <id> writes the address. Handover is split the same way.
 // The address files (addresses/<role>.json on the state branch) are written only here, through
 // state.mjs's writeState: a worktree of its own, pushed with fetch-and-retry, never forced.
+import { directMode } from './layerbase.mjs';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -147,7 +148,7 @@ export function rootPrompt({ slug, tranche = 'tranche', approvals, standing = ''
   return sized(withStanding(L, standing));
 }
 
-export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche = 'tranche', approvals, standing = '' }) {
+export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche = 'tranche', approvals, standing = '', direct = false }) {
   // The coordinator's words reach BOB directly (measured 3-4 Nov: every coordinator decision went
   // coordinator to ROOT to BOB; PR 40 waited 47 minutes, mostly on that route). ROOT stays BOB's only
   // creator and its backstop.
@@ -156,13 +157,16 @@ export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche 
   L.push(`2. \`${P3} start check\`. If it fails, act on nothing, send ROOT both SHAs and end.`);
   L.push(`3. list_sessions, its result saved as a JSON file, then \`${P3} status --role bob --sessions <that file>\` (it counts the job sessions for the cap).`);
   // The shared layer branch (the only flow): BOB starts the open layer's jobs from its list.
-  const starts = `each \`job start\` line status's \`jobs to start\` lists for the open layer (\`${P3} layer jobs <n>\`), then take up what status shows.`;
+  // PD-25, the direct flow: no layer opens; every ready job starts at once, up to the slot cap.
+  const starts = direct
+    ? `each \`job start\` line status's \`jobs to start\` lists (\`${P3} direct jobs\`: every ready job at once, up to the slot cap; each job is based on the tranche), land each ready job PR with \`${P3} layer land <pr>\` once its gate is green, then take up what status shows.`
+    : `each \`job start\` line status's \`jobs to start\` lists for the open layer (\`${P3} layer jobs <n>\`), then take up what status shows.`;
   const work = `${starts} For next work with no entry, choose modules from it whose suite runs in minutes and whose requirements are real; write their ledger entries and start their jobs, by \`--take-in\` when status lists earlier work. Never end your turn while status shows work you can start, review or merge; end it only when blocked, every job is running, or the cap is reached. Ask Bob nothing technical.`;
   if (oldBob) {
     L.push(`4. You replace BOB \`${oldBob}\`. Read the old BOB's one-screen handoff: \`git show origin/${sb}:handoff/bob.md\` after \`git fetch origin ${sb}\`. Report running to ROOT, act on the messages queued while you started, then ${work} The old BOB forwards what it receives to you until it reports ready.`);
   } else L.push(`4. Report running to ROOT, then ${work}`);
   L.push(`5. At the start of every later turn: ${wakeSteps(tranche, approvals)}. If it says the approvals changed, send ROOT one message asking for your handover and take no further step; else steps 3 and 4. Answer each sweep message with one \`${P3} send root "<what you did or wait on>" --from bob\`, delivered as it prints: a woken BOB that writes nothing is handed over two hours later.`);
-  L.push(`6. At each layer close, and at your handover before you report ready, \`${P3} metrics add bob --role bob --session <your id> --cost-usd <your cost so far, from your session record>\`; record each review worker's cost the same way under its job's module with \`--role review\`, before its merge.`);
+  L.push(`6. At each ${direct ? 'round close' : 'layer close'}, and at your handover before you report ready, \`${P3} metrics add bob --role bob --session <your id> --cost-usd <your cost so far, from your session record>\`; record each review worker's cost the same way under its job's module with \`--role review\`, before its merge.`);
   L.push('', '## Acts you may take', '', ...BOB_ACTS.map((a) => `- ${a}`), '', BOB_NOT);
   return sized(withStanding(L, standing));
 }
@@ -291,7 +295,7 @@ export function startRole(root, role, { slug = repoSlug(root), address = readAdd
   }
   if (address.bob) fail(`BOB ${address.bob.session} is addressed (since ${address.bob.at}); replace it with handover begin, not start bob`);
   const rootId = address.root?.session || fail('no ROOT is addressed; ROOT records its own address first (start record root <its id>)');
-  const prompt = bobPrompt({ slug, rootId, sb: cfg.state_branch, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'bob') });
+  const prompt = bobPrompt({ slug, rootId, sb: cfg.state_branch, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'bob'), direct: directMode(cfg) });
   const call = launch(slug, cfg, 'bob', 'BOB', prompt, tip);
   log(prompt, size(prompt));
   log(`start BOB with create_session:\n${JSON.stringify(call, null, 2)}`);
@@ -334,7 +338,7 @@ export function handoverBegin(root, { slug = repoSlug(root), address = readAddre
   const old = address.bob?.session || fail('no BOB is addressed; start one with start bob');
   const rootId = address.root?.session || fail('no ROOT is addressed; ROOT records its own address first (start record root <its id>)');
   const { tip, approvals } = tipApprovals(root, cfg);
-  const prompt = bobPrompt({ slug, rootId, oldBob: old, sb: cfg.state_branch, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'bob') });
+  const prompt = bobPrompt({ slug, rootId, oldBob: old, sb: cfg.state_branch, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'bob'), direct: directMode(cfg) });
   const call = launch(slug, cfg, 'bob', 'BOB', prompt, tip);
   log(prompt, size(prompt));
   log(`Steps for ROOT, each its own command:
@@ -380,7 +384,7 @@ export function currentPrompt(root, role, { address = readAddress(root), oldBob,
   if (role === 'root') return rootPrompt({ slug, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'root') });
   if (role === 'watcher') return watcherPrompt({ slug, tranche: cfg.tranche, approvals });
   const rootId = address.root?.session || fail('no ROOT is addressed; BOB\'s prompt names it');
-  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'bob') });
+  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals, standing: standingFor(root, cfg, 'bob'), direct: directMode(cfg) });
 }
 
 // { hash, old_bob } for the address file; null when this checkout cannot print the prompt (no

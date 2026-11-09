@@ -17,7 +17,7 @@ import { addressFile, bobAddressed, flushState, pendingWrites, wakeOnce } from '
 import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
-import { flowFile, layerOfBranch } from './layerbase.mjs';
+import { directMode, flowFile, layerOfBranch } from './layerbase.mjs';
 import { OUTSIDE, judgeWorkflow, refusal } from './workflow-limits.mjs';
 import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordPath, isShallow, laneOnly, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
@@ -229,6 +229,9 @@ export function merge(root, n, opts = {}) {
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
   const id = branchModule(pr.head?.ref, ledgerIds(root, `origin/${cfg.tranche}`));
+  // PD-25: under the direct flow a job PR lands by layer land (its uses settled, their interface
+  // changes held, its users rescheduled or noticed), never by a job merge.
+  if (id && pr.state === 'open' && directMode(cfg)) fail(`pull request ${n} is job ${id}'s under the direct flow (PD-25): it lands with ${P3} layer land ${n}, not merge`);
   // A job's pull request already merged: merge again only records its provider notices, the step
   // a failed state-branch write left undone (idempotent).
   if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) {

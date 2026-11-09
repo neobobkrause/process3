@@ -18,7 +18,8 @@ import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
 import { standingFor } from './register.mjs';
 import { landedFrom } from './landed.mjs';
-import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
+import { census, censusLines } from './census.mjs';
+import { directMode, flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
 import { companionsOf, cutAhead, dependentsOf, earlyCut, earlyProviders, flowRows, writeRows } from './layerflow.mjs';
 import { NO_TOKENS, sessionCall, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
@@ -108,7 +109,7 @@ const DEFAULT_ACTS = (branch) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, abandoned = null, takeIn, notices = [], rootId = null, decisionMinutes = 30, lane = null, standing = '', companion = null }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, abandoned = null, takeIn, notices = [], rootId = null, decisionMinutes = 30, lane = null, standing = '', companion = null, direct = false }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -167,7 +168,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit; \`${P3} job sync ${id}\` pushes it each turn (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
   // The shared layer branch (layerflow.mjs): the job publishes onto its layer; the merge tool lands it.
   const lay = layerOfBranch(tranche);
-  if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your fast checks (CI runs the suite), pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
+  if (lay !== null || direct) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your fast checks (CI runs the suite), pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
   else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. CI runs the suite and checks your receipt. The gate fails a changed test that still passes with your change reverted (JOB-12); a refactor's \`--exempt-revert "<why>"\` asks a reviewer to exempt it.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
@@ -337,6 +338,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
     // An early start (R14): the next layer's branch cut ahead, the early row recorded, before the
     // base is read; that branch is then the job's, as any of its layer's jobs.
+    if (earlyStart && directMode(loadConfig(root))) fail(`--early is the layer flow's (R14): under the direct flow (PD-25) a module starts once \`${P3} direct jobs\` lists it; nothing was started`);
     if (earlyStart) earlyCut(root, loadConfig(root), id, { io: layerIO, log });
     // The anchored checkout's; in the layer flow, the open layer's branch is the job's base.
     const c = jobCfg(root, loadConfig(root), id, { push });
@@ -347,6 +349,13 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     // layer map (layers_file) has no layer, and its jobs keep the tranche.
     if (layerMode(c) && !c.layer && !c.noLayers) fail(`${id}'s layer has no open branch (layer/<n> on origin, not merged), and it joined no open layer: a layer not yet open opens first (${P3} layer open <n>) and lists it (${P3} layer jobs <n>); a module whose layer is behind the open one joins the next to open, or, with an open item in the completion file, the open completion layer (PD-14) (${P3} layer join ${id} --why "<the work>"), then starts from that layer's list once it opens; nothing was started`);
     const a = push ? anchoredTip(root, c) : null;
+    // PD-25: the direct flow's census, this module's alone, at the tip it is cut from (no layer to
+    // open, so the layer open's census moves here). A layer-map gap is the layer flow's, not a stop.
+    if (c.layer?.direct) {
+      const at0 = a || (push ? `origin/${c.tranche}` : c.tranche);
+      const gaps = census(root, c, { ref: at0 }).gaps.filter((g) => g.id === id && !['not-on-layer', 'not-in-layer-map', 'layer-mismatch'].includes(g.kind));
+      if (gaps.length) fail(`${id} has ${gaps.length} gap(s) on ${c.tranche}; land the fixes first; nothing was started:\n${censusLines({ gaps }, { tranche: c.tranche }).slice(1).join('\n')}`);
+    }
     if (push && (c.plan === 'pause' || c.plan === 'stop')) fail(`plan ${c.plan} at the tip of ${c.tranche}: take no new step; nothing was started`);
     const m = still?.(a || `origin/${c.tranche}`);
     if (m) fail(m);
@@ -452,7 +461,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()), companion: companionFor(root, cfg, id) });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, direct: !!cfg.layer?.direct, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()), companion: companionFor(root, cfg, id) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -522,7 +531,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   // R10 (Bob, 6 Nov): a start while a provider in its layer has not landed is early; its start row
   // says so, and layer report counts it.
   let early = [];
-  if (cfg.layer) {
+  if (cfg.layer && !cfg.layer.direct) {
     // Unread: null (unknown), never counted as not early (cold review of PR 196).
     try { if (push) fetchState(root, cfg.state_branch); early = earlyProviders(root, { ...cfg, tranche: cfg.layer.tranche }, cfg.layer.n, id, from); } catch (e) { early = null; log(`note: whether this start is early was not read (${e.message})`); }
     if (early?.length) log(`note: an early start: ${early.join(', ')} ${early.length > 1 ? 'have' : 'has'} not landed on ${cfg.tranche}; ${id} may meet ${early.length > 1 ? 'their' : 'its'} interface change later (layer jobs lists ${id} after ${early.join(', ')})`);
@@ -546,7 +555,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const attempt = Math.max(nextAttempt(root, id), (fresh0?.prior ?? 0) + 1);
     const reading = readingSet(root, entry, [], cfg);
     const companion = companionFor(root, cfg, id);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed, companion });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, direct: !!cfg.layer?.direct, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed, companion });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
     appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}), ...(cfg.layer ? { layer: cfg.layer.n, early } : {}), ...(companion?.of?.length ? { companion_of: companion.of.map((c) => ({ job: c.job, why: c.why })) } : {}), ...(companion?.waits?.length ? { companions: companion.waits.map((c) => c.module) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id), ...(carried?.req ? [carried.req.file] : [])], `job start ${id} (attempt ${attempt})`);
@@ -773,7 +782,7 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
   const receipt = !r ? 'none posted' : r.sha === tipSha ? `posted for the branch's tip` : `posted for ${String(r.sha).slice(0, 10)}, not the branch's tip`;
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
-    entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
+    entry, slug, branch, tranche: cfg.tranche, direct: !!cfg.layer?.direct, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
     notices: named(noticesFor(root, cfg, id, true), startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
@@ -1190,7 +1199,7 @@ export function jobComplete(root, id, opts = {}) {
   const { tests, moved } = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
-  const home = cfg.layer ? homeRef(root, cfg.layer.tranche) : null;
+  const home = cfg.layer && !cfg.layer.direct ? homeRef(root, cfg.layer.tranche) : null;
   const ledger = checkLedger(root, { base, branch, home });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}${home ? ` --home ${home}` : ''}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
   const since = recordSince(root, { base });

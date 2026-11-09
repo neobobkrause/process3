@@ -38,11 +38,12 @@ import { completionItems, openItems, parseCompletion } from './completion.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
 import { landedFrom } from './landed.mjs';
-import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundLayerName, roundOf, safeName } from './layerbase.mjs';
+import { FLOW_DIR, directKey, directMode, flowBase, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundLayerName, roundOf, safeName } from './layerbase.mjs';
 import { deployRowsOf, findingsOf, flawedModules, roundLine, roundState, unplaced, walkHold } from './rounds.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
+import { directAct, directLand, directLines, directRoundsAt, directView, readDirect } from './direct.mjs';
 import { endLayerHolds, paidFor, readHolds } from './hold.mjs';
 import { Fail, LEDGER_DIR, exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, treeBlobs, underPath, unmetIds, withTemp } from './util.mjs';
 
@@ -578,9 +579,12 @@ function layerBehind(root, cfg, L, closed, ref) {
 // { kind: 'none' } (no layer map: jobs keep the tranche, next work is the flow's).
 // The rounds at the tranche (rounds.mjs roundState), read as the flow reads it.
 export function nextRound(root, cfg, layers, tr) {
+  if (directMode(cfg)) return directRoundsAt(root, cfg);
   return roundState(root, cfg, tr, { layers, flows: (k) => flowRows(root, cfg.state_branch, k), lastWalk: deployRowsOf(root, cfg).at(-1) || null, flawed: flawedModules(root, cfg, tr, { layers }) });
 }
 export function openLayer(root, cfg, { slug, io = {} } = {}) {
+  // PD-25: under the direct flow no layer opens; its view (direct.mjs) has the same shape.
+  if (directMode(cfg)) return directView(root, cfg, { slug, io });
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
   if (!layers.length) return { kind: 'none' };
@@ -766,7 +770,7 @@ export const stateCounts = (states) => STATE_ORDER.map((k) => `${k} ${states.fil
 export const layerMergeLine = (v) => (v?.kind === 'open' && v.ready ? `layer ${v.n}: ${stateCounts(v.states)}; merge when every module is complete or deferred (${P3} layer merge ${v.n})` : null);
 // BOB's act to start work: the open layer's jobs, its merge, or the next layer's open.
 // The act owed: start the listed jobs, merge the layer, or open the next; unread, status says.
-export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
+export const layerStartAct = (v) => (v?.direct ? directAct(v) : v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
   : v?.kind === 'open' && v.ready ? `${P3} layer merge ${v.n}`
     : v?.kind === 'open' && v.early?.length ? `${P3} layer jobs ${v.n}, then each early start it lists (layer ${v.early_next})`
     : v?.kind === 'next' && v.round ? `${P3} round next --apply (opens layer ${v.n}, round ${v.round}, and prints its job starts)`
@@ -780,6 +784,7 @@ export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? 
 // merge false: the merge line is next work's (status prints it there, once).
 export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}) {
   const v = view || openLayer(root, cfg, { slug, io });
+  if (v.direct) return directLines(v, cfg);
   const { n } = v;
   if (v.kind === 'stale') return [`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`];
   if (v.kind === 'next') return [`layer flow: ${v.round ? `${roundLayerName(v.round, v.of, n)} (${v.walk ? `from the walk ${v.walk}; ` : ''}${v.mods.join(', ')})` : `layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : ''}`} is next and not open: \`${P3} layer open ${n}\`${v.round ? `, or \`${P3} round next --apply\`, which opens it and prints its \`job start\` commands (C46)` : ''}`];
@@ -1216,8 +1221,8 @@ export function spawnComplete(root, id, args = []) {
 
 // The reschedules that make a run on `testedOn` void: those for the module whose provider's land
 // it does not hold.
-export function voiding(root, sb, n, id, testedOn, { fetch = true } = {}) {
-  if (fetch) { try { fetchState(root, sb, { fresh: true }); } catch { return []; } fetchBranch(root, layerBranch(n), { allowFail: true }); }
+export function voiding(root, sb, n, id, testedOn, { fetch = true, branch = layerBranch(n) } = {}) {
+  if (fetch) { try { fetchState(root, sb, { fresh: true }); } catch { return []; } fetchBranch(root, branch, { allowFail: true }); }
   return flowRows(root, sb, n).reschedules.filter((r) => r.user === id && hasCommit(root, r.provider_land) && !isAnc(root, r.provider_land, testedOn));
 }
 
@@ -1228,7 +1233,7 @@ export function voiding(root, sb, n, id, testedOn, { fetch = true } = {}) {
 // does not count either. At most `rounds` rounds.
 export async function layerPublish(root, id, { push = true, every = null, rounds = 4, sync, complete, log = console.log, args = [], session = null } = {}) {
   const cfg0 = loadConfig(root);
-  needLayerMode(cfg0, 'layer publish');
+  if (!directMode(cfg0)) needLayerMode(cfg0, 'layer publish');
   const cfg = jobCfg(root, cfg0, id, { push });
   if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged): publish needs an open layer/<n>`);
   const { n } = cfg.layer;
@@ -1237,7 +1242,9 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
   if (push) { try { fetchState(root, sb, { fresh: true }); } catch { /* read below as fetched */ } }
   const ahead = cutAhead(root, sb, n);
   if (ahead !== null) fail(`${id}: ${notOpen(n, ahead)}; an early start publishes once it opens; keep working and testing (${P3} job test ${id}); nothing was published`);
-  const lref = push ? layerRef(n) : `refs/heads/${layerBranch(n)}`;
+  // The branch it publishes onto: layer/<n>, or the tranche under the direct flow (PD-25).
+  const lb = flowBase(cfg);
+  const lref = push ? `refs/remotes/origin/${lb}` : `refs/heads/${lb}`;
   const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, pushBranch: false, log }); });
   const doComplete = complete || (() => spawnComplete(root, id, args));
   for (let round = 1; round <= rounds; round++) {
@@ -1248,9 +1255,9 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
     const out = outsideFiles(root, entry, git(['merge-base', 'HEAD', lref], { deepen: true, cwd: root }), 'HEAD');
     if (out.length) fail(`refused: the publish touches files outside ${id} (ARC-2): ${out.slice(0, 10).join(', ')}${out.length > 10 ? ` and ${out.length - 10} more` : ''}; nothing was published`);
     const started = now();
-    const pre = voiding(root, sb, n, id, testedOn, { fetch: push });
-    if (pre.length) fail(`${layerBranch(n)} at ${short(testedOn)} lacks ${pre.map((r) => `${r.provider}'s land ${short(r.provider_land)}`).join(', ')}: run publish again once origin's ${layerBranch(n)} holds it`);
-    log(`layer ${n}, round ${round}: ${id} runs on ${layerBranch(n)} ${short(testedOn)}`);
+    const pre = voiding(root, sb, n, id, testedOn, { fetch: push, branch: lb });
+    if (pre.length) fail(`${lb} at ${short(testedOn)} lacks ${pre.map((r) => `${r.provider}'s land ${short(r.provider_land)}`).join(', ')}: run publish again once origin's ${lb} holds it`);
+    log(`${cfg.layer.direct ? lb : `layer ${n}`}, round ${round}: ${id} runs on ${lb} ${short(testedOn)}`);
     // The run's own job complete reads the state this command wrote (R17: writes are coalesced).
     if (pendingWrites()) flushState();
     const c = doComplete();
@@ -1261,14 +1268,14 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
     let timer = null;
     const check = () => {
       if (halted) return;
-      const v = voiding(root, sb, n, id, testedOn, { fetch: push });
+      const v = voiding(root, sb, n, id, testedOn, { fetch: push, branch: lb });
       if (v.length) { halted = v; c.kill(); return; }
       timer = setTimeout(check, every ?? pollMs(++k));
     };
     timer = setTimeout(check, every ?? pollMs(++k));
     let code;
     try { ({ code } = await c.done); } finally { clearTimeout(timer); }
-    if (!halted) { const v = voiding(root, sb, n, id, testedOn, { fetch: push }); if (v.length) halted = v; }
+    if (!halted) { const v = voiding(root, sb, n, id, testedOn, { fetch: push, branch: lb }); if (v.length) halted = v; }
     const ended = now();
     // One file per run, never two runs under one name (two in one second, the same round).
     const runName = `${safeName(id)}-${Date.parse(started)}-${round}-${randomUUID().slice(0, 8)}`;
@@ -1285,7 +1292,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
     }
     writeRows(root, sb, `layer ${n}: ${id}'s run ${code === 0 ? 'passed' : 'failed'}`, [[flowFile(n, 'run', runName), { ...base, result: code === 0 ? 'pass' : 'fail', exit: code, at: ended }]]);
     if (code !== 0) { log(`not published: the run failed (exit ${code}); fix it and run ${P3} layer publish ${id} again`); return { ok: false, round, code }; }
-    log(`published: ${id}'s PR into ${layerBranch(n)} is ready; the gate on its tip decides the land (${P3} layer land <pr>, the merge tool's)`);
+    log(`published: ${id}'s PR into ${lb} is ready; the gate on its tip decides the land (${P3} layer land <pr>, the merge tool's)`);
     return { ok: true, round, testedOn };
   }
   return { ok: false, halted: true, round: rounds };
@@ -1332,15 +1339,17 @@ export function layerClear(root, user, { provider, land, why, by = 'bob', log = 
 
 export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', cause = null } = {}) {
   const cfg0 = loadConfig(root);
-  needLayerMode(cfg0, 'layer retest');
+  const direct = directMode(cfg0);
+  if (!direct) needLayerMode(cfg0, 'layer retest');
   const slug = io.slug || repoSlug(root);
   const x = { openPRs, createPR, addComment, markReady, prsFromBranch, comments: ghComments, jobHeads: originJobs, ...io };
   const cfg = jobCfg(root, cfg0, id);
   if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged)`);
   const { n } = cfg.layer;
-  const b0 = layerBranch(n);
-  fetchLayer(root, cfg0, n);
-  const L = readLayer(root, cfg0, n, { io: { openPRs: x.openPRs }, slug });
+  // Its base: layer/<n>, or the tranche under the direct flow (PD-25).
+  const b0 = flowBase(cfg);
+  if (direct) { fetchBranch(root, cfg0.tranche, { allowFail: true }); fetchState(root, cfg0.state_branch, { fresh: true }); } else fetchLayer(root, cfg0, n);
+  const L = direct ? readDirect(root, cfg0, { io: { openPRs: x.openPRs }, slug }) : readLayer(root, cfg0, n, { io: { openPRs: x.openPRs }, slug });
   const s = L.states.find((m) => m.id === id) || fail(`${id} is not a module of layer ${n}`);
   const reopen = `${P3} job start ${id} --sessions <file> --reopen "re-test against the new interface of ${[...new Set(s.outstanding.map((r) => r.provider))].join(', ') || 'its providers'}"`;
   if (s.state !== 'rescheduled' || s.pr !== null) fail(`${id} is ${s.state}${s.pr !== null ? ` with PR ${s.pr} open` : ''}: layer retest is for a rescheduled module with no pull request open`);
@@ -1422,9 +1431,58 @@ export function mergeVia(slug, n, sha, title) {
   return import('./merge.mjs').then((m) => m.mergePR(slug, n, sha, { title }));
 }
 
+// A land's interface change and whom it reaches (layer land; direct land, PD-25): the provider's
+// interface before and after, its declared users, and for a change confined to its own tests (C11,
+// PD-15) the importers it reaches and each user's class and triggers. rows: the flow's rows (its
+// earlier lands of this provider).
+export function landReach(root, cfg, id, before, after, rows) {
+  const ic = interfaceChange(root, cfg, id, before, after);
+  const users = usersOf(root, cfg, id, after);
+  // A change confined to its own tests (C11) reaches only the users importing a changed test file,
+  // as breaking for them; for the rest it is no change.
+  let reach = null;
+  // An earlier land of this provider in the layer that changed its source (or one recorded before
+  // that was read) leaves its tests' verdict standing: this test change may be the only sign of it.
+  const earlier = rows.lands.some((l) => l.module === id && !l.interface?.test_only && l.interface?.source_changed !== false);
+  // The users importing a changed test file: breaking for each of them, whatever the land's class.
+  let breakingFor = new Set();
+  if (ic.test_only) {
+    // Any module may import a provider's test file, a declared user or not.
+    const others = (readModules(root, cfg, after) || []).map((m) => m?.id).filter((m) => m && m !== id);
+    const pe = entryAt(root, after, id);
+    ic.test_only.importers = testImporters(root, cfg, after, [...new Set([...users, ...others])], ic.test_only.files, { provTests: pe?.tests || [] });
+    breakingFor = new Set(ic.test_only.importers);
+  }
+  if (ic.test_only && earlier) {
+    ic.test_only.earlier_source = true;
+    // PD-15 (8 Nov): this land changed neither source nor exports, so its tests' verdict is at most
+    // additive: each user is retested by its gate (a red retest falls back to a job), never a job each
+    // (copy layer 12: hypotheses' c2e2567196 started four). by_tests keeps the tests' own verdict.
+    let cls = ic.test_only.by_tests;
+    if (cls === 'breaking') { cls = 'additive'; ic.test_only.capped = 'PD-15'; }
+    // With the tests reading no change, only the importers are reached, as under C11.
+    if (cls === 'none' && breakingFor.size) { cls = 'breaking'; reach = new Set(breakingFor); }
+    ic.class = cls;
+    ic.changed = cls !== 'none';
+    if (breakingFor.size) ic.triggers = [...new Set([...(ic.triggers || []), 'test-import'])];
+    for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
+  } else if (ic.test_only) {
+    reach = new Set(ic.test_only.importers);
+    ic.triggers = reach.size ? ['test-import'] : [];
+    if (reach.size) { ic.class = 'breaking'; ic.changed = true; }
+    for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
+  }
+  const classFor = (u) => (breakingFor.has(u) ? 'breaking' : ic.class);
+  // test-import names an importer's own row only, never a user's whose class the tests set (cold review of C38).
+  const triggersFor = (u) => (breakingFor.has(u) ? ic.triggers : (ic.triggers || []).filter((t) => t !== 'test-import'));
+  return { ic, users, reach, classFor, triggersFor };
+}
+
 // The merge tool's land of a publish PR into its layer branch.
 export async function layerLand(root, prn, { io = {}, log = console.log, by = 'bob' } = {}) {
   const cfg = loadConfig(root);
+  // PD-25: under the direct flow a job PR lands into the tranche (direct.mjs).
+  if (directMode(cfg)) return directLand(root, prn, { io, log, by });
   needLayerMode(cfg, 'layer land');
   const slug = io.slug || repoSlug(root);
   const x = { getPR, checkRun, comments: ghComments, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
@@ -1476,45 +1534,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   fetchBranch(root, layerBranch(n));
   after = r.sha && hasCommit(root, r.sha) ? r.sha : rev(root, lref);
   }
-  const ic = interfaceChange(root, cfg, id, before, after);
-  const users = usersOf(root, cfg, id, after);
-  // A change confined to its own tests (C11) reaches only the users importing a changed test file,
-  // as breaking for them; for the rest it is no change.
-  let reach = null;
-  // An earlier land of this provider in the layer that changed its source (or one recorded before
-  // that was read) leaves its tests' verdict standing: this test change may be the only sign of it.
-  const earlier = rows.lands.some((l) => l.module === id && !l.interface?.test_only && l.interface?.source_changed !== false);
-  // The users importing a changed test file: breaking for each of them, whatever the land's class.
-  let breakingFor = new Set();
-  if (ic.test_only) {
-    // Any module may import a provider's test file, a declared user or not.
-    const others = (readModules(root, cfg, after) || []).map((m) => m?.id).filter((m) => m && m !== id);
-    const pe = entryAt(root, after, id);
-    ic.test_only.importers = testImporters(root, cfg, after, [...new Set([...users, ...others])], ic.test_only.files, { provTests: pe?.tests || [] });
-    breakingFor = new Set(ic.test_only.importers);
-  }
-  if (ic.test_only && earlier) {
-    ic.test_only.earlier_source = true;
-    // PD-15 (8 Nov): this land changed neither source nor exports, so its tests' verdict is at most
-    // additive: each user is retested by its gate (a red retest falls back to a job), never a job each
-    // (copy layer 12: hypotheses' c2e2567196 started four). by_tests keeps the tests' own verdict.
-    let cls = ic.test_only.by_tests;
-    if (cls === 'breaking') { cls = 'additive'; ic.test_only.capped = 'PD-15'; }
-    // With the tests reading no change, only the importers are reached, as under C11.
-    if (cls === 'none' && breakingFor.size) { cls = 'breaking'; reach = new Set(breakingFor); }
-    ic.class = cls;
-    ic.changed = cls !== 'none';
-    if (breakingFor.size) ic.triggers = [...new Set([...(ic.triggers || []), 'test-import'])];
-    for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
-  } else if (ic.test_only) {
-    reach = new Set(ic.test_only.importers);
-    ic.triggers = reach.size ? ['test-import'] : [];
-    if (reach.size) { ic.class = 'breaking'; ic.changed = true; }
-    for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
-  }
-  const classFor = (u) => (breakingFor.has(u) ? 'breaking' : ic.class);
-  // test-import names an importer's own row only, never a user's whose class the tests set (cold review of C38).
-  const triggersFor = (u) => (breakingFor.has(u) ? ic.triggers : (ic.triggers || []).filter((t) => t !== 'test-import'));
+  const { ic, users, reach, classFor, triggersFor } = landReach(root, cfg, id, before, after, rows);
   const layers = layersAt(root, cfg, after);
   // Where each user's work is (R12; cold review of PR 191): joined to this layer, or to a later one
   // not merged, else its map layer. A joined provider's users from its own map layer on are noticed
@@ -2040,43 +2060,32 @@ async function waitGate(x, slug, prn, head) {
 }
 const layerBody = (n, L) => [`Layer ${n} of the shared layer branch: every module complete or deferred, no reschedule outstanding.`, '', ...L.states.map((s) => `- ${s.id}: ${s.state} (${s.why})`), '', 'No suite runs here (Bob, 5 Nov): each module passed its own gate on its publish against its providers\' current versions; the layer gate checks that evidence.'].join('\n');
 
-// ---- the gate's layer trigger ---------------------------------------------------------------
-
-// For a pull request from layer/<n> into the tranche: each module whose files it changes is
-// covered by its last land on the layer branch, a merge of its job's PR into layer/<n> whose head
-// had a verified green gate run of that module's suite, and that head held every interface-changing
-// land of each provider it uses in the layer. Anything else is a finding: nothing is re-run.
-// Gate rows written before they said `whole` (this change, 7 Nov): taken as written (see layerCover).
-export const LEGACY_GATE_ROWS = '2026-11-07T12:00:00Z';
-export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io }) {
-  const findings = [];
-  const covered = [];
-  const inMod = (e, f) => ownPaths(e).some((p) => underPath(f, p));
-  // Generated paths are the layer checks' at the merge (regenerated there), not a module's land's.
-  const gen = generatedRows(cfg).rows;
-  const need = changed.filter((f) => !isRecordOrLane(cfg, f, entries) && !isGenerated(gen, f));
-  const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
+// The judge of a land (a "Merge layer PR <n>" commit) into `branch`: { pr, id, head, parent } when it is
+// GitHub's merge of a job PR whose newest gate run on its head is a verified green run of its whole
+// suite (a hidden PR from its land row under layerflow/<key>/ and the run's artifact, C13), else { why }.
+// layerCover reads it for a layer's lands; gate.mjs jobMerge for the direct flow's lands on the
+// tranche (PD-25), with base-red not green there (the tranche into main tolerates none).
+export function landJudge(root, cfg, { branch, ids, key, slug, io, green = ['pass', 'base-red'] }) {
   const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
   const landOf = new Map(); // commit -> { pr, id, head } | { why }
   // Green as the land reads it (gate.mjs: a suite that passed, or failed only on base-red tests): the copy's
   // PR 715 landed on a base-red run its layer gate then refused (the coordinator, 7 Nov). A base-red
   // test is still owed: no suite runs at the layer close, and the tranche's PR into main runs its
   // suite with base-red off (gate.mjs), so it is collected there.
-  const GREEN = ['pass', 'base-red'];
+  const GREEN = green;
   const whole = (r, id) => r?.ok && r.trigger === 'code' && GREEN.includes(r.suite) && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
   let stateRows = null;
   const hidden = (c, k, p, why) => {
     const no = (w) => { const v = { why: w }; landOf.set(c, v); return v; };
-    const n0 = Number(String(branch).match(/(\d+)$/)?.[1]);
-    // The state branch as fetched, or as the checkout already holds it (CI's checkout has the whole
+      // The state branch as fetched, or as the checkout already holds it (CI's checkout has the whole
     // history and no credentials to fetch again: cold review of C13).
     if (stateRows === null) {
       try { fetchState(root, cfg.state_branch); } catch { /* read what the checkout holds */ }
-      try { stateRows = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 ? flowRows(root, cfg.state_branch, n0) : false; } catch { stateRows = false; }
+      try { stateRows = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 ? flowRows(root, cfg.state_branch, key) : false; } catch { stateRows = false; }
     }
     // The land row for this very merge: its PR, the merge, and both its parents (the layer before, the head).
     const land = stateRows ? stateRows.lands.find((l) => l.pr === k && l.merge === c && l.head === p[1] && l.before === p[0] && l.at) : null;
-    if (!land || !entries.some((e) => e.id === land.module)) return no(`is PR ${k}'s merge, but GitHub does not serve PR ${k} (${why}) and ${cfg.state_branch} holds no land row for this merge`);
+    if (!land || !ids.has(land.module)) return no(`is PR ${k}'s merge, but GitHub does not serve PR ${k} (${why}) and ${cfg.state_branch} holds no land row for this merge`);
     const id = land.module;
     const art = io.runArtifactRow || runArtifactRow;
     // The run is bound to the module's own job branch by name (job/<id> or job/<id>-<n>), as the process
@@ -2130,7 +2139,7 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
       if (!(e instanceof Fail) || !/HTTP 404|Not Found/i.test(e.message)) throw e;
       return hidden(c, k, p, e.message);
     }
-    const id = branchModule(pr?.head?.ref, new Set(entries.map((e) => e.id)));
+    const id = branchModule(pr?.head?.ref, ids);
     if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== branch || !id || pr.head.sha !== p[1]) return no(`is not GitHub's merge of job PR ${k} into ${branch}`);
     const runs = gateRuns(io.comments(slug, k));
     const ctx = { pr: k, baseRef: branch, merged: { branch: pr.head.ref } };
@@ -2148,6 +2157,27 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     landOf.set(c, v);
     return v;
   };
+  return judge;
+}
+
+// ---- the gate's layer trigger ---------------------------------------------------------------
+
+// For a pull request from layer/<n> into the tranche: each module whose files it changes is
+// covered by its last land on the layer branch, a merge of its job's PR into layer/<n> whose head
+// had a verified green gate run of that module's suite, and that head held every interface-changing
+// land of each provider it uses in the layer. Anything else is a finding: nothing is re-run.
+// Gate rows written before they said `whole` (this change, 7 Nov): taken as written (see layerCover).
+export const LEGACY_GATE_ROWS = '2026-11-07T12:00:00Z';
+export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io }) {
+  const findings = [];
+  const covered = [];
+  const inMod = (e, f) => ownPaths(e).some((p) => underPath(f, p));
+  // Generated paths are the layer checks' at the merge (regenerated there), not a module's land's.
+  const gen = generatedRows(cfg).rows;
+  const need = changed.filter((f) => !isRecordOrLane(cfg, f, entries) && !isGenerated(gen, f));
+  const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
+  const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+  const judge = landJudge(root, cfg, { branch, ids: new Set(entries.map((e) => e.id)), key: Number(String(branch).match(/(\d+)$/)?.[1]), slug, io });
   const byId = new Map(entries.map((e) => [e.id, e]));
   // A layer sync's merge brings the tranche's own changes (tool-made, its tree checked): not a stray.
   const synced = (c) => SYNC_TITLE.test(git(['log', '-1', '--format=%s', c], { cwd: root }));

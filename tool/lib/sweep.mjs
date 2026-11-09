@@ -106,12 +106,12 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
   // a wait and left slots empty 20-108 min; only a recorded hold waits, and a start before a
   // provider lands is an early start, R10): the first k, in the list's order.
   const fill = go.slice(0, k).map((j) => j.id);
-  if (Math.min(k, own)) why.push(`${Math.min(k, own)} x startable from ${P3} layer jobs ${view.n}, not started (start now: ${fill.slice(0, Math.min(k, own)).join(', ')}; one listed after a provider in flight starts now with its plain job start, no --early: R10${go.slice(0, Math.min(k, own)).some((j) => j.join) ? '; one listed as a layer join joins first (PD-14)' : ''}; only a recorded hold waits)`);
+  if (Math.min(k, own)) why.push(`${Math.min(k, own)} x startable from ${view.direct ? `${P3} direct jobs` : `${P3} layer jobs ${view.n}`}, not started (start now: ${fill.slice(0, Math.min(k, own)).join(', ')}; one listed after a provider in flight starts now with its plain job start, no --early: R10${go.slice(0, Math.min(k, own)).some((j) => j.join) ? '; one listed as a layer join joins first (PD-14)' : ''}; only a recorded hold waits)`);
   if (k > own) why.push(`${k - own} x early starts into layer ${view.early_next} listed by ${P3} layer jobs ${view.n}, not started (${fill.slice(own).join(', ')})`);
   for (const y of inWork.slice(0, empty - k)) why.push(`${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`);
   const rest = empty - k - Math.min(inWork.length, empty - k);
   if (rest > 0) {
-    const nm = view?.round ? roundLayerName(view.round, view.of, view.n) : `layer ${view?.n}`;
+    const nm = view?.direct ? `the direct flow (round ${view.round})` : view?.round ? roundLayerName(view.round, view.of, view.n) : `layer ${view?.n}`;
     const where = open ? (view.ready ? `${nm} can merge (${P3} layer merge ${view.n})` : `${nm} lists no job to start`) : view?.kind === 'next' ? `${nm} is next and not open (${P3} ${view.round ? 'round next --apply' : `layer open ${view.n}`})` : 'no open layer';
     why.push(`${rest} x no startable work: ${where}`);
   }
