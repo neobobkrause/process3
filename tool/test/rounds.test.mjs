@@ -171,7 +171,7 @@ test('C44: a walk finding for a module with pinned requirement ids is recorded a
   push(root, { 'req/c.md': reqIds('c'), 'test/c/ids.test.mjs': pinTest('c') }, 'c pins its ids');
   // Round 1's close: the internal walk's 96 failures (one flaw in c), the live arm's 178 (stopped).
   closeRun(root, { inner: 96, live: 178 });
-  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /stopped at walk with 96 finding\(s\) \(the internal walk's; the live arm's 178 hold no round: its internal walk found flaws, PD-16\), 0 recorded: record each as a found mark \(`node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "internal walk p3dev-r 0123456789"`, adding --covers <n>[^)]*owed reopen[^)]*\)[^;]*; the next round opens from them \(BD-R1\); `node \.process\/tool\/p3\.mjs round next --apply` records them all and opens it \(C46\); nothing was opened/);
+  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /stopped at walk with 96 finding\(s\) \(the internal walk's; the live arm's 178 hold no round: its internal walk found flaws, PD-16\), 0 recorded: record each as a found mark \(`node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "internal walk p3dev-r 0123456789"`, adding --covers <n>[^)]*owed reopen[^)]*\)[^;]*; the next round opens from them \(BD-R1\); nothing was opened/);
   // found: c's layer (map layer 2) is not open, so the finding is owed to its next reopen, on the
   // state branch; nothing is written in the tree, and no plain pull request is printed.
   const said = [];

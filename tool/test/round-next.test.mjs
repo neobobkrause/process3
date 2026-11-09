@@ -70,16 +70,17 @@ const merged = (root, n, min) => { writeRows(root, SB, `merged ${n}`, [[`layerfl
 
 // GitHub, stood in: the open pull requests, a create that records one, and the merge tool's plain
 // merge as a fast-forward of the tranche to the pull request's branch.
-function gh(root, { failMerge = 0 } = {}) {
+function gh(root, { failMerge = 0, failCreate = 0 } = {}) {
   const prs = [];
   const made = [];
   let n = 100;
   let fails = failMerge;
+  let createFails = failCreate;
   const io = {
     slug: 'o/p',
     comments: () => [],
     openPRs: () => prs.map((p) => ({ number: p.number, head: { ref: p.head } })),
-    createPR: (slug, pr) => { const p = { number: ++n, ...pr }; prs.push(p); made.push(p); return { number: p.number }; },
+    createPR: (slug, pr) => { if (createFails > 0) { createFails--; throw new Fail('GitHub did not return a pull request'); } const p = { number: ++n, ...pr }; prs.push(p); made.push(p); return { number: p.number }; },
     mergePlain: (r, num, opts) => {
       assert.match(opts.noReview, /found marks only, no code/);
       if (fails > 0) { fails--; throw new Fail('the gate did not finish in time'); }
@@ -150,6 +151,8 @@ test('round next: a walk with flaws in two map layers opens the lower first and 
   assert.deepEqual(owedReopens(root, loadConfig(root)).map((x) => [x.module, x.finding, x.source]), [['d', 'the d form loses its draft', `${src}, covers 3`]]);
   assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['b']);
   assert.deepEqual(a.startable.map((x) => x.cmd), [`node .process/tool/p3.mjs job start b --sessions <file> --reopen "F1: the b button overlaps the footer (${src}, covers 2); F2: http-500: GET /b returned 500 (${src})"`]);
+  assert.match(a.text, /\n {2}node \.process\/tool\/p3\.mjs job start b --sessions <file> --reopen "F1: the b button overlaps the footer/, 'the job start printed');
+  assert.doesNotMatch(a.text, /job start d\b/, 'd waits for its own layer');
   assert.match(a.text, /next: BOB starts each job above \(create_session for its session, then the `job start` command\)/);
   // Again, while the layer is open: its jobs, nothing recorded twice.
   const again = run(root, io, { apply: true });
@@ -186,6 +189,21 @@ test('round next: run again after a partial run, it goes on where it stopped', (
   assert.equal((reqAt(root, 'b').match(/\*\*F\d\*\*/g) || []).length, 2, 'each mark once');
 });
 
+test('round next: the marks pushed and their pull request not opened: a re-run opens it from that branch, pushing no second one', () => {
+  const root = product();
+  walked(root, { failures: FLAWS.slice(0, 3), min: 10 });
+  const { io, made } = gh(root, { failCreate: 1 });
+  assert.throws(() => run(root, io, { apply: true }), /GitHub did not return a pull request/);
+  const heads = () => git(['ls-remote', '--heads', 'origin', 'refs/heads/found/*'], { cwd: root }).split('\n').filter(Boolean).length;
+  assert.equal(heads(), 1);
+  const a = run(root, io, { apply: true });
+  assert.deepEqual([a.state, a.layer], ['opened', 4]);
+  assert.equal(heads(), 1, 'no second branch');
+  assert.equal(made.length, 1);
+  assert.match(a.text, /was pushed by an earlier run with no pull request: pull request \d+ opened from it/);
+  assert.equal((reqAt(root, 'b').match(/\*\*F\d\*\*/g) || []).length, 2, 'each mark once');
+});
+
 test('round next: PD-16, a deploy dev run whose internal walk found flaws sets its live arm aside; findings no module owns wait on BOB\'s file', () => {
   const root = product();
   walked(root, { row: 'dev-deploy', failures: [{ module: 'c', kind: 'step', message: 'c 404s' }, { kind: 'step', message: 'somewhere' }], live: 7, min: 10 });
@@ -199,21 +217,26 @@ test('round next: PD-16, a deploy dev run whose internal walk found flaws sets i
   assert.equal(made.length, 0);
   // BOB's file places it; the round opens at c's map layer.
   const f = join(mkdtempSync(join(tmpdir(), 'p3-findings-')), 'f.txt');
-  writeFileSync(f, 'a: the a page is somewhere it should not be\n');
+  writeFileSync(f, 'b: the b page is somewhere it should not be\n');
   const a = run(root, io, { apply: true, findingsFile: f });
   assert.deepEqual([a.state, a.layer], ['opened', 4]);
-  assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['a']);
-  assert.match(reqAt(root, 'c'), /\*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* c 404s/);
-  assert.match(reqAt(root, 'a'), /\*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* the a page is somewhere it should not be/);
+  assert.deepEqual(flowRows(root, SB, 4).open.round.mods, ['b'], 'b (map layer 1) first; a, the live arm\'s module, not flawed');
+  assert.match(reqAt(root, 'c'), /\*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* c 404s$/);
+  assert.match(reqAt(root, 'b'), /\*\*R3\*\* c\n- \*\*F1\*\* \*\(not yet met: internal walk internal-w\d+ \w{10}\)\* the b page is somewhere it should not be$/);
+  assert.equal(reqAt(root, 'a'), req('a').trimEnd(), 'the live arm\'s findings recorded nowhere');
 });
 
 test('round next: a clean walk opens no round and prints the release path', () => {
   const root = product();
+  push(root, { 'process/config.json': { merge_strategy: 'layer', release: { checks: [['true']], assemble: ['true'], out: 'out/rel' } } }, 'releases cut');
   walked(root, { failures: [], min: 10 });
   const r = run(root, gh(root).io, { apply: true });
   assert.equal(r.state, 'clean');
-  assert.match(r.text, /the walk internal-w\d+ \w{10} is clean: no round opens; the release path follows \(BD-R1\): `node \.process\/tool\/p3\.mjs release dev`/);
+  assert.match(r.text, /the walk internal-w\d+ \w{10} is clean: no round opens; the release path is next \(round 1's internal walk internal-w\d+ \w{10} is clean, and no release is cut since\): node \.process\/tool\/p3\.mjs release dev, from a clean checkout of the tranche tip/);
   assert.equal(flowRows(root, SB, 4).open, null);
+  // Under plan close no round opens: round next says so, whatever the walk found.
+  push(root, { 'process/config.json': { merge_strategy: 'layer', plan: 'close' } }, 'plan close');
+  assert.throws(() => run(root, gh(root).io), /the plan is close on tranche: the current round is the last, and no round opens/);
 });
 
 // The rehearsal: the round loop end to end on a fixture product, the round's walks the real `walk

@@ -32,7 +32,6 @@ import { fail, fetchBranch, git, loadConfig, repoSlug, withTemp } from './util.m
 const P3 = 'node .process/tool/p3.mjs';
 const MODULE = /^[a-z0-9][a-z0-9-]*$/;
 export const ROUND_NEXT = `${P3} round next`;
-export const ROUND_NEXT_APPLY = `${P3} round next --apply`;
 // The plain pull request's --no-review reason: found marks only, as `found` prints it.
 const NO_REVIEW = 'work found elsewhere: found marks only, no code (round next)';
 
@@ -170,7 +169,8 @@ export function roundPlan(root, cfg, { findingsFile = null, io = {} } = {}) {
   });
   // The round these findings open: the next after the one the walk ended.
   plan.opens = rs.state === 'new' ? rs.round : rs.round + 1;
-  plan.prs = prs.filter((p) => String(p.head?.ref || '').startsWith(`found/round-${plan.opens}-${last.slug}`));
+  plan.branch = `found/round-${plan.opens}-${last.slug}`;
+  plan.prs = prs.filter((p) => isMine(plan.branch, p.head?.ref));
   plan.entries = entries.map((e) => (e.module ? routeOf(root, cfg, tr, e, plan.from, { owed, prHeads }) : { ...e, route: 'no-module' }));
   return plan;
 }
@@ -187,6 +187,9 @@ function predicted(root, cfg, plan) {
   return s.next || null;
 }
 
+// The marks' branch of this run: found/round-<n>-<slug>, or one of its -<k> successors (never
+// another run's whose slug merely begins the same: internal-l3 is not internal-l30).
+const isMine = (base, ref) => typeof ref === 'string' && (ref === base || (ref.startsWith(`${base}-`) && /^\d+$/.test(ref.slice(base.length + 1))));
 const covered = (es) => es.reduce((a, e) => a + e.covers, 0);
 const mapLayer = (plan, id) => layerOf(plan.layers.filter((L) => !L.completion && !L.round), id);
 
@@ -198,6 +201,9 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     fetchBranch(root, cfg.tranche);
     fetchState(root, cfg.state_branch, { fresh: true });
   }
+  let plan0 = cfg.plan;
+  try { plan0 = loadConfig(root, `refs/remotes/origin/${cfg.tranche}`).plan; } catch { plan0 = cfg.plan; }
+  if (plan0 === 'close') fail(`the plan is close on ${cfg.tranche}: the current round is the last, and no round opens (BD-R1); \`${P3} status --role bob\` names the close`);
   const slug = io.slug || repoSlug(root);
   const lio = { ...io, slug };
   let plan = roundPlan(root, cfg, { findingsFile, io: lio });
@@ -282,10 +288,21 @@ function printEntries(plan, { log }) {
 // --plain: a change that only adds unmet found marks). An open one of this run's is merged as it is.
 function marksPR(root, cfg, plan, marks, { io, log }) {
   const slug = io.slug;
-  const base = `found/round-${plan.opens}-${plan.last.slug}`;
+  const base = plan.branch;
   let pr = plan.prs[0] || null;
+  const heads = git(['ls-remote', '--heads', 'origin', `refs/heads/${base}*`], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split(/\s+/)).filter(([sha, ref]) => sha && ref && isMine(base, ref.replace(/^refs\/heads\//, ''))).map(([sha, ref]) => ({ sha, branch: ref.replace(/^refs\/heads\//, '') }));
+  // A branch of this run pushed with no pull request (its create failed): its marks, not yet on the
+  // tranche, are opened as they are, not pushed again under another name.
   if (!pr && marks.length) {
-    const taken = new Set(git(['ls-remote', '--heads', 'origin', `refs/heads/${base}*`], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('refs/heads/')[1]).filter(Boolean));
+    git(['fetch', '-q', 'origin', ...heads.map((h) => `+refs/heads/${h.branch}:refs/remotes/origin/${h.branch}`)], { cwd: root, allowFail: true });
+    const left = heads.find((h) => git(['merge-base', '--is-ancestor', h.sha, plan.tr], { cwd: root, allowFail: true }).code !== 0 && git(['merge-base', '--is-ancestor', plan.tr, h.sha], { cwd: root, allowFail: true }).code === 0);
+    if (left) {
+      pr = (io.createPR || createPR)(slug, { head: left.branch, base: cfg.tranche, title: `found: round ${plan.opens}, mark(s) from the ${plan.from}`, body: `Found marks from the ${plan.from} (\`round next\`, C46). Only unmet found marks are added; no code.`, draft: false });
+      log(`${left.branch} was pushed by an earlier run with no pull request: pull request ${pr.number} opened from it into ${cfg.tranche}`);
+    }
+  }
+  if (!pr && marks.length) {
+    const taken = new Set(heads.map((h) => h.branch));
     let branch = base;
     for (let k = 2; taken.has(branch); k++) branch = `${base}-${k}`;
     const lines = withTemp('p3-round-', (tmp) => {

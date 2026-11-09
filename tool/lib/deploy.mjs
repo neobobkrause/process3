@@ -395,7 +395,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   // close waits on them (walkHold); at that round's close, deploy dev again.
   const round = '; the next round opens from them (BD-R1); tranche close waits until each is recorded';
   if (!ok && stopped !== 'dry_run') log(`each finding enters by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "${stopped} ${runSource(row)}"\` (or found "<finding>" when it names no module)${round}`);
-  if (!ok && stopped !== 'dry_run' && layerMode(cfg)) log(`the one next act: \`${P3} round next\`, then \`${P3} round next --apply\` (C46)`);
+  if (!ok && stopped === 'walk' && layerMode(cfg)) log(`the one next act: \`${P3} round next\`, then \`${P3} round next --apply\` (C46)`);
   // A walk can report findings and still exit 0: they enter by the same route.
   if (ok) log(`findings of the walk, if any, enter by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "walk ${runSource(row)}"\`${round}`);
   return { ok, row };
@@ -436,8 +436,9 @@ export function walkRound(root, { slug, log = console.log, io: given = {}, repo 
   keepRow(root, cfg, { row, stored, logs, log, message: `round walk ${s}, ${rc.round}: ${!inner ? 'stopped at build' : clean ? 'clean' : 'findings'}`, again: `${P3} walk round`, outcome: inner ? 'the internal walk ran' : 'stopped at build' });
   log(`recorded the round walk ${s} at ${tip.slice(0, 10)}: ${!inner ? 'stopped at build, the internal walk did not run' : clean ? 'clean' : 'findings'}, ${minutes} min`);
   if (!clean) log(`each finding enters as a found mark against its module: \`${P3} found <module> "<finding>" --from "internal walk ${runSource(row)}"\` (or found "<finding>" when it names no module), or a known gap on Bob's word; the next round opens from them (BD-R1); no deploy and no live walk until a round's internal walk is clean`);
-  if (!clean && layerMode(cfg)) log(`the one next act: \`${P3} round next\` (a dry run: the findings by module, the round's first layer), then \`${P3} round next --apply\`: each finding recorded, that layer opened, its \`job start\` commands printed (C46)`);
-  else log(`the internal walk is clean: the release path is next: \`${P3} release dev\` (the cut, signed release), then \`${P3} deploy release <version>\`, its release deployment and live walk (BD-R1)`);
+  // The walk ran and found flaws (a build stopped short is run again, not recorded): round next (C46).
+  if (!clean && inner && layerMode(cfg)) log(`the one next act: \`${P3} round next\` (a dry run: the findings by module, the round's first layer), then \`${P3} round next --apply\`: each finding recorded, that layer opened, its \`job start\` commands printed (C46)`);
+  if (clean) log(`the internal walk is clean: the release path is next: \`${P3} release dev\` (the cut, signed release), then \`${P3} deploy release <version>\`, its release deployment and live walk (BD-R1)`);
   return { ok: clean, row };
 }
 
