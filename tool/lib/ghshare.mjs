@@ -333,6 +333,18 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     if (!pushAtEnd && now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
     if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || owedPush(r, ledgerRepo))) return 0;
   }
+  // Chosen, written and noted under the clone's state lock, the rows chosen again inside it (C52
+  // cold review: the hook's detached share and a p3 command of the clone could both pick the same
+  // rows, outside any lock, and the ledger sums them). Taken only once a share is to be written,
+  // so a check that shares nothing never waits on it.
+  return withStateLock(root, () => {
+    const after2 = lastShared(root);
+    if (after2 > after) return shareRows(root, cfg, log.filter((r) => Date.parse(r.at) > after2), { now, pending, store });
+    return shareRows(root, cfg, log, { now, pending, store, rows });
+  });
+}
+function shareRows(root, cfg, log, { now, pending, store, rows = usageRows(root, { after: lastShared(root), rows: log }) }) {
+  if (!rows.length) return 0;
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg?.state_branch || LEDGER_BRANCH);
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;

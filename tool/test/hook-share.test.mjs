@@ -31,66 +31,76 @@ const row = (f, r) => writeFileSync(f, JSON.stringify({ at: new Date().toISOStri
 // A share that counts its calls; throws when told to.
 const fakeShare = (fail) => { const calls = []; return { calls, read: () => ({ pause: null, use: [] }), pause: () => null, shareContent: () => { calls.push(1); if (fail) throw new Error(`${fail}\nsecond line`); return 1; } }; };
 
-test('hookShare: a connector write shares at once when the last share is old, else starts one later share; nothing unshared, nothing', (t) => {
+test('hookShare: a connector write starts one detached share; nothing unshared, nothing; the hook itself never shares', (t) => {
   const f = logTo(t);
   const root = makeRepo({ 'README.md': 'x\n' });
   const later = [];
-  // Only reads unshared: no share, no later share.
-  row(f, { kind: 'gh', points: 1, connector: true });
   const sh = fakeShare();
-  assert.equal(hookShare(root, sh, { later: () => later.push(1) }), 0);
+  // Only reads unshared: nothing started.
+  row(f, { kind: 'gh', points: 1, connector: true });
+  assert.equal(hookShare(root, sh, { later: () => later.push(1) }), false);
   assert.deepEqual([sh.calls.length, later.length], [0, 0]);
-  // A write, no share yet: shared at once.
+  // A write: a later share started; the hook shares nothing itself, old last share or not.
   row(f, { kind: 'gh', points: 5, content: 1, connector: true });
-  assert.equal(hookShare(root, sh, { later: () => later.push(1) }), 1);
-  assert.deepEqual([sh.calls.length, later.length], [1, 0]);
-  // A share within HOOK_SHARE_S: one later share, no push now.
-  noteShare(root, 0, Date.now());
-  assert.equal(hookShare(root, sh, { later: () => later.push(1) }), 0);
-  assert.deepEqual([sh.calls.length, later.length], [1, 1]);
-  // Past it: at once again.
-  assert.equal(hookShare(root, sh, { later: () => later.push(1), now: () => Date.now() + HOOK_SHARE_S * 1000 }), 1);
+  hookShare(root, sh, { later: () => later.push(1) });
+  noteShare(root, 0, Date.now() - 3600e3);
+  hookShare(root, sh, { later: () => later.push(1) });
+  assert.deepEqual([sh.calls.length, later.length], [0, 2]);
+  // Its rows shared since: nothing started.
+  noteShare(root, Date.now() + 1000, Date.now());
+  hookShare(root, sh, { later: () => later.push(1) });
+  assert.equal(later.length, 2);
 });
 
-test('a failing share is one line on stderr and never the call\'s failure; a read never shares', (t) => {
+test('a share that cannot start is one line on stderr and never the call\'s failure; a read and a workflow start none', (t) => {
   const f = logTo(t);
   const root = makeRepo({ 'README.md': 'x\n' });
   row(f, { kind: 'gh', points: 5, content: 1, connector: true });
   const errs = [];
-  const bad = fakeShare('GitHub budget: paused');
-  assert.equal(hookRun({ tool_name: 'mcp__github__create_pull_request', tool_input: { owner: 'o', repo: 'p' } }, root, { share: bad, err: (m) => errs.push(m), opts: { p: P, rateLimit: () => undefined } }), 0);
-  assert.equal(bad.calls.length, 1);
-  assert.deepEqual(errs, ['github: this connector call\'s row not shared (GitHub budget: paused); the next connector write or p3 command in this clone shares it']);
-  // A later share that throws: kept, one line, said by the next connector write.
-  writeFileSync(join(commonDir(root), 'p3-gh-sharing'), 'm');
-  assert.equal(hookShareLater(root, { sleep: () => {}, mark: 'm', again: () => assert.fail('no retry after a failure') }), false);
-  assert.equal(existsSync(join(commonDir(root), 'p3-gh-sharing')), false, 'the marker let go');
-  const ok = fakeShare();
-  noteShare(root, 0, Date.now());
-  hookRun({ tool_name: 'mcp__github__add_issue_comment', tool_input: {} }, root, { share: ok, later: () => true, err: (m) => errs.push(m), opts: { p: P, rateLimit: () => undefined } });
-  assert.equal(errs.length, 2);
-  assert.match(errs[1], /^github: a connector write's row not shared \(.*\); the next connector write or p3 command in this clone shares it$/);
-  // A read: neither a share nor a later one.
-  const r = fakeShare();
+  const opts = { p: P, rateLimit: () => undefined };
+  assert.equal(hookRun({ tool_name: 'mcp__github__create_pull_request', tool_input: { owner: 'o', repo: 'p' } }, root, { share: fakeShare(), later: () => { throw new Error('EACCES: the marker\nmore'); }, err: (m) => errs.push(m), opts }), 0);
+  assert.deepEqual(errs, ['github: the share of this connector call\'s row not started (EACCES: the marker); the next connector write or p3 command in this clone shares it']);
+  // A read: none started.
   const later = [];
-  assert.equal(hookRun({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }, root, { share: r, later: () => later.push(1), kick: () => false, err: (m) => errs.push(m) }), 0);
-  assert.deepEqual([r.calls.length, later.length, errs.length], [0, 0, 2]);
-  // In a workflow: nothing shared.
+  assert.equal(hookRun({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }, root, { share: fakeShare(), later: () => later.push(1), kick: () => false, err: (m) => errs.push(m) }), 0);
+  assert.deepEqual([later.length, errs.length], [0, 1]);
+  // In a workflow: none started.
   const was = process.env.GITHUB_ACTIONS;
   process.env.GITHUB_ACTIONS = 'true';
   t.after(() => { if (was === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = was; });
-  const w = fakeShare();
-  hookRun({ tool_name: 'mcp__github__create_pull_request', tool_input: {} }, root, { share: w, later: () => later.push(1), err: (m) => errs.push(m), opts: { p: P, rateLimit: () => undefined } });
-  assert.deepEqual([w.calls.length, later.length], [0, 0]);
+  hookRun({ tool_name: 'mcp__github__create_pull_request', tool_input: {} }, root, { share: fakeShare(), later: () => later.push(1), err: (m) => errs.push(m), opts });
+  assert.equal(later.length, 0);
 });
 
-test('one later share at a time per clone', () => {
+test('the detached share: a failure is tried once more, then one line for the next connector write; another starts only for a write logged since it began', (t) => {
+  const f = logTo(t);
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const marker = join(commonDir(root), 'p3-gh-sharing');
+  const run = (share, tries = 0) => { const again = []; writeFileSync(marker, 'm'); const ok = hookShareLater(root, { sleep: () => {}, mark: 'm', tries, share: () => share, again: (r, o) => again.push(o?.tries ?? 0) }); assert.equal(existsSync(marker), false, 'the marker let go'); return { ok, again }; };
+  row(f, { kind: 'gh', points: 5, content: 1, connector: true });
+  // Fails: one retry, no line yet; fails again: kept, said by the next connector write, no retry.
+  assert.deepEqual(run(fakeShare('GitHub budget: paused')), { ok: false, again: [1] });
+  assert.equal(existsSync(join(commonDir(root), 'p3-gh-share.err')), false);
+  assert.deepEqual(run(fakeShare('GitHub budget: paused'), 1), { ok: false, again: [] });
+  const errs = [];
+  hookShare(root, null, { err: (m) => errs.push(m) });
+  assert.deepEqual(errs, ['github: a connector write\'s row not shared (GitHub budget: paused); the next connector write or p3 command in this clone shares it']);
+  // Shares, and a write logged while it ran is still unshared: one more started.
+  const during = { ...fakeShare(), shareContent: () => { noteShare(root, Date.now(), Date.now()); row(f, { kind: 'gh', points: 5, content: 1, connector: true, at: new Date(Date.now() + 5).toISOString() }); return 1; } };
+  assert.deepEqual(run(during), { ok: true, again: [0] });
+  // Shares, nothing newer: none; one that shared nothing (another took the rows): none for older rows.
+  noteShare(root, Date.now() + 1000, Date.now());
+  assert.deepEqual(run(fakeShare()), { ok: true, again: [] });
+  assert.deepEqual(run({ ...fakeShare(), shareContent: () => 0 }), { ok: true, again: [] });
+});
+
+test('one detached share at a time per clone; a killed one\'s marker is taken over', () => {
   const root = makeRepo({ 'README.md': 'x\n' });
   const entry = join(mkdtempSync(join(tmpdir(), 'p3-noop-')), 'noop.mjs');
   writeFileSync(entry, '');
   assert.equal(kickShare(root, { entry }), true);
   assert.equal(kickShare(root, { entry }), false, 'a second while the first holds the marker');
-  assert.equal(kickShare(root, { entry, now: () => Date.now() + 3 * HOOK_SHARE_S * 1000 }), true, 'a marker of a killed share is taken over');
+  assert.equal(kickShare(root, { entry, now: () => Date.now() + 5 * HOOK_SHARE_S * 1000 }), true, 'a marker of a killed share is taken over');
 });
 
 // PD-17: rehearsed end to end, as Claude Code runs the hook: a create and an update, no p3 command

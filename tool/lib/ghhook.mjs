@@ -15,8 +15,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { kickRefresh, LEDGER_CACHE, lastShareAt, ledgerOf, peekShare, refreshDone, stateShare, unshared } from './ghshare.mjs';
-import { commonDir, hookPacing, pacing, Paced, primaryState, reserve, TOOL, useShared } from './pace.mjs';
+import { contentRow, kickRefresh, LEDGER_CACHE, lastShareAt, ledgerOf, peekShare, refreshDone, stateShare } from './ghshare.mjs';
+import { commonDir, hookPacing, lastShared, pacing, Paced, primaryState, readLog, reserve, TOOL, useShared } from './pace.mjs';
 import { CONFIG_FILE, loadConfig, repoRoot } from './util.mjs';
 
 // The connector's writes: each one content-creating request.
@@ -152,88 +152,97 @@ export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     const write = WRITE.test(name.slice(CONNECTOR.length));
     const was = process.env.NODE_TEST_CONTEXT || process.env.GITHUB_ACTIONS === 'true';
-    const sh = share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : null;
-    useShared(write ? sh : peekShare(root, { kick, key: ledgerKey(root, cfg) }));
+    const sh = share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : peekShare(root, { kick, key: ledgerKey(root, cfg) });
+    useShared(sh);
     try {
       d = hookDecision(input, root, write ? opts : { p: { ...pacing(), gh_interval_ms: 0 }, rateLimit: () => undefined, ...opts });
     } finally { useShared(null); }
-    // C52: the write's row reaches the ledger without a later p3 command. Never a read's, never from
-    // a workflow, never the call's failure.
+    // C52: the write's row reaches the ledger without a later p3 command (a detached share). Never
+    // a read's, never from a workflow, never the call's failure.
     if (write && !d.block && process.env.GITHUB_ACTIONS !== 'true') hookShare(root, sh, { err, later });
   }
   if (d.block) { err(`GitHub pacing (P27): ${d.block}`); return 2; }
   return 0;
 }
 // C52 (9 Nov: PR 290's opening stayed in its clone's log, unexplained, until a p3 command ran by
-// hand): after a content-creating connector call, its row is shared from the hook. At once when the
-// clone last shared HOOK_SHARE_S or more ago; else one detached share (tool/hook.mjs --share, one
-// at a time per clone) waits until then and carries every row logged meanwhile, so a burst of
-// writes (a review's comments) is one ledger push per HOOK_SHARE_S, not one each. Only a
-// connector write starts it (never a read, a Bash call, or the share's own push, which is no
-// content-creating call), so it cannot loop. A failure is one line on stderr (a detached share's,
-// on the next connector write's), and never the call's: the hook returns 0 regardless.
+// hand): after a content-creating connector call, its row is shared without a later p3 command, by
+// one detached share per clone (tool/hook.mjs --share). It waits until HOOK_SHARE_S after the
+// clone's last share and carries every row logged meanwhile, so a burst of writes (a review's
+// comments) is one ledger push per HOOK_SHARE_S, not one each; the hook itself never shares, and so
+// never waits on the state lock or a push (C52 cold review). Only a connector write starts one
+// (never a read, a Bash call, or the share's own push, which is no content-creating call), so it
+// cannot loop. A failure is tried once more, then kept as one line that the next connector write
+// says on stderr; never the call's failure: the hook returns 0 regardless.
 // P3_HOOK_SHARE_S: shorter in a fixture only.
 export const HOOK_SHARE_S = Number(process.env.P3_HOOK_SHARE_S) > 0 ? Number(process.env.P3_HOOK_SHARE_S) : 30;
 const SHARING = 'p3-gh-sharing';
 const SHARE_ERR = 'p3-gh-share.err';
 const oneLine = (e) => String(e?.message ?? e).split('\n')[0];
-export function hookShare(root, sh, { err = (m) => console.error(m), later = kickShare, now = Date.now } = {}) {
+// This clone's content-creating rows no share has carried, logged after `since` (ms).
+const unsharedContent = (root, since = 0) => { const after = Math.max(lastShared(root), since); return readLog(root).filter((r) => Date.parse(r.at) > after && contentRow(r)).length; };
+export function hookShare(root, sh, { err = (m) => console.error(m), later = kickShare } = {}) {
   try {
     const f = join(commonDir(root), SHARE_ERR);
     if (existsSync(f)) { const m = readFileSync(f, 'utf8').trim(); rmSync(f, { force: true }); if (m) err(m); }
   } catch { /* a sign, never the call's failure */ }
-  if (!sh) return null;
+  if (!sh) return false;
   try {
-    // Shared already (the call's own reserve shares by the 15-minute rule): nothing to do.
-    if (!unshared(root).content) return 0;
-    if (now() - lastShareAt(root) >= HOOK_SHARE_S * 1000) return sh.shareContent();
-    later(root, { now });
-    return 0;
+    // Shared already (the call's own reserve shares by the 15-minute rule): nothing to start.
+    if (!unsharedContent(root)) return false;
+    return later(root);
   } catch (e) {
-    try { err(`github: this connector call's row not shared (${oneLine(e)}); the next connector write or p3 command in this clone shares it`); } catch { /* never the call's failure */ }
-    return null;
+    try { err(`github: the share of this connector call's row not started (${oneLine(e)}); the next connector write or p3 command in this clone shares it`); } catch { /* never the call's failure */ }
+    return false;
   }
 }
 const HOOK_ENTRY = fileURLToPath(new URL('../hook.mjs', import.meta.url));
-// One detached share at a time per clone (the refresh's marker rule): a marker older than
-// 2 * HOOK_SHARE_S (a share killed) is taken over.
-export function kickShare(cwd, { now = Date.now, entry = HOOK_ENTRY } = {}) {
+// One detached share at a time per clone: the marker taken by its creation; one older than
+// 4 * HOOK_SHARE_S (a share killed) removed and taken by creation again, so two takers never both
+// win (C52 cold review). A spawn that fails lets go of its marker.
+export function kickShare(cwd, { now = Date.now, entry = HOOK_ENTRY, tries = 0 } = {}) {
   const f = join(commonDir(cwd), SHARING);
-  try { writeFileSync(f, String(now()), { flag: 'wx' }); } catch {
+  const mark = `${now()} ${process.pid} ${Math.random().toString(36).slice(2)}`;
+  try { writeFileSync(f, mark, { flag: 'wx' }); } catch {
     let at = 0;
-    try { at = Number(readFileSync(f, 'utf8')) || 0; } catch { at = 0; }
-    if (now() - at < 2 * HOOK_SHARE_S * 1000) return false;
-    writeFileSync(f, String(now()));
+    try { at = Number(readFileSync(f, 'utf8').split(' ')[0]) || 0; } catch { at = 0; }
+    if (now() - at < 4 * HOOK_SHARE_S * 1000) return false;
+    rmSync(f, { force: true });
+    try { writeFileSync(f, mark, { flag: 'wx' }); } catch { return false; }
   }
-  const child = spawn(process.execPath, [entry, '--share'], { cwd, detached: true, stdio: 'ignore', env: { ...process.env, P3_SHARE_MARK: readFileSync(f, 'utf8') } });
-  child.on('error', () => { /* not started: the next write or p3 command shares */ });
+  const letGo = () => { try { if (readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ } };
+  let child;
+  try { child = spawn(process.execPath, [entry, '--share'], { cwd, detached: true, stdio: 'ignore', env: { ...process.env, P3_SHARE_MARK: mark, P3_SHARE_TRY: String(tries) } }); } catch (e) { letGo(); throw e; }
+  child.on('error', letGo);
   child.unref();
   return true;
 }
 // The detached share (tool/hook.mjs --share): waits until HOOK_SHARE_S after the clone's last
-// share, shares, lets go of the marker, and starts one more only when this one shared and a
-// connector write logged since is still unshared (a write whose kick met the marker). A failure is
-// kept, one line, for the next connector write to say; no retry of its own.
+// share, shares, and lets go of the marker. Then, without a failure, it starts one more only for a
+// content-creating row logged after it began and still unshared (a write whose start met the
+// marker); a failure is tried once more by a new share, then kept, one line, for the next
+// connector write to say. Bounded: only a new write, or the one retry, starts another.
 const sleepMs = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
-export function hookShareLater(cwd, { now = Date.now, sleep = sleepMs, mark = process.env.P3_SHARE_MARK, again = kickShare } = {}) {
+export function hookShareLater(cwd, { now = Date.now, sleep = sleepMs, mark = process.env.P3_SHARE_MARK, tries = Number(process.env.P3_SHARE_TRY) || 0, again = kickShare, share = stateShare } = {}) {
+  const began = now();
   let root = cwd;
-  let ok = false;
-  let rest = 0;
+  let failed = null;
   try {
     root = repoRoot(cwd);
     let cfg = null;
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     sleep(Math.min(HOOK_SHARE_S * 1000, lastShareAt(root) + HOOK_SHARE_S * 1000 - now()));
-    const sh = stateShare(root, cfg);
-    if (sh) { ok = sh.shareContent() > 0; rest = unshared(root).content; }
-  } catch (e) {
-    try { writeFileSync(join(commonDir(root), SHARE_ERR), `github: a connector write's row not shared (${oneLine(e)}); the next connector write or p3 command in this clone shares it\n`); } catch { /* none */ }
-  } finally {
+    const sh = share(root, cfg);
+    if (sh) sh.shareContent();
+  } catch (e) { failed = e; } finally {
     const f = join(commonDir(root), SHARING);
     try { if (mark === undefined || readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ }
   }
-  if (ok && rest) { try { again(root, { now }); } catch { /* the next write or p3 command shares */ } }
-  return ok;
+  try {
+    if (failed && tries < 1) return (again(root, { now, tries: tries + 1 }), false);
+    if (failed) { writeFileSync(join(commonDir(root), SHARE_ERR), `github: a connector write's row not shared (${oneLine(failed)}); the next connector write or p3 command in this clone shares it\n`); return false; }
+    if (unsharedContent(root, began)) again(root, { now });
+  } catch { /* the next write or p3 command shares */ }
+  return !failed;
 }
 
 // The background refresh the read path starts (tool/hook.mjs --refresh): the ledger's tip asked of
