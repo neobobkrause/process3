@@ -603,12 +603,12 @@ test('a COMPLETE job whose pull request merged is refused, and named --reopen', 
   assert.equal(readRows(root, 'alpha').length, 2);
 });
 
-test('merge passes on a green gate run that read attempt 2, and refuses one that read attempt 1', () => {
+test('merge passes on a verified green gate run on the tip, whatever attempt it read (PD-21)', () => {
   const { root, f } = redAndFixed();
   jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'agrees', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
+  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
   const mk = (gate) => ({
     getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
     comments: () => [...f.state.comments, gate],
@@ -616,8 +616,7 @@ test('merge passes on a green gate run that read attempt 2, and refuses one that
     verify: () => true,
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });
-  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /checked receipt attempt 2 and agreed with it; its newest run read attempt 1/);
-  const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
+  const r = merge(root, 9, { slug: 'o/r', io: mk(run(1, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.equal(r.merged, true);
 });
 

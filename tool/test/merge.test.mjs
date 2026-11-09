@@ -25,7 +25,7 @@ function setup() {
   return { root, head };
 }
 
-function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
+function io(head, { gateGreen = true, row = true } = {}) {
   const calls = { merged: null };
   return {
     calls,
@@ -33,8 +33,8 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
       getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
       comments: () => [
         { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'acmewidget' } },
-        { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
-        { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1 }] }), user: { login: BOT } },
+        ...(row ? [{ id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } }] : []),
+        { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt_attempt: 1 }] }), user: { login: BOT } },
       ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
@@ -154,14 +154,12 @@ test('merge refuses a job that changed files outside its module', () => {
   assert.throws(() => merge(root, 3, { slug: 'o/r', io: io(head).io, noReview: 'x', log: () => {} }), /outside its module: .github\/workflows/);
 });
 
-test('merge refuses without a review decision, a green gate, or an agreeing receipt', () => {
+test('merge refuses without a review decision or a verified green gate row', () => {
   const { root, head } = setup();
   const q = { slug: 'o/r', log: () => {} };
   assert.throws(() => merge(root, 3, { ...q, io: io(head).io }), /--reviewed/);
   assert.throws(() => merge(root, 3, { ...q, io: io(head, { gateGreen: false }).io, noReview: 'x' }), /not green/);
-  assert.throws(() => merge(root, 3, { ...q, io: io(head, { receipt: 'none' }).io, noReview: 'x' }), /checked receipt attempt 1 and agreed with it/);
-  // AUD-2: a row that read the receipt without checking it (an earlier pin's 'present'), or one that disagreed, does not stand.
-  for (const receipt of ['present', 'unmeasured', 'disagrees']) assert.throws(() => merge(root, 3, { ...q, io: io(head, { receipt }).io, noReview: 'x' }), /checked receipt attempt 1 and agreed with it/, receipt);
+  assert.throws(() => merge(root, 3, { ...q, io: io(head, { row: false }).io, noReview: 'x' }), /no verified green process-gate run/);
   const other = io(head).io;
   other.verify = () => false;
   assert.throws(() => merge(root, 3, { ...q, io: other, noReview: 'x' }), /process-gate run/);

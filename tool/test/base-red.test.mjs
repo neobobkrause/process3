@@ -52,7 +52,7 @@ test('a test that fails at the PR and at the base passes the gate as base_red, a
   const io = fakeIO(receiptFor(s.head));
   const r = gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt], [true, 'base-red', 'pass', 'agrees']);
+  assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt_attempt], [true, 'base-red', 'pass', 1]);
   assert.equal(r.run.base_red.length, 1);
   assert.deepEqual(r.run.base_red[0].tests, [RED]);
   assert.equal(r.run.base_red[0].base, s.base);

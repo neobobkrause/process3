@@ -10,12 +10,11 @@ import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 
-test('a receipt disagreement refutes its COMPLETE claim, as a red suite or revert check does (SES-12)', () => {
-  assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'disagrees' }, 1), true);
+test('a red suite or revert check refutes its COMPLETE claim (SES-12)', () => {
   assert.equal(refutes({ receipt_attempt: 1, suite: 'fail' }, 1), true);
   assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' }, 1), true);
   assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'agrees' }, 1), false);
-  assert.equal(refutes({ receipt_attempt: 2, receipt: 'disagrees' }, 1), false, 'another attempt\'s run');
+  assert.equal(refutes({ receipt_attempt: 2, suite: 'fail' }, 1), false, 'another attempt\'s run');
   // A revert failure a reviewer then exempted on the same attempt refutes nothing; a red suite still does.
   const fail = (sha) => ({ sha, receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' });
   const exempt = (sha, reviewed = sha) => ({ sha, receipt_attempt: 1, suite: 'pass', revert: 'exempt', revert_exempt: { sha: reviewed }, receipt: 'agrees' });
@@ -27,7 +26,7 @@ test('a receipt disagreement refutes its COMPLETE claim, as a red suite or rever
   assert.equal(refuted([{ receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' }], 1), true);
   const at = (h) => new Date(Date.parse('2026-11-06T00:00:00Z') + h * 36e5).toISOString();
   const rows = [{ row: 'attempt', event: 'complete', attempt: 1, pr: 2, at: at(1) }, { row: 'attempt', event: 'complete', attempt: 1, pr: 3, at: at(2) }];
-  const gates = (pr) => (pr === 2 ? [{ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'disagrees' }] : [{ receipt_attempt: 1, suite: 'pass', receipt: 'agrees' }]);
+  const gates = (pr) => (pr === 2 ? [{ receipt_attempt: 1, suite: 'fail', revert: 'pass' }] : [{ receipt_attempt: 1, suite: 'pass' }]);
   assert.equal(flowFigures({ rows, gates, from: at(0), to: at(3) }).false_done_share, 0.5);
   // report's false_done_rate reads the same rule.
   const root = makeRepo({ 'process/metrics/alpha.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' });

@@ -140,7 +140,7 @@ test('base-red: the base tree prepared in the background gives the verdict the i
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
   const bg = run(s, receiptFor(s.head));
   const inline = run(s, receiptFor(s.head), { prepareBase: false });
-  for (const r of [bg, inline]) assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt, r.run.base_red[0].tests], [true, 'base-red', 'pass', 'agrees', ['test/alpha/red.test.mjs::plane > has ai-catalogue']]);
+  for (const r of [bg, inline]) assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.base_red[0].tests], [true, 'base-red', 'pass', ['test/alpha/red.test.mjs::plane > has ai-catalogue']]);
   assert.ok(bg.lines.some((l) => /prepared in the background/.test(l)), bg.lines.join('\n'));
   assert.ok(!inline.lines.some((l) => /prepared (in the background|beside)/.test(l)));
   assert.deepEqual(mine(), [], 'no base tree is left');
@@ -296,7 +296,7 @@ test('no test reading the requirements file: the suite is not run, and passes wi
   const s = setup({ 'test/alpha/other.test.mjs': RED_ELSEWHERE }, { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' }, { alpha: { paths: ['src/alpha/', 'req/alpha.md'] } });
   const r = run(s, exempt(s));
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.suite, r.run.tests, r.run.receipt, r.run.requirements_only], ['pass', [{ total: 0, pass: 0, fail: 0 }], 'agrees', [{ module: 'alpha', files: [] }]]);
+  assert.deepEqual([r.run.suite, r.run.tests, r.run.requirements_only], ['pass', [{ total: 0, pass: 0, fail: 0 }], [{ module: 'alpha', files: [] }]]);
   assert.ok(!r.lines.some((l) => /prepared beside/.test(l)), 'no suite runs: no base tree is prepared');
   assert.ok(r.lines.some((l) => /no test reads it \(none of its tests names alpha\.md or req\): the suite is not run/.test(l)), r.lines.join('\n'));
 });

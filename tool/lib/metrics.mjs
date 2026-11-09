@@ -179,15 +179,14 @@ export function capUse(sweepRows, from, to = now()) {
 // The flow figures (audit of PR 139: cap use beside velocity, efficiency and quality, so a knee shows).
 export const FLOW_RULE = 'cap use, job session-hours over cap session-hours (a diagnostic, no target); velocity, unmet R and F marks closed per calendar hour net of marks added unmet (the fall in the unmet count at the tranche; a mark added already met, as a split adds it, never counts); efficiency, merges per job session-hour, and gate runs, cancels and job syncs per merged PR; quality, the false-done share (complete claims a gate run of the receipt refuted), the marks reopen starts named, and reverts. Per concurrency bucket, every figure with a time (job syncs and reverts whole only); each sweep row\'s live count held until the next row, at most 2 hours.';
 export const BUCKETS = [[1, 5], [6, 10], [11, 15], [16, 20], [21, Infinity]];
-// A COMPLETE claim is refuted (SES-12, the false-done rate) when a gate run that checked that
-// attempt's receipt failed its suite or its revert check, or disagreed with the receipt (AUD-2,
-// JOB-7: every disagreement counts). A revert failure a reviewer later exempted on the same attempt
+// A COMPLETE claim is refuted (SES-12, the false-done rate) when a gate run of that attempt
+// failed its suite or its revert check (the receipt is not compared with the run: PD-21). A revert failure a reviewer later exempted on the same attempt
 // (AUD-1: a refactor whose tests rightly pass before and after) refutes nothing.
-export const refutes = (r, attempt) => r?.receipt_attempt === attempt && (r.suite === 'fail' || r.revert === 'fail' || r.receipt === 'disagrees');
+export const refutes = (r, attempt) => r?.receipt_attempt === attempt && (r.suite === 'fail' || r.revert === 'fail');
 export function refuted(runs, attempt) {
   const list = runs || [];
   // Cancelled only by an exempt run after it on the same attempt whose reviewed commit is its own.
-  const excused = (r, i) => r?.revert === 'fail' && r.suite !== 'fail' && r.receipt !== 'disagrees'
+  const excused = (r, i) => r?.revert === 'fail' && r.suite !== 'fail'
     && list.slice(i + 1).some((x) => x?.receipt_attempt === attempt && x.revert === 'exempt' && x.revert_exempt?.sha === r.sha);
   return list.some((r, i) => !excused(r, i) && refutes(r, attempt));
 }
