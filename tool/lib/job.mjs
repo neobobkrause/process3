@@ -276,7 +276,7 @@ function provable(root, id, branch, tranche, from) {
 // The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
 function setupOrStop(root, cfg, slug, setup, log) {
   // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
-  const s = setup(root, { slug, log, anchor: true });
+  const s = setup(root, { slug, log, anchor: true, cache: true });
   // A session not started from the tranche (Bob, 2 Nov, before the log; unverified): say so plainly, with the check's own
   // words for what to do (re-review of PR 24).
   if (s.missing.includes('session-branch')) {
