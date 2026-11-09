@@ -169,6 +169,22 @@ test('main and the tranche need a pull request, merge commits only, and the requ
   assert.match(state(check(w), 'ruleset-main-tranche').detail, /check ci is not required/);
 });
 
+test('the retired GitHub pacing hook (PD-22) is a warning, not drift; any other unknown hook stays a gap (C60)', () => {
+  // The copy's own hook, as R17c set it: it prints "not governed" and exits 0.
+  const pacing = 'd="${CLAUDE_PROJECT_DIR:-$PWD}"; f="$d/.process/tool/p3.mjs"; h="$d/.process/tool/hook.mjs"; cd "$d" || exit 2; if [ -f "$h" ]; then node "$h"; exit $?; fi; echo "GitHub pacing hook: $f has no github hook: this call is not governed" >&2; exit 0';
+  const w = world();
+  const withPre = (cmds) => JSON.stringify({ permissions: { deny: DENY }, hooks: { ...HOOKS, PreToolUse: [{ matcher: 'Bash', hooks: cmds.map((command) => ({ type: 'command', command })) }] } });
+  w.files['.claude/settings.json'] = withPre([pacing]);
+  let r = check(w);
+  assert.equal(state(r, 'shim-drift').state, 'set', state(r, 'shim-drift').detail);
+  assert.match(state(r, 'shim-drift').detail, /warning: retired GitHub pacing hook \(PD-22\): harmless; Bob may remove it$/);
+  w.files['.claude/settings.json'] = withPre([pacing, 'node other.mjs']);
+  r = check(w);
+  assert.equal(state(r, 'shim-drift').state, 'missing');
+  assert.match(state(r, 'shim-drift').detail, /carries a PreToolUse hook the pin does not allow \(node other\.mjs\)/);
+  assert.doesNotMatch(state(r, 'shim-drift').detail, /does not allow \(d=/);
+});
+
 test('merge settings: merge commits on, auto-merge off, no branch deleted on merge', () => {
   const w = world();
   w.repo.allow_auto_merge = true;
