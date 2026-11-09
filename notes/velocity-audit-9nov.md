@@ -1,0 +1,46 @@
+# Velocity audit, 9 Nov 2026 (coordinator session_018BhceeXRALDRSHRWf5FYNw)
+
+Asked by Bob, 9 Nov: "We need an audit to understand why velocity has virtually stopped during the last 2 days" and "extra checks and reviews have silently been piling up and being added without my approval".
+Two read-only audits on process3 data (the findings log L<n>, git history, DECISIONS.md). The copy-side numbers from BOB are still to come.
+
+## Throughput
+- Copy job lands: 5 Nov ~96 (+59 plain), 6 Nov ~68, 7 Nov ~75, 8 Nov ~55 (many no-code retests), 9 Nov to 13:53 **3**.
+- 8 Nov 00:00 to 9 Nov 13:53 (37.9 h): ~16.5 h with no product job able to move, for process reasons.
+- 9 Nov: process3 merged 16 PRs; the product landed 3.
+- Layers: L13 5.4 h for 3 jobs; L14 open 4.4 h+ with 1 land (now deadlocked by PD-19, being removed by C55).
+
+## Growth
+- tool/lib: 2,576 lines (3 Nov) -> 23,826 (9 Nov). All of tool/: 6.5k -> 55k. Test files 8 -> 117. Suite 6m43s.
+- Refusal/throw sites (proxy): 272 (4 Nov) -> 1,108.
+- C2-C54 (7-9 Nov): ~38 fix defects or slowness that earlier process changes made (11 of them in the GitHub pacing/ledger subsystem, whose brake was retired a day after it was built); ~11 add new capability.
+
+## Lost hours by cause (8-9 Nov, ~16.5 h)
+1. Serial layers, each with a fixed cost, carrying tiny layers: ~45%.
+2. Pin churn: 17 pin moves in 38 h (87 in 6 days), each forcing a layer sync; 14-49 min each: ~20%.
+3. New process features breaking the product run (C32, C33, C36, C44, C51/PD-19): ~20%.
+4. Notice triage on any source change: ~10% and rising (C54 in progress).
+5. Session refreshes and coordinator-id bookkeeping (25 coordinator takeovers in 6 days): ~5%.
+
+## Safeguard inventory: 35 rows since 2 Nov
+- Bob's quoted words: 7. Called Bob's but unquoted: 5. Build Plan: 3. **Coordinator only: 19.** Builder initiative: 1.
+- 4 coordinator-only rows cite no measured failure, against Bob's 5 Nov rule ("We only add additional checks when we can confirm from factual study and data that a check is really needed"): cold review of every PR, the coordinator's local suite rerun, PD-17, the hourly audit cadence.
+- Coordinator practices imposed on builders: cold subagent review of every PR (the Plan asks it only for gate, ledger, merge and permissions code); fix every finding with tests (contradicts GAP-3); PD-17 rehearsal; full suite run locally and again by the coordinator.
+
+## Cuts that are the coordinator's (made now, reversible on Bob's word)
+- K1: Cold review only for gate, merge, record and approvals code; what-ifs logged, not fixed (GAP-3).
+- K2: No coordinator local suite rerun; CI is the check.
+- K3: PD-17 rehearsals switched off.
+- K4: PD-13 (run the hook by hand) removed.
+- K5: Hourly AUDIT/BUDGET becomes a daily row.
+- K6: PD-19 land order removed (C55, PD-19b).
+- K7: Notice on any source change settled at the merge (C54, PD-20).
+- K8: Pin policy: after today's catch-up pins (112e38d5, then C54+C55), the copy's pin moves at most once a day, at a layer boundary, unless BOB is blocked by a process defect.
+- K9 (code, next): setup check once per pin, and settings admit warns instead of refusing.
+
+## For Bob to decide (Bob's or Bob-attributed safeguards, or structural)
+- B1: One round layer for all flawed modules in rounds 2+, landing in dependency order (largest gain, ~45%).
+- B2: Revert check skipped for test-only and record-only diffs (unblocks bundler F3).
+- B3: Receipt-agreement gate becomes a metric, not a red (0 catches).
+- B4: CI on one Node version for PRs (two today).
+- B5: GitHub ledger/pacing subsystem cut to counting plus backoff on GitHub's own 403/429/5xx.
+- B6: Close the review-trigger trial (keep the `test` trigger).
