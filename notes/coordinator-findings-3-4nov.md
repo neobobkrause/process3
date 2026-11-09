@@ -1244,3 +1244,4 @@
 - 05:11Z C48 merged: PR 286 at b2868be2 (local 1245/1245): notice withdraw clears a notice whose PR is a definite 404 (repo served, full_name match, not in own tranche/main history), fail-closed otherwise; triage names the withdraw. Builder archived. Rides the next pin with C45b, C46, C47.
 - 05:12Z copy pin move to b2868be2 (C46+C47+C48) started: session_018Bhceg6HcYiMhiwneg34p2. Not held for C45b: BOB gets round next, the ledger fix and notice withdraw now; C45b takes its own pin later.
 - 05:26Z copy pinned at b2868be2 (C46+C47+C48): copy PR 1091 merged 9b9e662b (~14 min), BOB woken pin-84. Pin session archived. BOB told: round next for round close; withdraw the 4 missing-PR notices.
+- 05:27Z BOB bob-342: 7 notices triaged; wizard-scripts affected by filing-templates:712, rides round 2's map-layer-11 layer (agreed). Remaining triage ~160 workers in read-only batches.
