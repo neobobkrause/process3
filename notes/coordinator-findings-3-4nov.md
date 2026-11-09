@@ -1297,3 +1297,4 @@
 - 19:52Z hourly: copy still stopped. No ROOT, BOB or watcher since ~16:45Z, and no new ROOT yet; Bob not yet answered "go". The copy's pin is at 38b0f3f0 (C61, PR 1116, 18:59Z), and layer/14 is pinned in place (PR 1117). Layer 14 is ready to merge as soon as a BOB runs. Lands in the last hour: copy 1 (pin), process3 0.
 - 20:52Z hourly: unchanged. Copy stopped since ~16:45Z; no new ROOT; Bob not yet answered (push sent 19:52Z). Nothing moves until a ROOT starts.
 - 21:52Z hourly: unchanged. Copy stopped since ~16:45Z (5 h); no new ROOT; Bob not answered. Waiting on Bob's "go".
+- 22:52Z hourly: unchanged; copy stopped ~6 h; waiting on Bob's "go" for ROOT.
