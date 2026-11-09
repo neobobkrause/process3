@@ -73,7 +73,7 @@ function pr(p, branch, files, { pin } = {}) {
 }
 const fakeIO = () => {
   const state = { comments: [] };
-  return { state, io: { comments: () => state.comments, getPR: () => ({ user: { login: 'acmewidget' }, draft: false }), addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; }, verify: () => true } };
+  return { state, io: { comments: () => state.comments, getPR: () => ({ user: { login: 'acmewidget' }, draft: false, base: { ref: 'tranche' } }), addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; }, verify: () => true } };
 };
 function run(s, over = {}) {
   const lines = [];
@@ -153,7 +153,7 @@ test('full: a reader the build reveals runs the whole suite, recorded full with 
     '.gitignore': 'src/alpha/gen.mjs\n',
   });
   const s = pr(p, 'found-gen', { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' });
-  const before = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, repo });
+  const before = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, baseRef: 'tranche', repo });
   assert.equal(before.class, 'record-only', 'before the build no reader shows');
   const r = run(s);
   assert.equal(r.run.class, 'full');
@@ -173,7 +173,7 @@ test('full: more routes out of record-only: two modules\' file, a deleted file, 
   const del = run({ ...p, head: git(['rev-parse', 'HEAD'], { cwd: p.root }), branch: 'found-del' });
   assert.deepEqual([del.run.class, del.run.class_why], ['full', 'req/alpha.md is not a regular file in the merged tree']);
   const cfg = loadConfig(p.root);
-  assert.equal(gateClass(p.root, cfg, { branch: 'x', changed: ['process/metrics/a.jsonl'], entries: [], readers: () => [] }).why, 'records only');
+  assert.equal(gateClass(p.root, cfg, { branch: 'x', into: 'tranche', changed: ['process/metrics/a.jsonl'], entries: [], readers: () => [] }).why, 'records only');
   // A job's pull request: full, and its own requirements-only narrowing as before.
   const j = pr(product(), 'job/alpha', { 'req/alpha.md': '# alpha\n\n- **R1** x is one, struck\n' });
   const jr = run(j);
@@ -196,10 +196,10 @@ test('full: a job, the tranche, a pass, a layer, a refresh and bootstrap never t
     ['bootstrap', { bootstrap: true }, 'bootstrap: the base has no Process3'],
     ['a refresh', { refresh: true }, 'a refresh of generated files'],
   ]) {
-    const c = gateClass(root, cfg, { branch: 'x', changed, entries, readers, ...ctx });
+    const c = gateClass(root, cfg, { branch: 'x', into: 'tranche', changed, entries, readers, ...ctx });
     assert.deepEqual([c.class, c.why], ['full', why], what);
   }
-  assert.equal(gateClass(root, cfg, { branch: 'x', changed, entries, readers }).class, 'record-only');
+  assert.equal(gateClass(root, cfg, { branch: 'x', into: 'tranche', changed, entries, readers }).class, 'record-only');
 });
 
 // 3. pin-only.
@@ -288,10 +288,10 @@ test('the gate-class command: class and browser lines appended to --out; anythin
   const s = pr(product({ 'test/alpha/ids.test.mjs': whole('alpha').replace('whole', 'other') }), 'found-cmd', { 'req/alpha.md': '# alpha\n\n- **R1** reworded\n' });
   const out = join(mkdtempSync(join(tmpdir(), 'p3-class-')), 'o');
   const tool = join(import.meta.dirname, '..', 'p3.mjs');
-  const r = spawnSync(process.execPath, [tool, 'gate-class', '--base', s.base, '--head', s.head, '--branch', s.branch, '--out', out], { cwd: s.root, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [tool, 'gate-class', '--base', s.base, '--head', s.head, '--branch', s.branch, '--base-ref', 'tranche', '--out', out], { cwd: s.root, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(readFileSync(out, 'utf8'), 'class=record-only\nbrowser=skip\n');
-  const bad = spawnSync(process.execPath, [tool, 'gate-class', '--base', 'nope', '--head', s.head, '--branch', s.branch, '--out', out], { cwd: s.root, encoding: 'utf8' });
+  const bad = spawnSync(process.execPath, [tool, 'gate-class', '--base', 'nope', '--head', s.head, '--branch', s.branch, '--base-ref', 'tranche', '--out', out], { cwd: s.root, encoding: 'utf8' });
   assert.equal(bad.status, 0);
   assert.match(readFileSync(out, 'utf8'), /class=full\nbrowser=keep\n$/);
 });
@@ -308,7 +308,7 @@ test('the browser: needed unless pin-only, or record-only with no reader; a lane
   // A lane's folder, touched beside the class's files, is seen.
   const p = product({ 'process/config.json': { tranche: 'tranche', lanes: [{ name: 'ux', dir: 'ux' }] } });
   const cfg = loadConfig(p.root);
-  assert.equal(gateClass(p.root, cfg, { branch: 'x', changed: ['ux/a.css', 'req/alpha.md'], entries: [], readers: () => [] }).lanes, true);
+  assert.equal(gateClass(p.root, cfg, { branch: 'x', into: 'tranche', changed: ['ux/a.css', 'req/alpha.md'], entries: [], readers: () => [] }).lanes, true);
 });
 
 test('the browser left out, a product test would run all the same: red, the suite not run', () => {
@@ -322,7 +322,7 @@ test('the browser left out, a product test would run all the same: red, the suit
   // browser (cold review A4). Were it left out all the same (a step and a gate that disagree), the
   // reader the build reveals makes the gate red, and nothing runs without the browser.
   const s = pr(p, 'found-b', { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' });
-  const c = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, repo });
+  const c = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, baseRef: 'tranche', repo });
   assert.deepEqual([c.class, browserNeeded(c)], ['record-only', true]);
   const r = run(s, { browserSkipped: true });
   assert.equal(r.run.ok, false);
@@ -380,7 +380,7 @@ test('the shim: the class step, guarded by the capability line, says skip only w
 
 test('rehearsal (PD-17): a record-only PR, a pin-only PR, and a code PR disguised as each come out as they must', () => {
   const flow = (s) => {
-    const c = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, repo });
+    const c = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, baseRef: 'tranche', repo });
     const r = run(s, { browserSkipped: !browserNeeded(c) });
     checkRow(r.run);
     const post = block(GATE, { runs: [r.run] }, r.comment.split('\n')[1]);
@@ -404,4 +404,129 @@ test('rehearsal (PD-17): a record-only PR, a pin-only PR, and a code PR disguise
   }
   // Full is the gate as before: each module a file touches runs whole (the pin alone touches none).
   assert.deepEqual([d1.tests, d2.tests, d3.tests, d4.tests], [2, 2, 3, 0]);
+});
+
+// 6. Layer syncs (C49; copy PR 1092: a sync carrying only the pin ran a 54-minute full gate). A pull
+// request into layer/<n> is light only as that layer's sync, carrying only the pin; every other pull
+// request into a layer is full, and so is one whose base branch is not known.
+
+// layer/1 cut from the base with a land on it; the tranche then moves (files, the pin); the sync branch
+// is the tool's merge of the tranche into the layer (or, merge: false, a plain commit of the same).
+function layered({ tranche = { '.github/workflows/process-gate.yml': SHIM[PIN1], 'CLAUDE.md': claude(PIN1) }, pin = PIN1, branch, merge = true, baseFiles } = {}) {
+  const p = product(baseFiles);
+  const { root } = p;
+  git(['checkout', '-q', '-b', 'layer/1', p.base], { cwd: root });
+  const base = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n' }, 'Merge layer PR 5');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  if (Object.keys(tranche).length) commit(root, tranche, 'Merge PR 30');
+  if (pin) { setPin(root, pin); git(['commit', '-q', '-m', 'process: pin'], { cwd: root }); }
+  const ttip = git(['rev-parse', 'HEAD'], { cwd: root });
+  const b = branch || `layer-sync/1-${ttip.slice(0, 10)}`;
+  git(['checkout', '-q', '-b', b, base], { cwd: root });
+  if (merge) git(['merge', '-q', '--no-ff', '--no-edit', 'tranche'], { cwd: root });
+  else { if (Object.keys(tranche).length) commit(root, tranche, 'the same, by hand'); if (pin) { setPin(root, pin); git(['commit', '-q', '-m', 'pin by hand'], { cwd: root }); } }
+  return { root, base, head: git(['rev-parse', 'HEAD'], { cwd: root }), branch: b };
+}
+const into = (ref) => ({ comments: () => [], getPR: () => ({ user: { login: 'acmewidget' }, draft: false, ...(ref ? { base: { ref } } : {}) }), verify: () => true });
+
+test('layer sync (C49): a sync PR carrying only the pin is pin-only, judged by pinOnly: no suite, install or build; the class step leaves the browser out', () => {
+  const s = layered();
+  const r = run(s, { io: into('layer/1'), exec: () => { throw new Error('nothing is installed or built'); } });
+  assert.deepEqual(r.findings, [], r.lines.join('\n'));
+  assert.equal(r.run.class, 'pin-only');
+  assert.match(r.run.class_why, new RegExp(`^layer sync 1: the pin ${PIN0.slice(0, 10)} to ${PIN1.slice(0, 10)}, with \\.github/workflows/process-gate\\.yml, CLAUDE\\.md$`));
+  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, tests(r)], ['code', [], 'skipped', 0]);
+  assert.match(r.comment.split('\n')[1], /: green, code \(pin-only\), /);
+  checkRow(r.run);
+  const c = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, baseRef: 'layer/1', repo });
+  assert.deepEqual([c.class, browserNeeded(c)], ['pin-only', false]);
+  // The pin alone, no shim or process lines: pin-only too.
+  assert.equal(run(layered({ tranche: {} }), { io: into('layer/1') }).run.class, 'pin-only');
+});
+
+test('layer sync (C49): a sync with an unreleased or backward pin is red; a shim not the pin\'s own is red', () => {
+  const off = run(layered({ tranche: {}, pin: PIN_OFF }), { io: into('layer/1') });
+  assert.deepEqual([off.run.class, off.findings.map((f) => f.message)], ['pin-only', [`the process pin ${PIN_OFF.slice(0, 10)} is not a commit on process3's tranche or main`]]);
+  const down = run(layered({ tranche: {}, pin: PIN_OLD }), { io: into('layer/1') });
+  assert.deepEqual([down.run.class, down.findings.map((f) => f.message)], ['pin-only', [`the process pin ${PIN_OLD.slice(0, 10)} does not descend from the base's pin ${PIN0.slice(0, 10)}: no downgrade`]]);
+  const shim = run(layered({ tranche: { '.github/workflows/process-gate.yml': SHIM[PIN1] + '# edited\n' } }), { io: into('layer/1') });
+  assert.deepEqual([shim.run.class, shim.run.ok, shim.findings.map((f) => f.file)], ['pin-only', false, ['.github/workflows/process-gate.yml']]);
+});
+
+test('layer sync (C49): every other route into a layer is full, each with its why: a product file, a ledger entry, the config, a record, no pin moved, a job, another branch, a forged sync, an unknown base', () => {
+  const cases = [
+    ['a sync carrying a product file', layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings src\/beta\/index\.mjs$/],
+    ['a sync carrying a test file', layered({ tranche: { 'test/beta/new.test.mjs': whole('beta') } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings test\/beta\/new\.test\.mjs$/],
+    ['a sync carrying a requirements file', layered({ tranche: { 'req/beta.md': '# beta\n\n- **R1** y is one, reworded\n' } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings req\/beta\.md$/],
+    ['a sync carrying a ledger entry', layered({ tranche: { 'process/ledger/gamma.json': entry('gamma', { paths: ['src/gamma/'] }) } }), 'layer/1', /^it changes a ledger entry \(process\/ledger\/gamma\.json\)$/],
+    ['a sync carrying the config', layered({ tranche: { 'process/config.json': { tranche: 'tranche', lockfiles: [] } } }), 'layer/1', /^it changes process\/config\.json$/],
+    ['a sync carrying a record', layered({ tranche: { 'process/metrics/beta.jsonl': '{"row":"note"}\n' } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings process\/metrics\/beta\.jsonl$/],
+    ['a sync carrying a workflow not named like a shim', layered({ tranche: { '.github/workflows/build.yml': 'on: push\n' } }), 'layer/1', /\.github\/workflows\/build\.yml is not named like a shim/],
+    ['a sync that moves no pin', layered({ pin: null }), 'layer/1', /^layer sync 1 does not move the pin$/],
+    ['a sync into another layer', layered({ tranche: {} }), 'layer/2', /^a pull request into layer\/2 that is not its layer sync \(from layer-sync\/1-[0-9a-f]{10}\)$/],
+    ['a plain branch into the layer, only the pin', layered({ tranche: {}, branch: 'p3/pin-l' }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync \(from p3\/pin-l\)$/],
+    ['a sync-like name with no hex', layered({ tranche: {}, branch: 'layer-sync/1-main' }), 'layer/1', /that is not its layer sync \(from layer-sync\/1-main\)$/],
+    ['a forged sync: no merge', layered({ tranche: {}, branch: 'layer-sync/1-0123456789', merge: false }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its head [0-9a-f]{10} is not a merge$/],
+    ['a sync PR whose base is not known', layered(), null, /^the pull request's base branch is not known$/],
+  ];
+  for (const [what, s, ref, why] of cases) {
+    const r = run(s, { io: into(ref) });
+    assert.equal(r.run.class, 'full', `${what}: ${r.run.class_why}`);
+    assert.match(r.run.class_why, why, what);
+    assert.doesNotMatch(r.comment.split('\n')[1], /record-only|pin-only/, what);
+    const c = gateClassAt(s.root, { base: s.base, head: s.head, branch: s.branch, baseRef: ref, repo });
+    assert.deepEqual([c.class, browserNeeded(c)], ['full', true], `${what}: the class step keeps the browser`);
+  }
+  // A job's PR into the layer, carrying only the pin (its branch named as a job's): full, as before.
+  const job = layered({ tranche: {}, branch: 'job/alpha', merge: false });
+  assert.deepEqual([gateClassAt(job.root, { base: job.base, head: job.head, branch: job.branch, baseRef: 'layer/1', repo }).why], ["a job's pull request"]);
+  // A merge whose first parent is not on the layer (an empty commit off it): full, its diff the pin's all the same.
+  const p = layered({ tranche: {} });
+  git(['checkout', '-q', '-B', 'layer-sync/1-abcdefabcd', 'main'], { cwd: p.root });
+  git(['commit', '-q', '--allow-empty', '-m', 'off the layer'], { cwd: p.root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'tranche'], { cwd: p.root });
+  const off = gateClassAt(p.root, { base: p.base, head: git(['rev-parse', 'HEAD'], { cwd: p.root }), branch: 'layer-sync/1-abcdefabcd', baseRef: 'layer/1', repo });
+  assert.equal(off.class, 'full');
+  assert.match(off.why, /its head's first parent [0-9a-f]{10} is not on layer\/1$/);
+  // gateClass alone: into a layer with no head or base known is full.
+  const cfg = loadConfig(p.root);
+  const g = gateClass(p.root, cfg, { branch: 'layer-sync/1-abcdefabcd', into: 'layer/1', changed: ['.process'], entries: [], readers: () => [] });
+  assert.deepEqual([g.class, g.why], ['full', 'a pull request into layer/1 that is not its layer sync: its head or base is not known']);
+  // A record-only change into a layer, from any branch: full (not a sync's).
+  const rec = gateClass(p.root, cfg, { branch: 'found-x', into: 'layer/1', changed: ['req/alpha.md'], entries: [], readers: () => [] });
+  assert.equal(rec.class, 'full');
+});
+
+test('layer sync (C49): a product test on the layer naming the pin sends the sync full, as it does a tranche pin move', () => {
+  const s = layered({ tranche: {} });
+  git(['checkout', '-q', 'layer/1'], { cwd: s.root });
+  const base = commit(s.root, { 'test/alpha/pin.test.mjs': "import { existsSync } from 'node:fs'; existsSync('.process');\n" }, 'Merge layer PR 6');
+  git(['checkout', '-q', '--detach', base], { cwd: s.root });
+  git(['merge', '-q', '--no-ff', '-m', 'GitHub merge', s.head], { cwd: s.root });
+  const r = run({ ...s, base }, { io: into('layer/1') });
+  assert.equal(r.run.class, 'full');
+  assert.match(r.run.class_why, /test\/alpha\/pin\.test\.mjs names \.process \(the merged tree\)/);
+});
+
+test('layer sync (C49, cold review): an evil merge, keeping the layer\'s side of a file the tranche changed, is full; so is a base that disagrees with the event\'s', () => {
+  // The tranche changes beta's code and moves the pin; the "sync" keeps the layer's beta, so its
+  // diff against the layer is the pin's files only, while the tranche's commits enter the layer.
+  const s = layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' }, merge: false, branch: 'layer-sync/1-0123456789' });
+  git(['reset', '-q', '--hard', s.base], { cwd: s.root });
+  git(['merge', '-q', '--no-ff', '--no-commit', 'tranche'], { cwd: s.root });
+  git(['checkout', '-q', s.base, '--', 'src/beta/index.mjs'], { cwd: s.root });
+  git(['commit', '-q', '--no-edit'], { cwd: s.root });
+  const evil = { ...s, head: git(['rev-parse', 'HEAD'], { cwd: s.root }) };
+  assert.deepEqual(git(['diff', '--name-only', evil.base, evil.head], { cwd: s.root }).split('\n'), ['.process'], 'the pin alone, against the layer');
+  const r = run(evil, { io: into('layer/1') });
+  assert.equal(r.run.class, 'full');
+  assert.match(r.run.class_why, /that is not its layer sync: its head [0-9a-f]{10} is not git's own merge of its parents$/);
+  // The tool's own merge of the same, honestly made, brings beta's code from the tranche: full.
+  const honest = layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' } });
+  assert.match(run(honest, { io: into('layer/1') }).run.class_why, /^a pull request into layer\/1 that is not its layer sync: its second parent brings src\/beta\/index\.mjs$/);
+  // The live PR's base and the event's disagree (retargeted since): full.
+  const ok = layered();
+  const moved = run(ok, { io: into('tranche'), baseRef: 'layer/1' });
+  assert.deepEqual([moved.run.class, moved.run.class_why], ['full', "the pull request's base branch is not known"]);
+  assert.equal(run(ok, { io: into('layer/1'), baseRef: 'layer/1' }).run.class, 'pin-only', 'agreeing, as before');
 });

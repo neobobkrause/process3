@@ -88,6 +88,9 @@ export function layerArg(a, root) {
   if (rs?.next && rs.next.round === Number(r) && rs.next.of === Number(m)) return rs.next.n;
   return fail(`no layer is tranche ${cfg.tranche} · round ${r} · layer ${m}${rs?.next ? `; the next to open is round ${rs.next.round} · layer ${rs.next.of} (internal layer ${rs.next.n})` : ''}`);
 }
+// The pull request's base branch for the gate's class (C49): --base-ref, else the GITHUB_BASE_REF the
+// runner sets on every step of a pull_request run (no shim change); none read, the class is full.
+const baseRefOf = (a) => (typeof a['base-ref'] === 'string' && a['base-ref'] ? a['base-ref'] : process.env.GITHUB_BASE_REF || null);
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
@@ -408,7 +411,7 @@ const commands = {
     return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], reviewSession: a['review-session'], reviewRecord: a['review-record'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
   },
 
-  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]
+  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>] [--base-ref <ref>]
   // gate --post <gate.json> --pr <n> [--head <sha>] [--gate-result <result>]
   // Run only by the gate workflow, with the base's process pin: job gate runs the gate on a
   // read-only token and never posts (the shim's --no-post is ignored), and job post posts its row
@@ -420,7 +423,7 @@ const commands = {
       return 0;
     }
     const { run: r, findings } = gate(root, {
-      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null,
+      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null, baseRef: baseRefOf(a),
       draft: a.draft === 'true' || a.draft === true, started: a.started ? Number(a.started) * 1000 : Date.now(),
       // The process clone this runs from judges a pin-only change (gateclass.mjs); the shim says when
       // its gate-class step left the browser out (P3_BROWSER=skip), so no product test may run.
@@ -430,7 +433,7 @@ const commands = {
     return report(findings, a.out, { run: r });
   },
 
-  // gate-class --base <sha> --head <sha> --branch <ref> [--out <file>]: the gate shim's step before
+  // gate-class --base <sha> --head <sha> --branch <ref> [--base-ref <ref>] [--out <file>]: the gate shim's step before
   // the browser install (C45b): the run's class (gateclass.mjs) and whether the product's browser is
   // needed, as `class=<c>` and `browser=skip|keep` lines appended to --out ($GITHUB_OUTPUT). Any
   // failure says keep: the browser is then installed as before.
@@ -438,7 +441,7 @@ const commands = {
     let c;
     try {
       if (!a.base || !a.head || a.base === true || a.head === true) fail('gate-class --base <sha> --head <sha> --branch <ref> [--out <file>]');
-      c = gateClassAt(root, { base: a.base, head: a.head, branch: a.branch === true ? '' : a.branch || '', repo: gateRepo(processRepo, TOOL_ROOT) });
+      c = gateClassAt(root, { base: a.base, head: a.head, branch: a.branch === true ? '' : a.branch || '', baseRef: baseRefOf(a), repo: gateRepo(processRepo, TOOL_ROOT) });
     } catch (e) { c = { class: 'full', why: `unread (${String(e.message).slice(0, 200)})`, lanes: true }; }
     const browser = browserNeeded(c) ? 'keep' : 'skip';
     console.log(`gate class: ${c.class} (${c.why}); browser: ${browser}`);

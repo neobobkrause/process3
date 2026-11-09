@@ -273,7 +273,11 @@ export function gate(root, opts) {
       runRow.uncovered = c.uncovered.length;
     }
     // The gate's class (gateclass.mjs, C45b): record-only and pin-only plain pull requests run light.
-    const cls = classOf(root, cfg, { job, branch, changed, entries, rows: gen.rows, refresh: !!plain?.length, pass: passPR, layer: layerOfBranch(branch) !== null, bootstrap: !!bootstrap, mb, head, repo: opts.repo });
+    // Its base branch as GitHub serves the pull request now, else as the workflow's event names it;
+    // the two disagreeing (retargeted since the event), not known: full (cold review of C49).
+    const liveRef = live?.base?.ref ?? null;
+    const into = liveRef && opts.baseRef && liveRef !== opts.baseRef ? null : liveRef ?? opts.baseRef ?? null;
+    const cls = classOf(root, cfg, { job, branch, into, base, changed, entries, rows: gen.rows, refresh: !!plain?.length, pass: passPR, layer: layerOfBranch(branch) !== null, bootstrap: !!bootstrap, mb, head, repo: opts.repo });
     runRow.class = cls.class;
     runRow.class_why = cls.why;
     findings.push(...(cls.findings || []));
@@ -511,14 +515,16 @@ export function classOf(root, cfg, ctx) {
   if (!c.candidate) return c;
   if (!ctx.repo) return { class: 'full', why: 'no process clone to judge the pin with', lanes: c.lanes };
   try {
-    return { ...pinOnly(root, cfg, { ...ctx, merged: entriesAt(root, 'HEAD') }), lanes: c.lanes };
+    const p = pinOnly(root, cfg, { ...ctx, merged: entriesAt(root, 'HEAD') });
+    // A layer sync judged pin-only says so (C49); full stays full, with pinOnly's why.
+    return { ...p, ...(c.sync !== undefined && p.class === 'pin-only' ? { why: `layer sync ${c.sync}: ${p.why}` } : {}), lanes: c.lanes };
   } catch (e) { return { class: 'full', why: `the pin could not be judged (${printable(e.message, 200)})`, lanes: c.lanes }; }
 }
 
 // The shim's gate-class step (before the browser install, so before any product code runs): the
 // class as gate() reads it for a ready run, from the same inputs. Bootstrap and anything unread
 // are full: the browser is then installed as before.
-export function gateClassAt(root, { base, head, branch, repo }) {
+export function gateClassAt(root, { base, head, branch, baseRef, repo }) {
   if (isBootstrap(root, base)) return { class: 'full', why: 'bootstrap: the base has no Process3', lanes: false };
   const cfg = loadConfig(root, lastConfigAt(root, base) || base);
   const mb = git(['merge-base', head, base], { cwd: root });
@@ -528,7 +534,7 @@ export function gateClassAt(root, { base, head, branch, repo }) {
   const gen = generatedRows(cfg);
   const genChanged = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f)) : [];
   const refresh = genChanged.some((f) => entries.some((e) => inModule(e, f)));
-  return classOf(root, cfg, { job, branch, changed, entries, rows: gen.rows, refresh, pass: !job && PASS_BRANCH.test(branch || ''), layer: layerOfBranch(branch) !== null, bootstrap: false, mb, head, repo });
+  return classOf(root, cfg, { job, branch, into: baseRef || null, base, changed, entries, rows: gen.rows, refresh, pass: !job && PASS_BRANCH.test(branch || ''), layer: layerOfBranch(branch) !== null, bootstrap: false, mb, head, repo });
 }
 
 const committed = (root, sha) => /^[0-9a-f]{40}$/.test(String(sha)) && git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code === 0;
