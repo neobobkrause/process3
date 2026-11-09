@@ -17,6 +17,10 @@ export const layerOfBranch = (b) => { const m = String(b || '').match(LAYER_BRAN
 // tranche tip's first 10 hex>, with -<k> for a later attempt. The layer it syncs, or null.
 export const SYNC_BRANCH = /^layer-sync\/(\d+)-[0-9a-f]{10}(?:-\d+)?$/;
 export const syncOfBranch = (b) => { const m = String(b || '').match(SYNC_BRANCH); return m ? Number(m[1]) : null; };
+// The branch layer pin <n> opens its pull request from (PD-23, layerflow.mjs layerPin): layer-pin/<n>-<the
+// new pin's first 10 hex>, -<k> for a later attempt; one commit on the layer moving only the pin files.
+export const PIN_BRANCH = /^layer-pin\/(\d+)-[0-9a-f]{10}(?:-\d+)?$/;
+export const pinOfBranch = (b) => { const m = String(b || '').match(PIN_BRANCH); return m ? Number(m[1]) : null; };
 // The state branch's files of the layer flow: one file per event, added and never edited, so two
 // writers never conflict (as notices/).
 export const FLOW_DIR = 'layerflow';

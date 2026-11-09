@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
 import { hold } from '../lib/hold.mjs';
 import { flowFile } from '../lib/layerbase.mjs';
-import { flowRows, layerJobs, layerJoin, layerLand, layerLines, layerMerge, layerOpen, layerStatus, syncOwed, writeRows } from '../lib/layerflow.mjs';
+import { flowRows, layerJobs, layerJoin, layerLand, layerLines, layerMerge, layerOpen, layerStatus, writeRows } from '../lib/layerflow.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { configOf, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -175,7 +175,7 @@ test('land order (PD-19b): a dependent job lands before its companion; the compa
 
 // PD-17: the path rehearsed end to end, as BOB runs it: a layer open with a job; the job needs a
 // companion; the companion joins; both start (each brief names the pairing); the companion lands;
-// the job lands; the layer merges. syncOwed and the layer cover hold as for any member.
+// the job lands; the layer merges. The layer cover holds as for any member.
 test('rehearsal (PD-17): open, companion join, both start, companion lands, job lands, layer merge', async () => {
   const { root, bare } = opened();
   // The job is listed; its need is found: a's op family.
@@ -211,7 +211,6 @@ test('rehearsal (PD-17): open, companion join, both start, companion lands, job 
   const st = layerStatus(root, 2, { io: openIO, log: quiet });
   assert.deepEqual(st.states.map((s) => [s.id, s.state]).sort(), [['a', 'complete'], ['d', 'complete'], ['e', 'complete']]);
   assert.equal(st.ready, true);
-  assert.equal(syncOwed(root, cfgOf(), 2), null, 'syncOwed holds: no pin move, nothing owed');
   const m = await layerMerge(root, 2, { io: mio(), wait: false, log: quiet });
   assert.equal(m.ok, true);
   git(['fetch', '-q', 'origin'], { cwd: root });
