@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
+import { BOT, GATE, block } from '../lib/github.mjs';
 import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, merge, mergePlain, waitForChecks, waitForGate } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { mergedRange, noticeFile, withdrawNotice } from '../lib/notice.mjs';
@@ -79,8 +79,7 @@ const moveTranche = (root, f) => {
 // GitHub as it is: the PR's head is origin's job/alpha; gate rows agree on every sha in `green`.
 function jobIO(root, { gate, merged = [] }) {
   const all = (shas) => [
-    { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: shas[0] }), user: { login: 'c' } },
-    { id: 2, body: block(GATE, { runs: shas.map((sha) => ({ sha, ok: true, receipt: 'agrees', receipt_attempt: 1, run_id: 11 })) }), user: { login: BOT } },
+    { id: 2, body: block(GATE, { runs: shas.map((sha) => ({ sha, ok: true, attempt: 1, run_id: 11 })) }), user: { login: BOT } },
   ];
   const seen = [];
   return {

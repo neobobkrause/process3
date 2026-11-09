@@ -1,10 +1,10 @@
 // merge (GAT-8, INT-1): BOB brings a job's branch up to the tranche, writes the merge row, waits
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
-// could switch off in its own copy of the gate workflow: ownership, and a receipt checked by the gate against its own run (AUD-2).
+// could switch off in its own copy of the gate workflow: ownership, and a verified green gate run on the tip.
 import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { RECEIPT, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestBlock, latestReceipt, openPRs, requiredChecks, verifyRow } from './github.mjs';
+import { checkRun, checkRuns, compare, comments, gateRuns, getPR, latestBlock, openPRs, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, jobBranch, ledgerIds, originJobs } from './ledger.mjs';
 import { appendRow, bobMetricsFile, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { PASS_BRANCH, addedRequirements, diffNames, entriesAt, ownPaths } from './gate.mjs';
@@ -28,8 +28,8 @@ import { deploys } from './deploycfg.mjs';
 // Before a wait, the command's coalesced state writes are pushed (R17): others read them meanwhile.
 const sleep = (ms) => { if (pendingWrites()) flushState(); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 const MINUTE = 60000;
-// Whether the job's metrics at rev hold a merge row for pull request n after its last receipt
-// (complete row): the tip an earlier merge run pushed, or one that brought it up to the tranche.
+// Whether the job's metrics at rev hold a merge row for pull request n after its last complete
+// row: the tip an earlier merge run pushed, or one that brought it up to the tranche.
 const mergeRowSince = (rows, n) => rows.slice(rows.findLastIndex((r) => r.event === 'complete') + 1).some((r) => r.row === 'merge' && r.pr === n);
 
 // The gate job's own cap (timeout-minutes in shims/process-gate.yml) and the default wait on it:
@@ -239,7 +239,7 @@ export function merge(root, n, opts = {}) {
     if (jobCost !== null) log(`pull request ${n} is already merged: --job-cost-usd ${jobCost} is not recorded (a job's cost is written only by the merge that lands it)`);
     return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
   }
-  const { branch, watch, first, all, receipt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery, onGate: opts.onGate, transient: opts.transient });
+  const { branch, watch, first, all, attempt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery, onGate: opts.onGate, transient: opts.transient });
   if (reviewed && measures.review_usd === 'unmeasured') {
     const c = reviewCostOf(root, cfg, id, { sessions: opts.reviewSession, record: opts.reviewRecord, since: attemptStart(rowsAt(root, pr.head.sha, id)) });
     measures = { ...measures, review_usd: c.usd, ...(c.from ? { review_usd_from: c.from } : { review_usd_why: c.why }) };
@@ -250,9 +250,9 @@ export function merge(root, n, opts = {}) {
   return withTemp('p3-merge-', (tmp) => {
     const wt = join(tmp, id);
     git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
-    let { tip, rejudged } = buildMerged(wt, cfg, {
+    let { tip } = buildMerged(wt, cfg, {
       n, id, branch, onto: `origin/${cfg.tranche}`, ontoName: cfg.tranche, conflictHint: `; the job must bring itself up to date: ${P3} job sync ${id}, then job complete ${id} again`,
-      reviewed, noReview, rounds, measures, triggers: trig.fired, jobCost, jobSession: opts.jobSession, attempt: receipt.attempt, log,
+      reviewed, noReview, rounds, measures, triggers: trig.fired, jobCost, jobSession: opts.jobSession, attempt, log,
     });
     if (tip !== pr.head.sha) {
       opts.onGate?.(tip);
@@ -304,7 +304,7 @@ export function merge(root, n, opts = {}) {
     // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
     // A merge that left no notice to triage has said so above; START_NEXT stays its last line.
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
-    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: START_NEXT, ...(rejudged ? { rejudged } : {}) };
+    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: START_NEXT };
   }, { root });
 }
 
@@ -313,11 +313,10 @@ export function merge(root, n, opts = {}) {
 // one commit. merge() and mergedResult() both build it here, so the result the train's spec gate
 // tests (R(i)) and the one merge() lands (L) come from one code path and differ only in records
 // (the row's minutes_from_complete, its time) and in whatever onto itself holds.
-// One merge row per pull request since its last receipt: a rerun that finds this PR's row
+// One merge row per pull request since its last complete row: a rerun that finds this PR's row
 // already on the branch writes none, and pushes only when the tranche moved since.
 function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHint = '', reviewed, noReview, rounds, measures, triggers, jobCost = null, jobSession, attempt, log = console.log }) {
   const start = git(['rev-parse', 'HEAD'], { cwd: wt });
-  let rejudged = null;
   if (git(['merge-base', '--is-ancestor', onto, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
     const m = git(['merge', '-q', '--no-ff', '--no-edit', onto, '-m', `Bring ${branch} up to ${ontoName}`], { cwd: wt, allowFail: true });
     if (m.code !== 0) {
@@ -350,33 +349,12 @@ function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHi
       git(['commit', '-q', '-m', `job cost for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
       tip = git(['rev-parse', 'HEAD'], { cwd: wt });
     }
-    // The triggers judged again here, at the land, with this tool (day-1 study, 5 Nov: copy PR 173's
-    // row, prepared under the pin before the triggers, carried no triggers key). Record only: a row
-    // that lacks them, or recorded others, gets a triggers row beside it (the report reads it over
-    // the merge row) only when this land commits anyway; the head is never moved for it (a held
-    // merged result would end its hold, a green tip would gate again): then the merge says it, and
-    // returns it for the train's row.
-    const was = rows.filter((r) => r.row === 'merge' && r.pr === n).pop();
-    const had = rows.slice(rows.indexOf(was) + 1).filter((r) => r.row === 'triggers' && r.pr === n).pop()?.triggers ?? was?.triggers;
-    const now_ = triggers || [];
-    const same = Array.isArray(had) && had.length === now_.length && had.every((t) => now_.includes(t));
-    if (triggers !== undefined && !same) {
-      const why = Array.isArray(had) ? `the merge row recorded ${had.length ? had.join(' and ') : 'none'} when prepared (tool ${was?.tool || 'unknown'}); judged again at the land` : `the merge row was prepared under an older pin (tool ${was?.tool || 'unknown'}) that recorded no triggers; judged at the land`;
-      rejudged = { triggers: now_, why, written: tip !== start };
-      if (tip !== start) {
-        appendRow(wt, id, { row: 'triggers', pr: n, triggers: now_, tool: toolPin(), why });
-        git(['add', '--', metricsFile(id)], { cwd: wt });
-        git(['commit', '-q', '-m', `review triggers for ${id} (PR ${n}), judged at the land`, '--', metricsFile(id)], { cwd: wt });
-        tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-      }
-      log(`PR ${n}'s merge row ${Array.isArray(had) ? `recorded triggers ${JSON.stringify(had)}` : 'recorded no triggers (prepared under an older pin)'}: ${JSON.stringify(now_)} judged at the land, ${tip !== start ? 'recorded beside it' : 'not written to the head (nothing else to commit; the head is not moved for a record)'}`);
-    }
   }
-  return { tip, hasRow, rejudged };
+  return { tip, hasRow };
 }
 
 // The per-PR checks a job's merge holds before it brings the job in (merge): open, ready, into the tranche, from a job branch, mergeable, the branch where
-// GitHub has it, a green gate on the head that checked and agreed with the opener's newest receipt, only the job's own files and ledger status, and the review triggers (refusing
+// GitHub has it, a verified green gate on the head, only the job's own files and ledger status, and the review triggers (refusing
 // --no-review when one fires).
 // A shallow clone (the MERGER's, 5 Nov: at clone_depth 1 every land failed at git merge-base): both
 // sides deepened down to their merge base by GitHub's compare (its counts), and the clone
@@ -428,21 +406,17 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
   const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
   const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(every !== undefined ? { every } : {}), ...(transient ? { transient } : {}) };
-  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip (AUD-2, JOB-7).
+  // A verified green gate run on the tip (PD-21: no receipt).
   let first = io.checkRun(slug, pr.head.sha, 'gate');
   // The merged result an earlier run pushed is gating: wait on it.
   if (rowTip && first?.status !== 'completed') { onGate?.(pr.head.sha); first = waitForGate(slug, pr.head.sha, watch); }
   if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
   const all = io.comments(slug, n);
-  const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
-  if (!receipt) fail(`pull request ${n} has no receipt`);
   // Each row names its Actions run; the row counts only when that run is the process gate on
   // this tip, green, and its own artifact holds the same row (verifyRow).
-  // The receipt is checked against CI's own run of its tests (gate.mjs receiptAgrees): only a
-  // row that says 'agrees' stands; an earlier pin's 'present' or an 'unmeasured' does not.
-  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
+  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok)
     .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
-  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unread(gateRuns(all), pr.head.sha, receipt.attempt)}`);
+  if (!agreed) fail(`no verified green process-gate run on ${pr.head.sha.slice(0, 10)}`);
 
   // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
   // module and records, and nothing in the ledger but its own status. The paths come from the
@@ -458,12 +432,13 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
   // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
-  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
-  if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
+  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry });
   if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (review triggers, 4 Nov 19:05). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
   if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
 
-  return { branch, watch, first, all, receipt, mb, baseEntry, trig };
+  // The attempt, from the job's last complete row at the head (none: null).
+  const attempt = rowsAt(root, pr.head.sha, id).filter((r) => r.event === 'complete').pop()?.attempt ?? null;
+  return { branch, watch, first, all, attempt, mb, baseEntry, trig };
 }
 
 // --job-cost-usd: a figure above 0, or none (null). 0 is a figure not read: no job costs nothing.
@@ -499,16 +474,6 @@ export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console
   if (usd === 'unmeasured') log(`job ${id}'s cost: unmeasured: --job-cost-usd ${cost} is not above session ${sid}'s last row (${prior}), so get_session's usage has not moved since; read it again with ${jobCostCall(sid)} once it has, and run this merge again with it before it lands; the merge goes on`);
   else log(`job ${id}'s cost: ${usd} USD${sid ? ` (session ${sid}, ${cost} so far)` : ' (no session named: the whole figure counted)'}`);
   return usd;
-}
-
-// The act that clears a receipt no green run on the tip has checked and agreed with: an amended
-// receipt posts no commit, and a row from an earlier pin read it without checking it (AUD-2), so
-// the gate on the tip needs a new event.
-export function unread(runs, sha, attempt) {
-  const r = runs.filter((x) => x.sha === sha).pop();
-  if (!r || !r.ok || (r.receipt_attempt === attempt && r.receipt === 'agrees')) return '';
-  if (r.receipt_attempt === attempt) return `; its newest run left the receipt ${r.receipt}${r.receipt_unmeasured ? `: ${r.receipt_unmeasured}` : ''}, not checked against CI's run of its tests: give the gate on ${sha.slice(0, 10)} a new event (edit the pull request)`;
-  return `; its newest run read ${r.receipt_attempt == null ? 'no receipt' : `attempt ${r.receipt_attempt}`}: give the gate on ${sha.slice(0, 10)} a new event (edit the pull request)`;
 }
 
 // The provider-change route at a job's merge: the notice this job leaves its users, and the
@@ -975,7 +940,7 @@ export function mergePlain(root, n, opts = {}) {
     // The fourth route, a pass (P7, Bob's Keep and Drop, 3 Nov): "A no-judgment change across many
     // modules is one mechanical pass by a worker in BOB's session while no job runs, with one full
     // test run before it is committed." Any module's files, while no live job holds them, on a
-    // green gate that ran every touched module's whole suite (checked below), with no receipt.
+    // green gate that ran every touched module's whole suite (checked below).
     if (pass !== undefined) {
       passIds = entries.filter((e) => changed.some((f) => owned(f, e))).map((e) => e.id);
       if (!passIds.length) fail(`pull request ${n} changes no module's files: it is no pass; merge it without --pass`);
@@ -984,7 +949,6 @@ export function mergePlain(root, n, opts = {}) {
         if (live.length) fail(`pull request ${n} is a pass, and a pass runs while no job holds its modules (P7): ${live.slice(0, 5).join(', ')}`);
       };
       noLiveJobs();
-      if (latestBlock(null, null, RECEIPT, io.comments(slug, n))) fail(`pull request ${n} carries a receipt: a pass has none; a job's work merges without --plain`);
     }
     // A lane's pull request (Bob's standing approvals, 5 Nov: "A pull request that changes only
     // files in its own lane's folder lands through the merge tool without a test suite run"):

@@ -21,8 +21,8 @@ function landed() {
   git(['remote', 'add', 'origin', bare], { cwd: root });
   git(['checkout', '-q', '-b', 'job/c'], { cwd: root });
   commit(root, { 'src/c.mjs': 'export const c = 1;\n' }, 'work');
-  // job complete: the receipt in the complete row, its sha the COMPLETE commit.
-  appendRow(root, 'c', { row: 'attempt', event: 'complete', role: 'job', attempt: 2, pr: 696, receipt: { kind: 'receipt', module: 'c', attempt: 2, commands: [], tests: [] } });
+  // job complete: the complete row in the COMPLETE commit.
+  appendRow(root, 'c', { row: 'attempt', event: 'complete', role: 'job', attempt: 2, pr: 696 });
   git(['add', '--', metricsFile('c')], { cwd: root });
   git(['commit', '-q', '-m', 'job complete c (attempt 2)'], { cwd: root });
   const done = git(['rev-parse', 'HEAD'], { cwd: root });

@@ -5,7 +5,7 @@
 //   layer open <n>     cuts layer/<n> from the tranche tip and lists the jobs that can start; ROOT
 //                      starts them (job start cuts each job branch from layer/<n>, its draft PR into it).
 //   layer publish <id> the job's: brings its branch up to the layer tip, refuses any file outside
-//                      the module, runs the module's fast checks (job complete, its receipt; the
+//                      the module, runs the module's fast checks (job complete; the
 //                      suite runs in CI's gate: AUD-7, PLT-4),
 //                      and marks its PR into layer/<n> ready, so the gate runs on its tip. While the
 //                      run goes it watches the state branch: a reschedule for the module halts the
@@ -30,7 +30,7 @@ import { dirname, join, posix } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
 import { deploys } from './deploycfg.mjs';
 import { classifyTestChange } from './testdiff.mjs';
-import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
+import { checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
@@ -1198,7 +1198,7 @@ export function outsideFiles(root, entry, base, head) {
   return diffNames(root, base, head).filter((f) => !own.some((p) => underPath(f, p)));
 }
 
-// The publish's run, as a child process: `job complete` (the module's fast checks, never a suite: AUD-7; the receipt,
+// The publish's run, as a child process: `job complete` (the module's fast checks, never a suite: AUD-7;
 // the ready PR) in this checkout. { done: Promise<{ code }>, kill() }.
 export function spawnComplete(root, id, args = []) {
   const tool = join(new URL('.', import.meta.url).pathname, '..', 'p3.mjs');
@@ -1302,7 +1302,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
 // the layer opened with no code on it, each re-test a whole job session): for a rescheduled module
 // with no commit of its own on the layer since the open, its job branch (the one its last start row
 // names, already in the layer) moves to the layer tip with one records-only retest row, and a ready
-// pull request into the layer carries its last receipt again. CI's gate runs its whole suite on the
+// pull request into the layer is opened. CI's gate runs its whole suite on the
 // layer tip, against its providers' current versions, as on any ready layer job PR; green, the merge
 // tool lands it (layer land), and that land clears the reschedule. The gate's trust stays with a CI
 // run, never a state row (coordinator, 6 Nov). Red: a job starts (job start --reopen). No session.
@@ -1340,7 +1340,7 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
   const direct = directMode(cfg0);
   if (!direct) needLayerMode(cfg0, 'layer retest');
   const slug = io.slug || repoSlug(root);
-  const x = { openPRs, createPR, addComment, markReady, prsFromBranch, comments: ghComments, jobHeads: originJobs, ...io };
+  const x = { openPRs, createPR, markReady, prsFromBranch, comments: ghComments, jobHeads: originJobs, ...io };
   const cfg = jobCfg(root, cfg0, id);
   if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged)`);
   const { n } = cfg.layer;
@@ -1384,17 +1384,6 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
   if (prs === null) fail(`GitHub unreadable: the pull requests from ${branch} are not known; nothing was done`);
   const open = prs.find((p) => p.state === 'open');
   if (open) fail(`${branch} has pull request ${open.number} open: land or close it first`);
-  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer. A
-  // hidden one (GitHub serves none of its comments) is a job's: its receipt's amendments (--not-verified,
-  // --exempt-revert) live only in those comments, so the copy in git may claim checks never run, and an
-  // older receipt is not its (cold review).
-  let receipt = null;
-  for (const p of prs.filter((q) => q.merged_at).sort((a, c) => c.number - a.number)) {
-    if (p.hidden) fail(`${id}'s newest land, PR ${p.number}, is one GitHub no longer serves (its receipt's comments with it): a job re-tests it: ${reopen}`);
-    const r = latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
-    if (r?.module === id && r.sha && hasCommit(root, r.sha) && isAnc(root, r.sha, tip)) { receipt = { ...r, retest: { from_pr: p.number } }; break; }
-  }
-  if (!receipt) fail(`no receipt of ${id} on a merged pull request from ${branch} that ${b0} holds: a job re-tests it: ${reopen}`);
   const providers = [...new Set(s.outstanding.map((r) => r.provider))];
   const sha = withTemp('p3-layer-', (tmp) => {
     const w = join(tmp, 'w');
@@ -1403,7 +1392,7 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
     git(['worktree', 'add', '-q', '--detach', w, from], { cwd: root });
     try {
       if (from !== tip) git(['merge', '-q', '--no-edit', '-m', `Merge ${b0} into ${branch}`, tip], { cwd: w });
-      appendRow(w, id, { row: 'retest', event: 'retest', layer: n, tested_on: tip, against: providers, receipt_attempt: receipt.attempt ?? null, by });
+      appendRow(w, id, { row: 'retest', event: 'retest', layer: n, tested_on: tip, against: providers, by });
       git(['add', '--', metricsFile(id)], { cwd: w });
       git(['commit', '-q', '-m', `layer retest ${id} on ${b0} ${short(tip)}`, '--', metricsFile(id)], { cwd: w });
       const h = git(['rev-parse', 'HEAD'], { cwd: w });
@@ -1412,11 +1401,8 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
       return h;
     } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
   }, { root });
-  const body = [`layer retest of ${id} on ${b0} ${short(tip)}, against ${providers.join(', ')}'s new interface: one records-only commit, no job session.`, '', `CI's gate runs ${id}'s whole suite on this head; green, the merge tool lands it (${P3} layer land <this PR>). Red: ${reopen}.`, '', `The receipt is ${id}'s last, from PR ${receipt.retest.from_pr}.`].join('\n');
-  // A draft first, the receipt on it, then ready: the gate's run on ready reads the receipt (cold
-  // review of PR 193; job complete posts its receipt before markReady too).
+  const body = [`layer retest of ${id} on ${b0} ${short(tip)}, against ${providers.join(', ')}'s new interface: one records-only commit, no job session.`, '', `CI's gate runs ${id}'s whole suite on this head; green, the merge tool lands it (${P3} layer land <this PR>). Red: ${reopen}.`].join('\n');
   const pr = x.createPR(slug, { head: branch, base: b0, title: `layer retest: ${id}`, body, draft: true });
-  x.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt of ${id} (attempt ${receipt.attempt}), carried from PR ${receipt.retest.from_pr} for this retest.`));
   writeRows(root, cfg0.state_branch, `layer ${n}: ${id} retest PR ${pr.number}`, [[flowFile(n, 'retest', `${safeName(id)}-${pr.number}`), { row: 'retest', layer: n, module: id, pr: pr.number, head: sha, tested_on: tip, against: providers, ...(cause !== null ? { cause } : {}), at: now(), by }]]);
   x.markReady(slug, pr.number);
   log(`layer retest: ${id} on ${b0} ${short(tip)}: PR ${pr.number} from ${branch}, ready; the gate runs its whole suite. Green: ${P3} layer land ${pr.number}. Red: close it and run ${P3} layer retest ${id} again, or ${reopen}`);
@@ -1697,12 +1683,12 @@ function syncMerge(root, cfg, n, base, ttip, w) {
 // tool's ledger finding, their sessions archived). Only when the merge is clean but for .process, the
 // shims and the job's own ledger entry (kept as the job wrote it), and brings nothing but those and
 // records (no code): then the
-// receipt still stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
+// job's tested code stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
 export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null) {
   const b0 = layerBranch(n);
   const tip = rev(root, layerRef(n));
   const out = { merged: [], left: [] };
-  // Records (other modules' metrics rows and the like) are no code: a receipt stands over them.
+  // Records (other modules' metrics rows and the like) are no code: the tested code stands over them.
   const allowed = (f) => f === '.process' || syncSide(f, cfg) === 'theirs' || isEntryFile(f) || isRecordPath(cfg, f);
   for (const p of prs) {
     const id = branchModule(p.head?.ref, ids);
@@ -1759,7 +1745,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
         // No rename detection: a rename lists the path it removes too (as diffNames reads it).
         const changed = git(['diff', '--cached', '--no-renames', '-z', '--name-only', head], { cwd: w }).split('\0').filter(Boolean);
         const other = changed.filter((f) => !allowed(f));
-        if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its receipt would not stand; its job syncs it` }; }
+        if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its tested code would not stand; its job syncs it` }; }
         git(['commit', '-q', '--no-edit', '-m', `Merge ${b0} ${short(tip)} into ${branch} (layer sync: ${changed.join(', ') || 'no file'})`], { cwd: w });
         const h = git(['rev-parse', 'HEAD'], { cwd: w });
         const push = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });

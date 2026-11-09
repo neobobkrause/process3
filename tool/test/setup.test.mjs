@@ -326,7 +326,7 @@ test('the bypass check fails closed: a ruleset without current_user_can_bypass d
 
 // C17 (the coordinator, 7 Nov): the session's push is the tool's (`p3 github push`); Bob's R17c settings
 // deny raw git push, and this condition refused them, stopping every job start on the copy.
-test('any deny rule that would block the tool\'s push, or refuse a told command, is found; a raw git push denied is not', () => {
+test('any deny rule that would block the tool\'s push is found; a raw git push denied is not', () => {
   for (const rule of ['Bash(node *)', 'Bash(node .process/tool/p3.mjs github push *)', 'Bash(node .process/tool/p3.mjs:*)', 'Bash']) {
     const w = world();
     w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY, rule] } });
@@ -339,7 +339,8 @@ test('any deny rule that would block the tool\'s push, or refuse a told command,
   }
   const w = world();
   w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY, 'Bash(git fetch *)'] } });
-  assert.match(state(check(w), 'deny-list').detail, /holds Bash\(git fetch \*\), which refuses `git fetch .*`, a command the process tells a session to run \(\S+:\d+\)/);
+  // A rule refusing another told command is a warning, not a missing condition (PD-21).
+  assert.equal(state(check(w), 'deny-list').state, 'set');
   assert.equal(bashRuleMatches('Bash(git push origin --delete *)', 'git push origin job/x'), false);
   assert.equal(bashRuleMatches('Bash(git push -f *)', 'git push -u origin job/x'), false);
   assert.equal(bashRuleMatches('Bash(git push origin main)', 'git push origin job/x'), false);
@@ -719,4 +720,28 @@ test('internal-walk: set when the tranche config names a run, missing when not, 
     assert.deepEqual(r.missing, ['internal-walk'], JSON.stringify(bad));
     assert.match(state(r, 'internal-walk').detail, /deploy\.internal_walk/);
   }
+});
+
+// PD-21 (Bob, 9 Nov): the setup check runs once per pin, workflows and settings; a start in between
+// reads only the session's own checkout.
+test('with cache, a passing check is kept by the tranche\'s pin, workflows and settings', () => {
+  const r = root();
+  const at = (files) => {
+    git(['checkout', '-q', '-B', 'tr'], { cwd: r });
+    commit(r, files);
+    git(['update-index', '--add', '--cacheinfo', `160000,${'a'.repeat(40)},.process`], { cwd: r });
+    git(['commit', '-q', '-m', 'pin'], { cwd: r });
+    git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: r });
+  };
+  at({ '.github/workflows/g.yml': 'a\n', '.claude/settings.json': '{}\n' });
+  const w = world();
+  const run = () => setupCheck(r, { slug: 'o/r', io: w.io, log: quiet, cache: true });
+  assert.equal(run().cached, undefined);
+  const hit = run();
+  assert.deepEqual([hit.ok, hit.cached, hit.results.map((x) => x.id)], [true, true, ['session-branch']]);
+  w.onTranche = { ok: false, head: 'b'.repeat(40), tip: 'a'.repeat(40) };
+  assert.deepEqual(run().missing, ['session-branch'], 'the checkout is read every time');
+  w.onTranche = { ok: true, head: 'a'.repeat(40), tip: 'a'.repeat(40) };
+  at({ '.claude/settings.json': '{"x":1}\n' });
+  assert.equal(run().cached, undefined, 'a settings change runs it again');
 });

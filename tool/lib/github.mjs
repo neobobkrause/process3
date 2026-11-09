@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { fail, gh, ghRun, git, isShallow, run, withTemp } from './util.mjs';
 import { commonDir } from './pace.mjs';
 
-export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
 // A reviewed revert exemption on a job's pull request (AUD-1, JOB-12; gate.mjs revertExemption).
 export const REVERT_EXEMPT = 'p3:revert-exempt';
@@ -127,9 +126,6 @@ export function latestBlock(slug, n, marker, all = comments(slug, n), { from } =
   return null;
 }
 
-// The newest receipt, only from the account that opened the pull request: the job's own
-// session account. Anyone else's p3:receipt comment is not read (review of PR 13).
-export const latestReceipt = (all, opener) => latestBlock(null, null, RECEIPT, all, { from: opener || null })?.data || null;
 
 // Gate runs, each its own comment written by GitHub Actions and never edited since. A session
 // can post a comment that looks like one, or (as the owner) edit one, so only the bot's
@@ -201,7 +197,7 @@ export function runArtifactRow(slug, id) {
 // base_red too: the tranche cover and a spec-tested land read whether a suite was base-red.
 // tree, spec and spec_* too: a spec-tested fast path and the tranche cover trust a spec row for the
 // tree it tested and the job it judged, and a spec-tested row for the spec run it names (train-spec).
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
+const SAME = ['sha', 'base', 'trigger', 'ok', 'attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
 export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);

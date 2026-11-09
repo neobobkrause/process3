@@ -3,7 +3,7 @@
 import { census } from './census.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { generatedRows, oversizeGenerated } from './checks.mjs';
@@ -177,23 +177,19 @@ export const readers = {
     return wrong.length ? missing(wrong.join('; ')) : set(Object.entries(c.value).map(([k, v]) => `${k} ${v}`).join(', '));
   },
 
-  // A deny rule that refuses a command the process tells a session to run is judged by the one rule
-  // C3 holds (admit.mjs): the told commands, never a list of its own (C17, the coordinator, 7 Nov: this
-  // condition still took a raw `git push` as the session's push, refused Bob's R17c settings, which
-  // deny it and allow `p3 github push`, the route the process tells, and stopped every job start).
+  // A deny rule that refuses another told command is a warning (admitLines, admit.mjs), not a
+  // missing condition (PD-21). The session's push stays one: a rule that blocks it stops every job.
   'deny-list': (c, x) => {
     const text = x.file('.claude/settings.json');
     if (text === null) return missing(`no .claude/settings.json on ${x.where}`);
     let settings;
     try { settings = JSON.parse(text); } catch { return missing(`.claude/settings.json on ${x.where} is not JSON`); }
     const deny = settings.permissions?.deny || [];
-    const told = x.told || toldCommands(TOOL);
     const gaps = [
       ...c.value.deny.filter((d) => !deny.includes(d)).map((d) => `lacks ${d}`),
       // The session's push is the tool's (`p3 github push`, the route the process tells): a rule that
       // matches it blocks every push (admit's reader reads git, gh, curl, rm, npm and npx spans only).
       ...deny.filter((d) => bashRuleMatches(d, c.value.push)).map((d) => `holds ${d}, which blocks a session's push of its own branch (\`${c.value.push}\`)`),
-      ...[...new Map(admitCheck(settings, told).map((b) => [b.rule, b])).values()].map((b) => `holds ${b.rule}, which refuses \`${b.cmd}\`, a command the process tells a session to run (${b.file}:${b.line})`),
     ];
     return gaps.length ? missing(gaps.join('; ')) : set(`${deny.length} deny rules on ${x.where}`);
   },
@@ -399,7 +395,10 @@ export function fileLog(x, ref, file, root) {
 // not configured, skipped and confirmed conditions do not stop a start. With at (setup check
 // --at HEAD, before a pin-move pull request merges), that commit's pin and files are judged
 // instead of the tranche tip's, and session-branch is skipped.
-export function setupCheck(root, { slug, at = null, anchor = false, conditions = loadConditions(), io = {}, log = console.log } = {}) {
+// With cache (job start; PD-21), a passing check is kept in the clone's git directory, keyed by
+// the tranche's pin and its workflows and settings: while none of them changes, only the session's
+// own checkout (session-branch) is read again.
+export function setupCheck(root, { slug, at = null, anchor = false, cache = false, conditions = loadConditions(), io = {}, log = console.log } = {}) {
   // A checkout still naming the removed merge train is read as the layer flow here, so setup check
   // can name the blocker (strategyCheck) instead of refusing before it prints anything.
   let local;
@@ -441,13 +440,22 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
     return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner), { history, need, needAll });
   });
   x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, anchor, log: () => {} }));
+  const key = cache && !at ? setupKey(root, x.cfg.tranche) : null;
+  const keyFile = key && git(['rev-parse', '--git-path', 'p3-setup-ok'], { cwd: root });
+  if (key && readText(resolve(root, keyFile)) === key) {
+    const sb = conditions.find((c) => c.id === 'session-branch');
+    const r = sb ? { id: sb.id, what: sb.what, ...readers[sb.id](sb, x) } : null;
+    const missingIds = r?.state === 'missing' ? [r.id] : [];
+    log(`setup check for ${slug}: passed at this pin, workflows and settings (${key.split(' ').map((k) => k.slice(0, 10)).join(', ')}); ${r ? `${r.state}: session-branch: ${r.detail}` : 'no session-branch condition'}`);
+    return { ok: !missingIds.length, results: r ? [r] : [], missing: missingIds, tranche: x.cfg.tranche, at: null, cached: true };
+  }
   let pinned;
   x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche, io.toolRoot || TOOL, sha || `origin/${x.cfg.tranche}`)) : pinned);
   x.cf = io.cf || cachedCloudflare((path) => cloudflareRead(path, x.env), root, { token: x.env.CLOUDFLARE_API_TOKEN || '' });
   x.address = 'address' in io ? io.address : (role) => (fetchState(root, local.state_branch) ? address(root, local.state_branch, role) : null);
   x.required = [].concat(x.cfg.required_check || 'gate');
-  const cache = new Map();
-  x.ruleset = (id) => { if (!cache.has(id)) cache.set(id, x.api(`repos/${slug}/rulesets/${id}?includes_parents=true`)); return cache.get(id); };
+  const rulesetCache = new Map();
+  x.ruleset = (id) => { if (!rulesetCache.has(id)) rulesetCache.set(id, x.api(`repos/${slug}/rulesets/${id}?includes_parents=true`)); return rulesetCache.get(id); };
   x.rulesets = () => {
     const list = x.api(`repos/${slug}/rulesets?includes_parents=true&per_page=100`);
     return Array.isArray(list) ? list.map((r) => x.ruleset(r.id)).filter(Boolean) : null;
@@ -488,6 +496,7 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
       if (!c.skipped) log(c.gaps.length ? `census: ${c.gaps.length} gap(s) at ${sha ? sha.slice(0, 10) : ref} (${[...new Set(c.gaps.map((g) => g.kind))].join(', ')}); status --role bob lists the open layer's with their fixes` : 'census: every module has its entry, modules row, requirements file and layer line');
     } catch (e) { log(`census: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   }
+  if (key && !gaps.length) { try { writeFileSync(resolve(root, keyFile), key); } catch { /* kept for the next start only */ } }
   return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, lanes, admit, census: gapsFound, ...(strategy ? { strategy } : {}) };
 }
 
@@ -507,6 +516,15 @@ export function admitLines(x, { log = console.log, told = toldCommands(TOOL), to
   if (!stops.length) log(`told tools: ${new Set(tools.map((t) => t.tool)).size}, none denied and none left to a permission prompt`);
   return [...bad, ...stops];
 }
+// The setup check's cache key: the tranche's pin (.process), workflows and settings, by object id.
+export function setupKey(root, tranche) {
+  const ids = ['.process', '.github/workflows', '.claude/settings.json'].map((f) => {
+    const r = git(['rev-parse', '-q', '--verify', `origin/${tranche}:${f}`], { cwd: root, allowFail: true });
+    return r.code === 0 ? r.stdout.trim() : '-';
+  });
+  return ids[0] === '-' ? null : ids.join(' ');
+}
+const readText = (f) => { try { return readFileSync(f, 'utf8'); } catch { return null; } };
 const ledgerEntries = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { return [JSON.parse(t)]; } catch { return []; } });
 // A lane whose folder lies under a ledger module's paths and that names no module (or another):
 // the gate counts its files as that module's (util.mjs laneOfPath), so a lane-only pull request is

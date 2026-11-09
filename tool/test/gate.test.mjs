@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gate as gateRun, gateComment, measuredBy, namedVerdict, passedByFile, receiptAgrees, revertExemption } from '../lib/gate.mjs';
-import { merge, unread } from '../lib/merge.mjs';
-import { BOT, GATE, RECEIPT, REVERT_EXEMPT, block, gateRuns, parseBlock } from '../lib/github.mjs';
+import { gate as gateRun, gateComment, revertExemption } from '../lib/gate.mjs';
+import { merge } from '../lib/merge.mjs';
+import { BOT, GATE, REVERT_EXEMPT, block, gateRuns, parseBlock } from '../lib/github.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { git, loadConfig } from '../lib/util.mjs';
@@ -28,9 +28,8 @@ function setup(files) {
   return { root, base, head };
 }
 
-function fakeIO(receipt) {
-  // The receipt is the opener's (the session account); the gate reads no one else's.
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [], genuine: new Set() };
+function fakeIO() {
+  const state = { comments: [], genuine: new Set() };
   const key = (r) => `${r.at}|${r.sha}|${r.trigger}`;
   return {
     state,
@@ -47,44 +46,39 @@ function fakeIO(receipt) {
     },
   };
 }
-const receiptFor = (sha, suiteExit = 0, extra = {}) => ({ kind: 'receipt', module: 'alpha', attempt: 1, sha, commands: [{ cmd: 'node --test', exit: suiteExit, suite: true }], exempt: {}, ...extra });
 const run = (s, io, over = {}) => gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet, ...over });
 
-test('a real change with a real test passes, and the receipt agrees', () => {
+test('a real change with a real test passes', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO(receiptFor(null));
-  io.state.comments[0].body = block(RECEIPT, receiptFor(s.head));
+  const io = fakeIO();
   const r = run(s, io);
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.trigger, r.run.suite, r.run.revert, r.run.receipt], ['code', 'pass', 'pass', 'agrees']);
+  assert.deepEqual([r.run.trigger, r.run.suite, r.run.revert, r.run.attempt], ['code', 'pass', 'pass', null]);
   assert.equal(git(['diff', '--stat'], { cwd: s.root }), '', 'the revert check restores the tree');
   assert.equal(gateRuns(io.state.comments).length, 1);
 });
 
-// AUD-1, JOB-12: an inert test fails the gate; only a reviewed exemption on the pull request,
-// never the receipt's own words, exempts a refactor.
+// AUD-1, JOB-12: an inert test fails the gate; only a reviewed exemption on the pull request
+// exempts a refactor.
 const exemptBlock = (sha, reviewer = 'session_reviewer', module = 'alpha') => ({ id: 99, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module, pr: 5, sha, reviewer, why: 'a refactor; behaviour unchanged' }), user: { login: 'acmewidget' } });
 test('a test that passes with the change reverted is inert: a finding (AUD-1)', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/y.test.mjs': inertTest });
-  const r = run(s, fakeIO(receiptFor(s.head)));
+  const r = run(s, fakeIO());
   assert.deepEqual([r.run.revert, r.run.inert, r.run.ok], ['fail', ['test/alpha/y.test.mjs'], false]);
   assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['revert', 'test/alpha/y.test.mjs']]);
-  // The receipt's own exemption is a request, never the exemption: still a finding, naming the act.
-  const asked = run(s, fakeIO(receiptFor(s.head, 0, { exempt: { revert: 'a refactor' } })));
-  assert.equal(asked.run.revert, 'fail');
-  assert.match(asked.findings[0].message, /stands only as a reviewed one on the pull request: p3 revert exempt/);
+  assert.match(r.findings[0].message, /a refactor takes a reviewed exemption: p3 revert exempt/);
 });
 
 const COMPLETE = { 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":1,"session":"session_job"}\n' };
 test('a reviewed exemption on the pull request exempts the revert check; the job\'s own, or one for other code, does not', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/y.test.mjs': inertTest, ...COMPLETE });
-  const io = fakeIO(receiptFor(s.head));
+  const io = fakeIO();
   io.state.comments.push(exemptBlock(s.head));
   const r = run(s, io);
   assert.deepEqual([r.run.revert, r.run.revert_exempt, r.findings], ['exempt', { by: 'session_reviewer', sha: s.head }, []]);
   // Its reviewer is the job's own session (the newest complete row's): no exemption.
   const own = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/y.test.mjs': inertTest, ...COMPLETE });
-  const io2 = fakeIO(receiptFor(own.head));
+  const io2 = fakeIO();
   io2.state.comments.push(exemptBlock(own.head, 'cse_job'));
   const said = [];
   const r2 = run(own, io2, { log: (m) => said.push(String(m)) });
@@ -92,21 +86,21 @@ test('a reviewed exemption on the pull request exempts the revert check; the job
   assert.ok(said.some((m) => /a job never exempts itself/.test(m)), said.join('\n'));
   // Reviewed on an earlier commit, the code changed since: the check runs.
   const head2 = commit(s.root, { 'src/alpha/index.mjs': 'export const x = 3;\n' });
-  const r3 = gate(s.root, { base: s.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receiptFor(head2)).io, log: quiet });
+  const r3 = gate(s.root, { base: s.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO().io, log: quiet });
   assert.equal(r3.run.revert, 'fail');
-  const io4 = fakeIO(receiptFor(head2));
+  const io4 = fakeIO();
   io4.state.comments.push(exemptBlock(s.head));
   assert.equal(gate(s.root, { base: s.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io4.io, log: quiet }).run.revert, 'fail');
   // Records only since the reviewed commit: it stands.
   const head3 = commit(s.root, { 'process/metrics/alpha.jsonl': `${COMPLETE['process/metrics/alpha.jsonl']}{}\n` });
-  const io5 = fakeIO(receiptFor(head3));
+  const io5 = fakeIO();
   io5.state.comments.push(exemptBlock(head2));
   assert.equal(gate(s.root, { base: s.base, head: head3, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io5.io, log: quiet }).run.revert, 'exempt');
 });
 
 test('a change with no test is no finding: the row says so', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n' });
-  const r = run(s, fakeIO(receiptFor(s.head)));
+  const r = run(s, fakeIO());
   assert.deepEqual([r.run.revert, r.findings], ['no test changed', []]);
 });
 
@@ -133,61 +127,16 @@ test('a reviewed exemption survives the tranche merged in, fails closed without 
   assert.equal(revertExemption([junk], ctx(merged)).ok, false);
 });
 
-test('measuredBy stands on a green run that checked the same receipt attempt, whatever commit the receipt names', () => {
+test('a ready job runs the suite; a draft runs only the fast checks', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const later = commit(s.root, { 'src/alpha/index.mjs': 'export const x = 2; // fixed\n' });
-  const cfg = loadConfig(s.root);
-  const green = { sha: later, scope: ['alpha'], suite: 'pass', receipt: 'agrees', receipt_attempt: 1, receipt_tests: [] };
-  assert.equal(measuredBy(s.root, cfg, receiptFor(s.head), green).ok, true);
-  assert.match(measuredBy(s.root, cfg, { ...receiptFor(s.head), attempt: 2 }, green).why, /whose code is not what the last green code run/);
-  assert.match(measuredBy(s.root, cfg, { ...receiptFor(s.head), tests: [{ file: 'test/alpha/x.test.mjs', name: 'x is 2' }] }, green).why, /names 1 test\(s\) the last green code run, on .* did not check/);
-});
-
-// AUD-2, JOB-7: the receipt is checked against CI's own run of its tests.
-test('a receipt claiming a green suite the gate finds red disagrees: a finding', () => {
-  const s = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, fakeIO(receiptFor(s.head, 0)));
-  assert.deepEqual([r.run.suite, r.run.receipt], ['fail', 'disagrees']);
-  assert.deepEqual(r.findings.map((f) => f.check).sort(), ['receipt', 'suite']);
-  // A receipt with no suite run in the session (AUD-7) claims the suite passes in CI.
-  const bare = run(s, fakeIO({ ...receiptFor(s.head), commands: [] }));
-  assert.equal(bare.run.receipt, 'disagrees');
-  assert.match(bare.findings.find((f) => f.check === 'receipt').message, /passes \(no suite run in the session\)/);
-});
-
-test('a test the receipt names for a mark that fails in the gate\'s run disagrees; one the run does not show is not judged', () => {
-  const g = passedByFile([{ passing: [{ file: 'test/a.test.mjs', name: 'group > x is 2' }], failing: [{ file: 'test/a.test.mjs', name: 'x is 9' }], whole: [] }, { passing: [], failing: [{ file: 'test/b.test.mjs', name: 'test/b.test.mjs' }], whole: ['test/b.test.mjs'] }]);
-  assert.equal(namedVerdict(g, 'test/a.test.mjs::x is 2'), 'pass');
-  assert.equal(namedVerdict(g, 'test/a.test.mjs::x is 9'), 'fail');
-  assert.equal(namedVerdict(g, 'test/b.test.mjs::anything'), 'fail', 'a file that failed as a whole ran none of its tests');
-  assert.equal(namedVerdict(g, 'test/a.test.mjs::no such'), null);
-  assert.equal(namedVerdict(g, 'test/a.test.mjs::x is'), null, 'a longer name that holds it is another test');
-  assert.equal(namedVerdict(g, 'test/b.test.mjs::anything', ['test/b.test.mjs::test/b.test.mjs']), null, 'a whole file tolerated as base-red says nothing of its tests');
-  // Another describe's test of the same name, tolerated as base-red, is not the named test's failure.
-  const c = passedByFile([{ passing: [{ file: 't/c.test.mjs', name: 'A > works' }], failing: [{ file: 't/c.test.mjs', name: 'B > works' }], whole: [] }]);
-  assert.equal(namedVerdict(c, 't/c.test.mjs::works', ['t/c.test.mjs::B > works']), 'pass');
-  assert.equal(namedVerdict(c, 't/c.test.mjs::works'), 'fail');
-  assert.equal(namedVerdict(g, 'test/c.test.mjs::x'), null);
-  assert.equal(namedVerdict(null, 'test/a.test.mjs::x is 9'), null);
-  assert.equal(passedByFile([{ passing: null, failing: null }]), null);
-  // A named test that failed disagrees even where the suite's verdict agrees.
-  assert.equal(receiptAgrees(undefined, 'base-red', [], []), true);
-  // A name no test holds is not judged by the run.
-  const p = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const ok = run(p, fakeIO({ ...receiptFor(p.head), commands: [], tests: [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'x is 2' }, { req: 'R2', file: 'test/alpha/x.test.mjs', name: 'from' }] }));
-  assert.deepEqual([ok.run.receipt, ok.run.receipt_tests, ok.findings], ['agrees', ['test/alpha/x.test.mjs::x is 2', 'test/alpha/x.test.mjs::from'], []]);
-});
-
-test('a ready job with no receipt is a finding; a draft runs only the fast checks', () => {
-  const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  assert.ok(run(s, fakeIO()).findings.some((f) => f.check === 'receipt'));
+  assert.deepEqual(run(s, fakeIO()).findings, []);
   const d = run(s, fakeIO(), { draft: true });
   assert.deepEqual([d.run.trigger, d.run.suite, d.findings.length], ['draft', 'skipped', 0]);
 });
 
 test('files outside the module are not the job\'s to change', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'src/beta/b.mjs': 'x' });
-  assert.ok(run(s, fakeIO(receiptFor(s.head))).findings.some((f) => f.check === 'ownership' && f.file === 'src/beta/b.mjs'));
+  assert.ok(run(s, fakeIO()).findings.some((f) => f.check === 'ownership' && f.file === 'src/beta/b.mjs'));
 });
 
 test('record-only changes end in seconds: a records PR, and records since the last green run', () => {
@@ -196,7 +145,7 @@ test('record-only changes end in seconds: a records PR, and records since the la
   assert.deepEqual([r.run.trigger, r.run.suite, r.findings.length], ['record', 'skipped', 0]);
 
   const c = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO(receiptFor(c.head));
+  const io = fakeIO();
   assert.equal(run(c, io).run.trigger, 'code');
   const head2 = commit(c.root, { 'process/metrics/alpha.jsonl': '{"row":"merge"}\n' });
   const r2 = gate(c.root, { base: c.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
@@ -204,20 +153,13 @@ test('record-only changes end in seconds: a records PR, and records since the la
   assert.equal(gateRuns(io.state.comments).length, 2);
 });
 
-// Copy PR 247, 4 Nov: attempt 3 changed only process/ledger and process/metrics, its test
-// already on the tranche from attempt 2. Every run on its head was "record", the receipt never
-// checked (AUD-2), and merge refused it. A ready job's receipt with no green code run to stand on gets one.
-test('a records-only job pull request with a receipt gets a code run whose receipt check agrees, and merges', () => {
+// Copy PR 247, 4 Nov: attempt 3 changed only process/ledger and process/metrics. A records-only
+// job pull request takes the record fast path and merges on its green row.
+test('a records-only job pull request takes the record path and merges', () => {
   const s = setup({ 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":3}\n' });
-  const io = fakeIO({ ...receiptFor(s.head), attempt: 3 });
-  const said = [];
-  const r = run(s, io, { log: (m) => said.push(m) });
-  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['code', ['alpha'], 'pass', 'no code changed', 'agrees', 3, true]);
-  // Each module's own suite seconds (build ci-budget): status reads them against suite_timeout_minutes.
-  assert.deepEqual(Object.keys(r.run.suite_by_module), ['alpha']);
-  assert.equal(r.run.suite_by_module.alpha, r.run.suite_seconds);
-  assert.ok(said.some((m) => /only records changed, but no green code run measured receipt attempt 3/.test(m)), said.join('\n'));
-  assert.equal(unread(gateRuns(io.state.comments), s.head, 3), '');
+  const io = fakeIO();
+  const r = run(s, io);
+  assert.deepEqual([r.run.trigger, r.run.suite, r.run.attempt, r.run.ok], ['record', 'skipped', 3, true]);
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: s.root });
   git(['remote', 'add', 'origin', bare], { cwd: s.root });
@@ -234,22 +176,16 @@ test('a records-only job pull request with a receipt gets a code run whose recei
   assert.equal(m.merged, true);
   assert.ok(merged);
   git(['checkout', '-q', 'job/alpha'], { cwd: s.root });
-  // A title edit's next run on the same head stands on that code run: the fast path, still agreeing.
-  const again = run(s, io);
-  assert.deepEqual([again.run.trigger, again.run.after, again.run.receipt, again.run.ok], ['record-since-green', s.head, 'agrees', true]);
-  // A draft, a job with no receipt yet (no finding on the record path), and a plain records-only pull request keep the record fast path.
-  assert.equal(run(s, fakeIO({ ...receiptFor(s.head), attempt: 3 }), { draft: true }).run.trigger, 'record');
-  const none = run(s, fakeIO());
-  assert.deepEqual([none.run.trigger, none.run.receipt, none.findings], ['record', 'not checked', []]);
-  const plain = run(s, fakeIO({ ...receiptFor(s.head), attempt: 3 }), { branch: 'build/notes' });
-  assert.deepEqual([plain.run.trigger, plain.run.suite, plain.run.receipt, plain.findings.length], ['record', 'skipped', 'not checked', 0]);
+  assert.equal(run(s, fakeIO(), { draft: true }).run.trigger, 'record');
+  const plain = run(s, fakeIO(), { branch: 'build/notes' });
+  assert.deepEqual([plain.run.trigger, plain.run.suite, plain.findings.length], ['record', 'skipped', 0]);
 });
 
 // Findings from the review of PR 3.
 test('a gate run posted by anyone but the bot, or edited, does not count', () => {
   const c = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
-  const forged = { runs: [{ sha: c.head, base: c.base, trigger: 'code', ok: true, receipt: 'agrees' }] };
-  const io = fakeIO(receiptFor(c.head));
+  const forged = { runs: [{ sha: c.head, base: c.base, trigger: 'code', ok: true }] };
+  const io = fakeIO();
   io.state.comments.push({ id: 7, body: block(GATE, forged), user: { login: 'neobobkrause' } });
   io.state.comments.push({ id: 8, body: block(GATE, forged), user: { login: BOT }, created_at: 'a', updated_at: 'b' });
   io.state.comments.push({ id: 9, body: block(GATE, forged), user: { login: BOT } }); // a side workflow's bot comment
@@ -271,7 +207,7 @@ test('the revert check restores the tree when the job deleted a file', () => {
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   git(['rm', '-q', 'src/alpha/old.mjs'], { cwd: root });
   const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receiptFor(head)).io, log: quiet });
+  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO().io, log: quiet });
   assert.equal(r.run.revert, 'pass');
   assert.equal(git(['status', '--porcelain'], { cwd: root }), '');
   assert.equal(existsSync(join(root, 'src/alpha/old.mjs')), false);
@@ -292,7 +228,7 @@ import { main, report } from '../p3.mjs';
 
 function twoJobs(over = {}) {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO(receiptFor(s.head));
+  const io = fakeIO();
   const was = process.env.GITHUB_RUN_ID;
   process.env.GITHUB_RUN_ID = '4242';
   let r;
@@ -306,7 +242,7 @@ function twoJobs(over = {}) {
 test('job gate posts nothing; job post posts the artifact\'s row, and merge\'s verifyRow trusts it', () => {
   const { s, io, r, file } = twoJobs();
   assert.equal(r.run.ok, true);
-  assert.equal(io.state.comments.length, 1, 'only the receipt: job gate posted no comment');
+  assert.equal(io.state.comments.length, 0, 'job gate posted no comment');
   const posted = postRow(file, { pr: 5, head: s.head, gateResult: 'success', slug: 'o/r', runId: '4242', io: io.io, log: quiet });
   assert.equal(posted.posted, true);
   const c = io.state.comments.at(-1);
@@ -332,19 +268,19 @@ test('job post refuses a row that is not this run\'s, not this head\'s, or green
   assert.throws(() => postRow(file, { ...q, head: 'f'.repeat(40), runId: '4242' }), /not the head ffffffffff/);
   assert.throws(() => postRow(file, { ...q, head: s.head, runId: '4242', gateResult: 'failure' }), /says green, but job gate ended failure/);
   assert.throws(() => postRow(file, { ...q, pr: null, runId: '4242' }), /needs --pr/);
-  assert.equal(io.state.comments.length, 1, 'nothing posted');
+  assert.equal(io.state.comments.length, 0, 'nothing posted');
 });
 
 test('job post posts a red row, and posts nothing when job gate wrote no row', () => {
   // A red row: the suite fails.
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO(receiptFor(s.head));
+  const io = fakeIO();
   const r = run(s, io, { post: false });
   const file = join(mkdtempSync(join(tmpdir(), 'p3-row-')), 'gate.json');
   report(r.findings, file, { run: { ...r.run, run_id: 7 } });
   const p = postRow(file, { pr: 5, head: s.head, gateResult: 'failure', slug: 'o/r', runId: '7', io: io.io, log: quiet });
   assert.equal(p.row.ok, false);
-  assert.match(io.state.comments.at(-1).body, /red, 2 finding\(s\)/);
+  assert.match(io.state.comments.at(-1).body, /red, 1 finding\(s\)/);
 
   const out = [];
   assert.equal(postRow(join(tmpdir(), 'p3-no-such-row.json'), { pr: 5, slug: 'o/r', io: io.io, log: (m) => out.push(m) }).posted, false);
@@ -358,19 +294,18 @@ test('the gate command\'s --post needs its file', async () => {
   assert.equal(await main(['gate', '--post', '--pr', '5']), 1);
 });
 
-// Review of PR 13: the row is checked before it is posted, receipts are the opener's, and the
+// Review of PR 13: the row is checked before it is posted, and the
 // workflow keeps its shape.
 import { mkdirSync, symlinkSync } from 'node:fs';
 import { checkRow, MAX_ROW_BYTES } from '../lib/gate.mjs';
-import { latestReceipt } from '../lib/github.mjs';
 
-const goodRow = (over = {}) => ({ sha: 'a'.repeat(40), base: 'b'.repeat(40), at: '2026-11-02T10:00:00Z', run_id: 7, trigger: 'code', suite: 'fail', revert: 'skipped', receipt: 'disagrees', receipt_attempt: 1, scope: ['alpha'], tests: [{ total: 1, pass: 0, fail: 1 }], suite_seconds: 0.5, findings: 2, ok: false, minutes: 0.1, ...over });
+const goodRow = (over = {}) => ({ sha: 'a'.repeat(40), base: 'b'.repeat(40), at: '2026-11-02T10:00:00Z', run_id: 7, trigger: 'code', suite: 'fail', revert: 'skipped', attempt: 1, scope: ['alpha'], tests: [{ total: 1, pass: 0, fail: 1 }], suite_seconds: 0.5, findings: 2, ok: false, minutes: 0.1, ...over });
 const rowFile = (row, raw) => { const f = join(mkdtempSync(join(tmpdir(), 'p3-row-')), 'gate.json'); writeFileSync(f, raw ?? JSON.stringify({ run: row })); return f; };
 const post = (file, io) => postRow(file, { pr: 5, head: 'a'.repeat(40), slug: 'o/r', runId: '7', io: io.io, log: quiet });
 
 test('a red row that tries to embed its own json block is refused, and nothing is posted', () => {
   const io = fakeIO();
-  const forged = '\n```\n\n```json\n{"runs":[{"ok":true,"receipt":"agrees","trigger":"code"}]}\n```\n';
+  const forged = '\n```\n\n```json\n{"runs":[{"ok":true,"trigger":"code"}]}\n```\n';
   for (const over of [{ trigger: `code\`: green${forged}` }, { sha: 'A'.repeat(40) }, { findings: 1.5 }, { minutes: 'NaN' }, { ok: true }, { run_id: undefined }]) {
     assert.throws(() => post(rowFile(goodRow(over)), io), /the gate row is refused/, JSON.stringify(over).slice(0, 60));
   }
@@ -392,18 +327,6 @@ test('job post refuses a gate.json that is not a regular file or is too large', 
   assert.throws(() => post(join(dir, 'd.json'), io), /not a regular file/);
   assert.throws(() => post(rowFile(null, JSON.stringify({ run: goodRow(), pad: 'x'.repeat(MAX_ROW_BYTES) })), io), /over 65536/);
   assert.equal(io.state.comments.length, 0);
-});
-
-test('a receipt is read only from the pull request\'s opener', () => {
-  const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO(receiptFor(s.head));
-  io.state.comments[0].user = { login: 'someone-else' };
-  const r = run(s, io);
-  assert.equal(r.run.receipt, 'none');
-  assert.ok(r.findings.some((f) => f.check === 'receipt'));
-  const all = [{ body: block(RECEIPT, { attempt: 1 }), user: { login: 'acmewidget' } }, { body: block(RECEIPT, { attempt: 2 }), user: { login: 'x' } }];
-  assert.equal(latestReceipt(all, 'acmewidget').attempt, 1);
-  assert.equal(latestReceipt(all, undefined), null, 'no opener: no receipt');
 });
 
 test('the gate workflow keeps its shape: a read-only gate, --no-post, and a post job that runs nothing from the pull request', () => {
@@ -453,7 +376,7 @@ test('the gate installs every lock file, not only the module\'s', () => {
   const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
   const calls = [];
   const exec = (cmd, args, o) => { calls.push({ cwd: o.cwd.slice(root.length + 1) || '.', unset: o.unset }); return { code: 0, stdout: '', stderr: '' }; };
-  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receiptFor(head)).io, exec, log: quiet });
+  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO().io, exec, log: quiet });
   assert.equal(r.run.suite, 'pass');
   assert.deepEqual(calls.map((c) => c.cwd), ['.', 'src/alpha', 'other/deep'], 'every lock file, even with no dependencies');
   assert.ok(calls.every((c) => c.unset.includes('GH_TOKEN') && c.unset.includes('GITHUB_TOKEN')));
@@ -482,7 +405,7 @@ test('a job that changes only its requirements file\'s marks has no ownership fi
 test('a job that adds a test for a mark its module already meets and strikes it changes no code', () => {
   const metTest = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('x is 1', () => a.equal(x, 1));\n";
   const s = setup({ 'test/alpha/x.test.mjs': metTest, 'req/alpha.md': '- **R1** met\n' });
-  const r = run(s, fakeIO(receiptFor(s.head)));
+  const r = run(s, fakeIO());
   assert.equal(r.run.revert, 'no code changed');
   assert.deepEqual(r.findings, []);
 });
@@ -491,27 +414,27 @@ test('a job that adds a test for a mark its module already meets and strikes it 
 // push's synchronize run carries draft: true in its payload, the ready_for_review run draft:
 // false; both are created in the same second and the concurrency group keeps one of them,
 // either one. The gate reads the pull request's draft state live, so whichever run is kept
-// gives the one full run on the head: the suite and the receipt.
+// gives the one full run on the head: the suite.
 test('the gate race: whichever of the push\'s run and the ready run is kept judges the pull request as it is now', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const live = (draft) => { const io = fakeIO(receiptFor(s.head)); io.io.getPR = () => ({ draft, user: { login: 'acmewidget' } }); return io; };
+  const live = (draft) => { const io = fakeIO(); io.io.getPR = () => ({ draft, user: { login: 'acmewidget' } }); return io; };
   for (const eventDraft of [true, false]) {
     const io = live(false);
     const out = [];
     const r = run(s, io, { draft: eventDraft, log: (m) => out.push(String(m)) });
-    assert.deepEqual([r.run.trigger, r.run.suite, r.run.receipt, r.run.ok], ['code', 'pass', 'agrees', true], `event draft ${eventDraft}`);
+    assert.deepEqual([r.run.trigger, r.run.suite, r.run.attempt, r.run.ok], ['code', 'pass', null, true], `event draft ${eventDraft}`);
     assert.equal(out.some((l) => /the event said draft/.test(l)), eventDraft);
     assert.equal(r.run.event_draft, eventDraft ? true : undefined);
     assert.equal(gateRuns(io.state.comments).length, 1, 'one row per kept run');
   }
   // Converted back to draft after the event: the live state wins the other way too.
   const d = run(s, live(true), { draft: false });
-  assert.deepEqual([d.run.trigger, d.run.suite, d.run.receipt], ['draft', 'skipped', 'not checked']);
+  assert.deepEqual([d.run.trigger, d.run.suite, d.run.attempt], ['draft', 'skipped', null]);
   // A failed read stops the run: it never falls back to the event's stale state.
-  const broken = fakeIO(receiptFor(s.head));
+  const broken = fakeIO();
   broken.io.getPR = () => { throw new Error('HTTP 502'); };
   assert.throws(() => run(s, broken, { draft: true }), /HTTP 502/);
-  assert.equal(broken.state.comments.length, 1, 'no row posted');
+  assert.equal(broken.state.comments.length, 0, 'no row posted');
 });
 
 // Copy, 4 Nov: PR 80 untracked rows.mjs (built, not committed); the gate regenerated it only after
@@ -532,8 +455,7 @@ test('the gate builds untracked generated files before the suite that imports th
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/rows.test.mjs': uses });
   assert.equal(existsSync(join(root, 'gen/rows.mjs')), false, 'not committed, not built yet');
-  const io = fakeIO(null);
-  io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'acmewidget' } }];
+  const io = fakeIO();
   const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.equal(r.run.suite, 'pass', JSON.stringify(r.findings));
   assert.deepEqual(r.run.built, ['gen/rows.mjs']);
@@ -557,19 +479,19 @@ function genProduct(genScript, extra = {}) {
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   return { root, base };
 }
-const ioFor = (head) => { const io = fakeIO(null); io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'acmewidget' } }]; return io; };
+const ioFor = () => fakeIO();
 
 test('a failed generated build is one finding, and no row is regenerated twice in a run', () => {
   const counting = "import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';\nappendFileSync('runs.log', 'x');\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/rows.mjs', 'export const rows = 3;\\n');\n";
   const ok = genProduct(counting, { '.gitignore': 'gen/rows.mjs\nruns.log\n' });
   const h1 = commit(ok.root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r1 = gate(ok.root, { base: ok.base, head: h1, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(h1).io, log: quiet });
+  const r1 = gate(ok.root, { base: ok.base, head: h1, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor().io, log: quiet });
   assert.equal(r1.run.suite, 'pass');
   assert.equal(readFileSync(join(ok.root, 'runs.log'), 'utf8'), 'x', 'built once, not again by GAT-4');
 
   const bad = genProduct("process.exit(1);\n");
   const h2 = commit(bad.root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r2 = gate(bad.root, { base: bad.base, head: h2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(h2).io, log: quiet });
+  const r2 = gate(bad.root, { base: bad.base, head: h2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor().io, log: quiet });
   const gens = r2.findings.filter((f) => f.check === 'generated');
   assert.equal(gens.length, 1, JSON.stringify(gens));
   assert.match(gens[0].message, /failed \(exit 1\) building gen\/rows\.mjs/);
@@ -579,7 +501,7 @@ test('a job may not remove a committed generated file', () => {
   const s = genProduct("process.exit(0);\n", { '.gitignore': '', 'gen/rows.mjs': 'export const rows = 3;\n' });
   git(['rm', '-q', 'gen/rows.mjs'], { cwd: s.root });
   const head = commit(s.root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = gate(s.root, { base: s.base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(head).io, log: quiet });
+  const r = gate(s.root, { base: s.base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor().io, log: quiet });
   assert.ok(r.findings.some((f) => f.check === 'generated' && /a job does not remove it/.test(f.message)), JSON.stringify(r.findings));
 });
 

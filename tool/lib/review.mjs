@@ -1,6 +1,6 @@
 // review brief <pr> [--scope "<text>"]: the fresh-context brief a reviewer subagent is given,
 // filled from the pull request (Phase 2 build N). Prints only; writes nothing.
-import { comments, getPR, latestReceipt } from './github.mjs';
+import { comments, getPR } from './github.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
 import { generatedRows } from './checks.mjs';
 import { rulebook } from './job.mjs';
@@ -39,9 +39,9 @@ function suiteLine(job, generated) {
 function triggerLines(t) {
   if (!t) return [];
   if (t.error) return ['', '## Review triggers', `Not read here (${t.error}); \`merge\` computes them again and refuses --no-review when one fires.`];
-  if (!t.fired.length) return ['', '## Review triggers', `None fired${t.bad ? ` (${t.bad}: no security path was read)` : t.security_set ? '' : ' (the product lists no review_triggers.security_paths)'}.`];
+  if (!t.fired.length) return ['', '## Review triggers', 'None fired.'];
   return ['', '## Review triggers', `Fired: ${t.fired.join(' and ')}. ${t.why}.`,
-    'The review triggers (4 Nov 19:05): these merge only after this review. Judge each hunk below first: a security list narrowed or widened without a requirement that says so; a test deleted while the code it tested is still live; an assertion removed or loosened so the change passes. Each is a fix unless a requirement or recorded decision makes it right.',
+    'The review triggers (4 Nov 19:05): these merge only after this review. Judge each hunk below first: a test deleted while the code it tested is still live; an assertion removed or loosened so the change passes. Each is a fix unless a requirement or recorded decision makes it right.',
     ...(t.fired.includes('test') ? [`(${ASSERT_RULE}.)`] : []),
     '', '```diff', t.hunks.trimEnd(), '```'];
 }
@@ -73,16 +73,7 @@ export function briefText({ pr, files, job, owner, approvalsFile, scope, generat
   L.push(`Base \`${pr.base?.ref}\`, head \`${pr.head?.ref}\` at ${String(pr.head?.sha || '').slice(0, 10)}.`);
   if (scope) L.push(`Scope: ${scope}`);
   if (job) L.push(`A job, module \`${job.id}\`; requirements in \`${job.file}\`: ${job.ids.length ? job.ids.join(', ') : '(no ids found; read the file)'}.`);
-  if (job) {
-    const t = job.receipt?.tests || [];
-    if (!job.receipt) L.push('No receipt is posted yet: the requirements this job struck and their tests are not named.');
-    else if (!t.some((x) => !x.notice)) L.push('The receipt names no struck requirement mark.');
-    else {
-      // A notice entry is only in receipts posted before notices stopped taking a --test.
-      L.push('Struck requirements, each with the test the receipt names for it:', ...t.filter((x) => !x.notice).map((x) => `- ${x.req}: \`${x.file}\` :: "${x.name}"`));
-      L.push('For each, confirm the test asserts that requirement at the module\'s interface (what a caller sees), not an internal detail; a test that does not is a fix.');
-    }
-  }
+  if (job) L.push('For each requirement mark the branch struck, confirm a test asserts that requirement at the module\'s interface (what a caller sees), not an internal detail; a test that does not is a fix.');
   L.push(`Changed files (${files.length}):`, ...files.map((f) => `- ${f}`));
   L.push(...triggerLines(triggers));
   L.push('', '## Owner-only files');
@@ -127,7 +118,7 @@ export function reviewBrief(root, n, { scope, log = console.log, io = {} } = {})
     const entry = contents(slug, `${LEDGER_DIR}/${id}.json`, pr.head.sha);
     let e = entry;
     if (typeof entry === 'string') { try { e = JSON.parse(entry); } catch { fail(`${LEDGER_DIR}/${id}.json at the head is not JSON`); } }
-    if (e?.requirements) job = { id, file: e.requirements, ids: requirementIds(contents(slug, e.requirements, pr.head.sha)), receipt: latestReceipt(notes(slug, pr.number), pr.user?.login) };
+    if (e?.requirements) job = { id, file: e.requirements, ids: requirementIds(contents(slug, e.requirements, pr.head.sha)) };
   }
   // The generated paths, split by whether the head commits them (a path absent there is built).
   const generated = job ? { built: [], committed: [] } : null;

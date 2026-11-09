@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { baseRedOwed } from '../lib/report.mjs';
 import { baseRed, reachers } from '../lib/basered.mjs';
-import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
+import { BOT, GATE, block, parseBlock } from '../lib/github.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 // The gate never posts; job post writes its row as a comment after the run, as here.
@@ -31,8 +31,8 @@ function setup(baseFiles, files) {
   const head = commit(root, files);
   return { root, base, head };
 }
-function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [] };
+function fakeIO() {
+  const state = { comments: [] };
   return {
     state,
     io: {
@@ -43,16 +43,15 @@ function fakeIO(receipt) {
     },
   };
 }
-const receiptFor = (sha, c = { exit: 0 }) => ({ kind: 'receipt', module: 'alpha', attempt: 1, sha, commands: [{ cmd: 'node --test', suite: true, ...c }], exempt: {} });
-const run = (s, receipt, over = {}) => gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receipt).io, log: quiet, ...over });
+const run = (s, over = {}) => gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO().io, log: quiet, ...over });
 const RED = 'test/alpha/red.test.mjs::plane > has ai-catalogue';
 
 test('a test that fails at the PR and at the base passes the gate as base_red, and the row names it', () => {
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO(receiptFor(s.head));
+  const io = fakeIO();
   const r = gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt], [true, 'base-red', 'pass', 'agrees']);
+  assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.attempt], [true, 'base-red', 'pass', null]);
   assert.equal(r.run.base_red.length, 1);
   assert.deepEqual(r.run.base_red[0].tests, [RED]);
   assert.equal(r.run.base_red[0].base, s.base);
@@ -64,7 +63,7 @@ test('a test that fails at the PR and at the base passes the gate as base_red, a
 
 test('a new failing test file, missing at the base, fails the gate', () => {
   const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/red.test.mjs': redTest });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'fail');
   assert.equal(r.run.base_red, undefined);
   assert.match(r.findings.find((f) => f.check === 'suite').message, /not base-red: new failing test file/);
@@ -73,14 +72,14 @@ test('a new failing test file, missing at the base, fails the gate', () => {
 test('a new failing test in a file the base has fails the gate: the base lacks that test', () => {
   const more = redTest + "test('new red', () => { throw new Error('mine'); });\n";
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/red.test.mjs': more });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'fail');
   assert.match(r.findings.find((f) => f.check === 'suite').message, /1 failing test\(s\) are missing at the base [0-9a-f]{10}, whose run reported their files: test\/alpha\/red\.test\.mjs::new red/);
 });
 
 test('a test that passes at the base but fails at the PR fails the gate, even beside a base-red one', () => {
   const s = setup({ 'test/alpha/red.test.mjs': redTest, 'test/alpha/one.test.mjs': isOne }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'fail');
   const m = r.findings.find((f) => f.check === 'suite').message;
   assert.match(m, /1 failing test\(s\) pass at the base [0-9a-f]{10}: test\/alpha\/one\.test\.mjs::x is 1$/);
@@ -123,18 +122,18 @@ test('the failing tests come from the runner\'s events, full names escaped, suit
 
 test('the revert check fails a new inert test placed beside a base-red one (AUD-1)', () => {
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/red.test.mjs': redTest + "test('my feature', () => {});\n" });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'base-red');
   assert.deepEqual([r.run.revert, r.run.inert, r.findings.map((f) => [f.check, f.file])], ['fail', ['test/alpha/red.test.mjs'], [['revert', 'test/alpha/red.test.mjs']]]);
   // A real test beside the red one still proves the change.
   const t = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/red.test.mjs': redTest.replace("import a from 'node:assert';", "import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';") + "test('x is 2', () => a.equal(x, 2));\n" });
-  assert.deepEqual([run(t, receiptFor(t.head)).run.revert], ['pass']);
+  assert.deepEqual([run(t).run.revert], ['pass']);
 });
 
 test('a second failing test under a base-red name is the PR\'s', () => {
   const twice = redTest + "describe('plane', () => { test('has ai-catalogue', () => { throw new Error('mine'); }); });\n";
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/red.test.mjs': twice });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'fail');
   assert.match(r.findings.find((f) => f.check === 'suite').message, /1 failing test\(s\) fail fewer times at the base [0-9a-f]{10} than here: test\/alpha\/red\.test\.mjs::plane > has ai-catalogue/);
 });
@@ -144,7 +143,7 @@ test('a filter or replace ref the PR planted in .git does not reach the base\'s 
   // As the PR's tests could: a smudge filter that breaks every file it checks out.
   git(['config', 'filter.evil.smudge', 'echo broken'], { cwd: s.root });
   writeFileSync(join(s.root, '.git/info/attributes'), '* filter=evil\n');
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'fail', 'one.test.mjs passes at the base, so its failure is the PR\'s');
   assert.match(r.findings.find((f) => f.check === 'suite').message, /pass at the base.*x is 1/);
 });
@@ -153,7 +152,7 @@ test('a filter or replace ref the PR planted in .git does not reach the base\'s 
 test('the gate gives the base-red run the whole suite_timeout_minutes, not what the suite left', () => {
   const slow = "import { describe, test } from 'node:test'; import a from 'node:assert';\ndescribe('plane', () => { test('has ai-catalogue', async () => { await new Promise((r) => setTimeout(r, 5000)); a.fail('no ai-catalogue'); }); });\n";
   const s = setup({ 'test/alpha/red.test.mjs': slow, 'process/config.json': { suite_timeout_minutes: 0.15 } }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, receiptFor(s.head, { exit: 1, base_red: [RED] }));
+  const r = run(s);
   assert.deepEqual(r.findings, [], 'a 5 s base run fits its own 9 s, not the 4 s the suite left');
   assert.equal(r.run.suite, 'base-red');
 });
@@ -170,7 +169,7 @@ const fast = { 'src/alpha/wait.mjs': 'export const ms = 0;\n' };
 
 test('a sibling module\'s tests red at the base too are base-red: the base runs the test file that imports it', () => {
   const s = setup({ ...fast, 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam }, change);
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.deepEqual(r.findings, []);
   assert.equal(r.run.suite, 'base-red');
   assert.deepEqual(r.run.base_red[0].tests, SEAM, 'keyed by the sibling, the enclosing describe of the test file named');
@@ -180,7 +179,7 @@ test('a sibling module\'s tests red at the base too are base-red: the base runs 
 test('a sibling module\'s test that passes at the base is said to pass there, by its own path', () => {
   const ok = "import { describe, test } from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\nexport const sections = () => describe('§14a', () => { test('a PDF over the ceiling is stated', () => a.equal(x, 1)); });\n";
   const s = setup({ 'test/alpha/r9-seam-limits.mjs': ok, 'test/alpha/t51-seam.test.mjs': seam }, change);
-  const m = run(s, receiptFor(s.head)).findings.find((f) => f.check === 'suite').message;
+  const m = run(s).findings.find((f) => f.check === 'suite').message;
   assert.match(m, /not base-red: 2 failing test\(s\) pass at the base [0-9a-f]{10}: test\/alpha\/r9-seam-limits\.mjs::§14a > a PDF/);
   assert.doesNotMatch(m, /missing|did not complete/);
 });
@@ -189,7 +188,7 @@ test('a base run that times out is no verdict: it names the file and asks for a 
   // 15 s for each side's install and run: the head fails at once, the base sleeps 30 s.
   const s = setup({ 'src/alpha/wait.mjs': 'export const ms = 30000;\n', 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam, 'process/config.json': { suite_timeout_minutes: 0.25 } },
     { ...change, ...fast });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   const m = r.findings.find((f) => f.check === 'suite').message;
   assert.match(m, /not base-red: the base run did not complete for test\/alpha\/r9-seam-limits\.mjs \(the run timed out after \d+ s\): no verdict on its tests; rerun$/);
   assert.doesNotMatch(m, /pass at|missing at/);
@@ -198,7 +197,7 @@ test('a base run that times out is no verdict: it names the file and asks for a 
 test('a test file that fails to load at the base is no verdict on its tests; nor is a sibling no test file names', () => {
   const red = "import test from 'node:test';\ntest('t', () => { throw new Error('red'); });\n";
   const s = setup({ 'test/alpha/l.test.mjs': "import './gone.mjs';\n" + red, 'test/alpha/lone.mjs': '' }, { ...change, 'test/alpha/l.test.mjs': red });
-  const m = run(s, receiptFor(s.head)).findings.find((f) => f.check === 'suite').message;
+  const m = run(s).findings.find((f) => f.check === 'suite').message;
   assert.match(m, /the base run did not complete for test\/alpha\/l\.test\.mjs \(test\/alpha\/l\.test\.mjs failed as a whole there \(a load failure or an early exit\), exit 1\): no verdict/);
   // A failing test keyed by a file the base has but no test file names (moved importers).
   const e = { ...entry('alpha'), suite: { cwd: '.', command: ['node', '--test'] }, tests: ['test/alpha/'] };
@@ -222,7 +221,7 @@ test('the events: passes are recorded and kept out of failing; a file that faile
 test('the revert check reads every file per test when a sibling\'s tests are tolerated: a new inert test beside them fails', () => {
   const s = setup({ ...fast, 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam },
     { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/t51-seam.test.mjs': seam + "import test from 'node:test';\ntest('my feature', () => {});\n" });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.deepEqual([r.run.suite, r.run.revert, r.run.inert, r.findings.map((f) => f.check)], ['base-red', 'fail', ['test/alpha/t51-seam.test.mjs'], ['revert']]);
 });
 
@@ -231,7 +230,7 @@ test('a sibling reached by other test files here than at the base has no base-re
   const two = "import { describe, test } from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\nexport const sections = (red) => describe('§14a', () => { test('a PDF over the ceiling is stated', () => { if (red) a.fail('red'); a.equal(x, 1); }); });\n";
   const s = setup({ 'test/alpha/r9-seam-limits.mjs': two, 'test/alpha/a.test.mjs': "import { sections } from './r9-seam-limits.mjs';\nsections(false);\n", 'test/alpha/b.test.mjs': "import { sections } from './r9-seam-limits.mjs';\nsections(true);\n" },
     { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/b.test.mjs': null });
-  const m = run(s, receiptFor(s.head)).findings.find((f) => f.check === 'suite').message;
+  const m = run(s).findings.find((f) => f.check === 'suite').message;
   assert.match(m, /no base-red verdict for test\/alpha\/r9-seam-limits\.mjs \(the test files reaching it differ, here test\/alpha\/a\.test\.mjs, at the base test\/alpha\/a\.test\.mjs, test\/alpha\/b\.test\.mjs\)$/);
 });
 

@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { gate as gateRun, gateComment, trancheCover } from '../lib/gate.mjs';
-import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
+import { BOT, GATE, block, parseBlock } from '../lib/github.mjs';
 import { git, isRecordOrLane, laneDirs, laneOfPath, laneOnly, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -25,8 +25,8 @@ function setup({ cfg = {}, alpha = {} } = {}) {
   git(['branch', 'tranche'], { cwd: root });
   return { root, base: git(['rev-parse', 'HEAD'], { cwd: root }) };
 }
-function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [], genuine: new Set() };
+function fakeIO() {
+  const state = { comments: [], genuine: new Set() };
   const key = (r) => `${r.at}|${r.sha}|${r.trigger}`;
   return { state, io: {
     comments: () => state.comments, getPR: () => ({ user: { login: 'acmewidget' } }),
@@ -84,7 +84,7 @@ test('a lane commits no generated output; a job\'s or the tranche\'s pull reques
 test('a lane\'s land after a job\'s green run is a record for the job: record-since-green; any other change is not', () => {
   const s = setup();
   const h1 = onBranch(s, 'job/alpha', { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO({ kind: 'receipt', module: 'alpha', attempt: 1, sha: h1, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: {} });
+  const io = fakeIO();
   assert.equal(run(s, h1, 'job/alpha', io).run.trigger, 'code');
   // The tranche brought in a lane's land: lane folder files only.
   const h2 = commit(s.root, { 'design/ux/words.json': '{"d":1}\n', 'design/ai/notes.md': 'd\n' });
@@ -127,7 +127,7 @@ test('a job\'s own code, any module\'s tests and the files that govern sessions 
 test('a job of the lane\'s module whose own lane-folder code changed since its green run runs its suite again', () => {
   const s = setup({ cfg: { lanes: [{ name: 'ux', dir: 'design/ux', module: 'alpha' }] }, alpha: { paths: ['src/alpha/', 'design/ux/'] } });
   const h1 = onBranch(s, 'job/alpha', { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const io = fakeIO({ kind: 'receipt', module: 'alpha', attempt: 1, sha: h1, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: {} });
+  const io = fakeIO();
   assert.equal(run(s, h1, 'job/alpha', io).run.trigger, 'code');
   const h2 = commit(s.root, { 'design/ux/words.json': '{"e":1}\n' });
   assert.equal(run(s, h2, 'job/alpha', io).run.trigger, 'code');
