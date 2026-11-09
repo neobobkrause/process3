@@ -338,7 +338,11 @@ export function entryFiles(root, ref, { isProviderSource, providerPaths, inProvi
 
 // The surface of a provider at ref: the names every entry file exports, one map; where two entry
 // files export one name, the later file in path order wins.
-export function surfaceAt(root, ref, opts) {
+// `also`: more files whose own surface is read (perFile), as exportRead reads both sides' entry files.
+// `unread`: export forms in an entry file the surface does not read (TypeScript's interface, type,
+// enum, namespace, declare, abstract class), named so a caller can fail closed (PD-20).
+const TS_EXPORT = /\bexport\s+(?:default\s+)?(?:declare\s+|abstract\s+|interface\b|type\s+[A-Za-z$]|enum\b|const\s+enum\b|namespace\b|module\b|import\s+[A-Za-z$][\w$]*\s*=|=)/;
+export function surfaceAt(root, ref, opts, also = []) {
   const tree = treeAt(root, ref);
   const files = entryFiles(root, ref, opts, { tree });
   // The provider's own code files, read at once: a surface follows its imports within the module.
@@ -355,22 +359,39 @@ export function surfaceAt(root, ref, opts) {
     return cache.get(f);
   };
   const out = new Map();
-  for (const f of files) for (const [k, v] of surfaceOf(read, f, opts.isProviderSource)) out.set(k, v);
-  return { files, names: out };
+  const perFile = new Map();
+  const unread = [];
+  for (const f of [...new Set([...files, ...also])]) {
+    const t = tree.get(f)?.type === 'blob' ? read(f) : null;
+    const own = t === null ? new Map() : surfaceOf(read, f, opts.isProviderSource);
+    perFile.set(f, own);
+    if (t !== null && TS_EXPORT.test(blank(t))) unread.push(f);
+    if (files.includes(f)) for (const [k, v] of own) out.set(k, v);
+  }
+  return { files, names: out, perFile, unread };
 }
 
 // The export names added, removed or changed between base and head.
 export const exportChanges = (root, base, head, opts) => { const { removed, added, changed } = exportRead(root, base, head, opts); return { removed, added, changed }; };
 // The same, with the entry files read on either side (PD-20: an import at triage counts as read only
-// when the file it names is one of them).
+// when the file it names is one of them). Names are compared file by file over both sides' entry
+// files, so a name removed from one entry file counts as removed though another still exports it;
+// `unread` names entry files with export forms the surface does not read.
 export function exportRead(root, base, head, opts) {
-  const sa = surfaceAt(root, base, opts);
-  const sb = surfaceAt(root, head, opts);
-  const [a, b] = [sa.names, sb.names];
-  const removed = [...a.keys()].filter((k) => !b.has(k)).sort();
-  const added = [...b.keys()].filter((k) => !a.has(k)).sort();
-  const changed = [...a.keys()].filter((k) => b.has(k) && a.get(k) !== b.get(k)).sort().map((k) => ({ name: k, before: a.get(k), after: b.get(k) }));
-  return { removed, added, changed, files: [...new Set([...sa.files, ...sb.files])].sort() };
+  const sa0 = surfaceAt(root, base, opts);
+  const sb = surfaceAt(root, head, opts, sa0.files);
+  const sa = surfaceAt(root, base, opts, sb.files);
+  const files = [...new Set([...sa.files, ...sb.files])].sort();
+  const removed = new Set();
+  const added = new Set();
+  const changed = new Map();
+  for (const f of files) {
+    const [a, b] = [sa.perFile.get(f) || new Map(), sb.perFile.get(f) || new Map()];
+    for (const [k, v] of a) { if (!b.has(k)) removed.add(k); else if (b.get(k) !== v && !changed.has(k)) changed.set(k, { name: k, before: v, after: b.get(k) }); }
+    for (const k of b.keys()) if (!a.has(k)) added.add(k);
+  }
+  // A name moved from one entry file to another counts as removed (its importers of the old file break) and added.
+  return { removed: [...removed].sort(), added: [...added].sort(), changed: [...changed.keys()].sort().map((k) => changed.get(k)), files, unread: [...new Set([...sa.unread, ...sb.unread])].sort() };
 }
 // For tests: forget every read kept.
 export function forgetReads() { TEXTS.clear(); SPECS.clear(); WORDS.clear(); JOINS.clear(); textChars = 0; }

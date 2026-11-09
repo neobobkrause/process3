@@ -33,8 +33,8 @@ const USER_FILES = {
   'src/u7/a.mjs': "const p = require('../p/index.mjs');\nmodule.exports = p;\n",
 };
 
-function product() {
-  const ids = ['p', ...USERS];
+function product(users = USERS, extra = {}) {
+  const ids = ['p', ...users];
   const root = makeRepo({
     'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
     'process/modules.json': { modules: ids.map((id) => ({ id, paths: [`src/${id}/`], tests: [`test/${id}/`], ...(id === 'p' ? {} : { uses: ['p'] }) })) },
@@ -44,7 +44,8 @@ function product() {
     ])),
     'src/p/index.mjs': P_SRC,
     'test/p/fixture.mjs': 'export const fx = 1;\n',
-    ...USER_FILES,
+    ...Object.fromEntries(Object.entries(USER_FILES).filter(([f]) => users.includes(f.split('/')[1]))),
+    ...extra,
   });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -107,22 +108,25 @@ test('importedNames reads the names each import statement takes; default, namesp
   assert.deepEqual(at(2, './x.mjs'), { names: ['U'] });
   assert.deepEqual(at(3, './y.mjs'), { names: ['d', 'e'] });
   assert.deepEqual(at(7, './side.mjs'), { names: [] });
-  assert.deepEqual(at(8, './x.mjs'), { names: null, why: 'a default import' });
-  assert.deepEqual(at(9, './z.mjs'), { names: null, why: 'a default import' });
-  assert.deepEqual(at(10, './x.mjs'), { names: null, why: 'a namespace import' });
+  assert.deepEqual(at(8, './x.mjs'), { names: null, kind: 'default', why: 'a default import' });
+  assert.deepEqual(at(9, './z.mjs'), { names: null, kind: 'default', why: 'a default import' });
+  assert.deepEqual(at(10, './x.mjs'), { names: null, kind: 'namespace', why: 'a namespace import' });
   assert.deepEqual(at(11, './x.mjs'), { names: ['h', 'i'] });
-  assert.deepEqual(at(12, './w.mjs'), { names: null, why: 'an export * of it' });
-  assert.deepEqual(at(13, './x.mjs'), { names: null, why: 'a dynamic import()' });
-  assert.deepEqual(at(14, './x.mjs'), { names: null, why: 'a require()' });
-  assert.deepEqual(at(15, './k.mjs'), { names: null, why: 'import default by name' });
+  assert.deepEqual(at(12, './w.mjs'), { names: null, kind: 'star', why: 'an export * of it' });
+  assert.deepEqual(at(13, './x.mjs'), { names: null, kind: 'dynamic', why: 'a dynamic import()' });
+  assert.deepEqual(at(14, './x.mjs'), { names: null, kind: 'dynamic', why: 'a require()' });
+  assert.deepEqual(at(15, './k.mjs'), { names: null, kind: 'default', why: 'import default by name' });
   assert.deepEqual(at(16, './two.mjs'), { names: ['a2', 'b2'] });
   assert.equal(at(17, './three.mjs').names, null, 'a namespace beside names on one line is unreadable');
+  assert.equal(importedNames("import d, * as ns from './x.mjs';").get('1\0./x.mjs').kind, 'default');
+  assert.equal(importedNames("import {\n  a, // the a\n} from './x.mjs';").get('1\0./x.mjs').kind, 'unread', 'a comment inside the braces: unread');
 });
 
 test('interfaceRule: none, added or names only with no requirement id changed and the exports read over a recorded range; anything else is null', () => {
   const read = { base: 'a'.repeat(40), head: 'b'.repeat(40), files: ['src/p/index.mjs'] };
   const n = { key: 'p:1', provider: 'p', pr: 1, ids: [], users: ['u1'], source: 1, exports_read: read };
-  assert.deepEqual(interfaceRule(n), { rule: 'none', range: 'aaaaaaaaaa..bbbbbbbbbb' });
+  assert.deepEqual(interfaceRule(n), { rule: 'none', range: 'aaaaaaaaaa..bbbbbbbbbb', files: ['src/p/index.mjs'] });
+  assert.match(interfaceRule({ ...n, exports_read: { ...read, files: [] } }).why, /its export read found no entry file/);
   assert.equal(interfaceRule({ ...n, exports: { removed: [], added: ['z'], changed: [] } }).rule, 'added');
   assert.deepEqual(interfaceRule({ ...n, exports: { removed: ['x'], added: [], changed: [{ name: 'y', before: '(a)', after: '(a, b)' }] } }).names, ['x', 'y']);
   assert.match(interfaceRule({ ...n, ids: ['R2'] }).why, /requirement id\(s\) changed \(R2\)/);
@@ -133,59 +137,79 @@ test('interfaceRule: none, added or names only with no requirement id changed an
   assert.match(interfaceRule({ ...n, ids: undefined }).why, /requirement ids are unread/);
 });
 
-test('importsNamesClear: clears only reads of unmoved names from files the export read covered; fails closed otherwise', () => {
+test('importsNamesClear: clears only reads of covered files by readable statements, by rule; fails closed otherwise', () => {
   const f = (text, specs) => [{ file: 'src/u/a.mjs', text, specs }];
   const s = (spec, line = 1, to = 'src/p/index.mjs') => ({ spec, line, to });
   const files = ['src/p/index.mjs'];
-  const ok = importsNamesClear(f("import { verify } from '../p/index.mjs';\n", [s('../p/index.mjs')]), ['sign'], files, 'p');
+  const names = { rule: 'names', names: ['sign'], files };
+  const ok = importsNamesClear(f("import { verify } from '../p/index.mjs';\n", [s('../p/index.mjs')]), names, 'p');
   assert.deepEqual(ok, { clear: true, evidence: ["src/u/a.mjs:1 import { verify } from '../p/index.mjs';"] });
-  assert.match(importsNamesClear(f("import { sign } from '../p/index.mjs';\n", [s('../p/index.mjs')]), ['sign'], files, 'p').why, /src\/u\/a\.mjs:1 imports sign, removed or changed/);
-  assert.match(importsNamesClear(f("import * as p from '../p/index.mjs';\n", [s('../p/index.mjs')]), ['sign'], files, 'p').why, /is a namespace import of p/);
-  assert.match(importsNamesClear(f("import { verify } from '../p/other.mjs';\n", [s('../p/other.mjs', 1, 'src/p/other.mjs')]), ['sign'], files, 'p').why, /imports src\/p\/other\.mjs, a file of p its export read did not cover/);
-  assert.match(importsNamesClear(f("import { verify } from '../p/gone';\n", [s('../p/gone', 1, null)]), ['sign'], files, 'p').why, /imports '\.\.\/p\/gone', which names no file of p/);
+  assert.match(importsNamesClear(f("import { sign } from '../p/index.mjs';\n", [s('../p/index.mjs')]), names, 'p').why, /src\/u\/a\.mjs:1 imports sign, removed or changed/);
+  assert.match(importsNamesClear(f("import * as p from '../p/index.mjs';\n", [s('../p/index.mjs')]), names, 'p').why, /is a namespace import of p/);
+  assert.match(importsNamesClear(f("import { verify } from '../p/other.mjs';\n", [s('../p/other.mjs', 1, 'src/p/other.mjs')]), names, 'p').why, /imports src\/p\/other\.mjs, a file of p its export read did not cover/);
+  assert.match(importsNamesClear(f("import { verify } from '../p/gone';\n", [s('../p/gone', 1, null)]), names, 'p').why, /imports '\.\.\/p\/gone', which names no file of p/);
   // A specifier the parser cannot place at the line checks.mjs gave: unread, owed.
-  assert.match(importsNamesClear(f("import { verify } from '../p/index.mjs';\n", [s('../p/index.mjs', 2)]), ['sign'], files, 'p').why, /by a statement that could not be read/);
-  assert.match(importsNamesClear(f("import { verify } from '../p/index.mjs';\n", [s('../p/index.mjs')]), ['Accounts.keySet'], files, 'p').why, /class member\(s\) moved \(Accounts\.keySet\)/);
+  assert.match(importsNamesClear(f("import { verify } from '../p/index.mjs';\n", [s('../p/index.mjs', 2)]), names, 'p').why, /by a statement that could not be read/);
+  assert.match(importsNamesClear(f("import { verify } from '../p/index.mjs';\n", [s('../p/index.mjs')]), { ...names, names: ['Accounts.keySet'] }, 'p').why, /class member\(s\) moved \(Accounts\.keySet\)/);
+  // No interface change: a namespace or require() of a covered file clears; a default never does.
+  const none = { rule: 'none', files };
+  assert.equal(importsNamesClear(f("import * as p from '../p/index.mjs';\n", [s('../p/index.mjs')]), none, 'p').clear, true);
+  assert.match(importsNamesClear(f("import sign from '../p/index.mjs';\n", [s('../p/index.mjs')]), none, 'p').why, /is a default import of p/);
+  // Only added: an export * can collide with the added name in the user's own exports.
+  assert.equal(importsNamesClear(f("export * from '../p/index.mjs';\n", [s('../p/index.mjs')]), none, 'p').clear, true);
+  assert.match(importsNamesClear(f("export * from '../p/index.mjs';\n", [s('../p/index.mjs')]), { rule: 'added', added: ['z'], files }, 'p').why, /an export \* of it, where an added name can collide/);
 });
 
-test('rule 1: a merge whose provider changed no requirement id and no export clears every user at the merge, importers too; status owes nothing (PD-17 rehearsal)', () => {
+test('rule 1: a merge whose provider changed no requirement id and no export clears every user whose imports read, importers too; a default import or an uncovered file stays owed', () => {
   const root = product();
-  openPassed(root);
   const { r, out } = mergeJob(root, 9, { 'src/p/index.mjs': P_SRC.replace('return !!x;', 'return Boolean(x);') });
   const [n] = r.notices.rows;
   assert.deepEqual([n.key, n.ids, n.users, n.exports], ['p:9', [], USERS, undefined]);
   assert.ok(n.exports_read?.base && n.exports_read?.head, 'the export read is recorded on the notice');
   assert.deepEqual(n.exports_read.files, ['src/p/index.mjs']);
-  assert.deepEqual(r.triage.owed, []);
-  assert.match(out, /notice triage p:9 at the merge: 7 of 7 not affected \(7 by no interface change\), answered: u1, u2, u3, u4, u5, u6, u7$/m);
+  assert.deepEqual(r.triage.owed, ['u5', 'u6']);
+  assert.match(out, /notice triage p:9 at the merge: 5 of 7 not affected \(4 by no interface change, 1 by imports check\), answered: u1, u2, u3, u4, u7; 2 owe/);
+  assert.match(out, /- u5: not cleared: src\/u5\/a\.mjs:1 is a default import of p/);
+  assert.match(out, /- u6: not cleared: test\/u6\/a\.test\.mjs:1 imports test\/p\/fixture\.mjs, a file of p its export read did not cover/);
   const t = triaged(root, 'p:9');
-  assert.deepEqual([...t.keys()].sort(), USERS);
-  for (const row of t.values()) {
-    assert.equal(row.verdict, 'not affected');
-    assert.equal(row.worker, 'merge: no interface change');
-    assert.equal(row.cost, '0');
-    assert.match(row.evidence, /^PR 9: no requirement id changed; exports read unchanged at [0-9a-f]{10}\.\.[0-9a-f]{10}$/);
+  for (const u of ['u1', 'u2', 'u3', 'u7']) {
+    assert.equal(t.get(u).verdict, 'not affected');
+    assert.equal(t.get(u).worker, 'merge: no interface change');
+    assert.equal(t.get(u).cost, '0');
+    assert.match(t.get(u).evidence, /^PR 9: no requirement id changed; exports read unchanged at [0-9a-f]{10}\.\.[0-9a-f]{10}: src\/u\d\/a\.mjs:\d /);
   }
+  assert.equal(t.get('u4').worker, 'merge: imports check');
+});
+
+test('PD-17 rehearsal: a merge raises a notice, triage happens at the merge, and status shows nothing owed', () => {
+  const users = ['u1', 'u2', 'u3', 'u4', 'u7'];
+  const root = product(users);
+  openPassed(root);
+  const { r, out } = mergeJob(root, 12, { 'src/p/index.mjs': P_SRC.replace('return !!x;', 'return Boolean(x);') });
+  assert.deepEqual(r.notices.rows.map((x) => [x.key, x.users]), [['p:12', users]]);
+  assert.deepEqual(r.triage.owed, []);
+  assert.match(out, /notice triage p:12 at the merge: 5 of 5 not affected \(4 by no interface change, 1 by imports check\)/);
+  assert.match(out, /notice triage at the merge: \d+ row\(s\) written, none owed/);
   const cfg = loadConfig(root);
   // Every user answered, as recordTriage answers a not affected: the notice is closed for all.
   assert.deepEqual(notices(root, cfg.state_branch)[0].open, []);
-  assert.ok(readState(root, cfg.state_branch, 'notices/answered/u3-p-9.json'));
-  assert.deepEqual(owedTriage(root, 'p:9'), []);
+  assert.ok(readState(root, cfg.state_branch, 'notices/answered/u3-p-12.json'));
+  assert.deepEqual(owedTriage(root, 'p:12'), []);
   const lines = [];
   status(root, { role: 'bob', offline: true, log: (m) => lines.push(m) });
-  assert.doesNotMatch(lines.join('\n'), /triage owed/);
+  assert.doesNotMatch(lines.join('\n'), /triage owed|p:12/);
   const left = [];
-  assert.deepEqual(noticeTriage(root, 'p:9', { log: (m) => left.push(m) }).owed, []);
-  assert.match(left.join('\n'), /provider notice p:9: no module owes triage/);
+  assert.deepEqual(noticeTriage(root, 'p:12', { log: (m) => left.push(m) }).owed, []);
+  assert.match(left.join('\n'), /provider notice p:12: no module owes triage/);
 });
 
 test('rule 2: an export only added clears every user at the merge', () => {
   const root = product();
   const { r, out } = mergeJob(root, 10, { 'src/p/index.mjs': P_SRC + 'export function rotate() { return 1; }\n' });
   assert.deepEqual(r.notices.rows[0].exports, { removed: [], added: ['rotate'], changed: [] });
-  assert.deepEqual(r.triage.owed, []);
-  assert.match(out, /notice triage p:10 at the merge: 7 of 7 not affected \(7 by no interface change\)/);
-  assert.match(triaged(root, 'p:10').get('u1').evidence, /^PR 10: no requirement id changed; exports read at [0-9a-f]{10}\.\.[0-9a-f]{10} only added \(rotate\), none removed or changed$/);
+  assert.deepEqual(r.triage.owed, ['u5', 'u6']);
+  assert.match(out, /notice triage p:10 at the merge: 5 of 7 not affected \(4 by no interface change, 1 by imports check\)/);
+  assert.match(triaged(root, 'p:10').get('u1').evidence, /^PR 10: no requirement id changed; exports read at [0-9a-f]{10}\.\.[0-9a-f]{10} only added \(rotate\), none removed or changed: src\/u1\/a\.mjs:1 import \{ sign \}/);
 });
 
 test('rule 3: with a name changed, only importers of it, or of what cannot be read as names, stay owed; the brief says why each was left (PD-17 rehearsal)', () => {
@@ -262,14 +286,48 @@ test('notice triage applies the rule to a notice recorded before it, reading the
   assert.deepEqual(owedTriage(root, 'p:30'), USERS);
   const out = [];
   const r = noticeTriage(root, 'p:30', { log: (x) => out.push(x), io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } });
-  assert.deepEqual(r.owed, []);
-  assert.match(out.join('\n'), /^notice triage p:30 by rule \(PD-20\): 7 of 7 not affected \(7 by no interface change\), 7 recorded/m);
-  assert.equal(triaged(root, 'p:30').get('u5').worker, 'notice triage: no interface change');
-  assert.deepEqual(owedTriage(root, 'p:30'), []);
+  assert.deepEqual(r.owed, ['u5', 'u6']);
+  assert.match(out.join('\n'), /^notice triage p:30 by rule \(PD-20\): 5 of 7 not affected \(4 by no interface change, 1 by imports check\), 5 recorded/m);
+  assert.equal(triaged(root, 'p:30').get('u7').worker, 'notice triage: no interface change');
+  assert.deepEqual(owedTriage(root, 'p:30'), ['u5', 'u6']);
+  assert.match(r.brief, /- u5: src\/u5\/; src\/u5\/a\.mjs:1; not cleared by rule: src\/u5\/a\.mjs:1 is a default import of p/);
+  assert.doesNotMatch(r.brief, /- u7:/);
   // A notice whose requirement ids changed is left to the workers: nothing written, all briefed.
   onState(root, { [noticeFile('p:31')]: JSON.stringify({ row: 'notice', key: 'p:31', provider: 'p', ids: ['R1'], pr: 31, users: USERS, source: 1 }) + '\n' });
   git(['push', '-q', 'origin', '+refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
   const r2 = noticeTriage(root, 'p:31', { log: quiet, io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } });
   assert.deepEqual(r2.owed, USERS);
   assert.ok(r2.brief);
+});
+
+test('the export read fails closed: TypeScript export forms are unread, a name removed from one entry file counts though another keeps it, a layer-land notice is left to the workers', () => {
+  // A TypeScript interface removed: the surface does not read it, so the notice's exports are unread.
+  const ts = product(['u1'], { 'src/p/index.mjs': P_SRC + 'export interface Account { id: string }\n' });
+  const { r } = mergeJob(ts, 40, { 'src/p/index.mjs': P_SRC });
+  assert.match(r.notices.rows[0].exports_unread, /export forms not read in src\/p\/index\.mjs/);
+  assert.equal(r.notices.rows[0].exports_read, undefined);
+  assert.deepEqual(r.triage.owed, ['u1']);
+  // Two entry files export verify; the PR drops it from one, which u2 imports.
+  const two = product(['u1', 'u2'], {
+    'src/p/more.mjs': 'export function verify(x) { return !!x; }\n',
+    'src/u1/a.mjs': "import { verify } from '../p/more.mjs';\nexport const a = verify;\n",
+  });
+  const { r: r2 } = mergeJob(two, 41, { 'src/p/index.mjs': P_SRC.replace('export function verify(x) { return !!x; }\n', '') });
+  assert.deepEqual(r2.notices.rows[0].exports.removed, ['verify']);
+  assert.deepEqual(r2.triage.owed, ['u1', 'u2']);
+  // A layer-land notice (no export read, Provides text maybe changed): notice triage applies no rule.
+  const root = product();
+  git(['checkout', '-q', '-b', 'job/p', 'tranche'], { cwd: root });
+  commit(root, { 'src/p/index.mjs': P_SRC.replace('return !!x;', 'return Boolean(x);') });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/p'], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  onState(root, { [noticeFile('p:42')]: JSON.stringify({ row: 'notice', key: 'p:42', provider: 'p', ids: [], pr: 42, users: USERS, source: 1, layer_flow: { layer: 3, provides: true, rescheduled: false } }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const out = [];
+  const r3 = noticeTriage(root, 'p:42', { log: (x) => out.push(x), io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } });
+  assert.deepEqual(r3.owed, USERS);
+  assert.doesNotMatch(out.join('\n'), /by rule/);
 });
