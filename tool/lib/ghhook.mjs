@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { contentRow, kickRefresh, LEDGER_CACHE, lastShareAt, ledgerOf, peekShare, refreshDone, stateShare } from './ghshare.mjs';
 import { commonDir, hookPacing, lastShared, pacing, Paced, primaryState, readLog, reserve, TOOL, useShared } from './pace.mjs';
-import { CONFIG_FILE, loadConfig, repoRoot } from './util.mjs';
+import { CONFIG_FILE, SHARE_DEFERRED, foregroundIn, loadConfig, repoRoot } from './util.mjs';
 
 // The connector's writes: each one content-creating request.
 const WRITE = /^(create|update|add|delete|merge|push|fork|assign|label_write|issue_write|sub_issue_write|pull_request_review_write|request_copilot_review|resolve_review_thread|unresolve_review_thread|enable_pr_auto_merge|disable_pr_auto_merge|actions_run_trigger|actions_rerun|rerun|cancel|run_secret_scanning|submit|dismiss|star|unstar|mark)/;
@@ -222,24 +222,53 @@ export function kickShare(cwd, { now = Date.now, entry = HOOK_ENTRY, tries = 0 }
 // marker); a failure is tried once more by a new share, then kept, one line, for the next
 // connector write to say. Bounded: only a new write, or the one retry, starts another.
 const sleepMs = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
-export function hookShareLater(cwd, { now = Date.now, sleep = sleepMs, mark = process.env.P3_SHARE_MARK, tries = Number(process.env.P3_SHARE_TRY) || 0, again = kickShare, share = stateShare } = {}) {
+// C53: no git while a foreground p3 command runs in the clone (util.mjs foregroundIn), nor when it
+// cannot be told: the share defers, writing SHARE_DEFERRED, and that command's end share (or the
+// next one's) carries the rows (p3.mjs flush). A deferral is no failure: nothing is tried again here.
+// The git it does run never writes the shallow file: no automatic gc or maintenance (their prune
+// rewrites it), so a command that starts while this share runs is not refused by it.
+export const NO_AUTO_GC = [['gc.auto', '0'], ['maintenance.auto', 'false']];
+// NO_AUTO_GC added to env's GIT_CONFIG_* after what it already holds, never over it (cold review of
+// C53: a session's environment gives git credential.interactive and url.insteadOf that way).
+export function noAutoGc(env = process.env) {
+  const n = Number(env.GIT_CONFIG_COUNT);
+  const base = Number.isInteger(n) && n > 0 ? n : 0;
+  const out = { GIT_CONFIG_COUNT: String(base + NO_AUTO_GC.length) };
+  NO_AUTO_GC.forEach(([k, v], i) => { out[`GIT_CONFIG_KEY_${base + i}`] = k; out[`GIT_CONFIG_VALUE_${base + i}`] = v; });
+  return out;
+}
+export function hookShareLater(cwd, { now = Date.now, sleep = sleepMs, mark = process.env.P3_SHARE_MARK, tries = Number(process.env.P3_SHARE_TRY) || 0, again = kickShare, share = stateShare, foreground = foregroundIn } = {}) {
   const began = now();
   let root = cwd;
   let failed = null;
+  let deferred = null;
   try {
     root = repoRoot(cwd);
     let cfg = null;
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     sleep(Math.min(HOOK_SHARE_S * 1000, lastShareAt(root) + HOOK_SHARE_S * 1000 - now()));
-    const sh = share(root, cfg);
-    if (sh) sh.shareContent();
+    let fg = 'unknown';
+    try { fg = foreground(root); } catch { fg = 'unknown'; }
+    if (fg !== 'none') {
+      deferred = fg;
+      writeFileSync(join(commonDir(root), SHARE_DEFERRED), `${new Date(now()).toISOString()} ${fg}\n`);
+    } else {
+      // A stalled transfer gives up, as the background refresh's does (hookRefresh).
+      Object.assign(process.env, noAutoGc(process.env));
+      process.env.GIT_HTTP_LOW_SPEED_LIMIT ||= '1000';
+      process.env.GIT_HTTP_LOW_SPEED_TIME ||= '20';
+      const sh = share(root, cfg);
+      if (sh) sh.shareContent();
+    }
   } catch (e) { failed = e; } finally {
     const f = join(commonDir(root), SHARING);
     try { if (mark === undefined || readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ }
   }
+  if (deferred && !failed) return false;
   try {
     if (failed && tries < 1) return (again(root, { now, tries: tries + 1 }), false);
-    if (failed) { writeFileSync(join(commonDir(root), SHARE_ERR), `github: a connector write's row not shared (${oneLine(failed)}); the next connector write or p3 command in this clone shares it\n`); return false; }
+    // A share that failed for good is left as a deferred one is: the next command's end share carries its rows.
+    if (failed) { try { writeFileSync(join(commonDir(root), SHARE_DEFERRED), `${new Date(now()).toISOString()} failed\n`); } catch { /* the line below still says it */ } writeFileSync(join(commonDir(root), SHARE_ERR), `github: a connector write's row not shared (${oneLine(failed)}); the next connector write or p3 command in this clone shares it\n`); return false; }
     if (unsharedContent(root, began)) again(root, { now });
   } catch { /* the next write or p3 command shares */ }
   return !failed;
@@ -247,12 +276,19 @@ export function hookShareLater(cwd, { now = Date.now, sleep = sleepMs, mark = pr
 
 // The background refresh the read path starts (tool/hook.mjs --refresh): the ledger's tip asked of
 // GitHub, fetched only when it moved; GitHub's primary count when a minute old. Never fails loudly.
-export function hookRefresh(cwd) {
+export function hookRefresh(cwd, { foreground = foregroundIn } = {}) {
   // A stalled transfer gives up (cold review of R17d: a hung fetch held the clone's state lock).
   process.env.GIT_HTTP_LOW_SPEED_LIMIT ||= '1000';
   process.env.GIT_HTTP_LOW_SPEED_TIME ||= '20';
   try {
     const root = repoRoot(cwd);
+    // C53 (cold review): as the detached share, no fetch beside a foreground p3 command, nor when
+    // that cannot be told; the cache stays as it is and the next stale read starts another. Its own
+    // git with no automatic gc or maintenance.
+    let fg = 'unknown';
+    try { fg = foreground(root); } catch { fg = 'unknown'; }
+    if (fg !== 'none') return;
+    Object.assign(process.env, noAutoGc(process.env));
     let cfg = null;
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     const sh = stateShare(root, cfg);

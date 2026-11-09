@@ -6,7 +6,7 @@
 // p3-capability: gate-class (the gate shim runs `gate-class` before the browser install only when
 // the pin has it: C45b)
 import { expireRecords } from './lib/expire.mjs';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gate, gateClassAt, postRow } from './lib/gate.mjs';
 import { browserNeeded, gateRepo } from './lib/gateclass.mjs';
@@ -35,7 +35,7 @@ import { startCheck, wakeCheck, workdirLines } from './lib/start.mjs';
 import { layoutMove } from './lib/layout.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrites, realPendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
-import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
+import { clearLocalPause, commonDir, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
 import { multiShare, readLedgers, stateShare } from './lib/ghshare.mjs';
 // The ledger written, read with every other ledger named (C40).
 const accountShare = (root, cfg, flag) => {
@@ -53,7 +53,7 @@ import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { switchIn, switchOut, switchQuiet } from './lib/switch.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
-import { CONFIG_FILE, Fail, fail, git, list, loadConfig, now, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
+import { CONFIG_FILE, Fail, SHARE_DEFERRED, fail, git, list, loadConfig, markForeground, now, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -770,9 +770,13 @@ let endHooked = false;
 export function sayUnshared(n, why) {
   try { console.error(`github: ${n === null ? 'this clone\'s use' : `${n} row(s)`} not shared (${String(why?.message ?? why).split('\n')[0]}); the next p3 command in this clone shares them`); } catch { /* never the act's failure */ }
 }
-export function shareAtEnd(ledger, pending) {
-  try { ledger.shareNow({ pending }); } catch (e) { let n = null; try { n = ledger.unshared?.().rows ?? null; } catch { n = null; } sayUnshared(n, e); return; }
-  try { const u = ledger.unshared?.(); if (u?.pushes) sayUnshared(u.rows, `${u.pushes} push(es) not shared at the command's end`); } catch { /* never the act's failure */ }
+// root (C53): where a detached share deferred to this command (SHARE_DEFERRED), its content rows
+// are shared now whatever the 15 minutes, and the mark removed once none is left unshared.
+export function shareAtEnd(ledger, pending, { root = null } = {}) {
+  let deferred = null;
+  try { deferred = root ? join(commonDir(root), SHARE_DEFERRED) : null; if (deferred && !existsSync(deferred)) deferred = null; } catch { deferred = null; }
+  try { ledger.shareNow({ pending, ...(deferred ? { content: true } : {}) }); } catch (e) { let n = null; try { n = ledger.unshared?.().rows ?? null; } catch { n = null; } sayUnshared(n, e); return; }
+  try { const u = ledger.unshared?.(); if (u?.pushes) sayUnshared(u.rows, `${u.pushes} push(es) not shared at the command's end`); if (deferred && u && !u.content) rmSync(deferred, { force: true }); } catch { /* never the act's failure */ }
 }
 export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay', 'round next']);
 export async function main(argv) {
@@ -794,17 +798,30 @@ export async function main(argv) {
   const batched = process.env.P3_STATE_BATCH !== '0' && !UNBATCHED.has(name);
   if (batched) stateBatch(true);
   let flushed = false;
+  // This command's foreground mark (C53), removed once its end share is done.
+  let unmark = null;
+  // A share that deferred while this command flushed (its end share already past) is carried now,
+  // once unmarked, so no deferral is left behind by the command it deferred to (cold review of C53).
   const flush = () => {
+    try { return flushOnce(); } finally {
+      if (unmark) {
+        try { unmark(); } catch { /* stale, read as such */ }
+        unmark = null;
+        try { if (ledger && root && name !== 'github hook' && existsSync(join(commonDir(root), SHARE_DEFERRED))) shareAtEnd(ledger, 0, { root }); } catch { /* never the act's failure */ }
+      }
+    }
+  };
+  const flushOnce = () => {
     if (flushed) return null;
     flushed = true;
     // An unbatched command pushed its writes as it went; its pushes are shared at its end all the same (C47 cold review).
-    if (!batched) { if (ledger && name !== 'github hook') shareAtEnd(ledger, 0); return null; }
+    if (!batched) { if (ledger && name !== 'github hook') shareAtEnd(ledger, 0, { root }); return null; }
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
     // Not from the hook here (cold review of R17c: it pushed from plain Bash calls): a hook run starts a
     // detached share only after a connector write (C52, ghhook.mjs hookShare), never for Bash.
     // A push others must count is shared now, whatever the 15 minutes (C47); a share that fails or
     // leaves one behind is said, never the act's failure.
-    if (ledger && name !== 'github hook') shareAtEnd(ledger, realPendingWrites());
+    if (ledger && name !== 'github hook') shareAtEnd(ledger, realPendingWrites(), { root });
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -820,6 +837,9 @@ export async function main(argv) {
   }
   try {
     root = repoRoot();
+    // A foreground command of this clone for its life (C53): the hook's detached share runs no git
+    // meanwhile. Never the command's failure; the mark goes with its flush, and a killed command's is stale.
+    if (name !== 'github hook') { try { unmark = markForeground(root); } catch { /* the share then sees no mark: its own git still never writes the shallow file */ } }
     // A p3 command killed in this clone before its flush left its writes kept (state.mjs): moved
     // for replay, and said.
     if (name !== 'github hook') try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
