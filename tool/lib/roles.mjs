@@ -233,6 +233,17 @@ ${JSON.stringify(call, null, 2)}
 // --as <role or session id>: the sender of a wake the act prints. A role name as given; a session
 // id, the role whose address names it. Absent: the role addressed to the calling session (the
 // container's id), else bob (BOB's own acts; BOB is awake, so no wake).
+// The sender as far as it is known: --as, else the role whose address is this session; null when
+// neither says (no session id, the addresses unread, a session no role is addressed to). senderOf
+// takes BOB then; the idle check, BOB's alone, takes no one (coordinator on C50, 9 Nov).
+export function senderKnown(root, as, { address, session } = {}) {
+  if (as !== undefined) { try { return senderOf(root, as, { address }); } catch { return null; } }
+  const me = callerSession(session);
+  if (!me) return null;
+  let a = address;
+  try { a ||= readAddress(root); } catch { return null; }
+  return ROLES.find((r) => r !== 'watcher' && a?.[r]?.session === me) || (a?.watcher?.session === me ? 'watcher' : null);
+}
 export function senderOf(root, as, { address } = {}) {
   if (as === undefined) {
     const me = callerSession();

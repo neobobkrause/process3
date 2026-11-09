@@ -7,7 +7,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join } from 'node:path';
 import { P3, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
-import { readAddress, senderOf, wakeSteps } from './roles.mjs';
+import { readAddress, senderKnown, senderOf, wakeSteps } from './roles.mjs';
 import { bobAddressed, bookkeep, fetchState, heldAct, heldWrites, jsonl, messages, messagesFile, onBookkeeping, readState, readStateWith, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
 import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
@@ -228,6 +228,8 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
 // p3.mjs main, before every command in a product: the idle check, the wake naming the act's
 // sender (a job's job-<id>). Not before the sweep, which answers an idle itself.
 export const JOB_ACTS = ['job complete', 'block', 'test', 'job sync'];
+// A pin move's commands (pin.mjs's steps): the pin session's, never BOB's.
+export const PIN_ACTS = ['setup check', 'pin check'];
 export function senderFor(root, name, a) {
   if (JOB_ACTS.includes(name) && a._[0]) return jobSender(String(a._[0]));
   if (name === 'status' && a.role === 'job' && typeof a.module === 'string') return jobSender(a.module);
@@ -240,11 +242,16 @@ export function beforeAct(root, cfg, name, a, { env = process.env, io, log = con
   // nor to another role acting with --as (a pin session's merge --as pin: not BOB's act; cold review).
   if (bobAct(name, a) && name !== 'status' && (a.as === undefined || a.as === 'bob')) { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o && bobAddressed(root, cfg.state_branch, { fetch: false }) !== false) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
   if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch') return null;
-  // Not a job session's command (cold review of C18: with ok rows waiting in each clone, every
-  // session would check every CHECK_MIN): BOB's and ROOT's commands, and the hourly sweep, keep it.
+  // BOB's commands alone (coordinator on C50, 9 Nov: "The idle check is BOB's alone"; before, any
+  // sender but a job's, so a pin session's setup check ran it, taken for BOB by default, at the cost
+  // of a status read of the whole open layer). A pin move's commands are never BOB's, and a sender
+  // not known is not taken for BOB: the check is skipped. Skipping is safe: it prints a nudge and
+  // writes its row, and gates nothing (idleCheck refuses no act; no command reads its answer).
   const from = senderFor(root, name, a);
   if (/^job-/.test(String(from))) return null;
-  try { return idleCheck(root, cfg, { by: name, from, io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
+  if (PIN_ACTS.includes(name) || a.as === 'pin') return null;
+  if (senderKnown(root, a.as) !== 'bob') return null;
+  try { return idleCheck(root, cfg, { by: name, from: 'bob', io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {

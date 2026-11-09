@@ -24,7 +24,7 @@ import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
-import { OPEN_BY, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, requirementBlocks, unmetIds } from './util.mjs';
+import { OPEN_BY, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, requirementBlocks, treeBlobs, unmetIds } from './util.mjs';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -446,6 +446,15 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     return landNames.filter((f) => f.split('/').pop().startsWith(pre)).flatMap((f) => { try { const x = JSON.parse(readState(root, cfg.state_branch, f)); return x?.module === id ? [x] : []; } catch { return []; } })
       .sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0)).at(-1) || null;
   };
+  // Whether a branch name resolves, as rev-parse --verify resolves it (refs/<b>, refs/tags/<b>,
+  // refs/heads/<b>, refs/remotes/<b>, refs/remotes/<b>/HEAD), from one for-each-ref read when first
+  // asked (C50: a rev-parse per module); unread, a rev-parse each as before.
+  let refSet;
+  const hasRef = (b) => {
+    if (refSet === undefined) { const r = git(['for-each-ref', '--format=%(refname)'], { cwd: root, allowFail: true }); refSet = r.code === 0 ? new Set(r.stdout.split('\n').filter(Boolean)) : null; }
+    if (!refSet) return git(['rev-parse', '--verify', '-q', b], { cwd: root, allowFail: true }).code === 0;
+    return [`refs/${b}`, `refs/tags/${b}`, `refs/heads/${b}`, `refs/remotes/${b}`, `refs/remotes/${b}/HEAD`].some((x) => refSet.has(x));
+  };
   for (const [file, text] of Object.entries(onTranche)) {
     let e;
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
@@ -456,7 +465,7 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements, ...(jb !== `job/${e.id}` ? { ref: jb } : {}) };
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
     if (e.status?.state === 'BLOCKED') Object.assign(row, { since: e.status.at, owner: e.status.owner }, e.status.reason ? { blocked: e.status.reason } : {});
-    const haveBranch = git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0;
+    const haveBranch = hasRef(branch);
     // Judged at the fetched tranche, on the branch this row reads (review: the wanted set was read
     // before the fetch, from the local tranche): a ref the row needs, on origin, not in this clone.
     if (!haveBranch && wanted && originHeads?.has(`refs/heads/${jb}`) && (e.status?.state !== 'COMPLETE' || prHeads.has(jb) || noticed.has(e.id))) row.unread = true;
@@ -838,10 +847,13 @@ export function baseRedAges(root, cfg, { tranche, comments, haveState }) {
 export const CLOSED_FILE = 'layers/closed.jsonl';
 // Whether a commit is on main: GitHub's compare when online, else the local ancestry.
 export function onMainOf(root, { slug = null, read = compare } = {}) {
+  // main by its id, read once, so util.git keeps each exact answer for the process (C50).
+  let main;
+  const mainId = () => (main === undefined ? (main = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main^{commit}'], { cwd: root, allowFail: true }).stdout.trim() || null) : main);
   return (sha) => {
     const c = slug ? read(slug, 'main', sha) : null;
     if (Number.isInteger(c?.ahead_by)) return c.ahead_by === 0;
-    return git(['merge-base', '--is-ancestor', sha, 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
+    return git(['merge-base', '--is-ancestor', sha, mainId() || 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
   };
 }
 export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
@@ -861,7 +873,14 @@ export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
 // close (pending, when nothing else holds the layer). Null without a layer map.
 export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg) } = {}) {
   const dir = cfg.requirements_dir.replace(/\/$/, '');
-  const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
+  // The requirement and found files at ref in one batch (C50: two git spawns per file, per module,
+  // at every status and idle check); a file elsewhere is read as before. As git show prints a file.
+  // Only for a plain directory name (cold review of C50: "./build/requirements" names a path
+  // rev-parse resolves and ls-tree does not print); any other is read one by one as before.
+  const plain = /^[^./][^]*$/.test(dir) && !/(^|\/)\.{1,2}(\/|$)|\/\/|\/$/.test(dir);
+  const pre = ref && plain ? treeBlobs(root, ref, [`${dir}/`, `${FOUND_DIR}/`]) : null;
+  const batched = (f) => pre && (f.startsWith(`${dir}/`) || f.startsWith(`${FOUND_DIR}/`));
+  const read = (f) => (ref ? (batched(f) ? (pre.has(f) ? pre.get(f).replace(/\n$/, '') : null) : exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const map = read(cfg.layers_file);
   if (map === null) return null;
   // Requirement marks (R) hold a layer; found marks (F, the route for work found elsewhere) never
@@ -884,7 +903,19 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
   // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
   // main lacks (origin/main unread counts as here). A layer that had such work closes only by
   // `layer merge`, its checks and close row; one with none closes implicitly.
+  // The ledger's object ids at a ref, one ls-tree for all its entries (C50), not a rev-parse each.
+  const idsAt = new Map();
   const blob = (at, f) => {
+    if (at && f.startsWith(`${LEDGER_DIR}/`) && !f.slice(LEDGER_DIR.length + 1).includes('/')) {
+      if (!idsAt.has(at)) {
+        const r = git(['ls-tree', '-z', at, '--', `${LEDGER_DIR}/`], { cwd: root, allowFail: true });
+        // A ref the clone lacks holds none (as each rev-parse would answer); any other failure: one by one.
+        idsAt.set(at, r.code === 0 ? new Map(r.stdout.split('\0').map((l) => l.match(/^\d+ \w+ ([0-9a-f]+)\t([\s\S]+)$/)).filter(Boolean).map((m) => [m[2], m[1]]))
+          : /not a valid object name/i.test(r.stderr) ? new Map() : null);
+      }
+      const ids = idsAt.get(at);
+      if (ids) return ids.get(f) ?? null;
+    }
     if (at) { const r = git(['rev-parse', '-q', '--verify', `${at}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; }
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
   };

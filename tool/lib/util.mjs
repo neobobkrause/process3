@@ -33,13 +33,19 @@ export class Superseded extends Fail {}
 export const fail = (msg) => { throw new Fail(msg); };
 
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
+// Every process the tool starts, counted by command (C50: setup-speed.test bounds the setup check's
+// git spawns, so a read per module, per commit or per row cannot creep back); `trace`, when set,
+// is called with each (cmd, args).
+export const SPAWNS = { counts: {}, trace: null };
 export function run(cmd, args = [], opts = {}) {
   const t0 = Date.now();
+  SPAWNS.counts[cmd] = (SPAWNS.counts[cmd] || 0) + 1;
+  if (SPAWNS.trace) SPAWNS.trace(cmd, args);
   const env = { ...process.env, ...(opts.env || {}) };
   for (const k of opts.unset || []) delete env[k];
   const r = spawnSync(cmd, args, {
     cwd: opts.cwd, env, encoding: opts.encoding === 'buffer' ? undefined : 'utf8', // 'buffer': stdout as bytes (git cat-file --batch)
-    maxBuffer: 256 * 1024 * 1024, input: opts.input, timeout: opts.timeout,
+    maxBuffer: opts.maxBuffer || 256 * 1024 * 1024, input: opts.input, timeout: opts.timeout,
   });
   return {
     code: r.status === null ? (r.error ? 127 : 1) : r.status,
@@ -51,6 +57,7 @@ export function run(cmd, args = [], opts = {}) {
 // The tool's git never carries a GitHub token, and never runs a hook or file monitor that
 // product code may have written into .git/config while the gate ran it (review of build G).
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
+const ANCESTRY = new Map();
 export function git(args, opts = {}) {
   // Every push takes its turn: GitHub's pause and stop only (PD-6: no push ceiling; pace.mjs).
   // A refused push: a failed push to a caller that handles failures (allowFail), with the refusal as
@@ -66,6 +73,13 @@ export function git(args, opts = {}) {
   const ancQ = args[0] === 'merge-base' && args[1] === '--is-ancestor' && args.length === 4 && opts.cwd;
   if (args[0] === 'merge-base' && opts.deepen && opts.cwd && !ancQ) deepenForBase(args, opts.cwd);
   const once = () => run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
+  // An exact answer to an is-ancestor of two commits by id never changes (C50: the copy's setup check
+  // asked each closed layer's commit against main two or three times, each a shallow clone's settle).
+  // Kept per process, keyed by the clone and both ids; a name (a ref) is never kept, since it moves.
+  const memoKey = ancQ && SHA.test(String(args[2])) && SHA.test(String(args[3])) ? `${resolve(opts.cwd)}\0${args[2]}\0${args[3]}` : null;
+  // A kept no answers only a caller that takes failures (allowFail) and does not read the cut itself;
+  // any other caller asks git again, as before (cold review of C50).
+  if (memoKey && ANCESTRY.has(memoKey) && (ANCESTRY.get(memoKey).code === 0 || (opts.allowFail && !opts.cut))) return opts.allowFail ? ANCESTRY.get(memoKey) : ANCESTRY.get(memoKey).stdout.replace(/\n$/, '');
   let r = once();
   // A push GitHub refused for its rate limit pauses every session, as a gh call's refusal does (cold
   // review of R17g: a push's 429 was never read). A dry run pushes nothing.
@@ -78,6 +92,7 @@ export function git(args, opts = {}) {
   // `cut: true`: a caller that judges a shallow clone itself and reads the cut's no as "not vouched"
   // (report tranche: unmeasured); shallow-mergebase.test holds each such caller to a named reason.
   if (ancQ && r.code !== 0 && !opts.cut && settleAncestry(args.slice(2), opts.cwd)) r = once();
+  if (ancQ && memoKey && (r.code === 0 || (r.code === 1 && !opts.cut))) ANCESTRY.set(memoKey, r);
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
 }
@@ -200,6 +215,53 @@ function gitCwds() {
 // Whether a path exists at a commit, read from the tree alone: in a partial clone this fetches
 // nothing, so "absent" is never confused with "could not fetch".
 export const exists = (root, rev, path) => git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true }).code === 0;
+
+// Many objects in one git cat-file --batch (C50: the copy's setup check read the state branch's
+// layer rows, the ledger and the approvals history one git show each, thousands of spawns). specs:
+// object names git cat-file takes ("<rev>:<path>" or an id), none with a newline. A Map spec to its
+// bytes as a utf8 string, exactly as git show prints a blob; a spec git cannot find, or that names no
+// blob, is absent from the Map. null when the batch itself fails.
+export function catBatch(root, specs) {
+  const out = new Map();
+  const list = [...new Set(specs)].filter((x) => x && !/[\n\r]/.test(x));
+  if (!list.length) return out;
+  const r = run('git', ['-c', 'core.fsmonitor=false', 'cat-file', '--batch'], { cwd: root, input: list.join('\n') + '\n', encoding: 'buffer', unset: NO_TOKENS });
+  if (r.code !== 0) return null;
+  const buf = Buffer.isBuffer(r.stdout) ? r.stdout : Buffer.from(r.stdout);
+  let at = 0;
+  for (const spec of list) {
+    const nl = buf.indexOf(10, at);
+    if (nl < 0) return null;
+    const head = buf.subarray(at, nl).toString('utf8');
+    // "<id> <type> <size>", or "<spec> missing" / "<spec> ambiguous" (no body).
+    const m = head.match(/^[0-9a-f]{40,64} (\w+) (\d+)$/);
+    if (!m) { at = nl + 1; continue; }
+    const size = Number(m[2]);
+    if (m[1] === 'blob') out.set(spec, buf.subarray(nl + 1, nl + 1 + size).toString('utf8'));
+    at = nl + 1 + size + 1;
+  }
+  return out;
+}
+// Which of revs name a commit this clone holds, in one cat-file --batch-check: a Set of revs.
+export function haveCommits(root, revs) {
+  const list = [...new Set(revs)].filter((x) => x && !/[\n\r]/.test(x));
+  if (!list.length) return new Set();
+  const r = run('git', ['-c', 'core.fsmonitor=false', 'cat-file', '--batch-check'], { cwd: root, input: list.map((x) => `${x}^{commit}`).join('\n') + '\n', unset: NO_TOKENS });
+  if (r.code !== 0) return new Set();
+  const lines = r.stdout.split('\n');
+  return new Set(list.filter((x, i) => / commit \d+$/.test(lines[i] || '')));
+}
+// Every blob under dirs at ref, path to text, in two git calls: one ls-tree -r, one cat-file --batch.
+// An empty Map when ref or the dirs are not there (as ls-tree failing read before); null when the
+// batch fails (the caller reads one by one).
+export function treeBlobs(root, ref, dirs) {
+  const t = git(['ls-tree', '-r', '-z', ref, '--', ...dirs], { cwd: root, allowFail: true });
+  if (t.code !== 0) return new Map();
+  const list = t.stdout.split('\0').map((l) => l.match(/^\d+ blob ([0-9a-f]+)\t([\s\S]+)$/)).filter(Boolean).map((m) => [m[1], m[2]]);
+  const got = catBatch(root, list.map(([sha]) => sha));
+  if (got === null) return null;
+  return new Map(list.filter(([sha]) => got.has(sha)).map(([sha, path]) => [path, got.get(sha)]));
+}
 
 // GitHub through the gh CLI (measured route, platform row 14). Returns parsed JSON or text.
 // Every gh call takes its turn against the account's budget of GitHub's published limits, and a

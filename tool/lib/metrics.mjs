@@ -8,7 +8,7 @@ import { comments, gateRuns, getPR } from './github.mjs';
 import { distinctRows, leadTimes, openedAt } from './lead.mjs';
 import { jobBranch, startBranch } from './ledger.mjs';
 import { triggerSummary } from './triggers.mjs';
-import { DEFAULTS, FOUND_DIR, METRICS_DIR, fail, git, now, rowCap } from './util.mjs';
+import { DEFAULTS, FOUND_DIR, METRICS_DIR, fail, git, now, rowCap, treeBlobs } from './util.mjs';
 
 export { METRICS_DIR };
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
@@ -99,6 +99,13 @@ export function rowsHere(root) {
   return readdirSync(dir).filter((n) => n.endsWith('.jsonl')).flatMap((n) => parseLines(readFileSync(join(dir, n), 'utf8')));
 }
 
+// rowsAt for many modules at one ref (C50: a git ls-tree and a git show each, per module, at every
+// setup check's take-in read): every metrics file at ref in one batch; (id) => that module's rows.
+export function rowsAtEach(root, ref) {
+  const got = treeBlobs(root, ref, [`${METRICS_DIR}/`]);
+  if (!got) return (id) => rowsAt(root, ref, id);
+  return (id) => (got.has(metricsFile(id)) ? parseLines(got.get(metricsFile(id))) : []);
+}
 // Metrics rows as a commit holds them (the tranche's), for status; with id, that module's only.
 export function rowsAt(root, ref, id) {
   const r = git(['ls-tree', '-r', '--name-only', '-z', ref, '--', id === undefined ? METRICS_DIR : metricsFile(id)], { cwd: root, allowFail: true });

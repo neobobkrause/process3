@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LEDGER_DIR, fail, git } from './util.mjs';
+import { LEDGER_DIR, catBatch, fail, git } from './util.mjs';
 
 export { LEDGER_DIR };
 const SCHEMA = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'schema', 'ledger-entry.schema.json'), 'utf8'));
@@ -78,10 +78,15 @@ export function originJobs(root) {
 export function readLedgerTexts(root, ref) {
   const out = {};
   if (ref) {
-    const r = git(['ls-tree', '--name-only', `${ref}:${LEDGER_DIR}`], { cwd: root, allowFail: true });
+    const r = git(['ls-tree', `${ref}:${LEDGER_DIR}`], { cwd: root, allowFail: true });
     if (r.code !== 0) return out;
-    for (const name of r.stdout.split('\n').filter((n) => n.endsWith('.json'))) {
-      out[`${LEDGER_DIR}/${name}`] = git(['show', `${ref}:${LEDGER_DIR}/${name}`], { cwd: root });
+    // The entries' blobs in one cat-file --batch (C50: one git show each, a spawn per module, on
+    // every setup check, status and take-in read); as git show prints them, the last newline off.
+    // Anything the batch does not give (not a blob) is read as before.
+    const list = r.stdout.split('\n').map((l) => l.match(/^\d+ (\w+) ([0-9a-f]+)\t(.+)$/)).filter((m) => m && m[3].endsWith('.json'));
+    const got = catBatch(root, list.filter((m) => m[1] === 'blob').map((m) => m[2])) || new Map();
+    for (const [, , sha, name] of list) {
+      out[`${LEDGER_DIR}/${name}`] = got.has(sha) ? got.get(sha).replace(/\n$/, '') : git(['show', `${ref}:${LEDGER_DIR}/${name}`], { cwd: root });
     }
     return out;
   }
