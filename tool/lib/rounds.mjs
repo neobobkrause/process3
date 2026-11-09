@@ -93,7 +93,7 @@ export function findingsOf(root, cfg, ref, last) {
 }
 // The hold while a run's findings are not all recorded (tranche close, release dev, a new round's open).
 const runName = (row) => (row.row === 'round-walk' ? 'internal walk' : 'deploy and walk');
-export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest ${runName(w.last)} (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's), or a known gap (a completion item "deferred: <reason>" naming ${runSource(w.last)}); the next round opens from them (BD-R1)` : null);
+export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest ${runName(w.last)} (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "${w.last.row === 'round-walk' ? 'internal walk' : 'walk'} ${runSource(w.last)}"\`${w.last.row === 'round-walk' ? '' : ', or "internal walk ..." for the internal walk\'s'}), or a known gap (a completion item "deferred: <reason>" naming ${runSource(w.last)}); the next round opens from them (BD-R1)` : null);
 
 // Where the rounds stand at `ref` (the tranche), read from the layers (layersAt: the map's and those
 // past it), each layer's flow rows (flows(n), layerflow.mjs flowRows), the flawed modules and the
@@ -163,13 +163,18 @@ export const runPassed = (cfg, w) => !!w?.last && (runClean(cfg, w.last) || (w.f
 // deployment and live walk (deploy release, a named gap today). A release walk recorded, clean or
 // not, owes nothing here: tranche close reads it, and its findings open the next round. Under plan
 // close the tranche ends where it stands, and no release is owed (tranche.mjs trancheEnd).
-export function releaseNext(root, cfg, { rc, w, plan }) {
+export function releaseNext(root, cfg, { rc, w, plan, ref }) {
   if (plan === 'close' || !cfg.release || !rc?.closed || rc.rounds?.state !== 'clean' || !w?.last || walkHold(w) || !runPassed(cfg, w)) return null;
-  const rel = releasesCut(root, cfg, w.last.at);
+  // A finding no module owns holds the tranche's end (trancheEnd): BOB names its module first.
+  if (ref && unplaced(root, ref).length) return null;
+  const rel = releasesCut(root, cfg, w.last);
   if (!rel) return { why: `${rc.round}'s ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} ${runSource(w.last)} is clean, and no release is cut since`, act: `${P3} release dev, from a clean checkout of the tranche tip (the cut, signed release), then ${P3} deploy release <version>, its release deployment and live walk (BD-R1)` };
   if (releaseWalks(root, cfg).some((r) => r.version === rel.version)) return null;
   return { why: `release ${rel.version} is cut since the clean ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} ${runSource(w.last)}`, act: `${P3} deploy release ${rel.version}, its release deployment and live walk (BD-R1); GAP: ${RELEASE_PATH_GAP}, brought to Bob through the coordinator`, gap: true };
 }
-// The latest successful development release of this tranche cut after `since`.
-export const releasesCut = (root, cfg, since) => jsonl(readState(root, cfg.state_branch, RELEASES_FILE)).filter((r) => r.row === 'dev-release' && r.tranche === cfg.tranche && r.conclusion === 'success' && String(r.at) > String(since)).at(-1) || null;
+// The latest successful development release of this tranche recorded after the walk `last`, and cut
+// at its commit or after it: one cut before the walk, recorded later, does not carry what it walked
+// (cold review of C43). A commit this clone lacks is read by the times alone.
+const atOrAfter = (root, a, b) => a === b || !hasCommit(root, a) || !hasCommit(root, b) || git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
+export const releasesCut = (root, cfg, last) => jsonl(readState(root, cfg.state_branch, RELEASES_FILE)).filter((r) => r.row === 'dev-release' && r.tranche === cfg.tranche && r.conclusion === 'success' && String(r.at) > String(last.at) && atOrAfter(root, String(last.commit), String(r.commit))).at(-1) || null;
 export const releaseWalks = (root, cfg) => jsonl(readState(root, cfg.state_branch, RELEASE_WALKS_FILE)).filter((r) => r.row === 'release-walk' && r.tranche === cfg.tranche && !onMain(root, String(r.commit)));

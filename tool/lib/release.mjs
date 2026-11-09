@@ -16,7 +16,7 @@ import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { loadRanges, platformRows } from './size.mjs';
 import { collectMasks, redact, roundAt, runSource, walkHold } from './deploy.mjs';
-import { RELEASES_FILE, internalRequired, runPassed } from './rounds.mjs';
+import { RELEASES_FILE, internalRequired, runPassed, unplaced } from './rounds.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -119,6 +119,8 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   if (round.s && round.s.prs === null) fail('GitHub unreadable: open pull requests not known, so the round cannot be judged');
   const ready = releaseReady(round, cfg);
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
+  const loose = unplaced(root, t);
+  if (loose.length) fail(`no development release now: ${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), and the next round fixes it`);
   const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
   const taken = io.remoteRefs(root, [`refs/tags/${tagOf(v)}`]).trim();
   if (taken) fail(`version ${v} is taken on origin (${taken.split('\n').map((l) => l.split('\t')[1]).join(', ')}); pass another --version`);

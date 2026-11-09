@@ -283,7 +283,7 @@ export function trancheEnd(root, cfg, t, { plan, slug, read }) {
   if (!clean) fail(`tranche close waits: the latest ${iw ? 'internal walk' : 'walk'} (${runSource(w.last)}) is not clean (${iw ? `${w.last.internal_walk ? `ok ${w.last.internal_walk.ok}, ${Number(w.last.internal_walk.failures) || 0} failure(s)` : 'it did not run'}` : `ok ${w.last.ok}, ${Number(w.last.walk?.failures) || 0} failure(s)`}); its findings open the next round, and the rounds repeat until one is clean (BD-R1)`);
   if (!cfg.release) return { steps: [], gaps: [], release: null };
   // 2. The release deployment: a development release cut after that walk.
-  const rel = releasesCut(root, cfg, w.last.at);
+  const rel = releasesCut(root, cfg, w.last);
   if (!rel) fail(`tranche close waits: no development release since the clean internal walk ${runSource(w.last)}: ${P3} release dev, then the release deployment and its walk (BD-R1)`);
   // 3. The walk of the release: of that release installed on a p3dev- deployment.
   const rw = releaseWalks(root, cfg).filter((r) => r.version === rel.version).at(-1);

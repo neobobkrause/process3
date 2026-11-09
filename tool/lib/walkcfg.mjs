@@ -20,7 +20,7 @@ import { fail } from './util.mjs';
 // (a walker is one browser; at most a few requests a second each).
 export const CLOUDFLARE_LIMITS = {
   read: '2026-11-09',
-  sources: [
+  pages: [
     'https://developers.cloudflare.com/browser-rendering/platform/limits/',
     'https://developers.cloudflare.com/workers/platform/limits/',
     'https://developers.cloudflare.com/durable-objects/platform/limits/',
@@ -33,7 +33,7 @@ export const WALK_TARGET = 0.85;
 const KEYS = ['internal_concurrency', 'live_concurrency', 'cloudflare_plan'];
 const count = (v, what) => (v === undefined || v === null ? null : Number.isInteger(v) && v >= 1 && v <= 1024 ? v : fail(`walk.${what} must be a whole number from 1 to 1024, not ${JSON.stringify(v)}`));
 
-// The `walk` block of process/config.json, read: { internal, live, live_cap, starts_per_minute, plan,
+// The `walk` block of process/config.json, read: { internal, live, live_max, starts_per_minute, plan,
 // clamped }. internal: walk.internal_concurrency, else the runner's CPUs (os.availableParallelism).
 // live: walk.live_concurrency, else the cap, never above the cap whatever the config says; the cap is
 // WALK_TARGET of the plan's concurrent browsers (at least 1). The plan is walk.cloudflare_plan, "free"
@@ -49,10 +49,10 @@ export function walkConcurrency(cfg, { cpus = availableParallelism() } = {}) {
   const cap = Math.max(1, Math.floor(lim.browsers * WALK_TARGET));
   const asked = count(w.live_concurrency, 'live_concurrency');
   const internal = count(w.internal_concurrency, 'internal_concurrency') ?? Math.max(1, cpus);
-  return { internal, live: Math.min(asked ?? cap, cap), live_cap: cap, starts_per_minute: Math.max(1, Math.floor(lim.browser_starts_per_minute * WALK_TARGET)), plan, clamped: asked !== null && asked > cap };
+  return { internal, live: Math.min(asked ?? cap, cap), live_max: cap, starts_per_minute: Math.max(1, Math.floor(lim.browser_starts_per_minute * WALK_TARGET)), plan, clamped: asked !== null && asked > cap };
 }
 // The environment and the argv substitution a walk stage gets.
 export const walkEnv = (c, live) => (live ? { P3_WALK_CONCURRENCY: String(c.live), P3_WALK_BROWSER_STARTS_PER_MINUTE: String(c.starts_per_minute) } : { P3_WALK_CONCURRENCY: String(c.internal) });
 export const walkLine = (c, live) => (live
-  ? `live walk: ${c.live} at once (P3_WALK_CONCURRENCY, {concurrency}), ${c.starts_per_minute} browser starts a minute; the cap is ${c.live_cap}, ${WALK_TARGET * 100}% of Cloudflare's ${CLOUDFLARE_LIMITS[c.plan].browsers} concurrent browsers on Workers ${c.plan === 'paid' ? 'Paid' : 'Free'} (read ${CLOUDFLARE_LIMITS.read})${c.clamped ? '; walk.live_concurrency asked for more and was held to the cap' : ''}`
+  ? `live walk: ${c.live} at once (P3_WALK_CONCURRENCY, {concurrency}), ${c.starts_per_minute} browser starts a minute; the cap is ${c.live_max}, ${WALK_TARGET * 100}% of Cloudflare's ${CLOUDFLARE_LIMITS[c.plan].browsers} concurrent browsers on Workers ${c.plan === 'paid' ? 'Paid' : 'Free'} (read ${CLOUDFLARE_LIMITS.read})${c.clamped ? '; walk.live_concurrency asked for more and was held to the cap' : ''}`
   : `internal walk: ${c.internal} at once (P3_WALK_CONCURRENCY, {concurrency})`);

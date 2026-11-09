@@ -21,7 +21,7 @@ export const reportPaths = (wr, what) => {
   return wr;
 };
 // internal_walk (Bob, 4 Nov; K4111, K4162, K4781): the product's offline walk, run at the round
-// close before the dry run, never a gate. {run: argv or argvs, timeout_minutes (whole run), reports}.
+// close (alone, as walk round; C43), never a gate. {run: argv or argvs, timeout_minutes (whole run), reports}.
 // Or the exemption Bob records instead ({none: "<reason>", by: "Bob, <date>"}; Bob, 7 Nov: the
 // internal walk is required, its exemption his word). One reading for deploy dev and setup check:
 // null when unset, {walk} or {exempt}, a refusal when malformed.

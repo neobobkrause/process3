@@ -356,7 +356,7 @@ test('no per-layer deploy wording left in the README, the tool, its prompts or t
 test('no wording left that a round close runs the internal walk, then the deploy and its live walk (C43)', () => {
   const top = join(import.meta.dirname, '..', '..');
   const files = ['README.md', 'tool/p3.mjs', ...['tool/lib', 'rulebooks', 'governing'].flatMap((d) => readdirSync(join(top, d)).filter((f) => /\.(mjs|md)$/.test(f)).map((f) => `${d}/${f}`))];
-  const OLD = /internal walk, then the deploy and its walk|internal walk first, then the dry run|close, internal walk, `?deploy dev`?, live walk/i;
+  const OLD = /internal walk, then the deploy and its walk|before the dry run|internal walk first, then the dry run|close, internal walk, `?deploy dev`?, live walk/i;
   for (const f of files) assert.deepEqual(readFileSync(join(top, f), 'utf8').split('\n').filter((l) => OLD.test(l)), [], f);
 });
 
@@ -557,6 +557,37 @@ test('walk round: an internal walk that times out is recorded as such; a failed 
   assert.equal(r.row.internal_walk.ok, false);
   assert.deepEqual(r.row.internal_walk.reports.map((x) => x.stored), ['not written by this walk', 'not written by this walk']);
   assert.equal(walkFindings(root, loadConfig(root), 'origin/tranche').failing, 1);
+  // A failed build: no internal walk runs; the row stops at build and counts one finding.
+  const { root: r2 } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', lockfiles: ['nope/package-lock.json'] } });
+  assert.equal(closeLayer(r2, '1').ok, true);
+  const b = walkRound(r2, { io, repo, log: quiet });
+  assert.deepEqual([b.ok, b.row.ok, b.row.stopped, b.row.internal_walk], [false, false, 'build', undefined]);
+  assert.equal(walkFindings(r2, loadConfig(r2), 'origin/tranche').failing, 1);
+});
+
+// Cold review of C43: under the rounds, a product with no internal walk keeps deploy dev's rule: a run
+// that did not complete, its finding deferred as a known gap, is owed again once the tip moves; the
+// release path is not next until a run completes clean.
+test('no internal walk, under the rounds: a deploy that stopped, its finding a known gap, is owed again when the tip moves, not the release', () => {
+  const dep = { ...DEP, deploy: node("process.exit(require('fs').existsSync('fixed') ? 0 : 4)") };
+  const { root } = withOrigin({
+    'process/config.json': { deploy: dep, completion_file: 'build/round.md', release: { checks: [['true']], assemble: ['true'], out: 'out/rel' } },
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n',
+    'build/requirements/a.md': 'all met\n', 'process/ledger/a.json': done('a'), 'test/a/x.test.mjs': PASS, 'build/round.md': '# round\n',
+  });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  git(['checkout', '-q', '--detach', 'origin/tranche'], { cwd: root });
+  const f = deployDev(root, { io, repo, log: quiet });
+  assert.equal(f.row.stopped, 'deploy');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
+  push(root, { 'build/round.md': `# round\n- [ ] C-1 · whole product · wrangler on ${f.row.slug} ${f.row.commit.slice(0, 10)}; deferred: a known gap (Bob)\n` });
+  const v = see(root);
+  assert.match(v.text, /FIRST: the round-close run is owed \(the first round closed since \w{10} was deployed\): node \S+ deploy dev/);
+  assert.equal(v.s.release, null);
+  assert.doesNotMatch(v.text, /release path is next/);
 });
 
 test('walk internal: the internal walk alone, any time; its reports under walks/internal/ on the state branch, no deploy row', () => {

@@ -179,7 +179,9 @@ export function walkFindings(root, cfg, ref, at = {}) {
 
 // The round's walk is the internal walk alone where the product configures one (C43, BD-R1); deploy
 // dev's deploy and walk where it does not (Bob's exemption, or none set), as before.
-export const walkOnly = (cfg) => { try { return !!internalWalkOf(cfg?.deploy?.internal_walk)?.walk; } catch { return false; } };
+// A malformed internal_walk reads as one configured, as rounds.mjs internalRequired reads it: walk round
+// then refuses it with deployConfig's own words (cold review of C43).
+export const walkOnly = (cfg) => { try { return !!internalWalkOf(cfg?.deploy?.internal_walk)?.walk; } catch { return true; } };
 // Owed at a round close: none yet; or, under the rounds, the round's layers merged after the latest
 // walk (BD-R1: a round ends at its walk; a walk with flaws opens the next round, which owes nothing
 // until its own layers merge, and a clean one owes the release path, not another walk); or, under
@@ -190,7 +192,9 @@ export const deployOwed = (rc, w, tip, done = 'deployed') => {
   if (!rc.closed) return null;
   if (!w.last) return `${rc.round} closed, not yet ${done}`;
   const since = `${rc.round} closed since ${String(w.last.commit).slice(0, 10)} was ${done}`;
-  if (rc.rounds) return rc.rounds.state === 'walk' ? since : null;
+  // A run that did not complete (stopped at its build, dry run, deploy) is owed again once the tip moves,
+  // whatever its findings' record says: a deferred gap is no clean walk (cold review of C43).
+  if (rc.rounds) return rc.rounds.state === 'walk' || (!w.last.ok && w.last.commit !== tip) ? since : null;
   return w.failing && w.last.commit !== tip ? since : null;
 };
 // What is owed at `ref` (the tranche as status and ROOT's sweep read it): the round-close run's
@@ -205,7 +209,7 @@ export function owedAt(root, cfg, { ls, ref, closed = [], at = {} }) {
   const running = runningAt(root, cfg, tip);
   const rc = roundClose(root, cfg, { ls, plan, closed, ref, w });
   const owed = running ? null : deployOwed(rc, w, tip, walkOnly(cfg) ? 'walked' : 'deployed');
-  const release = running || owed ? null : releaseNext(root, cfg, { rc, w, plan });
+  const release = running || owed ? null : releaseNext(root, cfg, { rc, w, plan, ref });
   return { owed, act: owed ? roundAct(cfg) : null, what: roundWhat(cfg), w, running, release };
 }
 // A round's walk started at `tip` and not recorded, within the longest it can run (each step's
@@ -249,6 +253,7 @@ export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merg
     // The tranche's config, as merged, not this checkout's (cold review of C23).
     try { cfg = loadConfig(root, t); } catch { /* the checkout's */ }
     if (!deploys(cfg)) return { ran: false, owed: null };
+    act = roundAct(cfg);
     // The command's held state writes (the merge's close row) go first: the run reads the round
     // from origin, and its own writes are pushed as made, while its worktree exists (cold review
     // of C23: held, they were read back stale, and pushed from a removed worktree).
@@ -259,11 +264,10 @@ export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merg
     const run = runningAt(root, cfg, tip);
     if (run) { log(`the round-close run at ${tip.slice(0, 10)} was started by ${run.session || 'a session'} at ${run.at} and is not recorded: running, or cut short; owed again after ${run.until}`); return { ran: false, owed: null, running: run }; }
     const only = walkOnly(cfg);
-    act = roundAct(cfg);
     owed = deployOwed(rc, w, tip, only ? 'walked' : 'deployed');
     if (!owed) {
       if (!rc.closed) log(`no ${only ? 'internal walk' : 'deploy and walk'} now: the round is open (${rc.why}); ${only ? 'it runs' : 'they run'} at its close, started by the act that closes it (Bob, 4 and 7 Nov)`);
-      const next = releaseNext(root, cfg, { rc, w, plan });
+      const next = releaseNext(root, cfg, { rc, w, plan, ref: t });
       if (next) log(`the round's walk is done; the one next act is the release path (${next.why}): ${next.act}`);
       return { ran: false, owed: null, ...(next ? { release: next } : {}) };
     }
