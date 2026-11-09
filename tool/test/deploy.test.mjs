@@ -317,6 +317,9 @@ test('walkSummary: any shape of report.json gives counts or nothing, never a thr
   assert.equal(Object.keys(many.by_kind).length, 51);
   assert.equal(many.by_kind['(other kinds)'], 150);
   for (const p of ['.', 'out/', 'out/./r.txt', 'a//b', '/abs', '.gitignore', 'out/.git', '']) assert.throws(() => deployConfig(cfgWith({ ...DEP, walk_reports: [p] })), /walk_reports/, p);
+  // BD-R5: the journeys the walker marks AI-assisted, from steps or journeys.
+  assert.deepEqual(walkSummary(JSON.stringify({ steps: [{ journey: 'assist', ai: true, ok: true }, { journey: 'plain', ok: true }], journeys: [{ name: 'draft', ai: true }], failures: [] })).ai_journeys, ['assist', 'draft']);
+  assert.equal(walkSummary(JSON.stringify({ steps: [{ journey: 'plain' }] })).ai_journeys, undefined);
 });
 
 test('deploy dev: a mask declared in a later report, or held JSON-escaped, is *** in every stored report; a failed state write leaves the row and reports beside the step files', () => {
@@ -429,7 +432,10 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   // The release walk found a flaw: refused; clean: the close goes on.
   state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: false, failures: 2, at: later })}\n` });
   assert.throws(close, /tranche close waits: the walk of release v1 found 2 flaw\(s\); recorded as found marks, they open the next round \(BD-R1\)/);
-  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, at: later })}\n` });
+  // BD-R5: clean with no AI account: the non-AI journeys only; the end acts wait for a clean walk with AI on.
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, ai: false, not_walked: ['assistant'], at: later })}\n` });
+  assert.throws(close, /tranche close waits: the walk of release v1 is clean on the non-AI journeys only \(no AI account configured; not walked: assistant\); the installer and site updates wait until a release walk with AI on is clean too/);
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, ai: true, at: later })}\n` });
   const c = close();
   assert.equal(c.ok, true);
   assert.equal(c.release, 'v1');
@@ -538,7 +544,7 @@ test('walk concurrency reaches each walk stage: the internal walk the runner\'s 
   const said = [];
   deployDev(r2, { io: { ...io, exec }, repo, log: (m) => said.push(m) });
   const walk = seen.at(-1);
-  assert.deepEqual(walk.env, { P3_WALK_CONCURRENCY: '2', P3_WALK_BROWSER_STARTS_PER_MINUTE: '2' });
+  assert.deepEqual(walk.env, { P3_WALK_CONCURRENCY: '2', P3_WALK_BROWSER_STARTS_PER_MINUTE: '2', P3_WALK_AI: '0' });
   assert.ok(seen.slice(0, -1).every((x) => x.env === undefined), 'the dry run and the deploy get none');
   assert.match(said.join('\n'), /live walk: 2 at once .*held to the cap/);
   assert.throws(() => deployConfig({ ...cfgWith(DEP), walk: { live_concurrency: -1 } }), /walk.live_concurrency must be a whole number/);
@@ -745,7 +751,13 @@ test('rounds with an internal walk: flaws close the round with no deploy or live
   assert.equal(v.s.release.gap, true);
   assert.match(v.text, /FIRST: the release path is next \(release v1 is cut since the clean internal walk internal-l2 \w{10}\): node \S+ deploy release v1, its release deployment and live walk \(BD-R1\); GAP: no path yet installs the cut, signed release artifact onto a p3dev- deployment/);
   // Its walk recorded: nothing more owed here (tranche close reads it).
-  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: w2.commit, ok: true, failures: 0, at: later })}\n` });
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: w2.commit, ok: true, failures: 0, ai: false, at: later })}\n` });
+  // BD-R5: clean with AI off: the AI-assisted journeys are Bob's next, reported as a gap.
+  v = see(root);
+  assert.equal(v.s.release.gap, true);
+  assert.match(v.text, /FIRST: the release path is next \(release v1's walk is clean on the non-AI journeys \(no AI account configured, BD-R5\)\): Bob configures the AI account; then walk.ai is set true/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /clean on the non-AI journeys only/);
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: w2.commit, ok: true, failures: 0, ai: true, at: later })}\n` });
   v = see(root);
   assert.equal(v.s.release, null);
   assert.doesNotMatch(v.text, /round-close run is owed|release path is next/);

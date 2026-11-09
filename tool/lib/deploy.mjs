@@ -97,7 +97,10 @@ export function walkSummary(text) {
     else by_kind.set('(other kinds)', (by_kind.get('(other kinds)') || 0) + 1);
   }
   const steps = arr(j.steps);
-  return { steps: steps.length, steps_ok: steps.filter((x) => x && x.ok).length, failures: failures.length, by_kind: Object.fromEntries(by_kind) };
+  // BD-R5: the journeys the walker marks AI-assisted (a step's or a journey's `ai: true`), by name.
+  const name = (x) => String(x.journey ?? x.name ?? '').replace(/[^\x20-\x7e]/g, ' ').slice(0, 80);
+  const ai = [...new Set([...steps, ...arr(j.journeys)].filter((x) => x && typeof x === 'object' && x.ai === true).map(name).filter(Boolean))].sort().slice(0, 50);
+  return { steps: steps.length, steps_ok: steps.filter((x) => x && x.ok).length, failures: failures.length, by_kind: Object.fromEntries(by_kind), ...(ai.length ? { ai_journeys: ai } : {}) };
 }
 
 export function collectMasks(text, masks) {
@@ -371,8 +374,11 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const max = cfg.max_file_bytes;
   const read = results.some((x) => x.stage === 'walk') ? dep.walk_reports.map((p) => ({ from: p, ...readReport(root, p, tWalk, max) })) : [];
   const [kept] = keepReports([{ dir, read }], masks, max);
+  // BD-R5: whether an AI account was configured; with it off, the AI-assisted journeys are recorded as not walked.
+  if (results.some((x) => x.stage === 'walk')) row.ai = dep.concurrency.ai;
   if (kept.length) {
     const w = row.walk = summarize(kept);
+    if (!row.ai && w.ai_journeys) w.not_walked = w.ai_journeys;
     log(`walk: ${w.steps !== undefined ? `${w.steps} steps, ${w.steps_ok} ok, ${w.failures} failures ${JSON.stringify(w.by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ')}`);
   }
   // Kept beside the step files before the push, so a failed state-branch write loses nothing.

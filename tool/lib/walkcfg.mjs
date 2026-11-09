@@ -30,7 +30,7 @@ export const CLOUDFLARE_LIMITS = {
 };
 // As pacing.target (pace.mjs): 85% of the published limit, never above it.
 export const WALK_TARGET = 0.85;
-const KEYS = ['internal_concurrency', 'live_concurrency', 'cloudflare_plan'];
+const KEYS = ['internal_concurrency', 'live_concurrency', 'cloudflare_plan', 'ai'];
 const count = (v, what) => (v === undefined || v === null ? null : Number.isInteger(v) && v >= 1 && v <= 1024 ? v : fail(`walk.${what} must be a whole number from 1 to 1024, not ${JSON.stringify(v)}`));
 
 // The `walk` block of process/config.json, read: { internal, live, live_max, starts_per_minute, plan,
@@ -49,10 +49,13 @@ export function walkConcurrency(cfg, { cpus = availableParallelism() } = {}) {
   const cap = Math.max(1, Math.floor(lim.browsers * WALK_TARGET));
   const asked = count(w.live_concurrency, 'live_concurrency');
   const internal = count(w.internal_concurrency, 'internal_concurrency') ?? Math.max(1, cpus);
-  return { internal, live: Math.min(asked ?? cap, cap), live_max: cap, starts_per_minute: Math.max(1, Math.floor(lim.browser_starts_per_minute * WALK_TARGET)), plan, clamped: asked !== null && asked > cap };
+  // BD-R5 (Bob, 9 Nov): "The first run or two of the external system will run without an AI account
+  // connected"; walk.ai is true once Bob has one configured. Off, the AI-assisted journeys are not walked.
+  if (w.ai !== undefined && typeof w.ai !== 'boolean') fail(`walk.ai must be true or false (an AI account configured for the live walk), not ${JSON.stringify(w.ai)}`);
+  return { ai: w.ai === true, internal, live: Math.min(asked ?? cap, cap), live_max: cap, starts_per_minute: Math.max(1, Math.floor(lim.browser_starts_per_minute * WALK_TARGET)), plan, clamped: asked !== null && asked > cap };
 }
 // The environment and the argv substitution a walk stage gets.
-export const walkEnv = (c, live) => (live ? { P3_WALK_CONCURRENCY: String(c.live), P3_WALK_BROWSER_STARTS_PER_MINUTE: String(c.starts_per_minute) } : { P3_WALK_CONCURRENCY: String(c.internal) });
+export const walkEnv = (c, live) => (live ? { P3_WALK_CONCURRENCY: String(c.live), P3_WALK_BROWSER_STARTS_PER_MINUTE: String(c.starts_per_minute), P3_WALK_AI: c.ai ? '1' : '0' } : { P3_WALK_CONCURRENCY: String(c.internal) });
 export const walkLine = (c, live) => (live
-  ? `live walk: ${c.live} at once (P3_WALK_CONCURRENCY, {concurrency}), ${c.starts_per_minute} browser starts a minute; the cap is ${c.live_max}, ${WALK_TARGET * 100}% of Cloudflare's ${CLOUDFLARE_LIMITS[c.plan].browsers} concurrent browsers on Workers ${c.plan === 'paid' ? 'Paid' : 'Free'} (read ${CLOUDFLARE_LIMITS.read})${c.clamped ? '; walk.live_concurrency asked for more and was held to the cap' : ''}`
+  ? `live walk: ${c.live} at once (P3_WALK_CONCURRENCY, {concurrency}), ${c.starts_per_minute} browser starts a minute; the cap is ${c.live_max}, ${WALK_TARGET * 100}% of Cloudflare's ${CLOUDFLARE_LIMITS[c.plan].browsers} concurrent browsers on Workers ${c.plan === 'paid' ? 'Paid' : 'Free'} (read ${CLOUDFLARE_LIMITS.read}); AI ${c.ai ? 'on' : 'off: the AI-assisted journeys are not walked (BD-R5)'}${c.clamped ? '; walk.live_concurrency asked for more and was held to the cap' : ''}`
   : `internal walk: ${c.internal} at once (P3_WALK_CONCURRENCY, {concurrency})`);

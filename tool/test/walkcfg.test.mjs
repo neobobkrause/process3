@@ -18,10 +18,14 @@ test('walk concurrency: internal defaults to the runner\'s CPUs; live to 85% of 
   assert.deepEqual([c.internal, c.live, c.clamped], [3, 40, false]);
   const over = walkConcurrency({ walk: { live_concurrency: 50 } });
   assert.deepEqual([over.live, over.clamped], [2, true]);
-  assert.match(walkLine(over, true), /live walk: 2 at once .* the cap is 2, 85% of Cloudflare's 3 concurrent browsers on Workers Free \(read 2026-11-09\); walk.live_concurrency asked for more and was held to the cap/);
-  assert.deepEqual(walkEnv(c, true), { P3_WALK_CONCURRENCY: '40', P3_WALK_BROWSER_STARTS_PER_MINUTE: '153' });
+  assert.match(walkLine(over, true), /live walk: 2 at once .* the cap is 2, 85% of Cloudflare's 3 concurrent browsers on Workers Free \(read 2026-11-09\); AI off.*; walk.live_concurrency asked for more and was held to the cap/);
+  assert.deepEqual(walkEnv(c, true), { P3_WALK_CONCURRENCY: '40', P3_WALK_BROWSER_STARTS_PER_MINUTE: '153', P3_WALK_AI: '0' });
+  // BD-R5 (Bob, 9 Nov): no AI account until Bob configures one.
+  assert.equal(d.ai, false);
+  assert.equal(walkEnv(walkConcurrency({ walk: { ai: true } }), true).P3_WALK_AI, '1');
+  assert.match(walkLine(d, true), /AI off: the AI-assisted journeys are not walked \(BD-R5\)/);
   assert.deepEqual(walkEnv(c, false), { P3_WALK_CONCURRENCY: '3' });
   assert.equal(walkConcurrency({}, { cpus: 0 }).internal, 1);
-  for (const [w, re] of [[{ live_concurrency: 0 }, /whole number/], [{ internal_concurrency: 1.5 }, /whole number/], [{ cloudflare_plan: 'pro' }, /"free" or "paid"/], [{ fast: true }, /unknown keys: fast/], [[], /must be an object/]]) assert.throws(() => walkConcurrency({ walk: w }), re, JSON.stringify(w));
+  for (const [w, re] of [[{ live_concurrency: 0 }, /whole number/], [{ internal_concurrency: 1.5 }, /whole number/], [{ cloudflare_plan: 'pro' }, /"free" or "paid"/], [{ fast: true }, /unknown keys: fast/], [{ ai: 'yes' }, /walk.ai must be true or false/], [[], /must be an object/]]) assert.throws(() => walkConcurrency({ walk: w }), re, JSON.stringify(w));
   assert.ok(CLOUDFLARE_LIMITS.pages.every((u) => u.startsWith('https://developers.cloudflare.com/')));
 });

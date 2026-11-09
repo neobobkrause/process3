@@ -169,7 +169,13 @@ export function releaseNext(root, cfg, { rc, w, plan, ref }) {
   if (ref && unplaced(root, ref).length) return null;
   const rel = releasesCut(root, cfg, w.last);
   if (!rel) return { why: `${rc.round}'s ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} ${runSource(w.last)} is clean, and no release is cut since`, act: `${P3} release dev, from a clean checkout of the tranche tip (the cut, signed release), then ${P3} deploy release <version>, its release deployment and live walk (BD-R1)` };
-  if (releaseWalks(root, cfg).some((r) => r.version === rel.version)) return null;
+  const walked = releaseWalks(root, cfg).filter((r) => r.version === rel.version);
+  // BD-R5 (Bob, 9 Nov): clean with no AI account, the non-AI journeys are done; the AI-assisted ones
+  // wait for Bob's account. Reported, not a wake: the act is Bob's (sweep puts gap acts in found).
+  const clean = (r) => r.ok === true && !(Number(r.failures) > 0);
+  const last = walked.at(-1);
+  if (last && clean(last) && last.ai !== true && !walked.some((r) => r.ai === true && clean(r))) return { why: `release ${rel.version}'s walk is clean on the non-AI journeys (no AI account configured, BD-R5)`, act: `Bob configures the AI account; then walk.ai is set true and ${P3} deploy release ${rel.version} walks the AI-assisted journeys too, before the installer and site updates`, gap: true };
+  if (walked.length) return null;
   return { why: `release ${rel.version} is cut since the clean ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} ${runSource(w.last)}`, act: `${P3} deploy release ${rel.version}, its release deployment and live walk (BD-R1); GAP: ${RELEASE_PATH_GAP}, brought to Bob through the coordinator`, gap: true };
 }
 // The latest successful development release of this tranche recorded after the walk `last`, and cut

@@ -289,6 +289,10 @@ export function trancheEnd(root, cfg, t, { plan, slug, read }) {
   const rw = releaseWalks(root, cfg).filter((r) => r.version === rel.version).at(-1);
   if (!rw) fail(`tranche close waits: the release deployment of ${rel.version} and its walk are owed: ${P3} deploy release ${rel.version}; GAP: no path yet installs the cut, signed release onto a p3dev- deployment (no row in ${RELEASE_WALKS_FILE}; ${RELEASE_PATH_GAP}), brought to Bob through the coordinator`);
   if (!(rw.ok === true && !(Number(rw.failures) > 0))) fail(`tranche close waits: the walk of release ${rel.version} found ${Number(rw.failures) || 1} flaw(s); recorded as found marks, they open the next round (BD-R1)`);
+  // BD-R5 (Bob, 9 Nov): a release walk clean with no AI account configured is clean for the non-AI
+  // journeys only; the installer and site updates wait for a release walk with AI on, clean too.
+  const aiWalk = releaseWalks(root, cfg).filter((r) => r.version === rel.version && r.ai === true).at(-1);
+  if (rw.ai !== true && !(aiWalk && aiWalk.ok === true && !(Number(aiWalk.failures) > 0))) fail(`tranche close waits: the walk of release ${rel.version} is clean on the non-AI journeys only (no AI account configured${rw.not_walked?.length ? `; not walked: ${rw.not_walked.join(', ')}` : ''}); the installer and site updates wait until a release walk with AI on is clean too: Bob configures the AI account, walk.ai is set true, and the release is walked again (BD-R5)`);
   // 4 and 5. The installer, then the site: each on Bob's approval, named in order.
   const e = endActs(cfg, rel.version, slug, cfg.tranche);
   return { ...e, release: rel.version };
