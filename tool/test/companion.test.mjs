@@ -70,7 +70,7 @@ const prOf = (n, id, head) => ({ number: n, state: 'open', draft: false, base: {
 const landIO = (bare, prs) => ({ slug: 'o/p', getPR: (s, k) => prs[k], checkRun: () => ({ status: 'completed', conclusion: 'success' }), comments: () => [], openPRs: () => [], merge: (s, k, sha, title) => ghMerge(bare, prs[k].base.ref, sha, title), retest: () => { throw new Error('no retest here'); } });
 const openIO = { slug: 'o/p', openPRs: () => [], comments: () => [] };
 // No job branches on origin, GitHub read: the companion has no open job.
-const joinIO = (over = {}) => ({ slug: 'o/p', originJobs: () => new Set(), prsFromBranch: () => [], ...over });
+const joinIO = (over = {}) => ({ slug: 'o/p', originJobs: () => new Set(), prsFromBranch: () => [], openPRs: () => [], comments: () => [], ...over });
 const WHY = 'd declares the op aikeyreference in a\'s own family';
 
 function opened() {
@@ -222,4 +222,32 @@ test('rehearsal (PD-17): open, companion join, both start, companion lands, job 
   assert.equal(m.ok, true);
   git(['fetch', '-q', 'origin'], { cwd: root });
   for (const h of [ha, hd2]) assert.equal(git(['merge-base', '--is-ancestor', h, 'origin/tranche'], { cwd: root, allowFail: true }).code, 0);
+});
+
+// Cold review of C51: no companion for a job with nothing left to land (landed, or deferred); a
+// companion started again after its land holds its job until the new attempt lands.
+test('companion join refused for a job that landed or is deferred; a companion reopened after its land holds its job', async () => {
+  const { root, bare } = opened();
+  const he = jobWork(bare, 'e', { 'src/e/index.mjs': 'export const e = 2;\n' });
+  const prs = { 1: prOf(1, 'e', he) };
+  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  assert.throws(() => layerJoin(root, 'c', { companionOf: 'e', layer: 2, why: 'x', io: joinIO(), log: quiet }), /e has no work left to land in layer 2 \(complete/);
+  commit(root, { 'process/ledger/d.json': entry('d', { layer: 2, status: { state: 'BLOCKED', reason: 'waits' } }) });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  assert.throws(() => layerJoin(root, 'c', { companionOf: 'd', layer: 2, why: 'x', io: joinIO(), log: quiet }), /d has no work left to land in layer 2 \(deferred/);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 2).companions.length, 0);
+});
+
+test('a companion started again after its land holds its job until that attempt lands', async () => {
+  const { root, bare } = opened();
+  layerJoin(root, 'a', { companionOf: 'd', layer: 2, why: WHY, io: joinIO(), log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': "export const ops = ['x', 'y'];\n" });
+  const prs = { 1: prOf(1, 'a', ha) };
+  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  await new Promise((r) => setTimeout(r, 1100));
+  writeStart(root, 'a');
+  const hd = jobWork(bare, 'd', { 'src/d/index.mjs': "import { ops } from '../a/index.mjs';\nexport const d = () => ops.length;\n" });
+  prs[2] = prOf(2, 'd', hd);
+  await assert.rejects(layerLand(root, 2, { io: landIO(bare, prs), log: quiet }), /a started again after its last land/);
 });

@@ -809,6 +809,9 @@ export function companionsPending(root, rows, job, head) {
     const lands = rows.lands.filter((l) => l.module === c.module);
     if (!lands.length) return [{ ...c, wait: `${c.module} has not landed` }];
     if (outstanding(rows.reschedules, rows.lands, c.module, anc).length) return [{ ...c, wait: `${c.module} is rescheduled and its re-run has not landed` }];
+    // Started again after its last land (a reopen): its new attempt lands first (cold review of C51).
+    const t = (x) => Date.parse(x?.at) || 0;
+    if ((rows.starts || []).some((s) => s.module === c.module && t(s) > t(lands.at(-1)))) return [{ ...c, wait: `${c.module} started again after its last land, and that attempt has not landed` }];
     const last = lands.at(-1).merge;
     if (head && !anc(last, head)) return [{ ...c, wait: `${c.module}'s land ${short(last)} is not in ${short(head)}: ${P3} layer publish ${job} again brings it in` }];
     return [];
@@ -832,7 +835,10 @@ function companionState(root, rows, x) {
 export const companionLines = (rows, states) => [...new Set((rows.companions || []).map((c) => c.module))].map((m) => {
   const deps = dependentsOf(rows, m);
   const s = states.find((q) => q.id === m);
-  return `companion: ${m} (${s ? s.state : 'unread'}) joined for ${deps.map((c) => `${c.job} (${c.why})`).join(', ')} (PD-19); ${[...new Set(deps.map((c) => c.job))].join(', ')} land${deps.length > 1 ? '' : 's'} only after it`;
+  const jobs = [...new Set(deps.map((c) => c.job))].join(', ');
+  // A deferred companion never lands: its jobs cannot land either (cold review of C51).
+  const stuck = s?.state === 'deferred' && !(rows.lands || []).some((l) => l.module === m) ? `; it is deferred, so ${jobs} cannot land: the coordinator decides (unblock ${m}, or defer ${jobs})` : '';
+  return `companion: ${m} (${s ? s.state : 'unread'}) joined for ${deps.map((c) => `${c.job} (${c.why})`).join(', ')} (PD-19); ${jobs} land${deps.length > 1 ? '' : 's'} only after it${stuck}`;
 });
 
 // layer join <companion> --companion-of <job> --layer <n> --why "<what it needs>" (PD-19).
@@ -868,6 +874,11 @@ export function layerCompanion(root, id, { layer, job, why, by = 'bob', io = {},
   if (!members.has(job)) fail(`${job} is not a job of layer ${n} (its modules: ${[...members].join(', ')}): a companion joins only the layer of the job that needs it (PD-19); nothing recorded`);
   if (dependentsOf(rows, job).length) fail(`${job} is a companion in layer ${n} itself: a companion's companion is not built; ask the coordinator; nothing recorded`);
   if (companionsOf(rows, id).length) fail(`${id} waits on its own companion(s) in layer ${n}: it cannot be one; ask the coordinator; nothing recorded`);
+  // The job must still have work to land here: not landed in the layer, not complete, not deferred
+  // (cold review of C51: a join for a landed or BLOCKED job let any module into the layer).
+  const st = readLayer(root, cfg, n, { io: { openPRs: io.openPRs || openPRs, comments: io.comments || ghComments }, slug }).states.find((x) => x.id === job);
+  const jobBlocked = [entryAt(root, ref, job), entryAt(root, tr, job)].some((e) => e?.status?.state === 'BLOCKED');
+  if (!st || DONE.includes(st.state) || jobBlocked || (rows.lands.some((l) => l.module === job) && st.state !== 'rescheduled')) fail(`${job} has no work left to land in layer ${n} (${jobBlocked ? 'deferred: BLOCKED' : st ? `${st.state}: ${st.why}` : 'unread'}): a companion joins only for a job that will land after it (PD-19); nothing recorded`);
   const had = rows.companions.find((c) => c.module === id && c.job === job);
   if (had) { log(`${id} is ${job}'s companion in layer ${n} already (${had.why}); nothing recorded`); return { ok: true, layer: n, recorded: false, companion: true }; }
   const asCompanion = dependentsOf(rows, id).length > 0;
