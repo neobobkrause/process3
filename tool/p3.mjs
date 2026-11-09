@@ -175,7 +175,9 @@ const commands = {
   'layer jobs': (a, root) => (layerJobs(root, layerArg(a, root)).ok ? 0 : 1),
   // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next
   // layer to open (the coordinator's ruling, 6 Nov): layer open lists it in that layer's jobs.
-  'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
+  // layer join <companion> --companion-of <job> --layer <n> --why "<what the job needs of it>" (PD-19):
+  // a module whose change a job in the open layer needs joins that layer as its companion; the job lands after it.
+  'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as), ...(a['companion-of'] !== undefined ? { companionOf: a['companion-of'], layer: a.layer } : a.layer !== undefined ? { layer: a.layer } : {}) }).ok ? 0 : 1),
   'layer status': (a, root) => (layerStatus(root, layerArg(a, root)).ok ? 0 : 1),
   'layer publish': async (a, root) => {
     const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
