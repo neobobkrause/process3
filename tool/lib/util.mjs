@@ -856,7 +856,12 @@ export function markForeground(root, { host = hostname(), pid = process.pid, now
 // Whether a foreground command runs in the clone: 'none', 'present' (a live mark), or 'unknown' (a
 // mark unread, half written, of another host, or a process whose life cannot be told; the
 // directory unreadable). A mark of this host whose process is gone is stale: removed, not counted.
-export function foregroundIn(root, { alive = pidAlive, host = hostname(), unread = STATE_LOCK.unread } = {}) {
+// A mark this host cannot judge (another host's, or a process whose life is unknown) is believed for
+// FOREGROUND_MAX_H hours, longer than any p3 command runs: the longest, deploy dev with its internal
+// walk, is bounded by the walk's own 360 minutes (deploycfg.mjs) plus its build and deploy steps.
+// Older, it is a command long gone, and is removed: no mark defers shares forever (coordinator on C53).
+export const FOREGROUND_MAX_H = 8;
+export function foregroundIn(root, { alive = pidAlive, host = hostname(), unread = STATE_LOCK.unread, maxAge = FOREGROUND_MAX_H * 3600e3, now = Date.now } = {}) {
   let dir;
   let names;
   try { dir = join(commonDir(root), FOREGROUND_DIR); names = readdirSync(dir); } catch (e) { return e?.code === 'ENOENT' ? 'none' : 'unknown'; }
@@ -874,10 +879,15 @@ export function foregroundIn(root, { alive = pidAlive, host = hostname(), unread
       if (age > unread * 1000) { try { unlinkSync(f); } catch { /* gone */ } continue; }
       return 'unknown';
     }
-    if (m.host !== host) return 'unknown';
-    const live = alive(m.pid);
-    if (live === false) { try { if (readFileSync(f, 'utf8') === text) unlinkSync(f); } catch { /* gone */ } continue; }
-    if (live === null) return 'unknown';
+    const live = m.host === host ? alive(m.pid) : null;
+    const gone = () => { try { if (readFileSync(f, 'utf8') === text) unlinkSync(f); } catch { /* gone */ } };
+    if (live === false) { gone(); continue; }
+    if (live === null) {
+      let age = 0;
+      try { age = now() - statSync(f).mtimeMs; } catch { continue; }
+      if (age > maxAge) { gone(); continue; }
+      return 'unknown';
+    }
     out = 'present';
   }
   return out;

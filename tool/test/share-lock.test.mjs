@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { hookRefresh, hookShareLater, NO_AUTO_GC, noAutoGc } from '../lib/ghhook.mjs';
 import { LEDGER_CACHE, USE_DIR } from '../lib/ghshare.mjs';
 import { commonDir, useShared } from '../lib/pace.mjs';
-import { FOREGROUND_DIR, SHARE_DEFERRED, foregroundIn, git, markForeground } from '../lib/util.mjs';
+import { FOREGROUND_DIR, FOREGROUND_MAX_H, SHARE_DEFERRED, foregroundIn, git, markForeground } from '../lib/util.mjs';
 import { main, shareAtEnd } from '../p3.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -44,6 +44,14 @@ test('foregroundIn: none, a live mark, a stale one removed, and unknown whenever
   const u2 = markForeground(root, { host: 'elsewhere' });
   assert.equal(foregroundIn(root), 'unknown');
   u2();
+  // Neither believed past FOREGROUND_MAX_H, longer than any command runs: removed, no longer deferring.
+  assert.equal(FOREGROUND_MAX_H, 8);
+  markForeground(root, { host: 'elsewhere' });
+  markForeground(root, { pid: 4343 });
+  const later = () => Date.now() + (FOREGROUND_MAX_H * 3600e3) + 60e3;
+  assert.equal(foregroundIn(root, { alive: () => null, now: () => Date.now() + 3600e3 }), 'unknown', 'an hour old: still believed');
+  assert.equal(foregroundIn(root, { alive: () => null, now: later }), 'none');
+  assert.deepEqual(marks(root), []);
   // Half written (a command starting now): unknown; left over long since: removed.
   mkdirSync(fgDir(root), { recursive: true });
   const half = join(fgDir(root), 'half.json');
