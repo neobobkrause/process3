@@ -1299,3 +1299,4 @@
 - 21:52Z hourly: unchanged. Copy stopped since ~16:45Z (5 h); no new ROOT; Bob not answered. Waiting on Bob's "go".
 - 22:52Z hourly: unchanged; copy stopped ~6 h; waiting on Bob's "go" for ROOT.
 - 23:52Z hourly: unchanged; copy stopped ~7 h; waiting on Bob's "go" for ROOT.
+- 00:52Z 10 Nov: unchanged (copy stopped ~8 h, waiting on Bob's "go" for ROOT). Hourly check switched off until Bob answers; nothing can move before then. Re-enable trig_014pGSG9SpN1hGVg2dvzW2De once ROOT runs.
