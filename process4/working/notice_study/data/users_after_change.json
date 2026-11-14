@@ -1,0 +1,335 @@
+{
+ "action-plans": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 27,
+  "new_source": [
+   "bio-plane/src/action-plans/index.mjs: line 2071 TS2322: Type 'string' is not assignable to type 'undefined'."
+  ],
+  "new_tests": [],
+  "gone": 0
+ },
+ "affordances": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 41,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "agent-steps": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 27,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "agent-worker": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 49,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "ai-gate": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "capture-requests": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 21,
+  "new_source": [
+   "bio-plane/src/capture-requests/index.mjs: line 444 TS2551: Property 'principal_claude' does not exist on type 'RunFacts'. Did you mean 'principal_plane'?"
+  ],
+  "new_tests": [
+   "bio-plane/test/m/capture-requests/plane.test.mjs: line 146 TS2322: Type 'string' is not assignable to type 'undefined'.",
+   "bio-plane/test/m/capture-requests/plane.test.mjs: line 146 TS2322: Type 'string' is not assignable to type 'undefined'."
+  ],
+  "gone": 0
+ },
+ "case-account": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 17,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "control-plane": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 160,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "instance-reports": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "instance-setup": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 38,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "intent": {
+  "verdict": [
+   "B",
+   "tests"
+  ],
+  "has_code": true,
+  "files": 19,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "op-declarations": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 43,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "op-specs-late": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "plan-work": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 15,
+  "new_source": [
+   "bio-plane/src/plan-work/index.mjs: line 895 TS2322: Type 'string' is not assignable to type 'undefined'."
+  ],
+  "new_tests": [],
+  "gone": 0
+ },
+ "plane": {
+  "verdict": [
+   "C",
+   ""
+  ],
+  "has_code": true,
+  "files": 94,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "question-explorer": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 14,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "queue-producers": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 29,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "run-productions": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 14,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "scheduler": {
+  "verdict": [
+   "B",
+   "tests"
+  ],
+  "has_code": true,
+  "files": 22,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "screens-document": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "screens-inquiry": {
+  "verdict": [
+   "B",
+   "source"
+  ],
+  "has_code": true,
+  "files": 82,
+  "new_source": [
+   "bio-plane/src/screens-inquiry/assistant.mjs: line 330 TS2322: Type 'string' is not assignable to type 'undefined'.",
+   "bio-plane/src/screens-inquiry/question.mjs: line 1704 TS2322: Type 'string' is not assignable to type 'undefined'."
+  ],
+  "new_tests": [],
+  "gone": 0
+ },
+ "skills": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 20,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "store-ask": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "store-assembly": {
+  "verdict": [
+   "B",
+   "tests"
+  ],
+  "has_code": true,
+  "files": 91,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "store-door": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 16,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "store-jobs": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "store-request": {
+  "verdict": [
+   "B",
+   "tests"
+  ],
+  "has_code": true,
+  "files": 33,
+  "new_source": [],
+  "new_tests": [
+   "bio-plane/test/m/store-request/recipes.mjs: line 83 TS2322: Type 'string' is not assignable to type 'undefined'."
+  ],
+  "gone": 0
+ },
+ "surface-declarations": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": false,
+  "files": 0,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ },
+ "wizard-scripts": {
+  "verdict": [
+   "not affected or not judged",
+   ""
+  ],
+  "has_code": true,
+  "files": 39,
+  "new_source": [],
+  "new_tests": [],
+  "gone": 0
+ }
+}

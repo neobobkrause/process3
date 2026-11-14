@@ -1,0 +1,670 @@
+diff -ru '--exclude=node_modules' pristine/agent-steps/src/drive.mjs tree/agent-steps/src/drive.mjs
+--- pristine/agent-steps/src/drive.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/agent-steps/src/drive.mjs	2026-11-14 19:48:05.191070233 +0000
+@@ -46,6 +46,7 @@
+      one exit. Nothing here emits the word. */
+   let calls = 0;
+   const { askPlane, refusal, planeSilent, planeRefused, modelSilent, modelRefused } = host;
++  /** @type {import("./plane.mjs").PlaneCall} */
+   const call = (op, query, body) => { calls += 1; return askPlane(env, op, credential, store, query, body); };
+   /* R114: the plane calls a tick has already spent. A step's own tick spends the rest; a tick sent inside a step (a
+      re-read's, R114) spends the calls since the last and moves this on. */
+@@ -535,6 +536,7 @@
+  *  named, not retried or adjusted), one tick logs the refusal by name, and the run is closed on `lease`, which stops it
+  *  (status `stopped`, never `completed`). A run that has done nothing, a plan-mode run's proposals (not `suggest`'s) and a
+  *  plane that does not answer are left as they were. Returns `{written, not_accepted, closed}` or null; it never throws. */
++/** @param {{call: import("./plane.mjs").PlaneCall} & Record<string, any>} a */
+ export async function settleAtDispatch({ call, runId, session, code, why }) {
+   try {
+     const flow = flowFor(session.mode);
+diff -ru '--exclude=node_modules' pristine/agent-steps/src/plane.mjs tree/agent-steps/src/plane.mjs
+--- pristine/agent-steps/src/plane.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/agent-steps/src/plane.mjs	2026-11-14 19:23:38.738123332 +0000
+@@ -48,6 +48,31 @@
+  * result carries no `ok` at all (`op=airunspawn`, `op=basisversions`) is
+  * unaffected: the envelope is then the only thing that speaks.
+  */
++/**
++ * ai-runs through the plane's door, as this module asks it (kinds only; nothing here is read by running code): by op,
++ * the query and the body, each ai-runs' own argument kind less the stamps the door sets, and (`planeAnswer`) the answer
++ * the op's method gives. `PlaneCall` is the `call(op, query, body)` a run's segment is driven with.
++ * @typedef {import("../../bio-plane/src/ai-runs/index.mjs").AiRuns} AiRuns
++ * @typedef {import("../../bio-plane/src/ai-runs/index.mjs").AiRunsOps} AiRunsOps
++ * @typedef {{
++ *   airunopen:  {query: null|undefined, body: Omit<import("../../bio-plane/src/ai-runs/index.mjs").OpenArgs, "principalPlane"|"actor"|"viewer">},
++ *   airuntick:  {query: null|undefined, body: Omit<import("../../bio-plane/src/ai-runs/index.mjs").TickArgs, "actor"|"viewer"|"caller">},
++ *   airunclose: {query: null|undefined, body: Omit<import("../../bio-plane/src/ai-runs/index.mjs").CloseArgs, "actor"|"viewer"|"caller">},
++ *   airun:      {query: Omit<NonNullable<Parameters<AiRuns["read"]>[0]>, "viewer">, body: null|undefined},
++ *   airunlog:   {query: Omit<NonNullable<Parameters<AiRuns["log"]>[0]>, "viewer">, body: null|undefined},
++ *   airunspawn: {query: Omit<NonNullable<Parameters<AiRuns["spawnPayload"]>[0]>, "viewer">, body: null|undefined},
++ *   airuns:     {query: Omit<NonNullable<Parameters<AiRuns["listInContext"]>[0]>, "viewer">, body: null|undefined},
++ * }} RunAsk
++ * @typedef {<O extends string>(op: O, query?: O extends keyof RunAsk ? RunAsk[O]["query"] : any,
++ *            body?: O extends keyof RunAsk ? RunAsk[O]["body"] : any) => Promise<any>} PlaneCall
++ */
++/**
++ * @template {string} O
++ * @param {any} asked
++ * @param {O} at
++ * @returns {{at: O, silent?: any, refused?: {at: O, code: any, check: any, plane: any},
++ *            result?: O extends keyof AiRunsOps ? Awaited<ReturnType<AiRunsOps[O]>> : any}}
++ */
+ export function planeAnswer(asked, at) {
+   if (!asked.reached) return { at, silent: asked };
+   const envelope = (asked.body && typeof asked.body === "object") ? asked.body : {};
+diff -ru '--exclude=node_modules' pristine/agent-steps/src/subsessions.mjs tree/agent-steps/src/subsessions.mjs
+--- pristine/agent-steps/src/subsessions.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/agent-steps/src/subsessions.mjs	2026-11-14 19:47:36.676181181 +0000
+@@ -12,6 +12,7 @@
+  *  frozen contract, the contract's `scope` as its only plane tool, and `report` as its answer. Its look is logged
+  *  at its level, and that entry's address is the report's `observed_at`. A sub-session that returns no report is
+  *  named, never read as an absence. */
++/** @param {import("./plane.mjs").PlaneCall} call */
+ export async function runSubsessions(call, state, runId, model, logSeq, contracts) {
+   const reports = [], refused = [], dropped = [];
+   /* agent-harness R18 (T50; N1169): WHAT EACH LEVEL'S SUB-SESSION READ, set here and nowhere else, from the plane's own
+diff -ru '--exclude=node_modules' pristine/agent-steps/src/work.mjs tree/agent-steps/src/work.mjs
+--- pristine/agent-steps/src/work.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/agent-steps/src/work.mjs	2026-11-14 19:47:36.675376288 +0000
+@@ -15,6 +15,7 @@
+  *  work, and rows that have none say so by falling through — the table already
+  *  says what every row is FOR, and duplicating that here would be a second
+  *  description to age. */
++/** @param {import("./plane.mjs").PlaneCall} call */
+ export async function performStep(call, state, runId, model = null, logSeq = null) {
+   const out = { state, consume: {}, note: null };
+ 
+@@ -457,6 +458,7 @@
+ /** R50–R52 — WHAT EACH ROW OF `PLAN_FLOW` DOES AGAINST THE PLANE. `read` and `dedup` read; `submit` makes the one
+  *  write mode `plan` has, `op=optionpropose`; `adjust` is F10 unchanged. No row spawns, requests a capture, suggests
+  *  a version or fetches (R50, R53). */
++/** @param {import("./plane.mjs").PlaneCall} call */
+ export async function performPlanStep(call, state, runId) {
+   const out = { state, consume: {}, note: null };
+   switch (state.step) {
+diff -ru '--exclude=node_modules' pristine/agent-worker/src/index.mjs tree/agent-worker/src/index.mjs
+--- pristine/agent-worker/src/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/agent-worker/src/index.mjs	2026-11-14 19:47:36.676550840 +0000
+@@ -294,6 +294,19 @@
+  * plane could not be reached, this member says the plane was silent — it does not
+  * convert its own failure into a statement about the record or about who the
+  * caller is. */
++/**
++ * (Kinds only.) An op of ai-runs is asked with ai-runs' own argument kinds, as `agent-steps` names them by op (`RunAsk`).
++ * @typedef {import("../../agent-steps/src/plane.mjs").RunAsk} RunAsk
++ */
++/**
++ * @template {string} O
++ * @param {any} env
++ * @param {O} op
++ * @param {any} credential
++ * @param {any} store
++ * @param {O extends keyof RunAsk ? RunAsk[O]["query"] : any} [query]
++ * @param {O extends keyof RunAsk ? RunAsk[O]["body"] : any} [body]
++ */
+ async function askPlane(env, op, credential, store, query = null, body = null) {
+   /* An ask that names no namespace sends none, and the plane's default applies (K1601 (5)); a run always names one (R4). */
+   let url = `${PLANE_ORIGIN}/?op=${op}${store == null ? "" : `&store=${encodeURIComponent(store)}`}`;
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/action-plans/index.mjs tree/bio-plane/src/action-plans/index.mjs
+--- pristine/bio-plane/src/action-plans/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/action-plans/index.mjs	2026-11-14 19:46:41.194516483 +0000
+@@ -112,6 +112,7 @@
+ const PREVIEW_SAYS = localize("action-plans.preview_starting_option", "a preview of starting this option: what the action would be, the matters it would rest on and the reminders it would set. Nothing was written: no action, no id, no reminder.");
+ /* R51: the skill version and bounds a member's planning run is opened under (a planning run: no search, ai-runs R46). */
+ const ASK_SKILL = "planning@1";
++/** @type {readonly Readonly<import("../ai-runs/index.mjs").BoundDeclaration>[]} */
+ const ASK_BOUNDS = Object.freeze([Object.freeze({ bound: "proposals", allowed: 20 }),
+                                   Object.freeze({ bound: "wallclock", allowed: 600000 })]);
+ const DAY_MS = 86400000;
+@@ -154,6 +155,8 @@
+   get escalation() { return this.#dep("escalation"); }
+   get filings() { return this.#dep("filings"); }
+   get duties() { return this.#dep("duties"); }
++  /** ai-runs, or a stand-in answering these of its methods.
++   *  @returns {Pick<import("../ai-runs/index.mjs").AiRuns, "registerOpenCheck"|"onRunOpened"|"runFor"|"read"|"boundOf"|"consumeBound"|"open">} */
+   get aiRuns() { return this.#dep("aiRuns"); }
+   #dep(name) {
+     const d = this.deps[name];
+@@ -2085,6 +2088,7 @@
+   }
+ 
+   /** R30 (fills ai-runs R47): a planning run is opened over an open plan of its project, by a member who has joined it. */
++  /** @param {Partial<import("../ai-runs/index.mjs").OpenCheckAsk>} [ask] */
+   planRunCheck({ contextType, contextId, plan, actor, viewer } = {}) {
+     const p = this.#plan(plan, viewer);
+     if (!p) return noSuchPlan(typeof plan === "string" ? plan : null);
+@@ -2098,6 +2102,7 @@
+   }
+ 
+   /** R32: a planning run's opening, recorded with the project's `work_kinds` as they stood then (ai-runs R43). */
++  /** @param {Partial<import("../ai-runs/index.mjs").RunOpenedNotice>} [notice] */
+   runOpened({ run } = {}) {
+     try {
+       const r = this.aiRuns.runFor(run, null);
+@@ -2402,6 +2407,7 @@
+     i.migrate();
+     record.declarePurge("action-plans", ACTION_PLANS_TABLES);
+     promotion.registerStep("action-plans", { check: (c) => i.check(c), project: (c) => i.project(c) });
++    /** @type {ActionPlans["aiRuns"]|null} */
+     let runs = null;
+     try { runs = i.aiRuns; } catch { runs = null; }
+     if (runs) {
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/capture-requests/index.mjs tree/bio-plane/src/capture-requests/index.mjs
+--- pristine/bio-plane/src/capture-requests/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/capture-requests/index.mjs	2026-11-14 19:46:41.195197906 +0000
+@@ -200,7 +200,7 @@
+   .map((b) => b.toString(16).padStart(2, "0")).join("");
+ 
+ export class CaptureRequests {
+-  #sql; #deps; #draining = false;
++  #sql; /** @type {{runs?: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">} & Record<string, any>} */ #deps; #draining = false;
+   #filed = [];     // R44: {module, fn, seq}
+   #sweepScope = null;   // R45: {module, fn}, link-sweep's scope check
+ 
+@@ -210,6 +210,8 @@
+    *  `storeName`, `configured()` (R11; `unattendedBound(env)` by default), `promotion` (R38), `order` (R44: the
+    *  modules' total order, membership's `MODULE_ORDER` unless a test passes its own), `inquiry` (R14: its R44
+    *  `memberUserAgent(id)`), `steps` (R55: its R2 read by key, R9's `recordProduct`, R11's arrival registration). */
++  /** @param {any} storage
++   *  @param {{runs?: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">} & Record<string, any>} [deps] */
+   constructor(storage, deps = {}) {
+     this.#sql = storage.sql;
+     this.#deps = deps;
+@@ -1262,6 +1264,7 @@
+    *  completions (`captured`, `refused`, `expired`: D-583) not yet told to them; `completions` one run's; `markWoken`
+    *  stamps them. Nothing is held while unattended capture is not configured, because nothing will complete. Whether a
+    *  run is running is ai-runs' own answer (`runFor`, read with a machine viewer). */
++  /** @returns {import("../ai-runs/index.mjs").WaitSource} */
+   waitSource() {
+     /* N188 (1): each walk reads in keyset pages of the answer's bound, and at most `CAPTURE_REQUEST_READ_MAX` rows in
+        all, so a table of finished runs' leftovers never makes one call unbounded. */
+@@ -1813,6 +1816,8 @@
+ /** K61: the one capture-requests instance for `host` (the Durable Object's `ctx`, with its `storage`); `deps` are read
+  *  on the first call only (see the class). At creation it declares its tables to record-core with their classes (R47),
+  *  `capture_requests` keyed to a bundle by `target` with `lead_inquiry` cleared (R35), registers its figure with record-core's counts (R35), and registers R28 as observation-log's `sweep` resolver (its R13, N39). */
++/** @param {any} host
++ *  @param {{runs?: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">, aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "registerWaitSource">} & Record<string, any>} [deps] */
+ export function captureRequestsOf(host, deps = {}) {
+   const storage = host && host.storage ? host.storage : host;
+   let c = instances.get(storage);
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/case-account/index.mjs tree/bio-plane/src/case-account/index.mjs
+--- pristine/bio-plane/src/case-account/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/case-account/index.mjs	2026-11-14 19:46:13.883834172 +0000
+@@ -204,6 +204,7 @@
+   get membership() { return this.#deps.membership ||= membershipOf(this.#deps.host, { record: this.record }); }
+   get inquiry() { return this.#deps.inquiry ||= inquiryOf(this.#deps.host); }
+   /* R1: the runs a draft names (ai-runs' `runFor`, as the proposer may see them). */
++  /** @returns {Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">} */
+   get runs() { return this.#deps.runs ||= aiRunsOf(this.#deps.host); }
+   /* R6: `case-disclosures`, the one instance on this host (its R30). */
+   get disclosures() { return this.#deps.disclosures ||= caseDisclosuresOf(this.#deps.host); }
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/intent/index.mjs tree/bio-plane/src/intent/index.mjs
+--- pristine/bio-plane/src/intent/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/intent/index.mjs	2026-11-14 19:46:41.198540737 +0000
+@@ -120,6 +120,8 @@
+   #sources = new Map();   // kind -> reader (R15)
+   #noneExists = null;     // R33: the reader of records requests answered that no such record exists
+ 
++  /** `aiRuns`: ai-runs, or a function answering it on first need.
++   *  @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "open"> | (() => Pick<import("../ai-runs/index.mjs").AiRuns, "open">) | null} & Record<string, any>} [deps] */
+   constructor({ storage, record, membership, promotion, entities, progressions, inquiry = null, aiRuns = null,
+                 retrieval = null, captureRequests = null, money = null, now = null } = {}) {
+     this.storage = storage;
+@@ -139,6 +141,9 @@
+ 
+   #rows(qs, ...a) { return [...this.sql.exec(qs, ...a)]; }
+   #one(qs, ...a) { const r = this.#rows(qs, ...a); return r.length ? r[0] : null; }
++  /** @template R
++   *  @param {R} ref
++   *  @returns {R extends (...a: any[]) => infer T ? T : R} */
+   #lazy(ref) { return typeof ref === "function" ? ref() : ref; }
+   /* N179: progressions as the host holds it, reached on first use, so the instance the plane builds with its `env`
+      (progressions R16's configured clock) is the one read here, whichever module reached the host first. */
+@@ -1506,6 +1511,8 @@
+    *  `objective`. `run` carries what `ai-runs.open` takes (its id, principals, skill version, bounds, …). The member's
+    *  reason (DEC-88 (4)) is recorded on the run's opening as its `label`, which ai-runs stores at the open, never
+    *  changes, and answers with the run's budget and context (its R10, R19), and is carried in the instructions. */
++  /** `run`: what ai-runs' `open` takes, less what this act sets itself.
++   *  @param {{run?: Partial<Omit<import("../ai-runs/index.mjs").OpenArgs, "contextType"|"contextId"|"label"|"state"|"actor"|"viewer">>} & Record<string, any>} [args] */
+   async workObjective({ project, reason, author, viewer = null, run = {} } = {}) {
+     /* DEC-49 REGION is-objective-member */
+     if (machine(author))
+@@ -1761,6 +1768,8 @@
+  *  (R39; and its projection, R32's warning), its audit check with record-core (R59), its tables with purge (R24) and
+  *  its project grammar, C-2.9's
+  *  `closed_reason` arm, in record-grammar's `checkProjectExtension` slot (R29). */
++/** @param {any} host
++ *  @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "open"> | (() => Pick<import("../ai-runs/index.mjs").AiRuns, "open">)} & Record<string, any>} [deps] */
+ export function intentOf(host, deps) {
+   let i = instances.get(host);
+   if (!i) {
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/plan-work/index.mjs tree/bio-plane/src/plan-work/index.mjs
+--- pristine/bio-plane/src/plan-work/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/plan-work/index.mjs	2026-11-14 19:46:41.198146312 +0000
+@@ -65,6 +65,7 @@
+ export const MARK_ROUTES_MAX = 20;
+ /** R10: the skill version and bounds a re-examination run is opened under (a planning run: no search, R46). */
+ export const REEXAM_SKILL = "planning@1";
++/** @type {readonly Readonly<import("../ai-runs/index.mjs").BoundDeclaration>[]} */
+ export const REEXAM_BOUNDS = Object.freeze([Object.freeze({ bound: "proposals", allowed: 20 }),
+                                             Object.freeze({ bound: "wallclock", allowed: 600000 })]);
+ /** R8: the label every assembled draft carries. */
+@@ -125,6 +126,7 @@
+   get conformance() { return this.#dep("conformance"); }
+   get duties() { return this.#dep("duties"); }
+   get readingGuides() { return this.#dep("readingGuides"); }
++  /** @returns {Pick<import("../ai-runs/index.mjs").AiRuns, "open">} */
+   get aiRuns() { return this.#dep("aiRuns"); }
+   #dep(name) {
+     const d = this.deps[name];
+@@ -878,6 +880,7 @@
+      `"<action id>#<ord>"` (K2820), the recording member as actor, so the account is the project's own where it holds
+      one, else hers (ai-runs R52, R77). A refusal is kept and never undoes anything. */
+   async #openRun(planId, response, recorder, at) {
++    /** @type {Pick<import("../ai-runs/index.mjs").AiRuns, "open">|null} */
+     const ai = this.#maybe("aiRuns");
+     const who = str(recorder);
+     if (!ai || typeof ai.open !== "function") return { opened: false, why: word("plan-work.why.assistant_instance") };
+@@ -1164,6 +1167,8 @@
+ /** K61: the one instance per host, created on the first call with `deps`. It migrates its tables, declares them to
+  *  purge (R12), registers its closing summary with `action-plans` (R7, its R44) and its re-examination with `actions`
+  *  (R10, its R95). */
++/** @param {any} host
++ *  @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "open"> | (() => Pick<import("../ai-runs/index.mjs").AiRuns, "open">) | null} & Record<string, any>} [deps] */
+ export function planWorkOf(host, deps) {
+   let i = instances.get(host);
+   if (!i) {
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/plane/store.mjs tree/bio-plane/src/plane/store.mjs
+--- pristine/bio-plane/src/plane/store.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/plane/store.mjs	2026-11-14 19:46:41.198758612 +0000
+@@ -55,9 +55,11 @@
+      dispatched by ai-runs in the object addressed (`dispatchMemberRun`, its R18), reached over the object's RPC by
+      control-plane's door. It takes no credential: only `run`, `by`, `viewer` and `at` are passed, so a `credential` in
+      `args` is neither read nor handed on; the segment's credential is minted here, in the plane, by ai-runs. */
++  /** @param {Partial<import("../ai-runs/index.mjs").MemberDispatchArgs> & {credential?: unknown}} [args] */
+   async dispatchMemberRun(args) {
+     if (this.#retired) return retiredBody();
+     const a = args && typeof args === "object" ? args : {};
++    /** @type {Partial<import("../ai-runs/index.mjs").MemberDispatchArgs>} */
+     const asked = {};
+     for (const k of ["run", "by", "viewer", "at"]) if (a[k] !== undefined) asked[k] = a[k];
+     /* R55 (T48; N1015; control-plane R93): the door's `trace` and member ref ride beside them, strings only; never a credential */
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/question-explorer/index.mjs tree/bio-plane/src/question-explorer/index.mjs
+--- pristine/bio-plane/src/question-explorer/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/question-explorer/index.mjs	2026-11-14 19:47:09.288250556 +0000
+@@ -67,6 +67,7 @@
+ /** R7, R11: the AI part the test bar is recorded for (`ai-runs` R75). */
+ export const EXPLORE_TEST_PART = "explore";
+ /** The bounds an exploring run declares at its open (`ai-runs` R9, `run-rules` R3's list form; `pages` is R26's). */
++/** @type {readonly Readonly<import("../ai-runs/index.mjs").BoundDeclaration>[]} */
+ export const EXPLORE_BOUNDS = Object.freeze([
+   Object.freeze({ bound: "fetches", allowed: 20 }),
+   Object.freeze({ bound: "wallclock", allowed: 3600000 }),
+@@ -92,6 +93,7 @@
+ const bareMember = (v) => { const m = /^member:([A-Za-z0-9._:-]{1,128})$/.exec(String(v ?? "")); return m ? m[1] : null; };
+ 
+ export class QuestionExplorer {
++  /** @param {{aiRuns: Pick<import("../ai-runs/index.mjs").AiRuns, "open"|"close"> & Partial<Pick<import("../ai-runs/index.mjs").AiRuns, "partAdmitted"|"groupTestResults"|"verifications"|"testBarRecords">>} & Record<string, any>} deps */
+   constructor({ storage, record, membership, aiAccounts, connections, retrieval, inquiry, legEarning, basisVersions,
+                 steps = null, aiUse = null, aiRuns, captureRequests = null, runProductions = null,
+                 held = null, testSet = runRules.CIVICSMITH_TEST_SET, principal = EXPLORE_PRINCIPAL, now = null }) {
+@@ -934,6 +936,8 @@
+  *  the first call only; a provider not given is reached through its factory (`steps` since K2491, `ai-use` since
+  *  K2488). At creation it creates its tables (`migrate()`, idempotent) and only then declares them to purge, as
+  *  `publish-schedule`'s factory does, so a host that never calls `migrate()` reads, ticks and purges (R15). */
++/** @param {any} host
++ *  @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "open"|"close"> & Partial<Pick<import("../ai-runs/index.mjs").AiRuns, "partAdmitted"|"groupTestResults"|"verifications"|"testBarRecords">>} & Record<string, any>} [deps] */
+ export function questionExplorerOf(host, deps) {
+   let p = instances.get(host);
+   if (!p) {
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/queue-producers/index.mjs tree/bio-plane/src/queue-producers/index.mjs
+--- pristine/bio-plane/src/queue-producers/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/queue-producers/index.mjs	2026-11-14 19:46:41.196456634 +0000
+@@ -95,6 +95,7 @@
+   #host; #deps;
+   /* The read's two functions from queue (R8), held for one synchronous `feedItems` call and cleared after it. */
+   #homesFn = null; #optionsFn = null;
++  /** @param {{deps?: {aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">} & Record<string, any>} & Record<string, any>} [a] */
+   constructor({ host, storage, deps = {} } = {}) {
+     this.#host = host;
+     this.sql = storage.sql;
+@@ -113,6 +114,7 @@
+   get #captureRequests() { return this.#dep("captureRequests", () => captureRequestsOf(this.#host)); }
+   get #basisVersions() { return this.#dep("basisVersions", () => basisVersionsOf(this.#host)); }
+   get #progressions() { return this.#dep("progressions", () => progressionsOf(this.#host)); }
++  /** @returns {Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">} */
+   get #aiRuns() { return this.#dep("aiRuns", () => aiRunsOf(this.#host)); }
+   get #bias() { return this.#dep("bias", () => biasOf(this.#host)); }
+   get #contradiction() { return this.#dep("contradiction", () => contradictionOf(this.#host)); }
+@@ -3405,6 +3407,8 @@
+ const OF = new WeakMap();
+ 
+ /** The one producers instance for this Durable Object's storage (`ctx`, or the storage itself). It registers nothing. */
++/** @param {any} ctx
++ *  @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor">} & Record<string, any>} [deps] */
+ export function queueProducersOf(ctx, deps = {}) {
+   const storage = ctx && ctx.storage ? ctx.storage : ctx;
+   let p = OF.get(storage);
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/run-productions/index.mjs tree/bio-plane/src/run-productions/index.mjs
+--- pristine/bio-plane/src/run-productions/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/run-productions/index.mjs	2026-11-14 19:46:41.197066990 +0000
+@@ -135,6 +135,7 @@
+ }
+ 
+ export class RunProductions {
++  /** @param {{aiRuns: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor"|"boundOf"|"consumeBound">} & Record<string, any>} deps */
+   constructor({ storage, record, membership, content, connections, aiRuns, strength, citation, basisVersions,
+                 extraction = null, steps = null, aiAccounts = null, legEarning = null, now = null }) {
+     this.storage = storage;
+@@ -1391,6 +1392,8 @@
+ /** The one run-productions instance for `host` (the Durable Object's `ctx`, with its `storage`); `deps` are read on the
+  *  first call only; a provider not given is reached through its factory. At creation it declares its tables to purge
+  *  (R17). */
++/** @param {any} host
++ *  @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "runFor"|"boundOf"|"consumeBound">} & Record<string, any>} [deps] */
+ export function runProductionsOf(host, deps) {
+   let p = instances.get(host);
+   if (!p) {
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/scheduler/index.mjs tree/bio-plane/src/scheduler/index.mjs
+--- pristine/bio-plane/src/scheduler/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/scheduler/index.mjs	2026-11-14 19:46:41.197403639 +0000
+@@ -338,6 +338,8 @@
+ 
+   /* ---- R5, R6: this module's own consumers, each calling its owner's services ---- */
+   #own() {
++    /** The owner named; `aiRuns` is ai-runs, or a stand-in answering the reaper and the wake.
++     *  @type {<K extends string>(n: K) => K extends "aiRuns" ? Pick<import("../ai-runs/index.mjs").AiRuns, "reapDue"|"reapWake"|"reap"|"wakeDue"|"wakeWake"|"wake"> : any} */
+     const o = (n) => this.#owner(n);
+     const due = (n) => n > 0;
+     /* An owner's due answered as an instant, or as `true` for "now". */
+@@ -925,6 +927,7 @@
+   /** Registers `arm` with each notice an earlier producer offers (K72 (9), K206). Each listener only schedules.
+    *  Whether monitoring is configured is asked of the `monitoring` owner when a notice arrives. Answers each
+    *  registration's answer by notice; a refused one is also kept as a start-up fault (`faults()`) and logged. */
++  /** @param {{aiRuns?: Pick<import("../ai-runs/index.mjs").AiRuns, "onRunOpened">} & Record<string, any>} [producers] */
+   listenTo({ retrieval, bias, promotion, capture, progressions, calibration, aiRuns, captureRequests, entities, inquiry, following,
+              publishSchedule, answers, duties, people, moneyChecks, caseCarriage, calculations } = {}) {
+     const arm = () => this.arm();
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/screens-inquiry/assistant.mjs tree/bio-plane/src/screens-inquiry/assistant.mjs
+--- pristine/bio-plane/src/screens-inquiry/assistant.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/screens-inquiry/assistant.mjs	2026-11-14 19:48:05.190022007 +0000
+@@ -23,6 +23,24 @@
+  * and carries the test-instance label `untested` the plane marks the run with (R7). Every sentence is a word by key
+  * (R44). Self-contained functions (interface-shell R21 (1)). */
+ 
++/**
++ * ai-runs through the door, as these screens reach it (kinds only; nothing here is read by running code). Each op's
++ * query or body is ai-runs' own argument kind less the stamps the door sets; a read's value is the op's answer once
++ * `later` has set aside a refusal and `found: false`. `cs` is interface-shell's; only its `call` is described, and
++ * only for these ops.
++ * @typedef {import("../ai-runs/index.mjs").AiRuns} AiRuns
++ * @typedef {import("../ai-runs/index.mjs").AiRunsOps} AiRunsOps
++ * @typedef {{airuns: Omit<NonNullable<Parameters<AiRuns["listInContext"]>[0]>, "viewer">,
++ *            airun: Omit<NonNullable<Parameters<AiRuns["read"]>[0]>, "viewer">,
++ *            airunlog: Omit<NonNullable<Parameters<AiRuns["log"]>[0]>, "viewer">}} RunReadQuery
++ * @typedef {{airunopen: Omit<import("../ai-runs/index.mjs").OpenArgs, "principalPlane"|"actor"|"viewer">,
++ *            airunclose: Omit<import("../ai-runs/index.mjs").CloseArgs, "actor"|"viewer"|"caller">,
++ *            airundispatch: Pick<import("../ai-runs/index.mjs").MemberDispatchArgs, "run">}} RunActBody
++ * @typedef {<O extends string>(key: string, op: O, query: O extends keyof RunReadQuery ? RunReadQuery[O] : any, token?: string) =>
++ *   {state: string, q?: string, refusal?: any,
++ *    value?: O extends keyof RunReadQuery ? Exclude<Awaited<ReturnType<AiRunsOps[O]>>, {found: false} | {ok: false}> : any}} RunLater
++ * @typedef {{call: <O extends string>(op: O, ask: O extends keyof RunActBody ? {body: RunActBody[O]} : any) => Promise<any>} & Record<string, any>} RunDoor
++ */
+ import * as settingsPanel from "../screens-settings/panel.mjs";
+ import { COMMON } from "./common.mjs";
+ 
+@@ -77,6 +95,7 @@
+   const ui = view.ui;
+   const d = view.data || {};
+   const subject = String(view.subject || "");
++  /** @type {RunLater} */
+   const later = (key, op, query, token) => {
+     const L = ui.later || (ui.later = {});
+     const q = JSON.stringify(query) + "#" + (token || "");
+@@ -156,6 +175,7 @@
+   if (!ui.run && context && member) {
+     const runs = later("runs", "airuns", { contextType: context.type, contextId: context.id, limit: "50" }, String(ui.seq || 0));
+     const list = runs.state === "ok" && Array.isArray(runs.value.runs) ? runs.value.runs : [];
++    /** @param {import("../ai-runs/index.mjs").RunSession} s */
+     const mine = (s) => s && s.principal && typeof s.principal.plane === "string"
+       && (s.principal.plane === "member:" + member || s.principal.plane.startsWith("member:" + member + "/"));
+     const r = list.find((s) => s && s.status === "running" && mine(s));
+@@ -262,6 +282,9 @@
+  *  nothing through the shell and draws its outcome beside the acts. */
+ const acts = [
+   { op: "airunopen", label: "act.airunopen.label.assistant",
++    /** @param {any} view
++     *  @param {any} el
++     *  @param {RunDoor} cs */
+     send(view, el, cs) {
+       const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+       const res = (a) => (a && a.result !== undefined ? a.result : a);
+@@ -336,6 +359,9 @@
+       return null;
+     } },
+   { op: "airunclose", label: "act.airunclose.label.assistant",
++    /** @param {any} view
++     *  @param {any} el
++     *  @param {RunDoor} cs */
+     send(view, el, cs) {
+       const id = String(el.dataset.run || (view.ui.run && view.ui.run.id) || "");
+       if (!id) return null;
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/screens-inquiry/question.mjs tree/bio-plane/src/screens-inquiry/question.mjs
+--- pristine/bio-plane/src/screens-inquiry/question.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/screens-inquiry/question.mjs	2026-11-14 19:48:05.190638904 +0000
+@@ -78,6 +78,7 @@
+      column below the text; an empty first argument leaves no first element, so the act (or the meta) landed beside the text and was squeezed
+      to 44 px wide and 300 px tall, and the main area ran to 401 px. An empty first cell is an element that draws nothing. */
+   const srow = (first, text, act, meta) => cs.row(first || '<span aria-hidden="true"></span>', text, act, meta);
++  /** @type {import("./assistant.mjs").RunLater} */
+   const later = (key, op, query, token) => P.later(cs, ui, key, op, query, token);
+   /* C94 (R40, R46): a member the record names is drawn by her handle (the kit's `cs.memberName`), the founder by hers where the roster names
+      one, and by a plain word, never the id, where none is known; `P.who` is the fallback where the kit holds no `memberName` */
+@@ -415,8 +416,10 @@
+   const runs = view.reachable && member ? later("runs", "airuns", { contextType: "inquiry", contextId: id, limit: "50" }, String(ui.seq || 0)) : null;
+   /* R45: the answer stands while the runs are read again (a read in flight is not the run's state) */
+   if (runs && runs.state === "ok" && Array.isArray(runs.value.runs)) ui.lastRuns = runs.value.runs;
++  /** @type {import("../ai-runs/index.mjs").RunSession[]} */
+   const runList = runs && runs.state === "ok" && Array.isArray(runs.value.runs) ? runs.value.runs
+     : runs && runs.state === "loading" && Array.isArray(ui.lastRuns) ? ui.lastRuns : [];
++  /** @param {import("../ai-runs/index.mjs").RunSession} s */
+   const isMine = (s) => !!(s && member && s.principal && typeof s.principal.plane === "string"
+     && (s.principal.plane === "member:" + member || s.principal.plane.startsWith("member:" + member + "/")));
+   /* a run of hers at work on it (R47): any running run of hers `airuns` shows, whether this page started it, the dock did,
+@@ -1681,6 +1684,9 @@
+   /* R41 state c: "Ask the assistant to look" opens a check run on this question (as the dock does, R33); a limit
+      refusal draws state f */
+   { op: "airunopen", label: "act.airunopen.label.question", rereads: [],
++    /** @param {any} view
++     *  @param {any} el
++     *  @param {import("./assistant.mjs").RunDoor} cs */
+     send(view, el, cs) {
+       const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+       const member = view.me && view.me.member;
+@@ -1722,6 +1728,9 @@
+       return null;
+     } },
+   { op: "airunclose", label: "act.airunclose.label.question", rereads: [],
++    /** @param {any} view
++     *  @param {any} el
++     *  @param {import("./assistant.mjs").RunDoor} cs */
+     send(view, el, cs) {
+       const id = String(el.dataset.run || "");
+       if (!id) return null;
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/store-assembly/owner-ops.mjs tree/bio-plane/src/store-assembly/owner-ops.mjs
+--- pristine/bio-plane/src/store-assembly/owner-ops.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/store-assembly/owner-ops.mjs	2026-11-14 19:46:41.199006646 +0000
+@@ -48,6 +48,7 @@
+ /* only the fields an act names cross from the body: a machine arm's `run` or a caller's `at` never does */
+ const pick = (b, keys) => Object.fromEntries(keys.filter((k) => b[k] !== undefined).map((k) => [k, b[k]]));
+ 
++/** @param {{aiRuns?: () => import("../ai-runs/index.mjs").AiRuns} & Record<string, any>} of  The getters of the owners' one instances (`owners.mjs`). */
+ export function ownerOps(of, url, body) {
+   const q = (k) => url.searchParams.get(k);
+   const b = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/store-request/door-ops.mjs tree/bio-plane/src/store-request/door-ops.mjs
+--- pristine/bio-plane/src/store-request/door-ops.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/store-request/door-ops.mjs	2026-11-14 19:46:41.199455460 +0000
+@@ -46,6 +46,8 @@
+ 
+ /** R27 (was `control-plane` R77, R80, R93): `op=airundispatch`. `who` is the viewer a session's, else the actor; `at` the door's instant;
+  *  `trace` and `memberRef` the door's. A store without `dispatchMemberRun` answers `AGENT_WORKER_UNBOUND`. */
++/** `stub`: the store object (plane's `Store`), whose `dispatchMemberRun` hands its args to ai-runs' and answers as it does.
++ *  @param {{stub: {dispatchMemberRun?: import("../ai-runs/index.mjs").AiRuns["dispatchMemberRun"]}} & Record<string, any>} a */
+ export async function airunDispatchOp({ stub, reqBody, who, at, trace, memberRef, storeName, cls }) {
+   const op = "airundispatch";
+   if (typeof stub.dispatchMemberRun !== "function") return unboundRun(storeName, cls);
+diff -ru '--exclude=node_modules' pristine/bio-plane/src/wizard-scripts/index.mjs tree/bio-plane/src/wizard-scripts/index.mjs
+--- pristine/bio-plane/src/wizard-scripts/index.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/src/wizard-scripts/index.mjs	2026-11-14 19:46:41.197754179 +0000
+@@ -419,6 +419,7 @@
+      label whenever `ai-runs.testInstance()` answers true: on a test instance an output is never left unmarked. An
+      ai-runs that cannot be reached answers null. Writes nothing; never throws. */
+   #untested() {
++    /** @type {Pick<import("../ai-runs/index.mjs").AiRuns, "partAdmitted"|"testInstance">|null} */
+     let ai = null;
+     try {
+       if (typeof this.aiRuns === "function") this.aiRuns = this.aiRuns();
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/action-plans/fixture.mjs tree/bio-plane/test/m/action-plans/fixture.mjs
+--- pristine/bio-plane/test/m/action-plans/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/action-plans/fixture.mjs	2026-11-14 19:42:45.732030187 +0000
+@@ -155,6 +155,8 @@
+      (`{run, started: false, ...}`), else the run recorded, the listeners told, `{run, started: true}`. `ctl.opens` keeps each
+      call's arguments; `ctl.refuse` makes the next opens refuse with that code (a mode not deployed). */
+   const ctl = { opens: [], refuse: null };
++  /** ai-runs' stand-in, of the kind action-plans says it is handed.
++   *  @type {import("../../../src/action-plans/index.mjs").ActionPlans["aiRuns"]} */
+   const aiRuns = {
+     open: async (a) => {
+       ctl.opens.push(structuredClone(a));
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/capture-requests/fixture.mjs tree/bio-plane/test/m/capture-requests/fixture.mjs
+--- pristine/bio-plane/test/m/capture-requests/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/capture-requests/fixture.mjs	2026-11-14 19:41:42.036131281 +0000
+@@ -169,6 +169,8 @@
+   if (creds && typeof creds.migrate === "function") creds.migrate();
+   const capture = captureStage();
+   const runs = new Map();
++  /** ai-runs' run sight, a stand-in.
++   *  @type {Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "runFor">} */
+   const runSight = { runFor: (run, viewer) => {
+     const r = runs.get(run);
+     if (!r || typeof viewer !== "string" || !/^(member:.+|class:\w+)$/.test(viewer)) return null;
+@@ -180,6 +182,8 @@
+   const agents = new Map(), asked = [];
+   const inquiry = { memberUserAgent: (id) => { asked.push(id); return agents.has(id) ? agents.get(id) : null; } };
+   const waitRegs = [];
++  /** ai-runs' wait-source registration, a stand-in.
++   *  @type {Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "registerWaitSource">} */
+   const aiRuns = { registerWaitSource: (module, source) => { waitRegs.push({ module, source }); return { ok: true }; } };
+   const stepsOf_ = steps !== undefined ? steps : stepsOf(host, { record, membership, promotion, observationLog: obs });
+   const cr = captureRequestsOf(host, { record, observations: obs, governor, capture, credentials: creds, runs: runSight,
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/capture-requests/plane.test.mjs tree/bio-plane/test/m/capture-requests/plane.test.mjs
+--- pristine/bio-plane/test/m/capture-requests/plane.test.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/capture-requests/plane.test.mjs	2026-11-14 19:41:42.038202211 +0000
+@@ -56,6 +56,8 @@
+ const unwrap = (r) => (r && typeof r === "object" && "result" in r ? r.result : r);
+ /* admission R20 (T36-36, K2166; C-38.10): a credential is read only from the Authorization header or the body, never
+    the address, so the helper sends it as `Authorization: Bearer …` (as membership's members.test.mjs, K2182) */
++/** `airunopen`'s body is ai-runs' `OpenArgs` less the stamps the door sets.
++ *  @type {<O extends string>(op: O, tok: any, body?: O extends "airunopen" ? Omit<import("../../../src/ai-runs/index.mjs").OpenArgs, "principalPlane"|"actor"|"viewer"> : any, extra?: any) => Promise<any>} */
+ const call = async (op, tok, body, extra = {}) => {
+   const headers = tok === undefined ? { ...extra } : { ...extra, authorization: `Bearer ${tok}` };
+   const r = await mf.dispatchFetch(`http://x/api/?op=${op}`,
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/case-account/fixture.mjs tree/bio-plane/test/m/case-account/fixture.mjs
+--- pristine/bio-plane/test/m/case-account/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/case-account/fixture.mjs	2026-11-14 19:41:42.035776897 +0000
+@@ -100,6 +100,8 @@
+   versions.migrate();
+   /* ai-runs' `runFor` over the test's own runs: a run is seen by every viewer but "nobody" */
+   const runs = new Map();
++  /** ai-runs' stand-in, of the kind case-account says it is handed.
++   *  @type {import("../../../src/case-account/index.mjs").CaseAccount["runs"]} */
+   const aiRuns = { runFor: (id, viewer) => (runs.has(String(id)) && viewer !== "nobody"
+     ? { run: String(id), status: runs.get(String(id)).status, mode: "draft" } : null) };
+   const w = {
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/intent/fixture.mjs tree/bio-plane/test/m/intent/fixture.mjs
+--- pristine/bio-plane/test/m/intent/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/intent/fixture.mjs	2026-11-14 19:41:42.036616368 +0000
+@@ -155,6 +155,8 @@
+     },
+     dispose(a) { calls.dispose.push(a); return realInquiry.dispose(a); },
+   };
++  /** ai-runs' `open`, a stand-in.
++   *  @type {Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "open">} */
+   const aiRuns = { open: async (a) => { calls.open.push(a); return { run: a.run ?? null, started: true, status: "running" }; } };
+   /* capture-requests' read (its R23): the rows the viewer may see, oldest first, bounded; and its one read by key (its
+      R43): a row whose `seenBy` (when set) does not name the viewer answers null, as an unknown one does */
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/plan-work/fixture.mjs tree/bio-plane/test/m/plan-work/fixture.mjs
+--- pristine/bio-plane/test/m/plan-work/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/plan-work/fixture.mjs	2026-11-14 19:41:42.035362330 +0000
+@@ -57,6 +57,8 @@
+   const guides = new Map();         // kind -> guides
+   const readingGuides = { procedureGuidesFor: ({ kind }) => ({ ok: true, kind, guides: guides.get(kind) || [], label: {} }) };
+   const runs = [];
++  /** ai-runs' stand-in, of the kind plan-work says it is handed.
++   *  @type {import("../../../src/plan-work/index.mjs").PlanWork["aiRuns"]} */
+   const aiRuns = { open: async (a) => { runs.push(a); return w.aiOpen ? w.aiOpen(a) : { run: a.run, started: true }; } };
+   /* actions: the real module (T45-27 merged, K2859), its response listener (R95) and receipts real; a test's
+      `w.hide(viewer, id)` withholds an action from that viewer here as action-plans' world does (a narrower sight rule) */
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/question-explorer/fixture.mjs tree/bio-plane/test/m/question-explorer/fixture.mjs
+--- pristine/bio-plane/test/m/question-explorer/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/question-explorer/fixture.mjs	2026-11-14 19:42:45.732763762 +0000
+@@ -163,6 +163,8 @@
+     return w;
+   };
+ 
++  /** ai-runs' stand-in: what question-explorer and run-productions are handed here.
++   *  @type {Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "open"|"close"|"runFor"|"boundOf"|"consumeBound"|"partAdmitted"|"groupTestResults"|"verifications"|"testBarRecords"|"testInstance">} */
+   const aiRuns = {
+     /* R73 (K2490): the run opens first, then its system step is created through the real steps' stepCreate with `run`
+        the open run (steps R1's machine arm, held through the run holder the fixture registers as ai-runs would); the
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/queue-producers/world.mjs tree/bio-plane/test/m/queue-producers/world.mjs
+--- pristine/bio-plane/test/m/queue-producers/world.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/queue-producers/world.mjs	2026-11-14 19:43:32.262579749 +0000
+@@ -62,6 +62,8 @@
+   return it;
+ }
+ 
++/** `fakes.aiRuns`: ai-runs' run sight, a stand-in.
++ *  @param {{aiRuns?: Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "runFor">} & Record<string, any>} [fakes] */
+ export function world(fakes = {}) {
+   const db = new DatabaseSync(":memory:");
+   const statements = [];
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/run-productions/fixture.mjs tree/bio-plane/test/m/run-productions/fixture.mjs
+--- pristine/bio-plane/test/m/run-productions/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/run-productions/fixture.mjs	2026-11-14 19:43:13.986730221 +0000
+@@ -164,6 +164,8 @@
+   const note = (name, a) => { calls.push({ name, a }); };
+   const runs = new Map();
+   const bounds = new Map();
++  /** ai-runs' stand-in, of the kind run-productions says it is handed.
++   *  @type {Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "runFor"|"boundOf"|"consumeBound">} */
+   const aiRuns = {
+     runFor(run, viewer) {
+       note("runFor", { run, viewer });
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/scheduler/fixture.mjs tree/bio-plane/test/m/scheduler/fixture.mjs
+--- pristine/bio-plane/test/m/scheduler/fixture.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/scheduler/fixture.mjs	2026-11-14 19:41:42.037827980 +0000
+@@ -70,6 +70,8 @@
+                    sweep: () => rec("connections.sweep", [], v("connection-derive", "tick", null, { entities: 0, remaining: 0, swept: [] })) },
+     progressions: { overdueScan: (now) => rec("progressions.overdueScan", [now],
+                       { overdue_count: 0, next_deadline: v("overdue-scan", "wake", now), next_deadline_at: null }) },
++    /** ai-runs' reaper and wake, a stand-in.
++     *  @type {Pick<import("../../../src/ai-runs/index.mjs").AiRuns, "reapDue"|"reapWake"|"reap"|"wakeDue"|"wakeWake"|"wake">} */
+     aiRuns: {
+       reapDue: (now) => rec("aiRuns.reapDue", [now], v("ai-run-reap", "due", now, 0)),
+       reapWake: (now) => rec("aiRuns.reapWake", [now], v("ai-run-reap", "wake", now)),
+diff -ru '--exclude=node_modules' pristine/bio-plane/test/m/store-request/recipes.mjs tree/bio-plane/test/m/store-request/recipes.mjs
+--- pristine/bio-plane/test/m/store-request/recipes.mjs	2026-11-04 06:48:36.000000000 +0000
++++ tree/bio-plane/test/m/store-request/recipes.mjs	2026-11-14 19:41:42.038519234 +0000
+@@ -73,6 +73,10 @@
+ }
+ 
+ /** A run opened by `as` over a project (`airunopen`), under the account `aiAccount` set. Answers the run's id. */
++/** `as.act("airunopen", …)`: the body is ai-runs' `OpenArgs` less the stamps the door sets, the answer its `OpenAnswer`.
++ *  @param {any} world
++ *  @param {{act: (op: "airunopen", ask: {body: Omit<import("../../../src/ai-runs/index.mjs").OpenArgs, "principalPlane"|"actor"|"viewer">}) => Promise<import("../../../src/ai-runs/index.mjs").OpenAnswer>, member: string}} as
++ *  @param {string} projectId */
+ export async function openRun(world, as, projectId) {
+   const run = `RUN-${instant(world).slice(0, 4)}-${String(counter(world, "__runs")).padStart(4, "0")}-world`;
+   const opened = await as.act("airunopen", { body: { run, contextType: "project", contextId: projectId, skillVersion: "contradiction@1",
