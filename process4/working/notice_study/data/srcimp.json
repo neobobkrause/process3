@@ -1,0 +1,10830 @@
+{
+ "acquisition:1024|acquisition-archives": [
+  false,
+  true
+ ],
+ "acquisition:1024|acquisition-owed": [
+  false,
+  false
+ ],
+ "acquisition:1024|answer-envelope": [
+  true,
+  false
+ ],
+ "acquisition:1024|capture-requests": [
+  true,
+  true
+ ],
+ "acquisition:1024|case-carriage": [
+  false,
+  false
+ ],
+ "acquisition:1024|content": [
+  true,
+  true
+ ],
+ "acquisition:1024|control-plane": [
+  true,
+  true
+ ],
+ "acquisition:1024|docket": [
+  false,
+  false
+ ],
+ "acquisition:1024|extraction": [
+  true,
+  false
+ ],
+ "acquisition:1024|following": [
+  true,
+  true
+ ],
+ "acquisition:1024|instance-setup": [
+  true,
+  true
+ ],
+ "acquisition:1024|law-relations": [
+  false,
+  true
+ ],
+ "acquisition:1024|link-sweep": [
+  false,
+  true
+ ],
+ "acquisition:1024|monitoring": [
+  true,
+  true
+ ],
+ "acquisition:1024|op-specs-late": [
+  false,
+  false
+ ],
+ "acquisition:1024|ratification": [
+  true,
+  false
+ ],
+ "acquisition:1024|reader-contract": [
+  false,
+  false
+ ],
+ "acquisition:1024|reading-pipeline": [
+  false,
+  true
+ ],
+ "acquisition:1024|registers": [
+  true,
+  true
+ ],
+ "acquisition:1024|retrieval": [
+  false,
+  false
+ ],
+ "acquisition:1024|scheduler": [
+  false,
+  true
+ ],
+ "acquisition:1024|screens-intake": [
+  false,
+  true
+ ],
+ "acquisition:1024|standards": [
+  true,
+  false
+ ],
+ "acquisition:1024|store-ask": [
+  false,
+  false
+ ],
+ "acquisition:1024|store-assembly": [
+  true,
+  true
+ ],
+ "acquisition:1024|store-jobs": [
+  false,
+  false
+ ],
+ "acquisition:1024|store-request": [
+  false,
+  true
+ ],
+ "action-clocks:60|action-plans": [
+  true,
+  true
+ ],
+ "action-clocks:60|action-producers": [
+  true,
+  true
+ ],
+ "action-clocks:60|action-replies": [
+  false,
+  false
+ ],
+ "action-clocks:60|affordances": [
+  true,
+  true
+ ],
+ "action-clocks:60|answer-envelope": [
+  true,
+  false
+ ],
+ "action-clocks:60|control-plane": [
+  false,
+  true
+ ],
+ "action-clocks:60|filings": [
+  true,
+  false
+ ],
+ "action-clocks:60|following": [
+  true,
+  false
+ ],
+ "action-clocks:60|monitoring": [
+  true,
+  true
+ ],
+ "action-clocks:60|op-declarations": [
+  false,
+  true
+ ],
+ "action-clocks:60|plan-work": [
+  false,
+  false
+ ],
+ "action-clocks:60|plane": [
+  false,
+  true
+ ],
+ "action-clocks:60|screens-action": [
+  false,
+  true
+ ],
+ "action-clocks:60|store-assembly": [
+  true,
+  true
+ ],
+ "action-grammar:396|action-clocks": [
+  true,
+  false
+ ],
+ "action-grammar:396|action-holds": [
+  true,
+  true
+ ],
+ "action-grammar:396|action-records": [
+  true,
+  true
+ ],
+ "action-grammar:396|action-replies": [
+  true,
+  false
+ ],
+ "action-grammar:396|actions": [
+  true,
+  true
+ ],
+ "action-grammar:396|affordances": [
+  true,
+  true
+ ],
+ "action-grammar:396|answer-envelope": [
+  true,
+  true
+ ],
+ "action-grammar:396|escalation": [
+  false,
+  true
+ ],
+ "action-grammar:396|filing-templates": [
+  true,
+  false
+ ],
+ "action-grammar:396|filings": [
+  true,
+  false
+ ],
+ "action-grammar:396|instance-setup": [
+  true,
+  true
+ ],
+ "action-plans:183|action-producers": [
+  true,
+  true
+ ],
+ "action-plans:183|affordances": [
+  true,
+  true
+ ],
+ "action-plans:183|answer-envelope": [
+  true,
+  true
+ ],
+ "action-plans:183|control-plane": [
+  false,
+  true
+ ],
+ "action-plans:183|following": [
+  true,
+  true
+ ],
+ "action-plans:183|op-declarations": [
+  false,
+  true
+ ],
+ "action-plans:183|op-specs-late": [
+  false,
+  false
+ ],
+ "action-plans:183|plan-work": [
+  true,
+  true
+ ],
+ "action-plans:183|plane": [
+  false,
+  true
+ ],
+ "action-plans:183|screens-action": [
+  false,
+  true
+ ],
+ "action-plans:183|screens-plan": [
+  false,
+  false
+ ],
+ "action-plans:183|store-assembly": [
+  true,
+  true
+ ],
+ "action-plans:726|action-producers": [
+  true,
+  true
+ ],
+ "action-plans:726|affordances": [
+  true,
+  true
+ ],
+ "action-plans:726|answer-envelope": [
+  true,
+  true
+ ],
+ "action-plans:726|control-plane": [
+  false,
+  true
+ ],
+ "action-plans:726|following": [
+  true,
+  true
+ ],
+ "action-plans:726|op-declarations": [
+  false,
+  true
+ ],
+ "action-plans:726|op-specs-late": [
+  false,
+  false
+ ],
+ "action-plans:726|plane": [
+  false,
+  true
+ ],
+ "action-plans:726|screens-action": [
+  false,
+  true
+ ],
+ "action-plans:726|screens-plan": [
+  false,
+  false
+ ],
+ "action-plans:726|store-assembly": [
+  true,
+  true
+ ],
+ "action-records:696|affordances": [
+  false,
+  true
+ ],
+ "action-records:696|control-plane": [
+  false,
+  false
+ ],
+ "action-records:696|op-declarations": [
+  false,
+  true
+ ],
+ "action-records:696|op-specs-late": [
+  false,
+  false
+ ],
+ "action-records:696|plane": [
+  false,
+  true
+ ],
+ "action-records:696|store-assembly": [
+  true,
+  true
+ ],
+ "actions:715|action-producers": [
+  true,
+  false
+ ],
+ "actions:715|affordances": [
+  true,
+  true
+ ],
+ "actions:715|control-plane": [
+  false,
+  false
+ ],
+ "actions:715|following": [
+  true,
+  false
+ ],
+ "actions:715|machinery-producers": [
+  true,
+  false
+ ],
+ "actions:715|monitoring": [
+  false,
+  true
+ ],
+ "actions:715|op-declarations": [
+  false,
+  true
+ ],
+ "actions:715|op-specs-late": [
+  false,
+  false
+ ],
+ "actions:715|plane": [
+  false,
+  true
+ ],
+ "actions:715|queue": [
+  false,
+  false
+ ],
+ "actions:715|screens-action": [
+  false,
+  true
+ ],
+ "actions:715|store-assembly": [
+  true,
+  true
+ ],
+ "admission:171|answer-envelope": [
+  true,
+  false
+ ],
+ "admission:171|control-plane": [
+  true,
+  true
+ ],
+ "admission:171|plane": [
+  false,
+  true
+ ],
+ "admission:171|signin-door": [
+  false,
+  false
+ ],
+ "admission:171|store-assembly": [
+  true,
+  true
+ ],
+ "admission:171|store-door": [
+  false,
+  false
+ ],
+ "admission:171|store-request": [
+  true,
+  true
+ ],
+ "affordances:252|control-plane": [
+  false,
+  true
+ ],
+ "affordances:252|op-declarations": [
+  true,
+  true
+ ],
+ "affordances:252|plane": [
+  true,
+  true
+ ],
+ "affordances:252|queue": [
+  true,
+  true
+ ],
+ "affordances:252|store-door": [
+  true,
+  true
+ ],
+ "affordances:252|store-request": [
+  false,
+  true
+ ],
+ "affordances:252|tasks": [
+  true,
+  false
+ ],
+ "affordances:374|control-plane": [
+  false,
+  true
+ ],
+ "affordances:374|op-declarations": [
+  true,
+  true
+ ],
+ "affordances:374|plane": [
+  true,
+  true
+ ],
+ "affordances:374|queue": [
+  true,
+  true
+ ],
+ "affordances:374|store-door": [
+  true,
+  true
+ ],
+ "affordances:374|store-request": [
+  false,
+  true
+ ],
+ "affordances:374|tasks": [
+  true,
+  false
+ ],
+ "agent-drafts:358|agent-worker": [
+  true,
+  true
+ ],
+ "agent-drafts:408|agent-worker": [
+  true,
+  true
+ ],
+ "agent-drafts:570|agent-worker": [
+  true,
+  true
+ ],
+ "agent-harness:353|agent-drafts": [
+  false,
+  false
+ ],
+ "agent-harness:353|agent-model": [
+  false,
+  false
+ ],
+ "agent-harness:353|agent-runner": [
+  false,
+  false
+ ],
+ "agent-harness:353|agent-steps": [
+  true,
+  true
+ ],
+ "agent-harness:353|agent-worker": [
+  false,
+  true
+ ],
+ "agent-harness:353|ai-gate": [
+  true,
+  false
+ ],
+ "agent-harness:353|ai-runs": [
+  false,
+  false
+ ],
+ "agent-harness:353|control-plane": [
+  false,
+  true
+ ],
+ "agent-model:355|agent-drafts": [
+  true,
+  false
+ ],
+ "agent-model:355|agent-runner": [
+  false,
+  false
+ ],
+ "agent-model:355|agent-steps": [
+  true,
+  true
+ ],
+ "agent-model:355|agent-worker": [
+  true,
+  true
+ ],
+ "agent-model:355|ai-gate": [
+  false,
+  false
+ ],
+ "agent-model:355|ai-runs": [
+  false,
+  false
+ ],
+ "agent-model:355|ai-use": [
+  false,
+  false
+ ],
+ "agent-model:395|agent-drafts": [
+  true,
+  false
+ ],
+ "agent-model:395|agent-runner": [
+  false,
+  false
+ ],
+ "agent-model:395|agent-steps": [
+  true,
+  true
+ ],
+ "agent-model:395|agent-worker": [
+  true,
+  true
+ ],
+ "agent-model:395|ai-gate": [
+  false,
+  false
+ ],
+ "agent-model:395|ai-runs": [
+  false,
+  false
+ ],
+ "agent-model:395|ai-use": [
+  false,
+  false
+ ],
+ "agent-runner:610|agent-worker": [
+  false,
+  false
+ ],
+ "agent-steps:185|agent-drafts": [
+  false,
+  false
+ ],
+ "agent-steps:185|agent-worker": [
+  true,
+  true
+ ],
+ "agent-steps:185|ai-gate": [
+  false,
+  false
+ ],
+ "agent-steps:361|agent-drafts": [
+  true,
+  false
+ ],
+ "agent-steps:361|agent-worker": [
+  true,
+  true
+ ],
+ "agent-steps:361|ai-gate": [
+  false,
+  false
+ ],
+ "agent-steps:392|agent-drafts": [
+  true,
+  false
+ ],
+ "agent-steps:392|agent-worker": [
+  true,
+  true
+ ],
+ "agent-steps:392|ai-gate": [
+  false,
+  false
+ ],
+ "agent-steps:497|agent-drafts": [
+  true,
+  false
+ ],
+ "agent-steps:497|agent-worker": [
+  true,
+  true
+ ],
+ "agent-steps:497|ai-gate": [
+  true,
+  false
+ ],
+ "agent-worker:364|agent-drafts": [
+  true,
+  true
+ ],
+ "agent-worker:364|ai-gate": [
+  false,
+  false
+ ],
+ "agent-worker:364|control-plane": [
+  false,
+  true
+ ],
+ "agent-worker:364|plane": [
+  false,
+  true
+ ],
+ "agent-worker:364|signin-door": [
+  false,
+  false
+ ],
+ "agent-worker:364|store-ask": [
+  false,
+  false
+ ],
+ "agent-worker:364|store-assembly": [
+  false,
+  true
+ ],
+ "agent-worker:569|agent-drafts": [
+  true,
+  true
+ ],
+ "agent-worker:569|ai-gate": [
+  true,
+  true
+ ],
+ "agent-worker:569|control-plane": [
+  false,
+  true
+ ],
+ "agent-worker:569|plane": [
+  false,
+  true
+ ],
+ "agent-worker:569|signin-door": [
+  false,
+  false
+ ],
+ "agent-worker:569|store-ask": [
+  false,
+  false
+ ],
+ "agent-worker:569|store-assembly": [
+  false,
+  true
+ ],
+ "agent-worker:97|ai-gate": [
+  false,
+  false
+ ],
+ "agent-worker:97|control-plane": [
+  false,
+  true
+ ],
+ "agent-worker:97|plane": [
+  false,
+  true
+ ],
+ "agent-worker:97|signin-door": [
+  false,
+  false
+ ],
+ "agent-worker:97|store-ask": [
+  false,
+  false
+ ],
+ "agent-worker:97|store-assembly": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|affordances": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|agent-model": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|agent-worker": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|ai-accounts-lists": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|ai-runs": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|ai-use": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|answers": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|control-plane": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|extraction": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|instance-setup": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|notice-producers": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|op-grades": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|plane": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|question-explorer": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|queue-producers": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|reader-contract": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|reading-pipeline": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|run-productions": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|screens-document": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|signin-door": [
+  false,
+  true
+ ],
+ "ai-accounts:1098|store-ask": [
+  false,
+  false
+ ],
+ "ai-accounts:1098|store-assembly": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|store-door": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|translations": [
+  true,
+  true
+ ],
+ "ai-accounts:1098|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-accounts:124|affordances": [
+  false,
+  true
+ ],
+ "ai-accounts:124|agent-model": [
+  false,
+  false
+ ],
+ "ai-accounts:124|ai-runs": [
+  true,
+  true
+ ],
+ "ai-accounts:124|ai-use": [
+  true,
+  true
+ ],
+ "ai-accounts:124|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-accounts:124|answers": [
+  true,
+  true
+ ],
+ "ai-accounts:124|control-plane": [
+  false,
+  true
+ ],
+ "ai-accounts:124|credentials": [
+  true,
+  true
+ ],
+ "ai-accounts:124|extraction": [
+  false,
+  true
+ ],
+ "ai-accounts:124|instance-setup": [
+  true,
+  true
+ ],
+ "ai-accounts:124|notice-producers": [
+  true,
+  false
+ ],
+ "ai-accounts:124|op-declarations": [
+  false,
+  true
+ ],
+ "ai-accounts:124|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-accounts:124|plane": [
+  false,
+  true
+ ],
+ "ai-accounts:124|question-explorer": [
+  true,
+  true
+ ],
+ "ai-accounts:124|queue-producers": [
+  false,
+  false
+ ],
+ "ai-accounts:124|reading-pipeline": [
+  false,
+  true
+ ],
+ "ai-accounts:124|run-productions": [
+  true,
+  true
+ ],
+ "ai-accounts:124|screens-document": [
+  false,
+  false
+ ],
+ "ai-accounts:124|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-accounts:124|signin-door": [
+  false,
+  true
+ ],
+ "ai-accounts:124|store-ask": [
+  false,
+  false
+ ],
+ "ai-accounts:124|store-assembly": [
+  true,
+  true
+ ],
+ "ai-accounts:124|store-door": [
+  true,
+  true
+ ],
+ "ai-accounts:124|translations": [
+  true,
+  true
+ ],
+ "ai-accounts:124|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-accounts:188|affordances": [
+  false,
+  true
+ ],
+ "ai-accounts:188|agent-model": [
+  false,
+  false
+ ],
+ "ai-accounts:188|ai-runs": [
+  true,
+  true
+ ],
+ "ai-accounts:188|ai-use": [
+  true,
+  true
+ ],
+ "ai-accounts:188|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-accounts:188|answers": [
+  true,
+  true
+ ],
+ "ai-accounts:188|control-plane": [
+  false,
+  true
+ ],
+ "ai-accounts:188|credentials": [
+  true,
+  true
+ ],
+ "ai-accounts:188|extraction": [
+  false,
+  true
+ ],
+ "ai-accounts:188|instance-setup": [
+  true,
+  true
+ ],
+ "ai-accounts:188|notice-producers": [
+  true,
+  false
+ ],
+ "ai-accounts:188|op-declarations": [
+  false,
+  true
+ ],
+ "ai-accounts:188|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-accounts:188|plane": [
+  false,
+  true
+ ],
+ "ai-accounts:188|question-explorer": [
+  true,
+  true
+ ],
+ "ai-accounts:188|queue-producers": [
+  false,
+  false
+ ],
+ "ai-accounts:188|reading-pipeline": [
+  false,
+  true
+ ],
+ "ai-accounts:188|run-productions": [
+  true,
+  true
+ ],
+ "ai-accounts:188|screens-document": [
+  false,
+  false
+ ],
+ "ai-accounts:188|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-accounts:188|signin-door": [
+  false,
+  true
+ ],
+ "ai-accounts:188|store-ask": [
+  false,
+  false
+ ],
+ "ai-accounts:188|store-assembly": [
+  true,
+  true
+ ],
+ "ai-accounts:188|store-door": [
+  true,
+  true
+ ],
+ "ai-accounts:188|translations": [
+  true,
+  true
+ ],
+ "ai-accounts:188|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-accounts:316|affordances": [
+  false,
+  true
+ ],
+ "ai-accounts:316|agent-model": [
+  false,
+  false
+ ],
+ "ai-accounts:316|agent-worker": [
+  false,
+  true
+ ],
+ "ai-accounts:316|ai-runs": [
+  true,
+  true
+ ],
+ "ai-accounts:316|ai-use": [
+  true,
+  true
+ ],
+ "ai-accounts:316|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-accounts:316|answers": [
+  true,
+  true
+ ],
+ "ai-accounts:316|control-plane": [
+  false,
+  true
+ ],
+ "ai-accounts:316|credentials": [
+  true,
+  true
+ ],
+ "ai-accounts:316|extraction": [
+  false,
+  true
+ ],
+ "ai-accounts:316|instance-setup": [
+  true,
+  true
+ ],
+ "ai-accounts:316|notice-producers": [
+  false,
+  true
+ ],
+ "ai-accounts:316|op-declarations": [
+  false,
+  true
+ ],
+ "ai-accounts:316|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-accounts:316|plane": [
+  false,
+  true
+ ],
+ "ai-accounts:316|question-explorer": [
+  true,
+  true
+ ],
+ "ai-accounts:316|queue-producers": [
+  false,
+  false
+ ],
+ "ai-accounts:316|reader-contract": [
+  false,
+  false
+ ],
+ "ai-accounts:316|reading-pipeline": [
+  false,
+  true
+ ],
+ "ai-accounts:316|run-productions": [
+  true,
+  true
+ ],
+ "ai-accounts:316|screens-document": [
+  false,
+  false
+ ],
+ "ai-accounts:316|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-accounts:316|signin-door": [
+  false,
+  true
+ ],
+ "ai-accounts:316|store-ask": [
+  false,
+  false
+ ],
+ "ai-accounts:316|store-assembly": [
+  true,
+  true
+ ],
+ "ai-accounts:316|store-door": [
+  true,
+  true
+ ],
+ "ai-accounts:316|translations": [
+  true,
+  true
+ ],
+ "ai-accounts:316|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-accounts:483|affordances": [
+  false,
+  true
+ ],
+ "ai-accounts:483|agent-model": [
+  false,
+  false
+ ],
+ "ai-accounts:483|agent-worker": [
+  false,
+  true
+ ],
+ "ai-accounts:483|ai-accounts-lists": [
+  false,
+  false
+ ],
+ "ai-accounts:483|ai-runs": [
+  true,
+  true
+ ],
+ "ai-accounts:483|ai-use": [
+  true,
+  true
+ ],
+ "ai-accounts:483|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-accounts:483|answers": [
+  true,
+  true
+ ],
+ "ai-accounts:483|control-plane": [
+  false,
+  true
+ ],
+ "ai-accounts:483|credentials": [
+  true,
+  true
+ ],
+ "ai-accounts:483|extraction": [
+  false,
+  true
+ ],
+ "ai-accounts:483|instance-setup": [
+  true,
+  true
+ ],
+ "ai-accounts:483|notice-producers": [
+  false,
+  true
+ ],
+ "ai-accounts:483|op-declarations": [
+  false,
+  true
+ ],
+ "ai-accounts:483|op-grades": [
+  false,
+  false
+ ],
+ "ai-accounts:483|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-accounts:483|plane": [
+  false,
+  true
+ ],
+ "ai-accounts:483|question-explorer": [
+  true,
+  true
+ ],
+ "ai-accounts:483|queue-producers": [
+  true,
+  true
+ ],
+ "ai-accounts:483|reader-contract": [
+  false,
+  false
+ ],
+ "ai-accounts:483|reading-pipeline": [
+  false,
+  true
+ ],
+ "ai-accounts:483|run-productions": [
+  true,
+  true
+ ],
+ "ai-accounts:483|screens-document": [
+  false,
+  false
+ ],
+ "ai-accounts:483|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-accounts:483|signin-door": [
+  false,
+  true
+ ],
+ "ai-accounts:483|store-ask": [
+  false,
+  false
+ ],
+ "ai-accounts:483|store-assembly": [
+  true,
+  true
+ ],
+ "ai-accounts:483|store-door": [
+  true,
+  true
+ ],
+ "ai-accounts:483|translations": [
+  true,
+  true
+ ],
+ "ai-accounts:483|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|agent-model": [
+  false,
+  true
+ ],
+ "ai-catalogue:1097|agent-runner": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|agent-worker": [
+  false,
+  true
+ ],
+ "ai-catalogue:1097|ai-gate": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:1097|ai-runs": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:1097|store-assembly": [
+  true,
+  true
+ ],
+ "ai-catalogue:1097|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:194|agent-model": [
+  false,
+  false
+ ],
+ "ai-catalogue:194|ai-accounts": [
+  true,
+  true
+ ],
+ "ai-catalogue:194|ai-gate": [
+  false,
+  false
+ ],
+ "ai-catalogue:194|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:194|ai-runs": [
+  true,
+  false
+ ],
+ "ai-catalogue:194|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:194|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:194|store-assembly": [
+  false,
+  false
+ ],
+ "ai-catalogue:194|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:204|agent-model": [
+  false,
+  false
+ ],
+ "ai-catalogue:204|ai-accounts": [
+  true,
+  true
+ ],
+ "ai-catalogue:204|ai-gate": [
+  false,
+  false
+ ],
+ "ai-catalogue:204|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:204|ai-runs": [
+  true,
+  false
+ ],
+ "ai-catalogue:204|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:204|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:204|store-assembly": [
+  false,
+  false
+ ],
+ "ai-catalogue:204|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:317|agent-model": [
+  false,
+  false
+ ],
+ "ai-catalogue:317|agent-worker": [
+  false,
+  true
+ ],
+ "ai-catalogue:317|ai-accounts": [
+  true,
+  true
+ ],
+ "ai-catalogue:317|ai-gate": [
+  false,
+  false
+ ],
+ "ai-catalogue:317|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:317|ai-runs": [
+  true,
+  true
+ ],
+ "ai-catalogue:317|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:317|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-catalogue:317|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:317|store-assembly": [
+  true,
+  true
+ ],
+ "ai-catalogue:317|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:336|agent-model": [
+  false,
+  false
+ ],
+ "ai-catalogue:336|agent-worker": [
+  false,
+  true
+ ],
+ "ai-catalogue:336|ai-accounts": [
+  true,
+  true
+ ],
+ "ai-catalogue:336|ai-gate": [
+  false,
+  false
+ ],
+ "ai-catalogue:336|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:336|ai-runs": [
+  true,
+  true
+ ],
+ "ai-catalogue:336|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:336|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-catalogue:336|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:336|store-assembly": [
+  true,
+  true
+ ],
+ "ai-catalogue:336|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:484|agent-model": [
+  false,
+  true
+ ],
+ "ai-catalogue:484|agent-runner": [
+  false,
+  false
+ ],
+ "ai-catalogue:484|agent-worker": [
+  false,
+  true
+ ],
+ "ai-catalogue:484|ai-accounts": [
+  true,
+  true
+ ],
+ "ai-catalogue:484|ai-gate": [
+  true,
+  true
+ ],
+ "ai-catalogue:484|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:484|ai-runs": [
+  true,
+  true
+ ],
+ "ai-catalogue:484|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:484|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-catalogue:484|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:484|store-assembly": [
+  true,
+  true
+ ],
+ "ai-catalogue:484|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:611|agent-model": [
+  false,
+  true
+ ],
+ "ai-catalogue:611|agent-runner": [
+  false,
+  false
+ ],
+ "ai-catalogue:611|agent-worker": [
+  false,
+  true
+ ],
+ "ai-catalogue:611|ai-accounts": [
+  true,
+  true
+ ],
+ "ai-catalogue:611|ai-gate": [
+  true,
+  true
+ ],
+ "ai-catalogue:611|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-catalogue:611|ai-runs": [
+  true,
+  true
+ ],
+ "ai-catalogue:611|ai-use": [
+  true,
+  true
+ ],
+ "ai-catalogue:611|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-catalogue:611|op-declarations": [
+  false,
+  false
+ ],
+ "ai-catalogue:611|store-assembly": [
+  true,
+  true
+ ],
+ "ai-catalogue:611|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-gate:372|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-gate:372|op-declarations": [
+  false,
+  false
+ ],
+ "ai-gate:372|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-gate:393|agent-runner": [
+  false,
+  false
+ ],
+ "ai-gate:393|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-gate:393|op-declarations": [
+  false,
+  false
+ ],
+ "ai-gate:393|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-gate:411|agent-runner": [
+  false,
+  false
+ ],
+ "ai-gate:411|ai-issuer": [
+  false,
+  false
+ ],
+ "ai-gate:411|op-declarations": [
+  false,
+  false
+ ],
+ "ai-gate:411|op-grades": [
+  false,
+  false
+ ],
+ "ai-gate:411|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:1004|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:1004|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:1004|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:1004|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:1004|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:1004|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:1004|intent": [
+  true,
+  true
+ ],
+ "ai-runs:1004|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:1004|op-grades": [
+  false,
+  false
+ ],
+ "ai-runs:1004|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:1004|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:1004|plane": [
+  true,
+  true
+ ],
+ "ai-runs:1004|queue-producers": [
+  true,
+  true
+ ],
+ "ai-runs:1004|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:1004|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:1004|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:1004|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:1004|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:1004|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:1004|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:1004|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:1004|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:1004|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-runs:1073|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:1073|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:1073|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:1073|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:1073|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:1073|intent": [
+  true,
+  true
+ ],
+ "ai-runs:1073|op-grades": [
+  false,
+  false
+ ],
+ "ai-runs:1073|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:1073|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:1073|queue-producers": [
+  true,
+  true
+ ],
+ "ai-runs:1073|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:1073|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:1073|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:1073|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:1073|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:1073|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:1073|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:1073|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-runs:213|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:213|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:213|agent-steps": [
+  false,
+  true
+ ],
+ "ai-runs:213|agent-worker": [
+  false,
+  true
+ ],
+ "ai-runs:213|ai-gate": [
+  false,
+  false
+ ],
+ "ai-runs:213|capture-requests": [
+  false,
+  false
+ ],
+ "ai-runs:213|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:213|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:213|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:213|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:213|intent": [
+  true,
+  true
+ ],
+ "ai-runs:213|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:213|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:213|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:213|plane": [
+  true,
+  true
+ ],
+ "ai-runs:213|question-explorer": [
+  true,
+  true
+ ],
+ "ai-runs:213|queue-producers": [
+  true,
+  false
+ ],
+ "ai-runs:213|run-productions": [
+  true,
+  true
+ ],
+ "ai-runs:213|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:213|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:213|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:213|skills": [
+  false,
+  false
+ ],
+ "ai-runs:213|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:213|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:213|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:213|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:213|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:213|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:213|wizard-scripts": [
+  true,
+  false
+ ],
+ "ai-runs:323|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:323|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:323|agent-steps": [
+  false,
+  true
+ ],
+ "ai-runs:323|agent-worker": [
+  false,
+  true
+ ],
+ "ai-runs:323|ai-gate": [
+  false,
+  false
+ ],
+ "ai-runs:323|capture-requests": [
+  false,
+  true
+ ],
+ "ai-runs:323|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:323|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:323|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:323|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:323|intent": [
+  true,
+  true
+ ],
+ "ai-runs:323|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:323|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:323|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:323|plane": [
+  true,
+  true
+ ],
+ "ai-runs:323|question-explorer": [
+  true,
+  true
+ ],
+ "ai-runs:323|queue-producers": [
+  true,
+  true
+ ],
+ "ai-runs:323|run-productions": [
+  true,
+  true
+ ],
+ "ai-runs:323|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:323|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:323|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:323|skills": [
+  false,
+  false
+ ],
+ "ai-runs:323|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:323|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:323|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:323|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:323|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:323|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:323|wizard-scripts": [
+  true,
+  false
+ ],
+ "ai-runs:348|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:348|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:348|agent-steps": [
+  false,
+  true
+ ],
+ "ai-runs:348|agent-worker": [
+  false,
+  true
+ ],
+ "ai-runs:348|ai-gate": [
+  false,
+  false
+ ],
+ "ai-runs:348|capture-requests": [
+  true,
+  true
+ ],
+ "ai-runs:348|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:348|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:348|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:348|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:348|intent": [
+  true,
+  true
+ ],
+ "ai-runs:348|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:348|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:348|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:348|plane": [
+  true,
+  true
+ ],
+ "ai-runs:348|question-explorer": [
+  true,
+  true
+ ],
+ "ai-runs:348|queue-producers": [
+  true,
+  true
+ ],
+ "ai-runs:348|run-productions": [
+  true,
+  true
+ ],
+ "ai-runs:348|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:348|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:348|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:348|skills": [
+  false,
+  false
+ ],
+ "ai-runs:348|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:348|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:348|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:348|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:348|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:348|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:348|wizard-scripts": [
+  true,
+  false
+ ],
+ "ai-runs:391|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:391|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:391|agent-steps": [
+  false,
+  true
+ ],
+ "ai-runs:391|agent-worker": [
+  false,
+  true
+ ],
+ "ai-runs:391|ai-gate": [
+  false,
+  false
+ ],
+ "ai-runs:391|capture-requests": [
+  true,
+  true
+ ],
+ "ai-runs:391|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:391|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:391|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:391|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:391|intent": [
+  true,
+  true
+ ],
+ "ai-runs:391|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:391|op-grades": [
+  false,
+  false
+ ],
+ "ai-runs:391|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:391|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:391|plane": [
+  true,
+  true
+ ],
+ "ai-runs:391|question-explorer": [
+  true,
+  true
+ ],
+ "ai-runs:391|queue-producers": [
+  true,
+  true
+ ],
+ "ai-runs:391|run-productions": [
+  true,
+  true
+ ],
+ "ai-runs:391|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:391|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:391|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:391|skills": [
+  false,
+  false
+ ],
+ "ai-runs:391|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:391|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:391|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:391|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:391|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:391|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:391|wizard-scripts": [
+  true,
+  false
+ ],
+ "ai-runs:485|action-plans": [
+  true,
+  true
+ ],
+ "ai-runs:485|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:485|agent-steps": [
+  false,
+  true
+ ],
+ "ai-runs:485|agent-worker": [
+  false,
+  true
+ ],
+ "ai-runs:485|ai-gate": [
+  false,
+  false
+ ],
+ "ai-runs:485|capture-requests": [
+  true,
+  true
+ ],
+ "ai-runs:485|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:485|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:485|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:485|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:485|intent": [
+  true,
+  true
+ ],
+ "ai-runs:485|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:485|op-grades": [
+  false,
+  false
+ ],
+ "ai-runs:485|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:485|plan-work": [
+  true,
+  true
+ ],
+ "ai-runs:485|plane": [
+  true,
+  true
+ ],
+ "ai-runs:485|question-explorer": [
+  true,
+  true
+ ],
+ "ai-runs:485|queue-producers": [
+  true,
+  true
+ ],
+ "ai-runs:485|run-productions": [
+  true,
+  true
+ ],
+ "ai-runs:485|scheduler": [
+  true,
+  true
+ ],
+ "ai-runs:485|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:485|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:485|skills": [
+  false,
+  false
+ ],
+ "ai-runs:485|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:485|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:485|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:485|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:485|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:485|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:485|wizard-scripts": [
+  true,
+  true
+ ],
+ "ai-runs:96|action-plans": [
+  true,
+  false
+ ],
+ "ai-runs:96|affordances": [
+  false,
+  true
+ ],
+ "ai-runs:96|agent-steps": [
+  false,
+  true
+ ],
+ "ai-runs:96|agent-worker": [
+  false,
+  true
+ ],
+ "ai-runs:96|ai-gate": [
+  false,
+  false
+ ],
+ "ai-runs:96|capture-requests": [
+  false,
+  false
+ ],
+ "ai-runs:96|case-account": [
+  true,
+  false
+ ],
+ "ai-runs:96|control-plane": [
+  true,
+  true
+ ],
+ "ai-runs:96|instance-reports": [
+  false,
+  false
+ ],
+ "ai-runs:96|instance-setup": [
+  true,
+  false
+ ],
+ "ai-runs:96|intent": [
+  true,
+  true
+ ],
+ "ai-runs:96|op-declarations": [
+  false,
+  true
+ ],
+ "ai-runs:96|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-runs:96|plan-work": [
+  true,
+  false
+ ],
+ "ai-runs:96|plane": [
+  true,
+  true
+ ],
+ "ai-runs:96|question-explorer": [
+  true,
+  false
+ ],
+ "ai-runs:96|queue-producers": [
+  true,
+  false
+ ],
+ "ai-runs:96|run-productions": [
+  true,
+  true
+ ],
+ "ai-runs:96|scheduler": [
+  true,
+  false
+ ],
+ "ai-runs:96|screens-document": [
+  false,
+  false
+ ],
+ "ai-runs:96|screens-inquiry": [
+  false,
+  true
+ ],
+ "ai-runs:96|skills": [
+  false,
+  false
+ ],
+ "ai-runs:96|store-ask": [
+  false,
+  false
+ ],
+ "ai-runs:96|store-assembly": [
+  true,
+  true
+ ],
+ "ai-runs:96|store-door": [
+  false,
+  true
+ ],
+ "ai-runs:96|store-jobs": [
+  false,
+  false
+ ],
+ "ai-runs:96|store-request": [
+  false,
+  true
+ ],
+ "ai-runs:96|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-runs:96|wizard-scripts": [
+  true,
+  false
+ ],
+ "ai-use:105|agent-worker": [
+  false,
+  true
+ ],
+ "ai-use:105|ai-gate": [
+  false,
+  false
+ ],
+ "ai-use:105|ai-runs": [
+  true,
+  true
+ ],
+ "ai-use:105|answer-envelope": [
+  true,
+  false
+ ],
+ "ai-use:105|answers": [
+  true,
+  true
+ ],
+ "ai-use:105|control-plane": [
+  false,
+  true
+ ],
+ "ai-use:105|instance-setup": [
+  false,
+  false
+ ],
+ "ai-use:105|instance-updates": [
+  false,
+  false
+ ],
+ "ai-use:105|notice-producers": [
+  true,
+  true
+ ],
+ "ai-use:105|op-declarations": [
+  false,
+  true
+ ],
+ "ai-use:105|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-use:105|plane": [
+  false,
+  true
+ ],
+ "ai-use:105|question-explorer": [
+  true,
+  true
+ ],
+ "ai-use:105|queue-producers": [
+  false,
+  false
+ ],
+ "ai-use:105|store-ask": [
+  false,
+  false
+ ],
+ "ai-use:105|store-assembly": [
+  true,
+  true
+ ],
+ "ai-use:105|store-door": [
+  true,
+  true
+ ],
+ "ai-use:105|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-use:378|agent-worker": [
+  false,
+  true
+ ],
+ "ai-use:378|ai-gate": [
+  false,
+  false
+ ],
+ "ai-use:378|ai-runs": [
+  true,
+  true
+ ],
+ "ai-use:378|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-use:378|answers": [
+  true,
+  true
+ ],
+ "ai-use:378|control-plane": [
+  false,
+  true
+ ],
+ "ai-use:378|instance-setup": [
+  false,
+  false
+ ],
+ "ai-use:378|instance-updates": [
+  false,
+  false
+ ],
+ "ai-use:378|notice-producers": [
+  true,
+  true
+ ],
+ "ai-use:378|op-declarations": [
+  false,
+  true
+ ],
+ "ai-use:378|op-grades": [
+  false,
+  false
+ ],
+ "ai-use:378|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-use:378|plane": [
+  false,
+  true
+ ],
+ "ai-use:378|question-explorer": [
+  true,
+  true
+ ],
+ "ai-use:378|queue-producers": [
+  true,
+  true
+ ],
+ "ai-use:378|store-ask": [
+  false,
+  false
+ ],
+ "ai-use:378|store-assembly": [
+  true,
+  true
+ ],
+ "ai-use:378|store-door": [
+  true,
+  true
+ ],
+ "ai-use:378|surface-declarations": [
+  false,
+  false
+ ],
+ "ai-use:613|agent-worker": [
+  false,
+  true
+ ],
+ "ai-use:613|ai-gate": [
+  false,
+  false
+ ],
+ "ai-use:613|ai-runs": [
+  true,
+  true
+ ],
+ "ai-use:613|answer-envelope": [
+  true,
+  true
+ ],
+ "ai-use:613|answers": [
+  true,
+  true
+ ],
+ "ai-use:613|control-plane": [
+  false,
+  true
+ ],
+ "ai-use:613|instance-setup": [
+  false,
+  false
+ ],
+ "ai-use:613|instance-updates": [
+  false,
+  false
+ ],
+ "ai-use:613|notice-producers": [
+  true,
+  true
+ ],
+ "ai-use:613|op-declarations": [
+  false,
+  true
+ ],
+ "ai-use:613|op-grades": [
+  false,
+  false
+ ],
+ "ai-use:613|op-specs-late": [
+  false,
+  false
+ ],
+ "ai-use:613|plane": [
+  false,
+  true
+ ],
+ "ai-use:613|question-explorer": [
+  true,
+  true
+ ],
+ "ai-use:613|queue-producers": [
+  true,
+  true
+ ],
+ "ai-use:613|store-ask": [
+  false,
+  false
+ ],
+ "ai-use:613|store-assembly": [
+  true,
+  true
+ ],
+ "ai-use:613|store-door": [
+  true,
+  true
+ ],
+ "ai-use:613|surface-declarations": [
+  false,
+  false
+ ],
+ "answer-envelope:212|control-plane": [
+  true,
+  true
+ ],
+ "answer-envelope:212|plane": [
+  true,
+  true
+ ],
+ "answer-envelope:212|screens-action": [
+  false,
+  true
+ ],
+ "answer-envelope:212|screens-publish": [
+  false,
+  true
+ ],
+ "answer-envelope:212|signin-door": [
+  true,
+  true
+ ],
+ "answer-envelope:212|store-assembly": [
+  false,
+  true
+ ],
+ "answer-envelope:212|store-door": [
+  true,
+  true
+ ],
+ "answer-envelope:212|store-request": [
+  true,
+  true
+ ],
+ "answers:103|affordances": [
+  true,
+  true
+ ],
+ "answers:103|agent-drafts": [
+  false,
+  false
+ ],
+ "answers:103|agent-worker": [
+  true,
+  true
+ ],
+ "answers:103|ai-gate": [
+  false,
+  false
+ ],
+ "answers:103|answer-envelope": [
+  true,
+  false
+ ],
+ "answers:103|case-checker": [
+  true,
+  false
+ ],
+ "answers:103|control-plane": [
+  false,
+  true
+ ],
+ "answers:103|following": [
+  true,
+  true
+ ],
+ "answers:103|notice-producers": [
+  true,
+  true
+ ],
+ "answers:103|op-declarations": [
+  false,
+  true
+ ],
+ "answers:103|op-specs-late": [
+  false,
+  false
+ ],
+ "answers:103|plane": [
+  false,
+  true
+ ],
+ "answers:103|queue": [
+  false,
+  true
+ ],
+ "answers:103|scheduler": [
+  true,
+  true
+ ],
+ "answers:103|screens-daily": [
+  false,
+  false
+ ],
+ "answers:103|store-ask": [
+  false,
+  false
+ ],
+ "answers:103|store-assembly": [
+  true,
+  true
+ ],
+ "answers:103|store-door": [
+  true,
+  true
+ ],
+ "answers:103|wizard-scripts": [
+  false,
+  true
+ ],
+ "answers:197|affordances": [
+  true,
+  true
+ ],
+ "answers:197|agent-drafts": [
+  false,
+  false
+ ],
+ "answers:197|agent-worker": [
+  true,
+  true
+ ],
+ "answers:197|ai-gate": [
+  false,
+  false
+ ],
+ "answers:197|answer-envelope": [
+  true,
+  false
+ ],
+ "answers:197|case-checker": [
+  true,
+  false
+ ],
+ "answers:197|control-plane": [
+  false,
+  true
+ ],
+ "answers:197|following": [
+  true,
+  true
+ ],
+ "answers:197|notice-producers": [
+  true,
+  true
+ ],
+ "answers:197|op-declarations": [
+  false,
+  true
+ ],
+ "answers:197|op-specs-late": [
+  false,
+  false
+ ],
+ "answers:197|plane": [
+  false,
+  true
+ ],
+ "answers:197|queue": [
+  false,
+  true
+ ],
+ "answers:197|scheduler": [
+  true,
+  true
+ ],
+ "answers:197|screens-daily": [
+  false,
+  false
+ ],
+ "answers:197|store-ask": [
+  false,
+  false
+ ],
+ "answers:197|store-assembly": [
+  true,
+  true
+ ],
+ "answers:197|store-door": [
+  true,
+  true
+ ],
+ "answers:197|wizard-scripts": [
+  false,
+  true
+ ],
+ "basis-versions:177|action-plans": [
+  true,
+  true
+ ],
+ "basis-versions:177|affordances": [
+  true,
+  true
+ ],
+ "basis-versions:177|agent-steps": [
+  false,
+  true
+ ],
+ "basis-versions:177|agent-worker": [
+  false,
+  true
+ ],
+ "basis-versions:177|answer-envelope": [
+  true,
+  false
+ ],
+ "basis-versions:177|case-account": [
+  true,
+  true
+ ],
+ "basis-versions:177|case-authoring": [
+  true,
+  true
+ ],
+ "basis-versions:177|case-disclosures": [
+  false,
+  false
+ ],
+ "basis-versions:177|case-import": [
+  true,
+  false
+ ],
+ "basis-versions:177|case-tensions": [
+  true,
+  false
+ ],
+ "basis-versions:177|conformance": [
+  false,
+  true
+ ],
+ "basis-versions:177|consequences": [
+  true,
+  true
+ ],
+ "basis-versions:177|contradiction": [
+  true,
+  true
+ ],
+ "basis-versions:177|control-plane": [
+  false,
+  true
+ ],
+ "basis-versions:177|investigation": [
+  true,
+  false
+ ],
+ "basis-versions:177|op-declarations": [
+  false,
+  true
+ ],
+ "basis-versions:177|plane": [
+  false,
+  true
+ ],
+ "basis-versions:177|project-stage": [
+  true,
+  false
+ ],
+ "basis-versions:177|publication": [
+  true,
+  true
+ ],
+ "basis-versions:177|question-explorer": [
+  true,
+  false
+ ],
+ "basis-versions:177|queue-producers": [
+  true,
+  false
+ ],
+ "basis-versions:177|ratification": [
+  true,
+  false
+ ],
+ "basis-versions:177|reevaluation": [
+  true,
+  true
+ ],
+ "basis-versions:177|review": [
+  true,
+  true
+ ],
+ "basis-versions:177|run-productions": [
+  true,
+  true
+ ],
+ "basis-versions:177|screens-publish": [
+  false,
+  false
+ ],
+ "basis-versions:177|skills": [
+  true,
+  true
+ ],
+ "basis-versions:177|store-assembly": [
+  true,
+  true
+ ],
+ "basis-versions:177|store-door": [
+  false,
+  true
+ ],
+ "basis-versions:177|store-jobs": [
+  false,
+  false
+ ],
+ "basis-versions:177|strength": [
+  true,
+  true
+ ],
+ "basis-versions:177|surface-declarations": [
+  false,
+  false
+ ],
+ "basis-versions:356|action-plans": [
+  true,
+  true
+ ],
+ "basis-versions:356|affordances": [
+  true,
+  true
+ ],
+ "basis-versions:356|agent-steps": [
+  false,
+  true
+ ],
+ "basis-versions:356|agent-worker": [
+  false,
+  true
+ ],
+ "basis-versions:356|answer-envelope": [
+  true,
+  false
+ ],
+ "basis-versions:356|case-account": [
+  true,
+  true
+ ],
+ "basis-versions:356|case-authoring": [
+  true,
+  true
+ ],
+ "basis-versions:356|case-disclosures": [
+  false,
+  false
+ ],
+ "basis-versions:356|case-import": [
+  true,
+  false
+ ],
+ "basis-versions:356|case-tensions": [
+  true,
+  false
+ ],
+ "basis-versions:356|conformance": [
+  false,
+  true
+ ],
+ "basis-versions:356|consequences": [
+  true,
+  true
+ ],
+ "basis-versions:356|contradiction": [
+  true,
+  true
+ ],
+ "basis-versions:356|control-plane": [
+  false,
+  true
+ ],
+ "basis-versions:356|investigation": [
+  true,
+  false
+ ],
+ "basis-versions:356|op-declarations": [
+  false,
+  true
+ ],
+ "basis-versions:356|plane": [
+  false,
+  true
+ ],
+ "basis-versions:356|project-stage": [
+  true,
+  false
+ ],
+ "basis-versions:356|publication": [
+  true,
+  true
+ ],
+ "basis-versions:356|question-explorer": [
+  true,
+  true
+ ],
+ "basis-versions:356|queue-producers": [
+  true,
+  false
+ ],
+ "basis-versions:356|ratification": [
+  true,
+  false
+ ],
+ "basis-versions:356|reevaluation": [
+  true,
+  true
+ ],
+ "basis-versions:356|review": [
+  true,
+  true
+ ],
+ "basis-versions:356|run-productions": [
+  true,
+  true
+ ],
+ "basis-versions:356|screens-publish": [
+  false,
+  false
+ ],
+ "basis-versions:356|skills": [
+  true,
+  true
+ ],
+ "basis-versions:356|store-assembly": [
+  true,
+  true
+ ],
+ "basis-versions:356|store-door": [
+  false,
+  true
+ ],
+ "basis-versions:356|store-jobs": [
+  false,
+  false
+ ],
+ "basis-versions:356|strength": [
+  true,
+  true
+ ],
+ "basis-versions:356|surface-declarations": [
+  false,
+  false
+ ],
+ "bundler:1086|agent-runner": [
+  true,
+  true
+ ],
+ "bundler:1086|agent-worker": [
+  true,
+  true
+ ],
+ "bundler:1086|case-checker": [
+  true,
+  true
+ ],
+ "bundler:1086|installer": [
+  true,
+  true
+ ],
+ "bundler:1086|plane": [
+  false,
+  true
+ ],
+ "bundler:140|agent-runner": [
+  true,
+  true
+ ],
+ "bundler:140|agent-worker": [
+  true,
+  true
+ ],
+ "bundler:140|case-checker": [
+  true,
+  true
+ ],
+ "bundler:140|file-scanner": [
+  true,
+  true
+ ],
+ "bundler:140|installer": [
+  true,
+  true
+ ],
+ "bundler:140|ocr-worker": [
+  true,
+  true
+ ],
+ "bundler:140|pdf-worker": [
+  true,
+  true
+ ],
+ "bundler:140|plane": [
+  false,
+  true
+ ],
+ "bundler:140|reader-container": [
+  true,
+  true
+ ],
+ "bundler:140|sheet-worker": [
+  true,
+  true
+ ],
+ "bundler:57|agent-runner": [
+  true,
+  true
+ ],
+ "bundler:57|agent-worker": [
+  true,
+  true
+ ],
+ "bundler:57|case-checker": [
+  true,
+  true
+ ],
+ "bundler:57|file-scanner": [
+  true,
+  true
+ ],
+ "bundler:57|installer": [
+  true,
+  true
+ ],
+ "bundler:57|ocr-worker": [
+  true,
+  true
+ ],
+ "bundler:57|pdf-worker": [
+  true,
+  true
+ ],
+ "bundler:57|plane": [
+  false,
+  true
+ ],
+ "bundler:57|reader-container": [
+  true,
+  true
+ ],
+ "bundler:57|sheet-worker": [
+  true,
+  true
+ ],
+ "bundler:82|agent-runner": [
+  true,
+  true
+ ],
+ "bundler:82|agent-worker": [
+  true,
+  true
+ ],
+ "bundler:82|case-checker": [
+  true,
+  true
+ ],
+ "bundler:82|file-scanner": [
+  true,
+  true
+ ],
+ "bundler:82|installer": [
+  true,
+  true
+ ],
+ "bundler:82|ocr-worker": [
+  true,
+  true
+ ],
+ "bundler:82|pdf-worker": [
+  true,
+  true
+ ],
+ "bundler:82|plane": [
+  false,
+  true
+ ],
+ "bundler:82|reader-container": [
+  true,
+  true
+ ],
+ "bundler:82|sheet-worker": [
+  true,
+  true
+ ],
+ "bundler:88|agent-runner": [
+  true,
+  true
+ ],
+ "bundler:88|agent-worker": [
+  true,
+  true
+ ],
+ "bundler:88|case-checker": [
+  true,
+  true
+ ],
+ "bundler:88|file-scanner": [
+  true,
+  true
+ ],
+ "bundler:88|installer": [
+  true,
+  true
+ ],
+ "bundler:88|ocr-worker": [
+  true,
+  true
+ ],
+ "bundler:88|pdf-worker": [
+  true,
+  true
+ ],
+ "bundler:88|plane": [
+  false,
+  true
+ ],
+ "bundler:88|reader-container": [
+  true,
+  true
+ ],
+ "bundler:88|sheet-worker": [
+  true,
+  true
+ ],
+ "calculations:70|affordances": [
+  false,
+  true
+ ],
+ "calculations:70|answers": [
+  false,
+  true
+ ],
+ "calculations:70|case-authoring": [
+  true,
+  false
+ ],
+ "calculations:70|conformance": [
+  true,
+  false
+ ],
+ "calculations:70|consequences": [
+  true,
+  true
+ ],
+ "calculations:70|hypotheses": [
+  true,
+  false
+ ],
+ "calculations:70|inquiry": [
+  true,
+  false
+ ],
+ "calculations:70|notice-producers": [
+  true,
+  true
+ ],
+ "calculations:70|op-declarations": [
+  false,
+  true
+ ],
+ "calculations:70|plane": [
+  false,
+  true
+ ],
+ "calculations:70|reevaluation": [
+  true,
+  true
+ ],
+ "calculations:70|scheduler": [
+  true,
+  true
+ ],
+ "calculations:70|store-assembly": [
+  true,
+  true
+ ],
+ "calculations:70|strength": [
+  true,
+  true
+ ],
+ "calculations:70|workbooks": [
+  false,
+  true
+ ],
+ "capture-requests:182|agent-steps": [
+  false,
+  true
+ ],
+ "capture-requests:182|agent-worker": [
+  false,
+  true
+ ],
+ "capture-requests:182|answer-envelope": [
+  true,
+  false
+ ],
+ "capture-requests:182|control-plane": [
+  false,
+  true
+ ],
+ "capture-requests:182|intent": [
+  true,
+  false
+ ],
+ "capture-requests:182|investigation": [
+  true,
+  false
+ ],
+ "capture-requests:182|link-sweep": [
+  true,
+  true
+ ],
+ "capture-requests:182|machinery-producers": [
+  true,
+  false
+ ],
+ "capture-requests:182|op-declarations": [
+  false,
+  true
+ ],
+ "capture-requests:182|op-specs-late": [
+  false,
+  false
+ ],
+ "capture-requests:182|plane": [
+  false,
+  true
+ ],
+ "capture-requests:182|question-explorer": [
+  true,
+  true
+ ],
+ "capture-requests:182|queue-producers": [
+  true,
+  false
+ ],
+ "capture-requests:182|scheduler": [
+  true,
+  true
+ ],
+ "capture-requests:182|store-assembly": [
+  true,
+  true
+ ],
+ "capture-requests:182|store-door": [
+  false,
+  true
+ ],
+ "capture-requests:359|agent-steps": [
+  false,
+  true
+ ],
+ "capture-requests:359|agent-worker": [
+  false,
+  true
+ ],
+ "capture-requests:359|answer-envelope": [
+  true,
+  false
+ ],
+ "capture-requests:359|control-plane": [
+  false,
+  true
+ ],
+ "capture-requests:359|intent": [
+  true,
+  false
+ ],
+ "capture-requests:359|investigation": [
+  true,
+  false
+ ],
+ "capture-requests:359|link-sweep": [
+  true,
+  true
+ ],
+ "capture-requests:359|machinery-producers": [
+  true,
+  true
+ ],
+ "capture-requests:359|op-declarations": [
+  false,
+  true
+ ],
+ "capture-requests:359|op-specs-late": [
+  false,
+  false
+ ],
+ "capture-requests:359|plane": [
+  false,
+  true
+ ],
+ "capture-requests:359|question-explorer": [
+  true,
+  true
+ ],
+ "capture-requests:359|queue-producers": [
+  true,
+  true
+ ],
+ "capture-requests:359|scheduler": [
+  true,
+  true
+ ],
+ "capture-requests:359|store-assembly": [
+  true,
+  true
+ ],
+ "capture-requests:359|store-door": [
+  false,
+  true
+ ],
+ "capture:468|affordances": [
+  false,
+  true
+ ],
+ "capture:468|answer-envelope": [
+  true,
+  false
+ ],
+ "capture:468|capture-requests": [
+  true,
+  true
+ ],
+ "capture:468|case-authoring": [
+  true,
+  true
+ ],
+ "capture:468|case-carriage": [
+  false,
+  true
+ ],
+ "capture:468|case-disclosures": [
+  true,
+  true
+ ],
+ "capture:468|case-tensions": [
+  true,
+  false
+ ],
+ "capture:468|connections": [
+  true,
+  true
+ ],
+ "capture:468|control-plane": [
+  true,
+  true
+ ],
+ "capture:468|doorbell": [
+  true,
+  true
+ ],
+ "capture:468|extraction": [
+  true,
+  true
+ ],
+ "capture:468|file-safety": [
+  true,
+  false
+ ],
+ "capture:468|following": [
+  true,
+  false
+ ],
+ "capture:468|held-captures": [
+  false,
+  false
+ ],
+ "capture:468|inquiry": [
+  true,
+  true
+ ],
+ "capture:468|instance-reports": [
+  false,
+  false
+ ],
+ "capture:468|instance-setup": [
+  true,
+  false
+ ],
+ "capture:468|link-sweep": [
+  true,
+  true
+ ],
+ "capture:468|machinery-producers": [
+  true,
+  true
+ ],
+ "capture:468|mail-door": [
+  true,
+  true
+ ],
+ "capture:468|member-upload": [
+  false,
+  false
+ ],
+ "capture:468|monitoring": [
+  true,
+  true
+ ],
+ "capture:468|network-notices": [
+  false,
+  false
+ ],
+ "capture:468|notice-producers": [
+  true,
+  true
+ ],
+ "capture:468|observation-log": [
+  false,
+  true
+ ],
+ "capture:468|op-declarations": [
+  false,
+  true
+ ],
+ "capture:468|op-specs-late": [
+  false,
+  false
+ ],
+ "capture:468|plane": [
+  true,
+  true
+ ],
+ "capture:468|ratification": [
+  true,
+  true
+ ],
+ "capture:468|registers": [
+  false,
+  false
+ ],
+ "capture:468|retrieval": [
+  false,
+  true
+ ],
+ "capture:468|retrieval-browse": [
+  false,
+  true
+ ],
+ "capture:468|scheduler": [
+  true,
+  false
+ ],
+ "capture:468|screens-intake": [
+  false,
+  true
+ ],
+ "capture:468|screens-publish": [
+  false,
+  true
+ ],
+ "capture:468|sources": [
+  false,
+  true
+ ],
+ "capture:468|standards": [
+  true,
+  false
+ ],
+ "capture:468|store-ask": [
+  false,
+  false
+ ],
+ "capture:468|store-assembly": [
+  true,
+  true
+ ],
+ "capture:468|store-door": [
+  false,
+  true
+ ],
+ "capture:468|store-jobs": [
+  false,
+  false
+ ],
+ "capture:468|store-request": [
+  false,
+  true
+ ],
+ "capture:468|surface-declarations": [
+  false,
+  false
+ ],
+ "capture:468|tasks": [
+  true,
+  true
+ ],
+ "case-authoring:228|action-replies": [
+  false,
+  true
+ ],
+ "case-authoring:228|affordances": [
+  true,
+  true
+ ],
+ "case-authoring:228|answer-envelope": [
+  true,
+  true
+ ],
+ "case-authoring:228|case-check": [
+  true,
+  true
+ ],
+ "case-authoring:228|control-plane": [
+  false,
+  false
+ ],
+ "case-authoring:228|op-declarations": [
+  false,
+  false
+ ],
+ "case-authoring:228|op-specs-late": [
+  false,
+  false
+ ],
+ "case-authoring:228|plane": [
+  false,
+  true
+ ],
+ "case-authoring:228|review": [
+  true,
+  true
+ ],
+ "case-authoring:228|screens-publish": [
+  false,
+  true
+ ],
+ "case-authoring:228|store-assembly": [
+  true,
+  true
+ ],
+ "case-authoring:315|action-replies": [
+  false,
+  true
+ ],
+ "case-authoring:315|affordances": [
+  true,
+  true
+ ],
+ "case-authoring:315|answer-envelope": [
+  true,
+  true
+ ],
+ "case-authoring:315|case-check": [
+  true,
+  true
+ ],
+ "case-authoring:315|control-plane": [
+  false,
+  false
+ ],
+ "case-authoring:315|op-declarations": [
+  false,
+  false
+ ],
+ "case-authoring:315|op-specs-late": [
+  false,
+  false
+ ],
+ "case-authoring:315|plane": [
+  false,
+  true
+ ],
+ "case-authoring:315|review": [
+  true,
+  true
+ ],
+ "case-authoring:315|screens-publish": [
+  false,
+  true
+ ],
+ "case-authoring:315|store-assembly": [
+  true,
+  true
+ ],
+ "case-authoring:456|action-replies": [
+  false,
+  true
+ ],
+ "case-authoring:456|affordances": [
+  true,
+  true
+ ],
+ "case-authoring:456|answer-envelope": [
+  true,
+  true
+ ],
+ "case-authoring:456|case-check": [
+  true,
+  true
+ ],
+ "case-authoring:456|control-plane": [
+  false,
+  false
+ ],
+ "case-authoring:456|op-declarations": [
+  false,
+  false
+ ],
+ "case-authoring:456|op-specs-late": [
+  false,
+  false
+ ],
+ "case-authoring:456|plane": [
+  false,
+  true
+ ],
+ "case-authoring:456|review": [
+  true,
+  true
+ ],
+ "case-authoring:456|screens-publish": [
+  false,
+  true
+ ],
+ "case-authoring:456|store-assembly": [
+  true,
+  true
+ ],
+ "case-authoring:681|action-replies": [
+  false,
+  true
+ ],
+ "case-authoring:681|affordances": [
+  true,
+  true
+ ],
+ "case-authoring:681|answer-envelope": [
+  true,
+  true
+ ],
+ "case-authoring:681|case-check": [
+  true,
+  true
+ ],
+ "case-authoring:681|control-plane": [
+  false,
+  false
+ ],
+ "case-authoring:681|op-declarations": [
+  false,
+  false
+ ],
+ "case-authoring:681|op-specs-late": [
+  false,
+  false
+ ],
+ "case-authoring:681|plane": [
+  false,
+  true
+ ],
+ "case-authoring:681|review": [
+  true,
+  true
+ ],
+ "case-authoring:681|screens-publish": [
+  false,
+  true
+ ],
+ "case-authoring:681|store-assembly": [
+  true,
+  true
+ ],
+ "case-carriage:658|affordances": [
+  false,
+  true
+ ],
+ "case-carriage:658|answer-envelope": [
+  true,
+  false
+ ],
+ "case-carriage:658|control-plane": [
+  false,
+  false
+ ],
+ "case-carriage:658|op-declarations": [
+  false,
+  true
+ ],
+ "case-carriage:658|plane": [
+  false,
+  true
+ ],
+ "case-carriage:658|scheduler": [
+  true,
+  true
+ ],
+ "case-carriage:658|store-assembly": [
+  true,
+  true
+ ],
+ "case-catalogue:224|case-checker": [
+  true,
+  false
+ ],
+ "case-catalogue:224|ratification": [
+  true,
+  true
+ ],
+ "case-checker:634|filings": [
+  true,
+  false
+ ],
+ "case-checker:634|plane": [
+  false,
+  false
+ ],
+ "case-checker:634|store-assembly": [
+  true,
+  true
+ ],
+ "case-disclosures:269|answer-envelope": [
+  true,
+  false
+ ],
+ "case-disclosures:269|case-account": [
+  true,
+  true
+ ],
+ "case-disclosures:269|case-authoring": [
+  true,
+  true
+ ],
+ "case-disclosures:269|plane": [
+  false,
+  false
+ ],
+ "case-disclosures:269|screens-publish": [
+  false,
+  true
+ ],
+ "case-disclosures:269|store-assembly": [
+  true,
+  true
+ ],
+ "case-disclosures:636|answer-envelope": [
+  true,
+  false
+ ],
+ "case-disclosures:636|plane": [
+  false,
+  false
+ ],
+ "case-disclosures:636|screens-publish": [
+  false,
+  true
+ ],
+ "case-disclosures:636|store-assembly": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-account": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-authoring": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-carriage": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-catalogue": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-checker": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-disclosures": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-import": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-inputs": [
+  true,
+  true
+ ],
+ "case-grammar:202|case-tensions": [
+  true,
+  true
+ ],
+ "case-grammar:202|docket": [
+  true,
+  false
+ ],
+ "case-grammar:202|plane": [
+  false,
+  true
+ ],
+ "case-grammar:202|public-read": [
+  true,
+  true
+ ],
+ "case-grammar:202|publication": [
+  true,
+  true
+ ],
+ "case-grammar:202|ratification": [
+  true,
+  true
+ ],
+ "case-grammar:202|review": [
+  true,
+  true
+ ],
+ "case-grammar:202|screens-publish": [
+  false,
+  true
+ ],
+ "case-grammar:202|store-assembly": [
+  false,
+  true
+ ],
+ "case-import:267|affordances": [
+  false,
+  true
+ ],
+ "case-import:267|answer-envelope": [
+  true,
+  false
+ ],
+ "case-import:267|case-authoring": [
+  false,
+  true
+ ],
+ "case-import:267|case-disclosures": [
+  true,
+  true
+ ],
+ "case-import:267|conformance": [
+  true,
+  true
+ ],
+ "case-import:267|control-plane": [
+  false,
+  true
+ ],
+ "case-import:267|monitoring": [
+  true,
+  true
+ ],
+ "case-import:267|op-declarations": [
+  false,
+  true
+ ],
+ "case-import:267|plane": [
+  false,
+  true
+ ],
+ "case-import:267|queue-producers": [
+  true,
+  false
+ ],
+ "case-import:267|screens-document": [
+  false,
+  false
+ ],
+ "case-import:267|screens-inquiry": [
+  false,
+  true
+ ],
+ "case-import:267|screens-publish": [
+  false,
+  true
+ ],
+ "case-import:267|store-assembly": [
+  true,
+  true
+ ],
+ "case-import:635|affordances": [
+  false,
+  true
+ ],
+ "case-import:635|answer-envelope": [
+  true,
+  false
+ ],
+ "case-import:635|conformance": [
+  true,
+  true
+ ],
+ "case-import:635|control-plane": [
+  false,
+  true
+ ],
+ "case-import:635|monitoring": [
+  true,
+  true
+ ],
+ "case-import:635|op-declarations": [
+  false,
+  true
+ ],
+ "case-import:635|plane": [
+  false,
+  true
+ ],
+ "case-import:635|queue-producers": [
+  true,
+  false
+ ],
+ "case-import:635|screens-document": [
+  false,
+  false
+ ],
+ "case-import:635|screens-inquiry": [
+  false,
+  true
+ ],
+ "case-import:635|screens-publish": [
+  false,
+  true
+ ],
+ "case-import:635|store-assembly": [
+  true,
+  true
+ ],
+ "case-tensions:262|affordances": [
+  true,
+  true
+ ],
+ "case-tensions:262|answer-envelope": [
+  true,
+  false
+ ],
+ "case-tensions:262|case-authoring": [
+  true,
+  true
+ ],
+ "case-tensions:262|case-disclosures": [
+  false,
+  false
+ ],
+ "case-tensions:262|docket": [
+  true,
+  true
+ ],
+ "case-tensions:262|plane": [
+  false,
+  true
+ ],
+ "case-tensions:262|publication": [
+  true,
+  true
+ ],
+ "case-tensions:262|queue-producers": [
+  true,
+  false
+ ],
+ "case-tensions:262|ratification": [
+  true,
+  false
+ ],
+ "case-tensions:262|review": [
+  true,
+  true
+ ],
+ "case-tensions:262|store-assembly": [
+  true,
+  true
+ ],
+ "citation:351|affordances": [
+  true,
+  true
+ ],
+ "citation:351|answer-envelope": [
+  true,
+  true
+ ],
+ "citation:351|case-import": [
+  false,
+  true
+ ],
+ "citation:351|control-plane": [
+  false,
+  true
+ ],
+ "citation:351|op-declarations": [
+  false,
+  false
+ ],
+ "citation:351|op-specs-late": [
+  false,
+  false
+ ],
+ "citation:351|plane": [
+  false,
+  true
+ ],
+ "citation:351|run-productions": [
+  true,
+  true
+ ],
+ "citation:351|screens-document": [
+  false,
+  false
+ ],
+ "citation:351|screens-inquiry": [
+  false,
+  true
+ ],
+ "citation:351|screens-publish": [
+  false,
+  true
+ ],
+ "citation:351|store-assembly": [
+  true,
+  true
+ ],
+ "connections:71|action-grammar": [
+  true,
+  true
+ ],
+ "connections:71|actions": [
+  false,
+  true
+ ],
+ "connections:71|affordances": [
+  true,
+  true
+ ],
+ "connections:71|ai-runs": [
+  true,
+  true
+ ],
+ "connections:71|ai-use": [
+  true,
+  false
+ ],
+ "connections:71|answer-envelope": [
+  true,
+  false
+ ],
+ "connections:71|basis-version-grammar": [
+  true,
+  false
+ ],
+ "connections:71|basis-versions": [
+  false,
+  true
+ ],
+ "connections:71|case-authoring": [
+  false,
+  true
+ ],
+ "connections:71|control-plane": [
+  false,
+  true
+ ],
+ "connections:71|corpus-export": [
+  false,
+  true
+ ],
+ "connections:71|explore": [
+  false,
+  true
+ ],
+ "connections:71|inquiry": [
+  true,
+  true
+ ],
+ "connections:71|inquiry-grammar": [
+  true,
+  false
+ ],
+ "connections:71|investigation": [
+  false,
+  true
+ ],
+ "connections:71|leg-earning": [
+  true,
+  true
+ ],
+ "connections:71|observation-log": [
+  false,
+  true
+ ],
+ "connections:71|op-declarations": [
+  false,
+  true
+ ],
+ "connections:71|plane": [
+  true,
+  true
+ ],
+ "connections:71|progressions": [
+  true,
+  false
+ ],
+ "connections:71|publication": [
+  false,
+  true
+ ],
+ "connections:71|question-explorer": [
+  true,
+  false
+ ],
+ "connections:71|queue": [
+  true,
+  false
+ ],
+ "connections:71|queue-producers": [
+  true,
+  false
+ ],
+ "connections:71|ratification": [
+  true,
+  false
+ ],
+ "connections:71|reevaluation": [
+  false,
+  true
+ ],
+ "connections:71|retrieval": [
+  false,
+  false
+ ],
+ "connections:71|run-productions": [
+  true,
+  false
+ ],
+ "connections:71|scheduler": [
+  true,
+  false
+ ],
+ "connections:71|screens-document": [
+  false,
+  false
+ ],
+ "connections:71|screens-inquiry": [
+  false,
+  true
+ ],
+ "connections:71|steps": [
+  false,
+  true
+ ],
+ "connections:71|store-assembly": [
+  true,
+  true
+ ],
+ "connections:71|store-door": [
+  false,
+  true
+ ],
+ "connections:71|store-request": [
+  false,
+  true
+ ],
+ "connections:71|tasks": [
+  true,
+  true
+ ],
+ "content:440|actions": [
+  true,
+  true
+ ],
+ "content:440|affordances": [
+  true,
+  true
+ ],
+ "content:440|answer-envelope": [
+  true,
+  false
+ ],
+ "content:440|answers": [
+  false,
+  false
+ ],
+ "content:440|basis-version-grammar": [
+  true,
+  false
+ ],
+ "content:440|basis-versions": [
+  true,
+  true
+ ],
+ "content:440|calculations": [
+  true,
+  true
+ ],
+ "content:440|case-account": [
+  false,
+  true
+ ],
+ "content:440|case-authoring": [
+  true,
+  true
+ ],
+ "content:440|case-checker": [
+  true,
+  true
+ ],
+ "content:440|case-disclosures": [
+  false,
+  true
+ ],
+ "content:440|citation": [
+  true,
+  true
+ ],
+ "content:440|conformance": [
+  true,
+  true
+ ],
+ "content:440|connections": [
+  true,
+  true
+ ],
+ "content:440|consequences": [
+  true,
+  true
+ ],
+ "content:440|contradiction": [
+  true,
+  true
+ ],
+ "content:440|control-plane": [
+  false,
+  true
+ ],
+ "content:440|duties": [
+  true,
+  false
+ ],
+ "content:440|entities": [
+  true,
+  false
+ ],
+ "content:440|events": [
+  true,
+  true
+ ],
+ "content:440|filings": [
+  true,
+  false
+ ],
+ "content:440|following": [
+  false,
+  false
+ ],
+ "content:440|inquiry": [
+  true,
+  true
+ ],
+ "content:440|inquiry-grammar": [
+  true,
+  false
+ ],
+ "content:440|intent": [
+  false,
+  true
+ ],
+ "content:440|investigation": [
+  false,
+  true
+ ],
+ "content:440|law-relations": [
+  false,
+  true
+ ],
+ "content:440|leg-earning": [
+  true,
+  true
+ ],
+ "content:440|lines": [
+  true,
+  true
+ ],
+ "content:440|local-facts": [
+  true,
+  true
+ ],
+ "content:440|money": [
+  true,
+  true
+ ],
+ "content:440|money-checks": [
+  false,
+  true
+ ],
+ "content:440|observation-log": [
+  false,
+  true
+ ],
+ "content:440|people": [
+  true,
+  true
+ ],
+ "content:440|plane": [
+  false,
+  true
+ ],
+ "content:440|progressions": [
+  false,
+  true
+ ],
+ "content:440|publication": [
+  false,
+  false
+ ],
+ "content:440|query-language": [
+  true,
+  true
+ ],
+ "content:440|question-explorer": [
+  false,
+  true
+ ],
+ "content:440|queue-producers": [
+  false,
+  true
+ ],
+ "content:440|reevaluation": [
+  true,
+  true
+ ],
+ "content:440|registers": [
+  false,
+  true
+ ],
+ "content:440|retrieval": [
+  false,
+  true
+ ],
+ "content:440|retrieval-browse": [
+  true,
+  true
+ ],
+ "content:440|run-productions": [
+  true,
+  true
+ ],
+ "content:440|standards": [
+  true,
+  true
+ ],
+ "content:440|steps": [
+  false,
+  true
+ ],
+ "content:440|store-assembly": [
+  true,
+  true
+ ],
+ "content:440|store-door": [
+  false,
+  true
+ ],
+ "content:440|workbooks": [
+  false,
+  true
+ ],
+ "control-plane:290|control-plane-door-pages": [
+  false,
+  false
+ ],
+ "control-plane:290|control-plane-door-reading": [
+  false,
+  false
+ ],
+ "control-plane:290|plane": [
+  true,
+  true
+ ],
+ "corpus-export:398|affordances": [
+  false,
+  true
+ ],
+ "corpus-export:398|conformance": [
+  false,
+  true
+ ],
+ "corpus-export:398|installer": [
+  false,
+  false
+ ],
+ "corpus-export:398|installer-steps": [
+  false,
+  false
+ ],
+ "corpus-export:398|op-declarations": [
+  false,
+  true
+ ],
+ "corpus-export:398|plane": [
+  false,
+  true
+ ],
+ "corpus-export:398|publication": [
+  true,
+  true
+ ],
+ "corpus-export:398|queue-producers": [
+  true,
+  true
+ ],
+ "corpus-export:398|store-assembly": [
+  true,
+  true
+ ],
+ "credentials:1099|acquisition": [
+  false,
+  true
+ ],
+ "credentials:1099|admission": [
+  true,
+  true
+ ],
+ "credentials:1099|affordances": [
+  false,
+  true
+ ],
+ "credentials:1099|agent-worker": [
+  false,
+  true
+ ],
+ "credentials:1099|ai-runs": [
+  true,
+  true
+ ],
+ "credentials:1099|answer-envelope": [
+  true,
+  true
+ ],
+ "credentials:1099|answers": [
+  true,
+  true
+ ],
+ "credentials:1099|attestation": [
+  false,
+  true
+ ],
+ "credentials:1099|bias": [
+  false,
+  true
+ ],
+ "credentials:1099|capture": [
+  true,
+  true
+ ],
+ "credentials:1099|capture-sources": [
+  false,
+  true
+ ],
+ "credentials:1099|case-authoring": [
+  false,
+  true
+ ],
+ "credentials:1099|control-plane": [
+  true,
+  true
+ ],
+ "credentials:1099|docket": [
+  true,
+  true
+ ],
+ "credentials:1099|doorbell": [
+  true,
+  true
+ ],
+ "credentials:1099|file-safety": [
+  true,
+  true
+ ],
+ "credentials:1099|installer": [
+  false,
+  true
+ ],
+ "credentials:1099|installer-steps": [
+  false,
+  true
+ ],
+ "credentials:1099|instance-reports": [
+  false,
+  false
+ ],
+ "credentials:1099|instance-setup": [
+  true,
+  true
+ ],
+ "credentials:1099|intent": [
+  false,
+  true
+ ],
+ "credentials:1099|interface-shell": [
+  false,
+  true
+ ],
+ "credentials:1099|mail-door": [
+  false,
+  false
+ ],
+ "credentials:1099|monitoring": [
+  false,
+  true
+ ],
+ "credentials:1099|network-notices": [
+  true,
+  true
+ ],
+ "credentials:1099|notice-producers": [
+  true,
+  true
+ ],
+ "credentials:1099|op-grades": [
+  false,
+  false
+ ],
+ "credentials:1099|plane": [
+  false,
+  true
+ ],
+ "credentials:1099|provenance": [
+  false,
+  true
+ ],
+ "credentials:1099|provenance-routes": [
+  false,
+  true
+ ],
+ "credentials:1099|publication": [
+  true,
+  true
+ ],
+ "credentials:1099|question-explorer": [
+  false,
+  true
+ ],
+ "credentials:1099|queue": [
+  false,
+  true
+ ],
+ "credentials:1099|queue-producers": [
+  true,
+  true
+ ],
+ "credentials:1099|ratification": [
+  true,
+  true
+ ],
+ "credentials:1099|screens-publish": [
+  false,
+  true
+ ],
+ "credentials:1099|signin-door": [
+  false,
+  true
+ ],
+ "credentials:1099|store-ask": [
+  false,
+  false
+ ],
+ "credentials:1099|store-assembly": [
+  true,
+  true
+ ],
+ "credentials:1099|store-door": [
+  true,
+  true
+ ],
+ "credentials:1099|tasks": [
+  false,
+  true
+ ],
+ "credentials:74|acquisition": [
+  false,
+  true
+ ],
+ "credentials:74|admission": [
+  true,
+  true
+ ],
+ "credentials:74|affordances": [
+  false,
+  true
+ ],
+ "credentials:74|agent-worker": [
+  false,
+  true
+ ],
+ "credentials:74|ai-runs": [
+  true,
+  true
+ ],
+ "credentials:74|answer-envelope": [
+  true,
+  true
+ ],
+ "credentials:74|answers": [
+  true,
+  true
+ ],
+ "credentials:74|attestation": [
+  false,
+  true
+ ],
+ "credentials:74|bias": [
+  false,
+  true
+ ],
+ "credentials:74|capture": [
+  true,
+  true
+ ],
+ "credentials:74|capture-sources": [
+  false,
+  true
+ ],
+ "credentials:74|case-authoring": [
+  false,
+  true
+ ],
+ "credentials:74|control-plane": [
+  true,
+  true
+ ],
+ "credentials:74|docket": [
+  true,
+  true
+ ],
+ "credentials:74|doorbell": [
+  true,
+  true
+ ],
+ "credentials:74|file-safety": [
+  true,
+  true
+ ],
+ "credentials:74|installer": [
+  false,
+  true
+ ],
+ "credentials:74|installer-steps": [
+  false,
+  true
+ ],
+ "credentials:74|instance-setup": [
+  true,
+  true
+ ],
+ "credentials:74|intent": [
+  false,
+  true
+ ],
+ "credentials:74|interface-shell": [
+  false,
+  true
+ ],
+ "credentials:74|mail-door": [
+  false,
+  false
+ ],
+ "credentials:74|monitoring": [
+  false,
+  true
+ ],
+ "credentials:74|network-notices": [
+  true,
+  true
+ ],
+ "credentials:74|notice-producers": [
+  true,
+  true
+ ],
+ "credentials:74|op-declarations": [
+  false,
+  true
+ ],
+ "credentials:74|plane": [
+  false,
+  true
+ ],
+ "credentials:74|provenance": [
+  false,
+  true
+ ],
+ "credentials:74|provenance-routes": [
+  false,
+  true
+ ],
+ "credentials:74|publication": [
+  true,
+  true
+ ],
+ "credentials:74|question-explorer": [
+  false,
+  true
+ ],
+ "credentials:74|queue": [
+  false,
+  true
+ ],
+ "credentials:74|queue-producers": [
+  true,
+  true
+ ],
+ "credentials:74|ratification": [
+  true,
+  true
+ ],
+ "credentials:74|screens-publish": [
+  false,
+  true
+ ],
+ "credentials:74|signin-door": [
+  false,
+  false
+ ],
+ "credentials:74|store-assembly": [
+  true,
+  true
+ ],
+ "credentials:74|store-door": [
+  true,
+  true
+ ],
+ "credentials:74|tasks": [
+  false,
+  true
+ ],
+ "docket:266|action-holds": [
+  true,
+  true
+ ],
+ "docket:266|affordances": [
+  true,
+  true
+ ],
+ "docket:266|answer-envelope": [
+  true,
+  true
+ ],
+ "docket:266|case-import": [
+  true,
+  false
+ ],
+ "docket:266|control-plane": [
+  false,
+  true
+ ],
+ "docket:266|filings": [
+  true,
+  true
+ ],
+ "docket:266|network-notices": [
+  true,
+  true
+ ],
+ "docket:266|plane": [
+  false,
+  true
+ ],
+ "docket:266|public-read": [
+  true,
+  true
+ ],
+ "docket:266|queue": [
+  false,
+  true
+ ],
+ "docket:266|queue-producers": [
+  true,
+  true
+ ],
+ "docket:266|store-assembly": [
+  true,
+  true
+ ],
+ "docket:278|action-holds": [
+  true,
+  true
+ ],
+ "docket:278|affordances": [
+  true,
+  true
+ ],
+ "docket:278|answer-envelope": [
+  true,
+  true
+ ],
+ "docket:278|case-import": [
+  true,
+  false
+ ],
+ "docket:278|control-plane": [
+  false,
+  true
+ ],
+ "docket:278|filings": [
+  true,
+  true
+ ],
+ "docket:278|network-notices": [
+  true,
+  true
+ ],
+ "docket:278|plane": [
+  false,
+  true
+ ],
+ "docket:278|public-read": [
+  true,
+  true
+ ],
+ "docket:278|queue": [
+  false,
+  true
+ ],
+ "docket:278|queue-producers": [
+  true,
+  true
+ ],
+ "docket:278|store-assembly": [
+  true,
+  true
+ ],
+ "entities:63|actions": [
+  true,
+  true
+ ],
+ "entities:63|affordances": [
+  true,
+  true
+ ],
+ "entities:63|answer-envelope": [
+  true,
+  false
+ ],
+ "entities:63|answers": [
+  false,
+  false
+ ],
+ "entities:63|basis-versions": [
+  false,
+  true
+ ],
+ "entities:63|bias": [
+  true,
+  true
+ ],
+ "entities:63|calculations": [
+  false,
+  true
+ ],
+ "entities:63|case-authoring": [
+  false,
+  true
+ ],
+ "entities:63|case-disclosures": [
+  true,
+  true
+ ],
+ "entities:63|case-inputs": [
+  true,
+  true
+ ],
+ "entities:63|conformance": [
+  true,
+  false
+ ],
+ "entities:63|connections": [
+  true,
+  true
+ ],
+ "entities:63|consequences": [
+  true,
+  true
+ ],
+ "entities:63|contradiction": [
+  true,
+  true
+ ],
+ "entities:63|control-plane": [
+  false,
+  true
+ ],
+ "entities:63|corpus-export": [
+  true,
+  false
+ ],
+ "entities:63|docket": [
+  true,
+  false
+ ],
+ "entities:63|duties": [
+  true,
+  true
+ ],
+ "entities:63|escalation": [
+  true,
+  true
+ ],
+ "entities:63|events": [
+  true,
+  true
+ ],
+ "entities:63|explore": [
+  true,
+  false
+ ],
+ "entities:63|following": [
+  true,
+  true
+ ],
+ "entities:63|inquiry": [
+  true,
+  true
+ ],
+ "entities:63|instance-setup": [
+  true,
+  false
+ ],
+ "entities:63|intent": [
+  true,
+  true
+ ],
+ "entities:63|investigation": [
+  false,
+  true
+ ],
+ "entities:63|leg-earning": [
+  true,
+  true
+ ],
+ "entities:63|lines": [
+  true,
+  true
+ ],
+ "entities:63|money": [
+  true,
+  true
+ ],
+ "entities:63|money-checks": [
+  true,
+  true
+ ],
+ "entities:63|notice-producers": [
+  true,
+  false
+ ],
+ "entities:63|observation-log": [
+  false,
+  true
+ ],
+ "entities:63|op-declarations": [
+  false,
+  true
+ ],
+ "entities:63|people": [
+  true,
+  false
+ ],
+ "entities:63|plane": [
+  false,
+  true
+ ],
+ "entities:63|progressions": [
+  true,
+  true
+ ],
+ "entities:63|publication": [
+  true,
+  false
+ ],
+ "entities:63|question-explorer": [
+  false,
+  false
+ ],
+ "entities:63|registers": [
+  false,
+  false
+ ],
+ "entities:63|retrieval": [
+  false,
+  true
+ ],
+ "entities:63|retrieval-browse": [
+  true,
+  true
+ ],
+ "entities:63|scheduler": [
+  true,
+  false
+ ],
+ "entities:63|screens-action": [
+  false,
+  true
+ ],
+ "entities:63|screens-publish": [
+  false,
+  true
+ ],
+ "entities:63|standards": [
+  true,
+  true
+ ],
+ "entities:63|steps": [
+  false,
+  true
+ ],
+ "entities:63|store-assembly": [
+  true,
+  true
+ ],
+ "entities:63|store-door": [
+  false,
+  true
+ ],
+ "extraction:432|answer-envelope": [
+  true,
+  false
+ ],
+ "extraction:432|basis-versions": [
+  false,
+  true
+ ],
+ "extraction:432|calculations": [
+  true,
+  true
+ ],
+ "extraction:432|case-account": [
+  false,
+  true
+ ],
+ "extraction:432|case-authoring": [
+  false,
+  true
+ ],
+ "extraction:432|case-carriage": [
+  true,
+  true
+ ],
+ "extraction:432|case-disclosures": [
+  true,
+  true
+ ],
+ "extraction:432|connections": [
+  true,
+  true
+ ],
+ "extraction:432|content": [
+  true,
+  true
+ ],
+ "extraction:432|contradiction": [
+  true,
+  true
+ ],
+ "extraction:432|control-plane": [
+  true,
+  true
+ ],
+ "extraction:432|duties": [
+  true,
+  false
+ ],
+ "extraction:432|entities": [
+  true,
+  true
+ ],
+ "extraction:432|events": [
+  true,
+  true
+ ],
+ "extraction:432|following": [
+  false,
+  true
+ ],
+ "extraction:432|inquiry": [
+  false,
+  true
+ ],
+ "extraction:432|instance-reports": [
+  false,
+  false
+ ],
+ "extraction:432|instance-setup": [
+  true,
+  true
+ ],
+ "extraction:432|intent": [
+  false,
+  true
+ ],
+ "extraction:432|investigation": [
+  false,
+  true
+ ],
+ "extraction:432|leg-earning": [
+  false,
+  true
+ ],
+ "extraction:432|observation-log": [
+  true,
+  true
+ ],
+ "extraction:432|op-declarations": [
+  false,
+  true
+ ],
+ "extraction:432|plane": [
+  true,
+  true
+ ],
+ "extraction:432|progressions": [
+  true,
+  true
+ ],
+ "extraction:432|registers": [
+  false,
+  false
+ ],
+ "extraction:432|retrieval": [
+  true,
+  true
+ ],
+ "extraction:432|retrieval-browse": [
+  true,
+  true
+ ],
+ "extraction:432|run-productions": [
+  true,
+  true
+ ],
+ "extraction:432|screens-document": [
+  false,
+  false
+ ],
+ "extraction:432|screens-inquiry": [
+  false,
+  true
+ ],
+ "extraction:432|screens-intake": [
+  false,
+  true
+ ],
+ "extraction:432|standards": [
+  true,
+  true
+ ],
+ "extraction:432|steps": [
+  false,
+  true
+ ],
+ "extraction:432|store-assembly": [
+  true,
+  true
+ ],
+ "extraction:432|store-door": [
+  true,
+  true
+ ],
+ "extraction:432|store-jobs": [
+  false,
+  false
+ ],
+ "extraction:432|store-request": [
+  false,
+  true
+ ],
+ "extraction:432|translations": [
+  true,
+  false
+ ],
+ "filing-templates:712|action-producers": [
+  true,
+  false
+ ],
+ "filing-templates:712|affordances": [
+  true,
+  true
+ ],
+ "filing-templates:712|answer-envelope": [
+  true,
+  true
+ ],
+ "filing-templates:712|control-plane": [
+  true,
+  true
+ ],
+ "filing-templates:712|op-declarations": [
+  false,
+  true
+ ],
+ "filing-templates:712|plane": [
+  false,
+  true
+ ],
+ "filing-templates:712|screens-action": [
+  false,
+  false
+ ],
+ "filing-templates:712|store-assembly": [
+  true,
+  true
+ ],
+ "filing-templates:712|surface-declarations": [
+  false,
+  false
+ ],
+ "filing-templates:712|wizard-scripts": [
+  true,
+  true
+ ],
+ "filings:64|action-plans": [
+  true,
+  false
+ ],
+ "filings:64|action-producers": [
+  true,
+  false
+ ],
+ "filings:64|affordances": [
+  true,
+  true
+ ],
+ "filings:64|answer-envelope": [
+  true,
+  true
+ ],
+ "filings:64|control-plane": [
+  false,
+  true
+ ],
+ "filings:64|escalation": [
+  true,
+  false
+ ],
+ "filings:64|op-declarations": [
+  false,
+  true
+ ],
+ "filings:64|plan-work": [
+  true,
+  false
+ ],
+ "filings:64|plane": [
+  false,
+  true
+ ],
+ "filings:64|screens-action": [
+  false,
+  true
+ ],
+ "filings:64|store-assembly": [
+  true,
+  true
+ ],
+ "filings:727|action-producers": [
+  true,
+  false
+ ],
+ "filings:727|affordances": [
+  true,
+  true
+ ],
+ "filings:727|answer-envelope": [
+  true,
+  true
+ ],
+ "filings:727|control-plane": [
+  false,
+  true
+ ],
+ "filings:727|op-declarations": [
+  false,
+  true
+ ],
+ "filings:727|op-specs-late": [
+  false,
+  false
+ ],
+ "filings:727|plane": [
+  false,
+  true
+ ],
+ "filings:727|screens-action": [
+  false,
+  true
+ ],
+ "filings:727|store-assembly": [
+  true,
+  true
+ ],
+ "following:744|action-producers": [
+  true,
+  false
+ ],
+ "following:744|affordances": [
+  false,
+  true
+ ],
+ "following:744|answer-envelope": [
+  true,
+  false
+ ],
+ "following:744|control-plane": [
+  false,
+  true
+ ],
+ "following:744|notice-producers": [
+  true,
+  true
+ ],
+ "following:744|op-declarations": [
+  false,
+  true
+ ],
+ "following:744|op-specs-late": [
+  false,
+  false
+ ],
+ "following:744|plane": [
+  false,
+  true
+ ],
+ "following:744|store-assembly": [
+  true,
+  true
+ ],
+ "hypotheses:1005|affordances": [
+  false,
+  true
+ ],
+ "hypotheses:1005|answer-envelope": [
+  true,
+  false
+ ],
+ "hypotheses:1005|control-plane": [
+  false,
+  false
+ ],
+ "hypotheses:1005|op-declarations": [
+  false,
+  true
+ ],
+ "hypotheses:1005|plane": [
+  false,
+  true
+ ],
+ "hypotheses:1005|screens-document": [
+  false,
+  false
+ ],
+ "hypotheses:1005|screens-inquiry": [
+  false,
+  true
+ ],
+ "hypotheses:1005|store-ask": [
+  false,
+  false
+ ],
+ "hypotheses:1005|store-assembly": [
+  true,
+  true
+ ],
+ "hypotheses:1025|answer-envelope": [
+  true,
+  false
+ ],
+ "hypotheses:1025|control-plane": [
+  false,
+  false
+ ],
+ "hypotheses:1025|screens-document": [
+  false,
+  false
+ ],
+ "hypotheses:1025|store-ask": [
+  false,
+  false
+ ],
+ "hypotheses:1050|answer-envelope": [
+  true,
+  false
+ ],
+ "hypotheses:1050|control-plane": [
+  false,
+  false
+ ],
+ "hypotheses:1050|screens-document": [
+  false,
+  false
+ ],
+ "hypotheses:1050|store-ask": [
+  false,
+  false
+ ],
+ "inquiry-grammar:423|accepted-work": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|action-grammar": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|answer-envelope": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|basis-version-grammar": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|basis-versions": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|case-authoring": [
+  false,
+  true
+ ],
+ "inquiry-grammar:423|case-disclosures": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|case-import": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|citation": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|control-plane": [
+  false,
+  true
+ ],
+ "inquiry-grammar:423|inquiry": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|leg-earning": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|plane": [
+  false,
+  false
+ ],
+ "inquiry-grammar:423|ratification": [
+  false,
+  true
+ ],
+ "inquiry-grammar:423|reevaluation": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|screens-document": [
+  false,
+  false
+ ],
+ "inquiry-grammar:423|screens-inquiry": [
+  false,
+  true
+ ],
+ "inquiry-grammar:423|skills": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|store-assembly": [
+  true,
+  true
+ ],
+ "inquiry-grammar:423|store-door": [
+  false,
+  true
+ ],
+ "inquiry-grammar:423|strength": [
+  true,
+  false
+ ],
+ "inquiry:1006|action-plans": [
+  false,
+  false
+ ],
+ "inquiry:1006|actions": [
+  false,
+  true
+ ],
+ "inquiry:1006|affordances": [
+  true,
+  true
+ ],
+ "inquiry:1006|answer-envelope": [
+  true,
+  false
+ ],
+ "inquiry:1006|case-account": [
+  true,
+  true
+ ],
+ "inquiry:1006|case-authoring": [
+  true,
+  true
+ ],
+ "inquiry:1006|case-disclosures": [
+  true,
+  true
+ ],
+ "inquiry:1006|conformance": [
+  true,
+  true
+ ],
+ "inquiry:1006|consequences": [
+  true,
+  true
+ ],
+ "inquiry:1006|control-plane": [
+  false,
+  true
+ ],
+ "inquiry:1006|docket": [
+  true,
+  false
+ ],
+ "inquiry:1006|intent": [
+  true,
+  true
+ ],
+ "inquiry:1006|investigation": [
+  true,
+  false
+ ],
+ "inquiry:1006|notice-producers": [
+  true,
+  true
+ ],
+ "inquiry:1006|op-declarations": [
+  false,
+  true
+ ],
+ "inquiry:1006|op-specs-late": [
+  false,
+  false
+ ],
+ "inquiry:1006|plane": [
+  false,
+  true
+ ],
+ "inquiry:1006|project-stage": [
+  true,
+  false
+ ],
+ "inquiry:1006|publication": [
+  true,
+  true
+ ],
+ "inquiry:1006|queue": [
+  false,
+  true
+ ],
+ "inquiry:1006|queue-producers": [
+  false,
+  false
+ ],
+ "inquiry:1006|ratification": [
+  true,
+  false
+ ],
+ "inquiry:1006|reevaluation": [
+  true,
+  true
+ ],
+ "inquiry:1006|scheduler": [
+  true,
+  true
+ ],
+ "inquiry:1006|screens-document": [
+  false,
+  false
+ ],
+ "inquiry:1006|screens-inquiry": [
+  false,
+  true
+ ],
+ "inquiry:1006|store-assembly": [
+  true,
+  true
+ ],
+ "inquiry:1006|store-door": [
+  false,
+  true
+ ],
+ "inquiry:1006|store-jobs": [
+  false,
+  false
+ ],
+ "inquiry:1028|action-plans": [
+  false,
+  false
+ ],
+ "inquiry:1028|actions": [
+  false,
+  true
+ ],
+ "inquiry:1028|answer-envelope": [
+  true,
+  false
+ ],
+ "inquiry:1028|case-account": [
+  true,
+  true
+ ],
+ "inquiry:1028|conformance": [
+  true,
+  true
+ ],
+ "inquiry:1028|consequences": [
+  true,
+  true
+ ],
+ "inquiry:1028|control-plane": [
+  false,
+  true
+ ],
+ "inquiry:1028|docket": [
+  true,
+  false
+ ],
+ "inquiry:1028|intent": [
+  true,
+  true
+ ],
+ "inquiry:1028|investigation": [
+  true,
+  false
+ ],
+ "inquiry:1028|notice-producers": [
+  true,
+  true
+ ],
+ "inquiry:1028|op-specs-late": [
+  false,
+  false
+ ],
+ "inquiry:1028|project-stage": [
+  true,
+  false
+ ],
+ "inquiry:1028|publication": [
+  true,
+  true
+ ],
+ "inquiry:1028|queue": [
+  false,
+  true
+ ],
+ "inquiry:1028|queue-producers": [
+  false,
+  false
+ ],
+ "inquiry:1028|ratification": [
+  true,
+  false
+ ],
+ "inquiry:1028|reevaluation": [
+  true,
+  true
+ ],
+ "inquiry:1028|scheduler": [
+  true,
+  true
+ ],
+ "inquiry:1028|screens-document": [
+  false,
+  false
+ ],
+ "inquiry:1028|store-assembly": [
+  true,
+  true
+ ],
+ "inquiry:1028|store-door": [
+  false,
+  true
+ ],
+ "inquiry:1028|store-jobs": [
+  false,
+  false
+ ],
+ "inquiry:360|action-plans": [
+  false,
+  false
+ ],
+ "inquiry:360|actions": [
+  false,
+  true
+ ],
+ "inquiry:360|affordances": [
+  true,
+  true
+ ],
+ "inquiry:360|ai-runs": [
+  true,
+  true
+ ],
+ "inquiry:360|answer-envelope": [
+  true,
+  false
+ ],
+ "inquiry:360|basis-versions": [
+  true,
+  true
+ ],
+ "inquiry:360|capture-requests": [
+  true,
+  false
+ ],
+ "inquiry:360|case-account": [
+  true,
+  true
+ ],
+ "inquiry:360|case-authoring": [
+  true,
+  true
+ ],
+ "inquiry:360|case-disclosures": [
+  true,
+  true
+ ],
+ "inquiry:360|citation": [
+  true,
+  true
+ ],
+ "inquiry:360|conformance": [
+  true,
+  true
+ ],
+ "inquiry:360|consequences": [
+  true,
+  true
+ ],
+ "inquiry:360|contradiction": [
+  true,
+  true
+ ],
+ "inquiry:360|control-plane": [
+  false,
+  true
+ ],
+ "inquiry:360|docket": [
+  true,
+  false
+ ],
+ "inquiry:360|hypotheses": [
+  true,
+  true
+ ],
+ "inquiry:360|intent": [
+  true,
+  true
+ ],
+ "inquiry:360|investigation": [
+  true,
+  false
+ ],
+ "inquiry:360|notice-producers": [
+  true,
+  true
+ ],
+ "inquiry:360|op-declarations": [
+  false,
+  true
+ ],
+ "inquiry:360|op-specs-late": [
+  false,
+  false
+ ],
+ "inquiry:360|plane": [
+  false,
+  true
+ ],
+ "inquiry:360|project-stage": [
+  true,
+  false
+ ],
+ "inquiry:360|publication": [
+  true,
+  true
+ ],
+ "inquiry:360|question-explorer": [
+  true,
+  false
+ ],
+ "inquiry:360|queue": [
+  false,
+  true
+ ],
+ "inquiry:360|queue-producers": [
+  false,
+  false
+ ],
+ "inquiry:360|ratification": [
+  true,
+  false
+ ],
+ "inquiry:360|reevaluation": [
+  true,
+  true
+ ],
+ "inquiry:360|run-productions": [
+  true,
+  true
+ ],
+ "inquiry:360|scheduler": [
+  true,
+  true
+ ],
+ "inquiry:360|screens-document": [
+  false,
+  false
+ ],
+ "inquiry:360|screens-inquiry": [
+  false,
+  true
+ ],
+ "inquiry:360|store-assembly": [
+  true,
+  true
+ ],
+ "inquiry:360|store-door": [
+  false,
+  true
+ ],
+ "inquiry:360|store-jobs": [
+  false,
+  false
+ ],
+ "inquiry:360|strength": [
+  true,
+  true
+ ],
+ "instance-setup:544|answer-envelope": [
+  true,
+  false
+ ],
+ "instance-setup:544|control-plane": [
+  true,
+  true
+ ],
+ "instance-setup:544|installer": [
+  true,
+  true
+ ],
+ "instance-setup:544|installer-copies": [
+  false,
+  false
+ ],
+ "instance-setup:544|installer-steps": [
+  true,
+  true
+ ],
+ "instance-setup:544|instance-reports": [
+  false,
+  false
+ ],
+ "instance-setup:544|interface-shell": [
+  false,
+  true
+ ],
+ "instance-setup:544|op-declarations": [
+  false,
+  false
+ ],
+ "instance-setup:544|op-specs-late": [
+  false,
+  false
+ ],
+ "instance-setup:544|plane": [
+  true,
+  true
+ ],
+ "instance-setup:544|screens-action": [
+  false,
+  true
+ ],
+ "instance-setup:544|screens-document": [
+  false,
+  false
+ ],
+ "instance-setup:544|screens-entry": [
+  false,
+  false
+ ],
+ "instance-setup:544|screens-inquiry": [
+  false,
+  true
+ ],
+ "instance-setup:544|stewards": [
+  true,
+  true
+ ],
+ "instance-setup:544|store-assembly": [
+  true,
+  true
+ ],
+ "instance-setup:544|store-door": [
+  true,
+  true
+ ],
+ "instance-setup:544|store-request": [
+  false,
+  true
+ ],
+ "instance-setup:99|answer-envelope": [
+  true,
+  false
+ ],
+ "instance-setup:99|control-plane": [
+  true,
+  true
+ ],
+ "instance-setup:99|installer": [
+  true,
+  true
+ ],
+ "instance-setup:99|installer-steps": [
+  true,
+  true
+ ],
+ "instance-setup:99|instance-reports": [
+  false,
+  false
+ ],
+ "instance-setup:99|interface-shell": [
+  false,
+  true
+ ],
+ "instance-setup:99|op-declarations": [
+  false,
+  false
+ ],
+ "instance-setup:99|op-specs-late": [
+  false,
+  false
+ ],
+ "instance-setup:99|plane": [
+  true,
+  true
+ ],
+ "instance-setup:99|screens-action": [
+  false,
+  true
+ ],
+ "instance-setup:99|screens-document": [
+  false,
+  false
+ ],
+ "instance-setup:99|screens-entry": [
+  false,
+  false
+ ],
+ "instance-setup:99|screens-inquiry": [
+  false,
+  true
+ ],
+ "instance-setup:99|stewards": [
+  true,
+  true
+ ],
+ "instance-setup:99|store-assembly": [
+  true,
+  true
+ ],
+ "instance-setup:99|store-door": [
+  true,
+  true
+ ],
+ "instance-setup:99|store-request": [
+  false,
+  true
+ ],
+ "interface-assets:207|control-plane": [
+  true,
+  true
+ ],
+ "interface-assets:207|installer": [
+  true,
+  true
+ ],
+ "interface-assets:207|interface-shell": [
+  true,
+  true
+ ],
+ "interface-assets:207|journey-check": [
+  false,
+  true
+ ],
+ "interface-assets:207|screens-ai": [
+  false,
+  false
+ ],
+ "interface-assets:207|screens-daily": [
+  false,
+  true
+ ],
+ "interface-assets:207|screens-document": [
+  false,
+  false
+ ],
+ "interface-assets:207|screens-inquiry": [
+  false,
+  true
+ ],
+ "interface-assets:207|screens-intake": [
+  false,
+  true
+ ],
+ "interface-assets:207|screens-publish": [
+  false,
+  true
+ ],
+ "interface-assets:207|screens-settings": [
+  false,
+  true
+ ],
+ "interface-assets:207|site": [
+  true,
+  true
+ ],
+ "interface-assets:443|control-plane": [
+  true,
+  true
+ ],
+ "interface-assets:443|installer": [
+  true,
+  true
+ ],
+ "interface-assets:443|interface-shell": [
+  true,
+  true
+ ],
+ "interface-assets:443|journey-check": [
+  false,
+  true
+ ],
+ "interface-assets:443|screens-ai": [
+  false,
+  false
+ ],
+ "interface-assets:443|screens-daily": [
+  false,
+  true
+ ],
+ "interface-assets:443|screens-document": [
+  false,
+  false
+ ],
+ "interface-assets:443|screens-inquiry": [
+  false,
+  true
+ ],
+ "interface-assets:443|screens-intake": [
+  false,
+  true
+ ],
+ "interface-assets:443|screens-publish": [
+  false,
+  true
+ ],
+ "interface-assets:443|screens-settings": [
+  false,
+  true
+ ],
+ "interface-assets:443|site": [
+  true,
+  true
+ ],
+ "interface-shell:172|control-plane": [
+  true,
+  true
+ ],
+ "interface-shell:172|journey-check": [
+  false,
+  true
+ ],
+ "interface-shell:172|plane": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-action": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-ai": [
+  false,
+  false
+ ],
+ "interface-shell:172|screens-daily": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-document": [
+  false,
+  false
+ ],
+ "interface-shell:172|screens-entry": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-inquiry": [
+  true,
+  true
+ ],
+ "interface-shell:172|screens-intake": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-investigate": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-matter": [
+  false,
+  false
+ ],
+ "interface-shell:172|screens-plan": [
+  false,
+  false
+ ],
+ "interface-shell:172|screens-publish": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-settings": [
+  false,
+  true
+ ],
+ "interface-shell:172|screens-wizards": [
+  false,
+  true
+ ],
+ "interface-shell:310|control-plane": [
+  true,
+  true
+ ],
+ "interface-shell:310|journey-check": [
+  false,
+  true
+ ],
+ "interface-shell:310|plane": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-action": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-ai": [
+  false,
+  false
+ ],
+ "interface-shell:310|screens-daily": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-document": [
+  false,
+  false
+ ],
+ "interface-shell:310|screens-entry": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-inquiry": [
+  true,
+  true
+ ],
+ "interface-shell:310|screens-intake": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-investigate": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-matter": [
+  false,
+  false
+ ],
+ "interface-shell:310|screens-plan": [
+  false,
+  false
+ ],
+ "interface-shell:310|screens-publish": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-settings": [
+  false,
+  true
+ ],
+ "interface-shell:310|screens-wizards": [
+  false,
+  true
+ ],
+ "investigation:628|affordances": [
+  false,
+  true
+ ],
+ "investigation:628|answer-envelope": [
+  true,
+  false
+ ],
+ "investigation:628|control-plane": [
+  false,
+  false
+ ],
+ "investigation:628|monitoring": [
+  true,
+  true
+ ],
+ "investigation:628|notice-producers": [
+  true,
+  true
+ ],
+ "investigation:628|op-declarations": [
+  false,
+  false
+ ],
+ "investigation:628|plane": [
+  false,
+  true
+ ],
+ "investigation:628|queue": [
+  true,
+  true
+ ],
+ "investigation:628|screens-document": [
+  false,
+  false
+ ],
+ "investigation:628|screens-inquiry": [
+  false,
+  false
+ ],
+ "investigation:628|store-assembly": [
+  true,
+  true
+ ],
+ "jurisdictions:40|acquisition": [
+  true,
+  true
+ ],
+ "jurisdictions:40|action-clocks": [
+  true,
+  true
+ ],
+ "jurisdictions:40|action-grammar": [
+  true,
+  true
+ ],
+ "jurisdictions:40|action-plans": [
+  true,
+  false
+ ],
+ "jurisdictions:40|action-producers": [
+  true,
+  false
+ ],
+ "jurisdictions:40|action-records": [
+  false,
+  false
+ ],
+ "jurisdictions:40|actions": [
+  true,
+  true
+ ],
+ "jurisdictions:40|affordances": [
+  true,
+  true
+ ],
+ "jurisdictions:40|answers": [
+  true,
+  true
+ ],
+ "jurisdictions:40|budget-doctypes": [
+  false,
+  true
+ ],
+ "jurisdictions:40|calculations": [
+  true,
+  true
+ ],
+ "jurisdictions:40|capture": [
+  false,
+  false
+ ],
+ "jurisdictions:40|case-authoring": [
+  false,
+  true
+ ],
+ "jurisdictions:40|case-disclosures": [
+  false,
+  true
+ ],
+ "jurisdictions:40|case-inputs": [
+  false,
+  true
+ ],
+ "jurisdictions:40|civil-time": [
+  false,
+  true
+ ],
+ "jurisdictions:40|court-doctypes": [
+  false,
+  true
+ ],
+ "jurisdictions:40|docprofile": [
+  true,
+  true
+ ],
+ "jurisdictions:40|doctypes": [
+  false,
+  true
+ ],
+ "jurisdictions:40|duties": [
+  true,
+  true
+ ],
+ "jurisdictions:40|entities": [
+  true,
+  true
+ ],
+ "jurisdictions:40|escalation": [
+  true,
+  true
+ ],
+ "jurisdictions:40|events": [
+  true,
+  true
+ ],
+ "jurisdictions:40|extraction": [
+  true,
+  true
+ ],
+ "jurisdictions:40|filing-templates": [
+  true,
+  true
+ ],
+ "jurisdictions:40|filings": [
+  true,
+  true
+ ],
+ "jurisdictions:40|following": [
+  true,
+  true
+ ],
+ "jurisdictions:40|id-spaces": [
+  false,
+  true
+ ],
+ "jurisdictions:40|inquiry": [
+  true,
+  false
+ ],
+ "jurisdictions:40|installer": [
+  true,
+  true
+ ],
+ "jurisdictions:40|instance-setup": [
+  true,
+  true
+ ],
+ "jurisdictions:40|investigation": [
+  true,
+  false
+ ],
+ "jurisdictions:40|journey-check": [
+  false,
+  true
+ ],
+ "jurisdictions:40|lines": [
+  true,
+  true
+ ],
+ "jurisdictions:40|local-facts": [
+  true,
+  true
+ ],
+ "jurisdictions:40|machinery-producers": [
+  true,
+  false
+ ],
+ "jurisdictions:40|money": [
+  true,
+  false
+ ],
+ "jurisdictions:40|monitoring": [
+  true,
+  false
+ ],
+ "jurisdictions:40|notice-producers": [
+  true,
+  true
+ ],
+ "jurisdictions:40|op-declarations": [
+  false,
+  false
+ ],
+ "jurisdictions:40|people": [
+  true,
+  false
+ ],
+ "jurisdictions:40|plane": [
+  false,
+  false
+ ],
+ "jurisdictions:40|project-roster": [
+  true,
+  false
+ ],
+ "jurisdictions:40|publish-schedule": [
+  true,
+  false
+ ],
+ "jurisdictions:40|ratification": [
+  true,
+  false
+ ],
+ "jurisdictions:40|reading-guides": [
+  true,
+  true
+ ],
+ "jurisdictions:40|reading-pipeline": [
+  false,
+  true
+ ],
+ "jurisdictions:40|registers": [
+  false,
+  false
+ ],
+ "jurisdictions:40|retrieval": [
+  true,
+  false
+ ],
+ "jurisdictions:40|review": [
+  true,
+  false
+ ],
+ "jurisdictions:40|scheduler": [
+  true,
+  true
+ ],
+ "jurisdictions:40|screens-action": [
+  false,
+  true
+ ],
+ "jurisdictions:40|standards": [
+  true,
+  true
+ ],
+ "jurisdictions:40|steps": [
+  true,
+  false
+ ],
+ "jurisdictions:40|store-assembly": [
+  true,
+  true
+ ],
+ "jurisdictions:40|translations": [
+  true,
+  true
+ ],
+ "leg-earning:1003|action-plans": [
+  true,
+  true
+ ],
+ "leg-earning:1003|investigation": [
+  true,
+  true
+ ],
+ "leg-earning:1003|op-declarations": [
+  false,
+  false
+ ],
+ "leg-earning:1003|plane": [
+  false,
+  true
+ ],
+ "leg-earning:1003|store-assembly": [
+  true,
+  true
+ ],
+ "leg-earning:138|action-plans": [
+  true,
+  true
+ ],
+ "leg-earning:138|basis-versions": [
+  false,
+  false
+ ],
+ "leg-earning:138|inquiry": [
+  true,
+  true
+ ],
+ "leg-earning:138|investigation": [
+  true,
+  true
+ ],
+ "leg-earning:138|op-declarations": [
+  false,
+  false
+ ],
+ "leg-earning:138|plane": [
+  false,
+  true
+ ],
+ "leg-earning:138|question-explorer": [
+  true,
+  true
+ ],
+ "leg-earning:138|run-productions": [
+  true,
+  false
+ ],
+ "leg-earning:138|steps": [
+  true,
+  true
+ ],
+ "leg-earning:138|store-assembly": [
+  true,
+  true
+ ],
+ "leg-earning:138|strength": [
+  true,
+  true
+ ],
+ "lines:422|actions": [
+  true,
+  false
+ ],
+ "lines:422|affordances": [
+  true,
+  true
+ ],
+ "lines:422|answers": [
+  false,
+  true
+ ],
+ "lines:422|calculations": [
+  false,
+  true
+ ],
+ "lines:422|case-authoring": [
+  false,
+  true
+ ],
+ "lines:422|case-disclosures": [
+  true,
+  true
+ ],
+ "lines:422|corpus-export": [
+  true,
+  false
+ ],
+ "lines:422|duties": [
+  true,
+  true
+ ],
+ "lines:422|escalation": [
+  true,
+  true
+ ],
+ "lines:422|inquiry": [
+  false,
+  true
+ ],
+ "lines:422|instance-setup": [
+  true,
+  true
+ ],
+ "lines:422|local-facts": [
+  true,
+  true
+ ],
+ "lines:422|money": [
+  true,
+  true
+ ],
+ "lines:422|money-checks": [
+  false,
+  true
+ ],
+ "lines:422|op-declarations": [
+  false,
+  true
+ ],
+ "lines:422|people": [
+  true,
+  false
+ ],
+ "lines:422|plane": [
+  false,
+  true
+ ],
+ "lines:422|store-assembly": [
+  true,
+  true
+ ],
+ "lines:422|strength": [
+  true,
+  false
+ ],
+ "local-facts:429|action-clocks": [
+  true,
+  true
+ ],
+ "local-facts:429|action-holds": [
+  true,
+  false
+ ],
+ "local-facts:429|action-producers": [
+  true,
+  false
+ ],
+ "local-facts:429|actions": [
+  true,
+  false
+ ],
+ "local-facts:429|affordances": [
+  true,
+  true
+ ],
+ "local-facts:429|answer-envelope": [
+  true,
+  false
+ ],
+ "local-facts:429|control-plane": [
+  false,
+  false
+ ],
+ "local-facts:429|duties": [
+  true,
+  false
+ ],
+ "local-facts:429|filings": [
+  true,
+  true
+ ],
+ "local-facts:429|instance-setup": [
+  false,
+  false
+ ],
+ "local-facts:429|money": [
+  true,
+  true
+ ],
+ "local-facts:429|op-declarations": [
+  false,
+  true
+ ],
+ "local-facts:429|op-specs-late": [
+  false,
+  false
+ ],
+ "local-facts:429|plane": [
+  false,
+  true
+ ],
+ "local-facts:429|progressions": [
+  true,
+  false
+ ],
+ "local-facts:429|publish-schedule": [
+  true,
+  false
+ ],
+ "local-facts:429|ratification": [
+  false,
+  false
+ ],
+ "local-facts:429|retrieval": [
+  true,
+  true
+ ],
+ "local-facts:429|review": [
+  true,
+  true
+ ],
+ "local-facts:429|screens-daily": [
+  false,
+  false
+ ],
+ "local-facts:429|store-assembly": [
+  true,
+  true
+ ],
+ "local-facts:62|action-clocks": [
+  true,
+  true
+ ],
+ "local-facts:62|action-holds": [
+  true,
+  false
+ ],
+ "local-facts:62|action-producers": [
+  true,
+  false
+ ],
+ "local-facts:62|actions": [
+  true,
+  false
+ ],
+ "local-facts:62|affordances": [
+  true,
+  true
+ ],
+ "local-facts:62|answer-envelope": [
+  true,
+  false
+ ],
+ "local-facts:62|control-plane": [
+  false,
+  false
+ ],
+ "local-facts:62|duties": [
+  true,
+  false
+ ],
+ "local-facts:62|filings": [
+  true,
+  true
+ ],
+ "local-facts:62|instance-setup": [
+  false,
+  false
+ ],
+ "local-facts:62|money": [
+  true,
+  true
+ ],
+ "local-facts:62|op-declarations": [
+  false,
+  true
+ ],
+ "local-facts:62|plane": [
+  false,
+  true
+ ],
+ "local-facts:62|progressions": [
+  true,
+  false
+ ],
+ "local-facts:62|publish-schedule": [
+  true,
+  false
+ ],
+ "local-facts:62|ratification": [
+  false,
+  false
+ ],
+ "local-facts:62|retrieval": [
+  true,
+  true
+ ],
+ "local-facts:62|review": [
+  true,
+  true
+ ],
+ "local-facts:62|screens-daily": [
+  false,
+  false
+ ],
+ "local-facts:62|store-assembly": [
+  true,
+  true
+ ],
+ "machinery-producers:383|plane": [
+  false,
+  false
+ ],
+ "machinery-producers:383|queue-producers": [
+  true,
+  false
+ ],
+ "machinery-producers:383|store-assembly": [
+  true,
+  true
+ ],
+ "mail-door:428|answer-envelope": [
+  true,
+  true
+ ],
+ "mail-door:428|instance-setup": [
+  false,
+  false
+ ],
+ "mail-door:428|op-declarations": [
+  false,
+  false
+ ],
+ "mail-door:428|scheduler": [
+  false,
+  false
+ ],
+ "mail-door:428|store-assembly": [
+  true,
+  true
+ ],
+ "mail-door:428|surface-declarations": [
+  false,
+  false
+ ],
+ "mail-door:55|instance-setup": [
+  false,
+  false
+ ],
+ "mail-door:55|op-declarations": [
+  false,
+  false
+ ],
+ "mail-door:55|scheduler": [
+  false,
+  false
+ ],
+ "member-roster:157|acquisition": [
+  true,
+  false
+ ],
+ "member-roster:157|contradiction": [
+  true,
+  false
+ ],
+ "member-roster:157|credentials": [
+  false,
+  true
+ ],
+ "member-roster:157|mail-door": [
+  true,
+  false
+ ],
+ "member-roster:157|membership": [
+  true,
+  true
+ ],
+ "member-roster:157|network-notices": [
+  false,
+  false
+ ],
+ "member-roster:157|op-declarations": [
+  false,
+  false
+ ],
+ "member-roster:157|plane": [
+  false,
+  false
+ ],
+ "member-roster:157|queue-producers": [
+  true,
+  false
+ ],
+ "member-roster:157|store-assembly": [
+  true,
+  false
+ ],
+ "member-roster:157|store-jobs": [
+  false,
+  false
+ ],
+ "member-roster:157|surface-declarations": [
+  false,
+  false
+ ],
+ "member-roster:286|acquisition": [
+  true,
+  false
+ ],
+ "member-roster:286|contradiction": [
+  true,
+  false
+ ],
+ "member-roster:286|credentials": [
+  false,
+  true
+ ],
+ "member-roster:286|mail-door": [
+  true,
+  false
+ ],
+ "member-roster:286|membership": [
+  true,
+  true
+ ],
+ "member-roster:286|network-notices": [
+  false,
+  false
+ ],
+ "member-roster:286|op-declarations": [
+  false,
+  false
+ ],
+ "member-roster:286|plane": [
+  false,
+  false
+ ],
+ "member-roster:286|queue-producers": [
+  true,
+  false
+ ],
+ "member-roster:286|store-assembly": [
+  true,
+  false
+ ],
+ "member-roster:286|store-jobs": [
+  false,
+  false
+ ],
+ "member-roster:286|surface-declarations": [
+  false,
+  false
+ ],
+ "member-roster:446|acquisition": [
+  true,
+  false
+ ],
+ "member-roster:446|contradiction": [
+  true,
+  false
+ ],
+ "member-roster:446|credentials": [
+  false,
+  true
+ ],
+ "member-roster:446|mail-door": [
+  true,
+  false
+ ],
+ "member-roster:446|membership": [
+  true,
+  true
+ ],
+ "member-roster:446|network-notices": [
+  false,
+  false
+ ],
+ "member-roster:446|op-declarations": [
+  false,
+  false
+ ],
+ "member-roster:446|plane": [
+  false,
+  false
+ ],
+ "member-roster:446|queue-producers": [
+  true,
+  false
+ ],
+ "member-roster:446|store-assembly": [
+  true,
+  false
+ ],
+ "member-roster:446|store-jobs": [
+  false,
+  false
+ ],
+ "member-roster:446|surface-declarations": [
+  false,
+  false
+ ],
+ "membership:1030|accepted-work": [
+  true,
+  true
+ ],
+ "membership:1030|action-clocks": [
+  true,
+  true
+ ],
+ "membership:1030|action-holds": [
+  true,
+  true
+ ],
+ "membership:1030|action-plans": [
+  true,
+  true
+ ],
+ "membership:1030|action-producers": [
+  true,
+  true
+ ],
+ "membership:1030|action-records": [
+  true,
+  true
+ ],
+ "membership:1030|action-replies": [
+  true,
+  false
+ ],
+ "membership:1030|actions": [
+  true,
+  true
+ ],
+ "membership:1030|admission": [
+  true,
+  true
+ ],
+ "membership:1030|ai-runs": [
+  true,
+  true
+ ],
+ "membership:1030|ai-use": [
+  true,
+  true
+ ],
+ "membership:1030|answer-envelope": [
+  true,
+  false
+ ],
+ "membership:1030|answers": [
+  true,
+  true
+ ],
+ "membership:1030|attestation": [
+  false,
+  true
+ ],
+ "membership:1030|basis-versions": [
+  true,
+  true
+ ],
+ "membership:1030|bias": [
+  true,
+  true
+ ],
+ "membership:1030|calculations": [
+  true,
+  true
+ ],
+ "membership:1030|calibration": [
+  true,
+  true
+ ],
+ "membership:1030|capture": [
+  true,
+  true
+ ],
+ "membership:1030|capture-requests": [
+  true,
+  true
+ ],
+ "membership:1030|capture-sources": [
+  true,
+  true
+ ],
+ "membership:1030|case-account": [
+  true,
+  true
+ ],
+ "membership:1030|case-carriage": [
+  true,
+  true
+ ],
+ "membership:1030|case-check": [
+  true,
+  true
+ ],
+ "membership:1030|case-import": [
+  true,
+  true
+ ],
+ "membership:1030|case-inputs": [
+  true,
+  true
+ ],
+ "membership:1030|case-tensions": [
+  true,
+  true
+ ],
+ "membership:1030|citation": [
+  true,
+  true
+ ],
+ "membership:1030|conformance": [
+  true,
+  true
+ ],
+ "membership:1030|connections": [
+  true,
+  true
+ ],
+ "membership:1030|consequences": [
+  true,
+  true
+ ],
+ "membership:1030|content": [
+  true,
+  true
+ ],
+ "membership:1030|contradiction": [
+  true,
+  true
+ ],
+ "membership:1030|control-plane": [
+  true,
+  true
+ ],
+ "membership:1030|corpus-export": [
+  true,
+  false
+ ],
+ "membership:1030|docket": [
+  true,
+  true
+ ],
+ "membership:1030|doorbell": [
+  true,
+  true
+ ],
+ "membership:1030|duties": [
+  true,
+  false
+ ],
+ "membership:1030|entities": [
+  true,
+  true
+ ],
+ "membership:1030|escalation": [
+  true,
+  true
+ ],
+ "membership:1030|events": [
+  true,
+  true
+ ],
+ "membership:1030|extraction": [
+  true,
+  true
+ ],
+ "membership:1030|file-safety": [
+  true,
+  true
+ ],
+ "membership:1030|filing-templates": [
+  true,
+  true
+ ],
+ "membership:1030|filings": [
+  true,
+  false
+ ],
+ "membership:1030|following": [
+  true,
+  true
+ ],
+ "membership:1030|hypotheses": [
+  true,
+  true
+ ],
+ "membership:1030|inquiry": [
+  true,
+  true
+ ],
+ "membership:1030|instance-reports": [
+  false,
+  false
+ ],
+ "membership:1030|instance-setup": [
+  true,
+  true
+ ],
+ "membership:1030|instance-updates": [
+  false,
+  false
+ ],
+ "membership:1030|intent": [
+  true,
+  true
+ ],
+ "membership:1030|investigation": [
+  true,
+  true
+ ],
+ "membership:1030|law-relations": [
+  false,
+  true
+ ],
+ "membership:1030|leg-earning": [
+  true,
+  true
+ ],
+ "membership:1030|lines": [
+  true,
+  true
+ ],
+ "membership:1030|link-sweep": [
+  true,
+  true
+ ],
+ "membership:1030|local-facts": [
+  true,
+  true
+ ],
+ "membership:1030|machinery-producers": [
+  true,
+  true
+ ],
+ "membership:1030|mail-door": [
+  true,
+  false
+ ],
+ "membership:1030|money": [
+  true,
+  true
+ ],
+ "membership:1030|money-checks": [
+  true,
+  true
+ ],
+ "membership:1030|monitoring": [
+  true,
+  true
+ ],
+ "membership:1030|network-notices": [
+  true,
+  true
+ ],
+ "membership:1030|notice-producers": [
+  true,
+  false
+ ],
+ "membership:1030|observation-log": [
+  true,
+  true
+ ],
+ "membership:1030|op-specs-late": [
+  false,
+  false
+ ],
+ "membership:1030|people": [
+  true,
+  false
+ ],
+ "membership:1030|plan-work": [
+  true,
+  true
+ ],
+ "membership:1030|progressions": [
+  true,
+  true
+ ],
+ "membership:1030|project-stage": [
+  true,
+  false
+ ],
+ "membership:1030|provenance": [
+  true,
+  true
+ ],
+ "membership:1030|provenance-routes": [
+  true,
+  true
+ ],
+ "membership:1030|public-read": [
+  true,
+  false
+ ],
+ "membership:1030|publication": [
+  true,
+  true
+ ],
+ "membership:1030|publish-schedule": [
+  true,
+  true
+ ],
+ "membership:1030|query-language": [
+  true,
+  true
+ ],
+ "membership:1030|question-explorer": [
+  true,
+  true
+ ],
+ "membership:1030|queue": [
+  true,
+  true
+ ],
+ "membership:1030|queue-producers": [
+  true,
+  true
+ ],
+ "membership:1030|ratification": [
+  true,
+  true
+ ],
+ "membership:1030|reader-contract": [
+  false,
+  false
+ ],
+ "membership:1030|reading-guides": [
+  true,
+  true
+ ],
+ "membership:1030|reading-pipeline": [
+  true,
+  true
+ ],
+ "membership:1030|reevaluation": [
+  true,
+  true
+ ],
+ "membership:1030|registers": [
+  true,
+  true
+ ],
+ "membership:1030|retrieval": [
+  true,
+  true
+ ],
+ "membership:1030|retrieval-browse": [
+  true,
+  true
+ ],
+ "membership:1030|review": [
+  true,
+  true
+ ],
+ "membership:1030|run-productions": [
+  true,
+  true
+ ],
+ "membership:1030|screens-action": [
+  false,
+  true
+ ],
+ "membership:1030|screens-matter": [
+  false,
+  false
+ ],
+ "membership:1030|screens-plan": [
+  false,
+  false
+ ],
+ "membership:1030|sources": [
+  true,
+  true
+ ],
+ "membership:1030|standards": [
+  true,
+  true
+ ],
+ "membership:1030|store-ask": [
+  false,
+  false
+ ],
+ "membership:1030|store-door": [
+  true,
+  true
+ ],
+ "membership:1030|store-jobs": [
+  false,
+  false
+ ],
+ "membership:1030|store-request": [
+  false,
+  true
+ ],
+ "membership:1030|tasks": [
+  true,
+  true
+ ],
+ "membership:1030|translations": [
+  true,
+  true
+ ],
+ "membership:1030|wizard-scripts": [
+  true,
+  true
+ ],
+ "membership:1030|workbooks": [
+  true,
+  true
+ ],
+ "membership:77|accepted-work": [
+  true,
+  true
+ ],
+ "membership:77|acquisition": [
+  true,
+  false
+ ],
+ "membership:77|action-clocks": [
+  true,
+  true
+ ],
+ "membership:77|action-holds": [
+  true,
+  true
+ ],
+ "membership:77|action-plans": [
+  true,
+  true
+ ],
+ "membership:77|action-producers": [
+  true,
+  true
+ ],
+ "membership:77|action-records": [
+  true,
+  true
+ ],
+ "membership:77|action-replies": [
+  true,
+  false
+ ],
+ "membership:77|actions": [
+  true,
+  true
+ ],
+ "membership:77|admission": [
+  true,
+  true
+ ],
+ "membership:77|affordances": [
+  true,
+  true
+ ],
+ "membership:77|ai-accounts": [
+  true,
+  true
+ ],
+ "membership:77|ai-runs": [
+  true,
+  true
+ ],
+ "membership:77|ai-use": [
+  true,
+  true
+ ],
+ "membership:77|answer-envelope": [
+  true,
+  false
+ ],
+ "membership:77|answers": [
+  true,
+  false
+ ],
+ "membership:77|attestation": [
+  false,
+  true
+ ],
+ "membership:77|basis-versions": [
+  true,
+  true
+ ],
+ "membership:77|bias": [
+  true,
+  true
+ ],
+ "membership:77|calculations": [
+  true,
+  true
+ ],
+ "membership:77|calibration": [
+  true,
+  true
+ ],
+ "membership:77|capture": [
+  true,
+  true
+ ],
+ "membership:77|capture-requests": [
+  true,
+  true
+ ],
+ "membership:77|capture-sources": [
+  true,
+  true
+ ],
+ "membership:77|case-account": [
+  true,
+  true
+ ],
+ "membership:77|case-authoring": [
+  true,
+  true
+ ],
+ "membership:77|case-carriage": [
+  true,
+  true
+ ],
+ "membership:77|case-check": [
+  true,
+  true
+ ],
+ "membership:77|case-disclosures": [
+  true,
+  true
+ ],
+ "membership:77|case-import": [
+  true,
+  true
+ ],
+ "membership:77|case-inputs": [
+  true,
+  true
+ ],
+ "membership:77|case-tensions": [
+  true,
+  true
+ ],
+ "membership:77|citation": [
+  true,
+  true
+ ],
+ "membership:77|conformance": [
+  true,
+  true
+ ],
+ "membership:77|connections": [
+  true,
+  true
+ ],
+ "membership:77|consequences": [
+  true,
+  true
+ ],
+ "membership:77|content": [
+  true,
+  true
+ ],
+ "membership:77|contradiction": [
+  true,
+  true
+ ],
+ "membership:77|control-plane": [
+  true,
+  true
+ ],
+ "membership:77|corpus-export": [
+  true,
+  false
+ ],
+ "membership:77|credentials": [
+  true,
+  true
+ ],
+ "membership:77|docket": [
+  true,
+  true
+ ],
+ "membership:77|doorbell": [
+  true,
+  true
+ ],
+ "membership:77|duties": [
+  true,
+  false
+ ],
+ "membership:77|entities": [
+  true,
+  true
+ ],
+ "membership:77|escalation": [
+  true,
+  true
+ ],
+ "membership:77|events": [
+  true,
+  true
+ ],
+ "membership:77|extraction": [
+  true,
+  true
+ ],
+ "membership:77|file-safety": [
+  true,
+  true
+ ],
+ "membership:77|filing-templates": [
+  true,
+  true
+ ],
+ "membership:77|filings": [
+  true,
+  false
+ ],
+ "membership:77|following": [
+  true,
+  true
+ ],
+ "membership:77|hypotheses": [
+  true,
+  true
+ ],
+ "membership:77|inquiry": [
+  true,
+  true
+ ],
+ "membership:77|instance-setup": [
+  true,
+  true
+ ],
+ "membership:77|intent": [
+  true,
+  true
+ ],
+ "membership:77|investigation": [
+  true,
+  true
+ ],
+ "membership:77|law-relations": [
+  false,
+  true
+ ],
+ "membership:77|leg-earning": [
+  true,
+  true
+ ],
+ "membership:77|lines": [
+  true,
+  true
+ ],
+ "membership:77|link-sweep": [
+  true,
+  true
+ ],
+ "membership:77|local-facts": [
+  true,
+  true
+ ],
+ "membership:77|machinery-producers": [
+  true,
+  true
+ ],
+ "membership:77|mail-door": [
+  true,
+  false
+ ],
+ "membership:77|money": [
+  true,
+  true
+ ],
+ "membership:77|money-checks": [
+  true,
+  true
+ ],
+ "membership:77|monitoring": [
+  true,
+  true
+ ],
+ "membership:77|network-notices": [
+  true,
+  true
+ ],
+ "membership:77|notice-producers": [
+  true,
+  false
+ ],
+ "membership:77|observation-log": [
+  true,
+  true
+ ],
+ "membership:77|op-declarations": [
+  false,
+  true
+ ],
+ "membership:77|people": [
+  true,
+  false
+ ],
+ "membership:77|plan-work": [
+  true,
+  true
+ ],
+ "membership:77|plane": [
+  false,
+  true
+ ],
+ "membership:77|progressions": [
+  true,
+  true
+ ],
+ "membership:77|project-roster": [
+  true,
+  true
+ ],
+ "membership:77|project-stage": [
+  true,
+  false
+ ],
+ "membership:77|promotion": [
+  true,
+  true
+ ],
+ "membership:77|provenance": [
+  true,
+  true
+ ],
+ "membership:77|provenance-routes": [
+  true,
+  true
+ ],
+ "membership:77|public-read": [
+  true,
+  false
+ ],
+ "membership:77|publication": [
+  true,
+  true
+ ],
+ "membership:77|publish-schedule": [
+  true,
+  true
+ ],
+ "membership:77|query-language": [
+  true,
+  true
+ ],
+ "membership:77|question-explorer": [
+  true,
+  true
+ ],
+ "membership:77|queue": [
+  true,
+  true
+ ],
+ "membership:77|queue-producers": [
+  true,
+  true
+ ],
+ "membership:77|ratification": [
+  true,
+  true
+ ],
+ "membership:77|reading-guides": [
+  true,
+  true
+ ],
+ "membership:77|reading-pipeline": [
+  true,
+  true
+ ],
+ "membership:77|reevaluation": [
+  true,
+  true
+ ],
+ "membership:77|registers": [
+  false,
+  false
+ ],
+ "membership:77|retrieval": [
+  true,
+  true
+ ],
+ "membership:77|retrieval-browse": [
+  true,
+  true
+ ],
+ "membership:77|review": [
+  true,
+  true
+ ],
+ "membership:77|run-productions": [
+  true,
+  true
+ ],
+ "membership:77|screens-action": [
+  false,
+  true
+ ],
+ "membership:77|sources": [
+  true,
+  true
+ ],
+ "membership:77|standards": [
+  true,
+  true
+ ],
+ "membership:77|steps": [
+  true,
+  true
+ ],
+ "membership:77|store-assembly": [
+  true,
+  true
+ ],
+ "membership:77|store-door": [
+  true,
+  true
+ ],
+ "membership:77|store-request": [
+  false,
+  true
+ ],
+ "membership:77|strength": [
+  true,
+  true
+ ],
+ "membership:77|tasks": [
+  true,
+  true
+ ],
+ "membership:77|translations": [
+  true,
+  true
+ ],
+ "membership:77|wizard-scripts": [
+  true,
+  true
+ ],
+ "membership:77|workbooks": [
+  true,
+  true
+ ],
+ "money:154|affordances": [
+  true,
+  true
+ ],
+ "money:154|calculations": [
+  true,
+  true
+ ],
+ "money:154|case-authoring": [
+  false,
+  true
+ ],
+ "money:154|case-disclosures": [
+  true,
+  true
+ ],
+ "money:154|consequences": [
+  true,
+  true
+ ],
+ "money:154|contradiction": [
+  true,
+  true
+ ],
+ "money:154|control-plane": [
+  false,
+  true
+ ],
+ "money:154|corpus-export": [
+  true,
+  false
+ ],
+ "money:154|duties": [
+  true,
+  true
+ ],
+ "money:154|explore": [
+  true,
+  true
+ ],
+ "money:154|intent": [
+  true,
+  true
+ ],
+ "money:154|money-checks": [
+  true,
+  true
+ ],
+ "money:154|op-declarations": [
+  false,
+  true
+ ],
+ "money:154|people": [
+  true,
+  false
+ ],
+ "money:154|plane": [
+  false,
+  true
+ ],
+ "money:154|query-language": [
+  true,
+  true
+ ],
+ "money:154|ratification": [
+  true,
+  false
+ ],
+ "money:154|retrieval": [
+  false,
+  true
+ ],
+ "money:154|retrieval-browse": [
+  true,
+  false
+ ],
+ "money:154|store-assembly": [
+  true,
+  true
+ ],
+ "money:154|strength": [
+  true,
+  true
+ ],
+ "monitoring:743|affordances": [
+  false,
+  true
+ ],
+ "monitoring:743|answer-envelope": [
+  true,
+  true
+ ],
+ "monitoring:743|control-plane": [
+  false,
+  true
+ ],
+ "monitoring:743|machinery-producers": [
+  true,
+  true
+ ],
+ "monitoring:743|plane": [
+  true,
+  true
+ ],
+ "monitoring:743|queue": [
+  false,
+  true
+ ],
+ "monitoring:743|queue-producers": [
+  true,
+  true
+ ],
+ "monitoring:743|store-assembly": [
+  true,
+  true
+ ],
+ "monitoring:743|store-request": [
+  false,
+  true
+ ],
+ "network-notices:633|answer-envelope": [
+  true,
+  false
+ ],
+ "network-notices:633|control-plane": [
+  false,
+  true
+ ],
+ "network-notices:633|machinery-producers": [
+  true,
+  false
+ ],
+ "network-notices:633|plane": [
+  false,
+  true
+ ],
+ "network-notices:633|scheduler": [
+  true,
+  true
+ ],
+ "network-notices:633|screens-document": [
+  false,
+  false
+ ],
+ "network-notices:633|screens-inquiry": [
+  false,
+  true
+ ],
+ "network-notices:633|store-ask": [
+  false,
+  false
+ ],
+ "network-notices:633|store-assembly": [
+  true,
+  true
+ ],
+ "notice-producers:211|op-declarations": [
+  false,
+  false
+ ],
+ "notice-producers:211|plane": [
+  false,
+  true
+ ],
+ "notice-producers:211|queue": [
+  true,
+  true
+ ],
+ "notice-producers:211|store-assembly": [
+  true,
+  true
+ ],
+ "notice-producers:211|surface-declarations": [
+  false,
+  false
+ ],
+ "op-declarations:167|admission": [
+  true,
+  true
+ ],
+ "op-declarations:167|control-plane": [
+  true,
+  true
+ ],
+ "op-declarations:167|interface-shell": [
+  true,
+  true
+ ],
+ "op-declarations:167|load-check": [
+  false,
+  false
+ ],
+ "op-declarations:167|plane": [
+  true,
+  true
+ ],
+ "op-declarations:167|screens-action": [
+  true,
+  true
+ ],
+ "op-declarations:167|screens-ai": [
+  false,
+  false
+ ],
+ "op-declarations:167|screens-daily": [
+  true,
+  true
+ ],
+ "op-declarations:167|screens-document": [
+  false,
+  false
+ ],
+ "op-declarations:167|screens-entry": [
+  false,
+  true
+ ],
+ "op-declarations:167|screens-inquiry": [
+  false,
+  true
+ ],
+ "op-declarations:167|screens-intake": [
+  false,
+  true
+ ],
+ "op-declarations:167|screens-investigate": [
+  false,
+  true
+ ],
+ "op-declarations:167|screens-matter": [
+  false,
+  false
+ ],
+ "op-declarations:167|screens-plan": [
+  false,
+  false
+ ],
+ "op-declarations:167|screens-publish": [
+  false,
+  true
+ ],
+ "op-declarations:167|screens-settings": [
+  false,
+  true
+ ],
+ "op-declarations:167|screens-wizards": [
+  false,
+  true
+ ],
+ "op-declarations:167|signin-door": [
+  false,
+  true
+ ],
+ "op-declarations:167|store-assembly": [
+  true,
+  true
+ ],
+ "op-declarations:167|store-request": [
+  true,
+  true
+ ],
+ "op-declarations:289|admission": [
+  true,
+  true
+ ],
+ "op-declarations:289|control-plane": [
+  true,
+  true
+ ],
+ "op-declarations:289|interface-shell": [
+  true,
+  true
+ ],
+ "op-declarations:289|load-check": [
+  false,
+  false
+ ],
+ "op-declarations:289|plane": [
+  true,
+  true
+ ],
+ "op-declarations:289|screens-action": [
+  true,
+  true
+ ],
+ "op-declarations:289|screens-ai": [
+  false,
+  false
+ ],
+ "op-declarations:289|screens-daily": [
+  true,
+  true
+ ],
+ "op-declarations:289|screens-document": [
+  false,
+  false
+ ],
+ "op-declarations:289|screens-entry": [
+  false,
+  true
+ ],
+ "op-declarations:289|screens-inquiry": [
+  false,
+  true
+ ],
+ "op-declarations:289|screens-intake": [
+  false,
+  true
+ ],
+ "op-declarations:289|screens-investigate": [
+  false,
+  true
+ ],
+ "op-declarations:289|screens-matter": [
+  false,
+  false
+ ],
+ "op-declarations:289|screens-plan": [
+  false,
+  false
+ ],
+ "op-declarations:289|screens-publish": [
+  false,
+  true
+ ],
+ "op-declarations:289|screens-settings": [
+  false,
+  true
+ ],
+ "op-declarations:289|screens-wizards": [
+  false,
+  true
+ ],
+ "op-declarations:289|signin-door": [
+  false,
+  true
+ ],
+ "op-declarations:289|store-assembly": [
+  true,
+  true
+ ],
+ "op-declarations:289|store-request": [
+  true,
+  true
+ ],
+ "op-declarations:321|admission": [
+  true,
+  true
+ ],
+ "op-declarations:321|control-plane": [
+  true,
+  true
+ ],
+ "op-declarations:321|interface-shell": [
+  true,
+  true
+ ],
+ "op-declarations:321|load-check": [
+  false,
+  false
+ ],
+ "op-declarations:321|plane": [
+  true,
+  true
+ ],
+ "op-declarations:321|screens-action": [
+  true,
+  true
+ ],
+ "op-declarations:321|screens-ai": [
+  false,
+  false
+ ],
+ "op-declarations:321|screens-daily": [
+  true,
+  true
+ ],
+ "op-declarations:321|screens-document": [
+  false,
+  false
+ ],
+ "op-declarations:321|screens-entry": [
+  false,
+  true
+ ],
+ "op-declarations:321|screens-inquiry": [
+  false,
+  true
+ ],
+ "op-declarations:321|screens-intake": [
+  false,
+  true
+ ],
+ "op-declarations:321|screens-investigate": [
+  false,
+  true
+ ],
+ "op-declarations:321|screens-matter": [
+  false,
+  false
+ ],
+ "op-declarations:321|screens-plan": [
+  false,
+  false
+ ],
+ "op-declarations:321|screens-publish": [
+  false,
+  true
+ ],
+ "op-declarations:321|screens-settings": [
+  false,
+  true
+ ],
+ "op-declarations:321|screens-wizards": [
+  false,
+  true
+ ],
+ "op-declarations:321|signin-door": [
+  false,
+  true
+ ],
+ "op-declarations:321|store-assembly": [
+  true,
+  true
+ ],
+ "op-declarations:321|store-request": [
+  true,
+  true
+ ],
+ "op-declarations:95|admission": [
+  true,
+  true
+ ],
+ "op-declarations:95|control-plane": [
+  true,
+  true
+ ],
+ "op-declarations:95|interface-shell": [
+  true,
+  true
+ ],
+ "op-declarations:95|load-check": [
+  false,
+  false
+ ],
+ "op-declarations:95|plane": [
+  true,
+  true
+ ],
+ "op-declarations:95|screens-action": [
+  true,
+  true
+ ],
+ "op-declarations:95|screens-ai": [
+  false,
+  false
+ ],
+ "op-declarations:95|screens-daily": [
+  true,
+  true
+ ],
+ "op-declarations:95|screens-document": [
+  false,
+  false
+ ],
+ "op-declarations:95|screens-entry": [
+  false,
+  true
+ ],
+ "op-declarations:95|screens-inquiry": [
+  false,
+  true
+ ],
+ "op-declarations:95|screens-intake": [
+  false,
+  true
+ ],
+ "op-declarations:95|screens-investigate": [
+  false,
+  true
+ ],
+ "op-declarations:95|screens-matter": [
+  false,
+  false
+ ],
+ "op-declarations:95|screens-plan": [
+  false,
+  false
+ ],
+ "op-declarations:95|screens-publish": [
+  false,
+  true
+ ],
+ "op-declarations:95|screens-settings": [
+  false,
+  true
+ ],
+ "op-declarations:95|screens-wizards": [
+  false,
+  true
+ ],
+ "op-declarations:95|signin-door": [
+  false,
+  true
+ ],
+ "op-declarations:95|store-assembly": [
+  true,
+  true
+ ],
+ "op-declarations:95|store-request": [
+  true,
+  true
+ ],
+ "op-grades:365|affordances": [
+  true,
+  true
+ ],
+ "op-grades:365|control-plane": [
+  false,
+  true
+ ],
+ "op-grades:365|interface-shell": [
+  true,
+  true
+ ],
+ "op-grades:365|plane": [
+  false,
+  false
+ ],
+ "op-grades:365|screens-document": [
+  false,
+  false
+ ],
+ "op-grades:365|screens-inquiry": [
+  false,
+  false
+ ],
+ "op-grades:365|store-assembly": [
+  true,
+  true
+ ],
+ "plan-work:184|action-producers": [
+  true,
+  false
+ ],
+ "plan-work:184|affordances": [
+  true,
+  true
+ ],
+ "plan-work:184|answer-envelope": [
+  true,
+  false
+ ],
+ "plan-work:184|following": [
+  true,
+  true
+ ],
+ "plan-work:184|op-declarations": [
+  false,
+  true
+ ],
+ "plan-work:184|op-specs-late": [
+  false,
+  false
+ ],
+ "plan-work:184|plane": [
+  false,
+  true
+ ],
+ "plan-work:184|store-assembly": [
+  true,
+  true
+ ],
+ "provenance:1002|action-clocks": [
+  false,
+  true
+ ],
+ "provenance:1002|action-holds": [
+  false,
+  false
+ ],
+ "provenance:1002|action-plans": [
+  false,
+  true
+ ],
+ "provenance:1002|action-records": [
+  false,
+  true
+ ],
+ "provenance:1002|actions": [
+  false,
+  true
+ ],
+ "provenance:1002|agent-steps": [
+  false,
+  true
+ ],
+ "provenance:1002|agent-worker": [
+  false,
+  true
+ ],
+ "provenance:1002|answer-envelope": [
+  true,
+  true
+ ],
+ "provenance:1002|basis-versions": [
+  false,
+  true
+ ],
+ "provenance:1002|calculations": [
+  true,
+  true
+ ],
+ "provenance:1002|case-carriage": [
+  true,
+  true
+ ],
+ "provenance:1002|case-tensions": [
+  true,
+  true
+ ],
+ "provenance:1002|citation": [
+  true,
+  false
+ ],
+ "provenance:1002|connections": [
+  false,
+  true
+ ],
+ "provenance:1002|consequences": [
+  true,
+  true
+ ],
+ "provenance:1002|content": [
+  true,
+  true
+ ],
+ "provenance:1002|control-plane": [
+  false,
+  true
+ ],
+ "provenance:1002|corpus-export": [
+  true,
+  false
+ ],
+ "provenance:1002|docket": [
+  true,
+  true
+ ],
+ "provenance:1002|duties": [
+  true,
+  false
+ ],
+ "provenance:1002|entities": [
+  true,
+  true
+ ],
+ "provenance:1002|events": [
+  true,
+  true
+ ],
+ "provenance:1002|extraction": [
+  true,
+  true
+ ],
+ "provenance:1002|filings": [
+  true,
+  false
+ ],
+ "provenance:1002|following": [
+  false,
+  true
+ ],
+ "provenance:1002|inquiry": [
+  false,
+  true
+ ],
+ "provenance:1002|instance-setup": [
+  true,
+  false
+ ],
+ "provenance:1002|intent": [
+  false,
+  true
+ ],
+ "provenance:1002|investigation": [
+  true,
+  true
+ ],
+ "provenance:1002|leg-earning": [
+  true,
+  true
+ ],
+ "provenance:1002|lines": [
+  true,
+  true
+ ],
+ "provenance:1002|local-facts": [
+  true,
+  true
+ ],
+ "provenance:1002|machinery-producers": [
+  true,
+  true
+ ],
+ "provenance:1002|money": [
+  true,
+  true
+ ],
+ "provenance:1002|money-checks": [
+  false,
+  true
+ ],
+ "provenance:1002|monitoring": [
+  true,
+  true
+ ],
+ "provenance:1002|network-notices": [
+  false,
+  true
+ ],
+ "provenance:1002|notice-producers": [
+  true,
+  true
+ ],
+ "provenance:1002|observation-log": [
+  true,
+  true
+ ],
+ "provenance:1002|people": [
+  true,
+  false
+ ],
+ "provenance:1002|plane": [
+  true,
+  true
+ ],
+ "provenance:1002|progressions": [
+  true,
+  true
+ ],
+ "provenance:1002|publication": [
+  false,
+  true
+ ],
+ "provenance:1002|queue": [
+  false,
+  true
+ ],
+ "provenance:1002|queue-producers": [
+  true,
+  true
+ ],
+ "provenance:1002|ratification": [
+  true,
+  true
+ ],
+ "provenance:1002|reevaluation": [
+  true,
+  true
+ ],
+ "provenance:1002|registers": [
+  false,
+  false
+ ],
+ "provenance:1002|retrieval": [
+  false,
+  true
+ ],
+ "provenance:1002|retrieval-browse": [
+  true,
+  true
+ ],
+ "provenance:1002|screens-document": [
+  false,
+  false
+ ],
+ "provenance:1002|screens-intake": [
+  false,
+  true
+ ],
+ "provenance:1002|standards": [
+  false,
+  false
+ ],
+ "provenance:1002|store-assembly": [
+  true,
+  true
+ ],
+ "provenance:1002|store-door": [
+  true,
+  true
+ ],
+ "provenance:1002|store-request": [
+  false,
+  true
+ ],
+ "provenance:1002|strength": [
+  false,
+  true
+ ],
+ "provenance:1002|tasks": [
+  true,
+  true
+ ],
+ "provenance:1002|workbooks": [
+  false,
+  false
+ ],
+ "public-read:268|answer-envelope": [
+  true,
+  false
+ ],
+ "public-read:268|case-checker": [
+  true,
+  true
+ ],
+ "public-read:268|case-disclosures": [
+  false,
+  true
+ ],
+ "public-read:268|case-import": [
+  false,
+  true
+ ],
+ "public-read:268|case-inputs": [
+  true,
+  true
+ ],
+ "public-read:268|control-plane": [
+  true,
+  true
+ ],
+ "public-read:268|filings": [
+  true,
+  true
+ ],
+ "public-read:268|instance-setup": [
+  true,
+  true
+ ],
+ "public-read:268|network-notices": [
+  true,
+  true
+ ],
+ "public-read:268|op-declarations": [
+  false,
+  true
+ ],
+ "public-read:268|plane": [
+  true,
+  true
+ ],
+ "public-read:268|ratification": [
+  true,
+  true
+ ],
+ "public-read:268|screens-publish": [
+  false,
+  true
+ ],
+ "public-read:268|store-assembly": [
+  true,
+  true
+ ],
+ "public-read:268|store-request": [
+  false,
+  true
+ ],
+ "public-read:642|answer-envelope": [
+  true,
+  false
+ ],
+ "public-read:642|control-plane": [
+  true,
+  true
+ ],
+ "public-read:642|filings": [
+  true,
+  true
+ ],
+ "public-read:642|instance-setup": [
+  true,
+  true
+ ],
+ "public-read:642|op-declarations": [
+  false,
+  true
+ ],
+ "public-read:642|plane": [
+  true,
+  true
+ ],
+ "public-read:642|screens-publish": [
+  false,
+  true
+ ],
+ "public-read:642|store-assembly": [
+  true,
+  true
+ ],
+ "public-read:642|store-request": [
+  false,
+  true
+ ],
+ "publication:229|action-holds": [
+  false,
+  false
+ ],
+ "publication:229|affordances": [
+  false,
+  true
+ ],
+ "publication:229|answer-envelope": [
+  true,
+  true
+ ],
+ "publication:229|case-account": [
+  false,
+  true
+ ],
+ "publication:229|case-authoring": [
+  true,
+  true
+ ],
+ "publication:229|case-check": [
+  true,
+  false
+ ],
+ "publication:229|case-disclosures": [
+  true,
+  true
+ ],
+ "publication:229|case-inputs": [
+  true,
+  true
+ ],
+ "publication:229|conformance": [
+  true,
+  true
+ ],
+ "publication:229|control-plane": [
+  false,
+  true
+ ],
+ "publication:229|docket": [
+  true,
+  true
+ ],
+ "publication:229|filings": [
+  true,
+  true
+ ],
+ "publication:229|monitoring": [
+  true,
+  true
+ ],
+ "publication:229|network-notices": [
+  true,
+  true
+ ],
+ "publication:229|op-declarations": [
+  false,
+  true
+ ],
+ "publication:229|plane": [
+  true,
+  true
+ ],
+ "publication:229|project-stage": [
+  false,
+  true
+ ],
+ "publication:229|public-read": [
+  true,
+  true
+ ],
+ "publication:229|publish-schedule": [
+  true,
+  true
+ ],
+ "publication:229|queue-producers": [
+  true,
+  true
+ ],
+ "publication:229|ratification": [
+  true,
+  true
+ ],
+ "publication:229|review": [
+  true,
+  true
+ ],
+ "publication:229|screens-action": [
+  false,
+  true
+ ],
+ "publication:229|screens-publish": [
+  false,
+  false
+ ],
+ "publication:229|store-assembly": [
+  true,
+  true
+ ],
+ "publication:229|store-request": [
+  false,
+  true
+ ],
+ "publication:229|tasks": [
+  false,
+  false
+ ],
+ "publication:427|action-holds": [
+  false,
+  false
+ ],
+ "publication:427|affordances": [
+  false,
+  true
+ ],
+ "publication:427|answer-envelope": [
+  true,
+  true
+ ],
+ "publication:427|case-account": [
+  false,
+  true
+ ],
+ "publication:427|case-authoring": [
+  true,
+  true
+ ],
+ "publication:427|case-check": [
+  true,
+  false
+ ],
+ "publication:427|case-disclosures": [
+  true,
+  true
+ ],
+ "publication:427|case-inputs": [
+  true,
+  true
+ ],
+ "publication:427|conformance": [
+  true,
+  true
+ ],
+ "publication:427|control-plane": [
+  false,
+  true
+ ],
+ "publication:427|docket": [
+  true,
+  true
+ ],
+ "publication:427|filings": [
+  true,
+  true
+ ],
+ "publication:427|monitoring": [
+  true,
+  true
+ ],
+ "publication:427|network-notices": [
+  true,
+  true
+ ],
+ "publication:427|op-declarations": [
+  false,
+  true
+ ],
+ "publication:427|plane": [
+  true,
+  true
+ ],
+ "publication:427|project-stage": [
+  false,
+  true
+ ],
+ "publication:427|public-read": [
+  true,
+  true
+ ],
+ "publication:427|publish-schedule": [
+  true,
+  true
+ ],
+ "publication:427|queue-producers": [
+  true,
+  true
+ ],
+ "publication:427|ratification": [
+  true,
+  true
+ ],
+ "publication:427|review": [
+  true,
+  true
+ ],
+ "publication:427|screens-action": [
+  false,
+  true
+ ],
+ "publication:427|screens-publish": [
+  false,
+  false
+ ],
+ "publication:427|store-assembly": [
+  true,
+  true
+ ],
+ "publication:427|store-request": [
+  false,
+  true
+ ],
+ "publication:427|tasks": [
+  false,
+  false
+ ],
+ "publication:632|action-holds": [
+  false,
+  false
+ ],
+ "publication:632|affordances": [
+  false,
+  true
+ ],
+ "publication:632|answer-envelope": [
+  true,
+  true
+ ],
+ "publication:632|conformance": [
+  true,
+  true
+ ],
+ "publication:632|control-plane": [
+  false,
+  true
+ ],
+ "publication:632|filings": [
+  true,
+  true
+ ],
+ "publication:632|monitoring": [
+  true,
+  true
+ ],
+ "publication:632|op-declarations": [
+  false,
+  true
+ ],
+ "publication:632|plane": [
+  true,
+  true
+ ],
+ "publication:632|queue-producers": [
+  true,
+  true
+ ],
+ "publication:632|screens-action": [
+  false,
+  true
+ ],
+ "publication:632|screens-publish": [
+  false,
+  false
+ ],
+ "publication:632|store-assembly": [
+  true,
+  true
+ ],
+ "publication:632|store-request": [
+  false,
+  true
+ ],
+ "publication:632|tasks": [
+  false,
+  false
+ ],
+ "question-explorer:199|answer-envelope": [
+  true,
+  false
+ ],
+ "question-explorer:199|control-plane": [
+  false,
+  false
+ ],
+ "question-explorer:199|notice-producers": [
+  true,
+  true
+ ],
+ "question-explorer:199|op-declarations": [
+  false,
+  false
+ ],
+ "question-explorer:199|plane": [
+  false,
+  true
+ ],
+ "question-explorer:199|scheduler": [
+  false,
+  true
+ ],
+ "question-explorer:199|store-assembly": [
+  true,
+  true
+ ],
+ "question-explorer:346|answer-envelope": [
+  true,
+  false
+ ],
+ "question-explorer:346|control-plane": [
+  false,
+  false
+ ],
+ "question-explorer:346|notice-producers": [
+  true,
+  true
+ ],
+ "question-explorer:346|op-declarations": [
+  false,
+  false
+ ],
+ "question-explorer:346|plane": [
+  false,
+  true
+ ],
+ "question-explorer:346|scheduler": [
+  false,
+  true
+ ],
+ "question-explorer:346|store-assembly": [
+  true,
+  true
+ ],
+ "question-explorer:520|answer-envelope": [
+  true,
+  false
+ ],
+ "question-explorer:520|control-plane": [
+  false,
+  false
+ ],
+ "question-explorer:520|notice-producers": [
+  true,
+  true
+ ],
+ "question-explorer:520|op-declarations": [
+  false,
+  false
+ ],
+ "question-explorer:520|plane": [
+  false,
+  true
+ ],
+ "question-explorer:520|scheduler": [
+  false,
+  true
+ ],
+ "question-explorer:520|store-assembly": [
+  true,
+  true
+ ],
+ "question-explorer:90|answer-envelope": [
+  true,
+  false
+ ],
+ "question-explorer:90|control-plane": [
+  false,
+  false
+ ],
+ "question-explorer:90|notice-producers": [
+  true,
+  true
+ ],
+ "question-explorer:90|op-declarations": [
+  false,
+  false
+ ],
+ "question-explorer:90|plane": [
+  false,
+  true
+ ],
+ "question-explorer:90|scheduler": [
+  false,
+  true
+ ],
+ "question-explorer:90|store-assembly": [
+  true,
+  true
+ ],
+ "queue-producers:362|instance-setup": [
+  false,
+  false
+ ],
+ "queue-producers:362|plane": [
+  false,
+  false
+ ],
+ "queue-producers:362|queue": [
+  true,
+  true
+ ],
+ "queue-producers:362|store-assembly": [
+  true,
+  true
+ ],
+ "queue:226|answer-envelope": [
+  true,
+  false
+ ],
+ "queue:226|interface-shell": [
+  false,
+  true
+ ],
+ "queue:226|plane": [
+  true,
+  true
+ ],
+ "queue:226|screens-document": [
+  false,
+  false
+ ],
+ "queue:226|screens-inquiry": [
+  false,
+  true
+ ],
+ "queue:226|store-assembly": [
+  true,
+  true
+ ],
+ "queue:226|store-door": [
+  true,
+  true
+ ],
+ "queue:226|store-request": [
+  false,
+  true
+ ],
+ "queue:455|answer-envelope": [
+  true,
+  false
+ ],
+ "queue:455|interface-shell": [
+  false,
+  true
+ ],
+ "queue:455|plane": [
+  true,
+  true
+ ],
+ "queue:455|screens-document": [
+  false,
+  false
+ ],
+ "queue:455|screens-inquiry": [
+  false,
+  true
+ ],
+ "queue:455|store-assembly": [
+  true,
+  true
+ ],
+ "queue:455|store-door": [
+  true,
+  true
+ ],
+ "queue:455|store-request": [
+  false,
+  true
+ ],
+ "reading-guides:352|affordances": [
+  true,
+  true
+ ],
+ "reading-guides:352|agent-worker": [
+  false,
+  false
+ ],
+ "reading-guides:352|answer-envelope": [
+  true,
+  false
+ ],
+ "reading-guides:352|op-declarations": [
+  false,
+  true
+ ],
+ "reading-guides:352|plan-work": [
+  true,
+  false
+ ],
+ "reading-guides:352|plane": [
+  false,
+  true
+ ],
+ "reading-guides:352|skills": [
+  true,
+  true
+ ],
+ "reading-guides:352|store-assembly": [
+  true,
+  true
+ ],
+ "reading-pipeline:272|content": [
+  false,
+  true
+ ],
+ "reading-pipeline:272|events": [
+  true,
+  true
+ ],
+ "reading-pipeline:272|extraction": [
+  true,
+  true
+ ],
+ "reading-pipeline:272|investigation": [
+  false,
+  false
+ ],
+ "reading-pipeline:272|op-declarations": [
+  false,
+  false
+ ],
+ "reading-pipeline:272|plane": [
+  false,
+  true
+ ],
+ "reading-pipeline:272|store-assembly": [
+  false,
+  false
+ ],
+ "registers:426|corpus-export": [
+  false,
+  false
+ ],
+ "registers:426|following": [
+  false,
+  false
+ ],
+ "registers:426|op-declarations": [
+  false,
+  false
+ ],
+ "registers:426|op-grades": [
+  false,
+  false
+ ],
+ "registers:426|scheduler": [
+  false,
+  false
+ ],
+ "registers:426|store-assembly": [
+  true,
+  true
+ ],
+ "registers:426|surface-declarations": [
+  false,
+  false
+ ],
+ "registers:86|corpus-export": [
+  false,
+  false
+ ],
+ "registers:86|following": [
+  false,
+  false
+ ],
+ "registers:86|op-declarations": [
+  false,
+  false
+ ],
+ "registers:86|scheduler": [
+  false,
+  false
+ ],
+ "registers:86|store-assembly": [
+  false,
+  false
+ ],
+ "registers:86|surface-declarations": [
+  false,
+  false
+ ],
+ "run-productions:357|agent-steps": [
+  false,
+  true
+ ],
+ "run-productions:357|agent-worker": [
+  false,
+  true
+ ],
+ "run-productions:357|answer-envelope": [
+  true,
+  false
+ ],
+ "run-productions:357|control-plane": [
+  false,
+  true
+ ],
+ "run-productions:357|op-declarations": [
+  false,
+  true
+ ],
+ "run-productions:357|plane": [
+  false,
+  true
+ ],
+ "run-productions:357|question-explorer": [
+  true,
+  true
+ ],
+ "run-productions:357|skills": [
+  true,
+  true
+ ],
+ "run-productions:357|store-assembly": [
+  true,
+  true
+ ],
+ "run-productions:357|store-door": [
+  false,
+  true
+ ],
+ "run-productions:357|store-jobs": [
+  false,
+  false
+ ],
+ "run-rules:330|action-plans": [
+  true,
+  true
+ ],
+ "run-rules:330|agent-drafts": [
+  true,
+  false
+ ],
+ "run-rules:330|agent-harness": [
+  true,
+  true
+ ],
+ "run-rules:330|agent-runner": [
+  false,
+  false
+ ],
+ "run-rules:330|agent-steps": [
+  true,
+  true
+ ],
+ "run-rules:330|agent-worker": [
+  true,
+  true
+ ],
+ "run-rules:330|ai-gate": [
+  false,
+  false
+ ],
+ "run-rules:330|ai-runs": [
+  true,
+  true
+ ],
+ "run-rules:330|ai-use": [
+  true,
+  true
+ ],
+ "run-rules:330|answer-envelope": [
+  true,
+  false
+ ],
+ "run-rules:330|capture-requests": [
+  true,
+  false
+ ],
+ "run-rules:330|case-disclosures": [
+  true,
+  false
+ ],
+ "run-rules:330|machinery-producers": [
+  true,
+  false
+ ],
+ "run-rules:330|plane": [
+  false,
+  true
+ ],
+ "run-rules:330|question-explorer": [
+  true,
+  true
+ ],
+ "run-rules:330|run-productions": [
+  true,
+  false
+ ],
+ "run-rules:330|skills": [
+  true,
+  true
+ ],
+ "run-rules:330|store-ask": [
+  false,
+  false
+ ],
+ "run-rules:330|store-assembly": [
+  true,
+  true
+ ],
+ "run-rules:330|wizard-scripts": [
+  true,
+  true
+ ],
+ "run-rules:407|action-plans": [
+  true,
+  true
+ ],
+ "run-rules:407|agent-drafts": [
+  true,
+  false
+ ],
+ "run-rules:407|agent-harness": [
+  true,
+  true
+ ],
+ "run-rules:407|agent-runner": [
+  false,
+  false
+ ],
+ "run-rules:407|agent-steps": [
+  true,
+  true
+ ],
+ "run-rules:407|agent-worker": [
+  true,
+  true
+ ],
+ "run-rules:407|ai-gate": [
+  true,
+  true
+ ],
+ "run-rules:407|ai-runs": [
+  true,
+  true
+ ],
+ "run-rules:407|ai-use": [
+  true,
+  true
+ ],
+ "run-rules:407|answer-envelope": [
+  true,
+  false
+ ],
+ "run-rules:407|capture-requests": [
+  true,
+  false
+ ],
+ "run-rules:407|case-disclosures": [
+  true,
+  false
+ ],
+ "run-rules:407|machinery-producers": [
+  true,
+  false
+ ],
+ "run-rules:407|plane": [
+  false,
+  true
+ ],
+ "run-rules:407|question-explorer": [
+  true,
+  true
+ ],
+ "run-rules:407|run-productions": [
+  true,
+  false
+ ],
+ "run-rules:407|skills": [
+  true,
+  true
+ ],
+ "run-rules:407|store-ask": [
+  false,
+  false
+ ],
+ "run-rules:407|store-assembly": [
+  true,
+  true
+ ],
+ "run-rules:407|wizard-scripts": [
+  true,
+  true
+ ],
+ "run-rules:72|action-plans": [
+  true,
+  true
+ ],
+ "run-rules:72|agent-harness": [
+  true,
+  true
+ ],
+ "run-rules:72|agent-runner": [
+  false,
+  false
+ ],
+ "run-rules:72|agent-steps": [
+  true,
+  true
+ ],
+ "run-rules:72|agent-worker": [
+  true,
+  true
+ ],
+ "run-rules:72|ai-gate": [
+  false,
+  false
+ ],
+ "run-rules:72|ai-runs": [
+  true,
+  true
+ ],
+ "run-rules:72|ai-use": [
+  true,
+  true
+ ],
+ "run-rules:72|answer-envelope": [
+  true,
+  false
+ ],
+ "run-rules:72|capture-requests": [
+  true,
+  false
+ ],
+ "run-rules:72|case-disclosures": [
+  true,
+  false
+ ],
+ "run-rules:72|machinery-producers": [
+  true,
+  false
+ ],
+ "run-rules:72|plane": [
+  false,
+  true
+ ],
+ "run-rules:72|question-explorer": [
+  true,
+  true
+ ],
+ "run-rules:72|run-productions": [
+  true,
+  false
+ ],
+ "run-rules:72|skills": [
+  true,
+  true
+ ],
+ "run-rules:72|store-assembly": [
+  true,
+  true
+ ],
+ "run-rules:72|wizard-scripts": [
+  true,
+  false
+ ],
+ "scheduler:748|instance-setup": [
+  true,
+  true
+ ],
+ "scheduler:748|instance-updates": [
+  false,
+  false
+ ],
+ "scheduler:748|plane": [
+  true,
+  true
+ ],
+ "scheduler:748|queue": [
+  true,
+  false
+ ],
+ "scheduler:748|store-assembly": [
+  true,
+  true
+ ],
+ "scheduler:748|store-jobs": [
+  false,
+  false
+ ],
+ "scheduler:748|tasks": [
+  true,
+  true
+ ],
+ "screens-daily:281|control-plane": [
+  true,
+  true
+ ],
+ "screens-daily:281|journey-check": [
+  false,
+  true
+ ],
+ "screens-entry:170|control-plane": [
+  true,
+  true
+ ],
+ "screens-entry:170|journey-check": [
+  false,
+  true
+ ],
+ "screens-inquiry:173|control-plane": [
+  true,
+  true
+ ],
+ "screens-inquiry:173|journey-check": [
+  false,
+  true
+ ],
+ "screens-publish:469|control-plane": [
+  true,
+  true
+ ],
+ "screens-publish:469|screens-public": [
+  false,
+  false
+ ],
+ "screens-publish:607|control-plane": [
+  true,
+  true
+ ],
+ "screens-publish:607|screens-public": [
+  false,
+  true
+ ],
+ "screens-settings:174|control-plane": [
+  true,
+  true
+ ],
+ "screens-settings:174|journey-check": [
+  false,
+  true
+ ],
+ "screens-settings:174|plane": [
+  false,
+  true
+ ],
+ "screens-settings:174|screens-document": [
+  false,
+  false
+ ],
+ "screens-settings:174|screens-inquiry": [
+  true,
+  false
+ ],
+ "screens-settings:291|control-plane": [
+  true,
+  true
+ ],
+ "screens-settings:291|journey-check": [
+  false,
+  true
+ ],
+ "screens-settings:291|plane": [
+  false,
+  true
+ ],
+ "screens-settings:291|screens-document": [
+  false,
+  false
+ ],
+ "screens-settings:291|screens-inquiry": [
+  true,
+  false
+ ],
+ "screens-settings:437|control-plane": [
+  true,
+  true
+ ],
+ "screens-settings:437|journey-check": [
+  false,
+  true
+ ],
+ "screens-settings:437|plane": [
+  false,
+  true
+ ],
+ "screens-settings:437|screens-document": [
+  false,
+  false
+ ],
+ "screens-settings:437|screens-inquiry": [
+  true,
+  false
+ ],
+ "signatures:101|agent-runner": [
+  false,
+  false
+ ],
+ "signatures:101|ai-catalogue": [
+  true,
+  true
+ ],
+ "signatures:101|ai-gate": [
+  false,
+  false
+ ],
+ "signatures:101|ai-issuer": [
+  false,
+  false
+ ],
+ "signatures:101|answer-envelope": [
+  false,
+  false
+ ],
+ "signatures:101|attestation": [
+  true,
+  true
+ ],
+ "signatures:101|bundler": [
+  true,
+  true
+ ],
+ "signatures:101|capture": [
+  true,
+  true
+ ],
+ "signatures:101|case-checker": [
+  true,
+  true
+ ],
+ "signatures:101|case-import": [
+  true,
+  true
+ ],
+ "signatures:101|control-plane": [
+  false,
+  true
+ ],
+ "signatures:101|docket": [
+  true,
+  true
+ ],
+ "signatures:101|doorbell": [
+  false,
+  true
+ ],
+ "signatures:101|installer": [
+  true,
+  true
+ ],
+ "signatures:101|installer-steps": [
+  true,
+  true
+ ],
+ "signatures:101|instance-setup": [
+  true,
+  true
+ ],
+ "signatures:101|instance-updates": [
+  false,
+  false
+ ],
+ "signatures:101|interface-shell": [
+  false,
+  true
+ ],
+ "signatures:101|membership": [
+  false,
+  false
+ ],
+ "signatures:101|network-notices": [
+  true,
+  true
+ ],
+ "signatures:101|plane": [
+  true,
+  false
+ ],
+ "signatures:101|promotion": [
+  true,
+  false
+ ],
+ "signatures:101|public-read": [
+  true,
+  true
+ ],
+ "signatures:101|publication": [
+  false,
+  true
+ ],
+ "signatures:101|ratification": [
+  true,
+  true
+ ],
+ "signatures:101|screens-document": [
+  false,
+  false
+ ],
+ "signatures:101|screens-inquiry": [
+  false,
+  true
+ ],
+ "signatures:101|store-assembly": [
+  false,
+  true
+ ],
+ "signatures:101|store-request": [
+  false,
+  true
+ ],
+ "signatures:208|agent-runner": [
+  false,
+  false
+ ],
+ "signatures:208|ai-catalogue": [
+  true,
+  true
+ ],
+ "signatures:208|ai-gate": [
+  false,
+  false
+ ],
+ "signatures:208|ai-issuer": [
+  false,
+  false
+ ],
+ "signatures:208|answer-envelope": [
+  false,
+  false
+ ],
+ "signatures:208|attestation": [
+  true,
+  true
+ ],
+ "signatures:208|bundler": [
+  true,
+  true
+ ],
+ "signatures:208|capture": [
+  true,
+  true
+ ],
+ "signatures:208|case-checker": [
+  true,
+  true
+ ],
+ "signatures:208|case-import": [
+  true,
+  true
+ ],
+ "signatures:208|control-plane": [
+  false,
+  true
+ ],
+ "signatures:208|docket": [
+  true,
+  true
+ ],
+ "signatures:208|doorbell": [
+  false,
+  true
+ ],
+ "signatures:208|installer": [
+  true,
+  true
+ ],
+ "signatures:208|installer-steps": [
+  true,
+  true
+ ],
+ "signatures:208|instance-setup": [
+  true,
+  true
+ ],
+ "signatures:208|instance-updates": [
+  false,
+  false
+ ],
+ "signatures:208|interface-shell": [
+  false,
+  true
+ ],
+ "signatures:208|membership": [
+  false,
+  false
+ ],
+ "signatures:208|network-notices": [
+  true,
+  true
+ ],
+ "signatures:208|plane": [
+  true,
+  false
+ ],
+ "signatures:208|promotion": [
+  true,
+  false
+ ],
+ "signatures:208|public-read": [
+  true,
+  true
+ ],
+ "signatures:208|publication": [
+  false,
+  true
+ ],
+ "signatures:208|ratification": [
+  true,
+  true
+ ],
+ "signatures:208|screens-document": [
+  false,
+  false
+ ],
+ "signatures:208|screens-inquiry": [
+  false,
+  true
+ ],
+ "signatures:208|store-assembly": [
+  false,
+  true
+ ],
+ "signatures:208|store-request": [
+  false,
+  true
+ ],
+ "signin-door:153|control-plane": [
+  true,
+  true
+ ],
+ "signin-door:153|plane": [
+  false,
+  true
+ ],
+ "signin-door:153|store-ask": [
+  false,
+  false
+ ],
+ "signin-door:153|store-assembly": [
+  true,
+  true
+ ],
+ "signin-door:153|store-request": [
+  true,
+  true
+ ],
+ "signin-door:168|control-plane": [
+  true,
+  true
+ ],
+ "signin-door:168|plane": [
+  false,
+  true
+ ],
+ "signin-door:168|store-ask": [
+  false,
+  false
+ ],
+ "signin-door:168|store-assembly": [
+  true,
+  true
+ ],
+ "signin-door:168|store-request": [
+  true,
+  true
+ ],
+ "skills:409|agent-drafts": [
+  false,
+  false
+ ],
+ "skills:409|agent-worker": [
+  false,
+  true
+ ],
+ "skills:409|answer-envelope": [
+  true,
+  true
+ ],
+ "skills:409|control-plane": [
+  true,
+  true
+ ],
+ "skills:409|investigation": [
+  true,
+  true
+ ],
+ "skills:409|store-request": [
+  true,
+  false
+ ],
+ "steps:1023|action-clocks": [
+  true,
+  true
+ ],
+ "steps:1023|answer-envelope": [
+  true,
+  false
+ ],
+ "steps:1023|control-plane": [
+  false,
+  false
+ ],
+ "steps:1023|investigation": [
+  true,
+  true
+ ],
+ "steps:1023|notice-producers": [
+  true,
+  true
+ ],
+ "steps:1023|store-assembly": [
+  true,
+  true
+ ],
+ "store-assembly:242|control-plane": [
+  false,
+  true
+ ],
+ "store-assembly:242|plane": [
+  true,
+  true
+ ],
+ "store-assembly:242|store-request": [
+  false,
+  true
+ ],
+ "store-assembly:93|control-plane": [
+  false,
+  true
+ ],
+ "store-assembly:93|plane": [
+  true,
+  true
+ ],
+ "store-assembly:93|store-request": [
+  false,
+  true
+ ],
+ "store-door:200|control-plane": [
+  false,
+  true
+ ],
+ "store-door:200|plane": [
+  false,
+  true
+ ],
+ "store-door:200|store-assembly": [
+  true,
+  true
+ ],
+ "store-request:133|control-plane": [
+  true,
+  true
+ ],
+ "store-request:133|interface-shell": [
+  false,
+  true
+ ],
+ "store-request:133|plane": [
+  false,
+  false
+ ],
+ "store-request:133|screens-ai": [
+  false,
+  false
+ ],
+ "store-request:133|screens-daily": [
+  false,
+  true
+ ],
+ "store-request:133|screens-document": [
+  false,
+  false
+ ],
+ "store-request:133|screens-entry": [
+  false,
+  true
+ ],
+ "store-request:133|screens-inquiry": [
+  false,
+  true
+ ],
+ "store-request:133|screens-intake": [
+  false,
+  true
+ ],
+ "store-request:133|screens-investigate": [
+  false,
+  true
+ ],
+ "store-request:133|screens-publish": [
+  false,
+  true
+ ],
+ "store-request:133|screens-settings": [
+  false,
+  true
+ ],
+ "store-request:133|screens-wizards": [
+  false,
+  true
+ ],
+ "strength:1037|action-plans": [
+  true,
+  false
+ ],
+ "strength:1037|answer-envelope": [
+  true,
+  true
+ ],
+ "strength:1037|case-catalogue": [
+  true,
+  false
+ ],
+ "strength:1037|case-checker": [
+  true,
+  true
+ ],
+ "strength:1037|case-grammar": [
+  true,
+  true
+ ],
+ "strength:1037|case-import": [
+  true,
+  true
+ ],
+ "strength:1037|conformance": [
+  true,
+  true
+ ],
+ "strength:1037|consequences": [
+  true,
+  true
+ ],
+ "strength:1037|control-plane": [
+  false,
+  true
+ ],
+ "strength:1037|filings": [
+  true,
+  false
+ ],
+ "strength:1037|ratification": [
+  true,
+  true
+ ],
+ "strength:1037|reevaluation": [
+  true,
+  true
+ ],
+ "strength:1037|review": [
+  true,
+  true
+ ],
+ "strength:1037|screens-document": [
+  false,
+  false
+ ],
+ "strength:176|action-plans": [
+  true,
+  false
+ ],
+ "strength:176|affordances": [
+  false,
+  true
+ ],
+ "strength:176|answer-envelope": [
+  true,
+  false
+ ],
+ "strength:176|case-authoring": [
+  true,
+  true
+ ],
+ "strength:176|case-catalogue": [
+  true,
+  false
+ ],
+ "strength:176|case-checker": [
+  true,
+  true
+ ],
+ "strength:176|case-disclosures": [
+  true,
+  true
+ ],
+ "strength:176|case-grammar": [
+  true,
+  true
+ ],
+ "strength:176|case-import": [
+  true,
+  true
+ ],
+ "strength:176|conformance": [
+  true,
+  true
+ ],
+ "strength:176|consequences": [
+  true,
+  true
+ ],
+ "strength:176|control-plane": [
+  false,
+  true
+ ],
+ "strength:176|filings": [
+  true,
+  false
+ ],
+ "strength:176|plane": [
+  false,
+  true
+ ],
+ "strength:176|ratification": [
+  true,
+  true
+ ],
+ "strength:176|reevaluation": [
+  true,
+  true
+ ],
+ "strength:176|review": [
+  true,
+  true
+ ],
+ "strength:176|run-productions": [
+  true,
+  true
+ ],
+ "strength:176|screens-document": [
+  false,
+  false
+ ],
+ "strength:176|screens-inquiry": [
+  false,
+  false
+ ],
+ "strength:176|skills": [
+  true,
+  true
+ ],
+ "strength:176|store-assembly": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|affordances": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|answer-envelope": [
+  true,
+  false
+ ],
+ "wizard-scripts:163|control-plane": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|instance-setup": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|interface-shell": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|op-declarations": [
+  false,
+  true
+ ],
+ "wizard-scripts:163|plane": [
+  false,
+  true
+ ],
+ "wizard-scripts:163|queue-producers": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|screens-action": [
+  false,
+  true
+ ],
+ "wizard-scripts:163|screens-document": [
+  false,
+  false
+ ],
+ "wizard-scripts:163|screens-inquiry": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|screens-intake": [
+  false,
+  true
+ ],
+ "wizard-scripts:163|screens-matter": [
+  false,
+  false
+ ],
+ "wizard-scripts:163|screens-plan": [
+  false,
+  false
+ ],
+ "wizard-scripts:163|screens-publish": [
+  false,
+  true
+ ],
+ "wizard-scripts:163|screens-wizards": [
+  false,
+  true
+ ],
+ "wizard-scripts:163|store-assembly": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|store-door": [
+  true,
+  true
+ ],
+ "wizard-scripts:163|translations": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|affordances": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|answer-envelope": [
+  true,
+  false
+ ],
+ "wizard-scripts:253|control-plane": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|instance-setup": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|interface-shell": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|op-declarations": [
+  false,
+  true
+ ],
+ "wizard-scripts:253|plane": [
+  false,
+  true
+ ],
+ "wizard-scripts:253|queue-producers": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|screens-action": [
+  false,
+  true
+ ],
+ "wizard-scripts:253|screens-document": [
+  false,
+  false
+ ],
+ "wizard-scripts:253|screens-inquiry": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|screens-intake": [
+  false,
+  true
+ ],
+ "wizard-scripts:253|screens-matter": [
+  false,
+  false
+ ],
+ "wizard-scripts:253|screens-plan": [
+  false,
+  false
+ ],
+ "wizard-scripts:253|screens-publish": [
+  false,
+  true
+ ],
+ "wizard-scripts:253|screens-wizards": [
+  false,
+  true
+ ],
+ "wizard-scripts:253|store-assembly": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|store-door": [
+  true,
+  true
+ ],
+ "wizard-scripts:253|translations": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|affordances": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|answer-envelope": [
+  true,
+  false
+ ],
+ "wizard-scripts:255|control-plane": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|instance-setup": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|interface-shell": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|op-declarations": [
+  false,
+  true
+ ],
+ "wizard-scripts:255|plane": [
+  false,
+  true
+ ],
+ "wizard-scripts:255|queue-producers": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|screens-action": [
+  false,
+  true
+ ],
+ "wizard-scripts:255|screens-document": [
+  false,
+  false
+ ],
+ "wizard-scripts:255|screens-inquiry": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|screens-intake": [
+  false,
+  true
+ ],
+ "wizard-scripts:255|screens-matter": [
+  false,
+  false
+ ],
+ "wizard-scripts:255|screens-plan": [
+  false,
+  false
+ ],
+ "wizard-scripts:255|screens-publish": [
+  false,
+  true
+ ],
+ "wizard-scripts:255|screens-wizards": [
+  false,
+  true
+ ],
+ "wizard-scripts:255|store-assembly": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|store-door": [
+  true,
+  true
+ ],
+ "wizard-scripts:255|translations": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|affordances": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|answer-envelope": [
+  true,
+  false
+ ],
+ "wizard-scripts:546|control-plane": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|instance-setup": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|interface-shell": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|op-declarations": [
+  false,
+  true
+ ],
+ "wizard-scripts:546|plane": [
+  false,
+  true
+ ],
+ "wizard-scripts:546|queue-producers": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|screens-action": [
+  false,
+  true
+ ],
+ "wizard-scripts:546|screens-document": [
+  false,
+  false
+ ],
+ "wizard-scripts:546|screens-inquiry": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|screens-intake": [
+  false,
+  true
+ ],
+ "wizard-scripts:546|screens-matter": [
+  false,
+  false
+ ],
+ "wizard-scripts:546|screens-plan": [
+  false,
+  false
+ ],
+ "wizard-scripts:546|screens-publish": [
+  false,
+  true
+ ],
+ "wizard-scripts:546|screens-wizards": [
+  false,
+  true
+ ],
+ "wizard-scripts:546|store-assembly": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|store-door": [
+  true,
+  true
+ ],
+ "wizard-scripts:546|translations": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|affordances": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|answer-envelope": [
+  true,
+  false
+ ],
+ "wizard-scripts:98|control-plane": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|instance-setup": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|interface-shell": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|op-declarations": [
+  false,
+  true
+ ],
+ "wizard-scripts:98|plane": [
+  false,
+  true
+ ],
+ "wizard-scripts:98|queue-producers": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|screens-action": [
+  false,
+  true
+ ],
+ "wizard-scripts:98|screens-document": [
+  false,
+  false
+ ],
+ "wizard-scripts:98|screens-inquiry": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|screens-intake": [
+  false,
+  true
+ ],
+ "wizard-scripts:98|screens-matter": [
+  false,
+  false
+ ],
+ "wizard-scripts:98|screens-plan": [
+  false,
+  false
+ ],
+ "wizard-scripts:98|screens-publish": [
+  false,
+  true
+ ],
+ "wizard-scripts:98|screens-wizards": [
+  false,
+  true
+ ],
+ "wizard-scripts:98|store-assembly": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|store-door": [
+  true,
+  true
+ ],
+ "wizard-scripts:98|translations": [
+  true,
+  true
+ ],
+ "workbooks:285|affordances": [
+  false,
+  true
+ ],
+ "workbooks:285|case-authoring": [
+  true,
+  false
+ ],
+ "workbooks:285|op-declarations": [
+  false,
+  true
+ ],
+ "workbooks:285|plane": [
+  false,
+  true
+ ],
+ "workbooks:285|store-assembly": [
+  true,
+  true
+ ]
+}

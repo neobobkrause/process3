@@ -1,0 +1,722 @@
+[
+ {
+  "evidence": "build/modules.json:102 agent-model (agent-model/) holds no file that imports ai-catalogue, every code file under its paths read at e4e2f4e09e",
+  "i": 0,
+  "key": "ai-catalogue:336",
+  "user": "agent-model"
+ },
+ {
+  "evidence": "bio-plane/src/queue-producers/index.mjs:2231 calls only docket.coreDue({viewer}) (unchanged) and uses DOCKET_UNREADABLE as a sentence at line 2613",
+  "i": 1,
+  "key": "docket:266",
+  "user": "queue-producers"
+ },
+ {
+  "evidence": "build/modules.json:195 control-plane (bio-plane/src/control-plane/) holds no file that imports store-door, every code file under its paths read at dbe9bc66b3",
+  "i": 2,
+  "key": "store-door:200",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "build/modules.json:180 lists wizard-scripts in its uses, but no file under bio-plane/src/op-declarations/ imports it (its imports, bio-plane/src/op-declarations/index.mjs:18-27, are affordances, its own t45-t51/compose files and op-capabilities); its mentions of wizard-scripts (e.g. index.mjs:487, :1426) are its own op declarations, not uses of SCREEN_REGISTRY or SCREEN_ACTS_ADDED",
+  "i": 3,
+  "key": "wizard-scripts:546",
+  "user": "op-declarations"
+ },
+ {
+  "evidence": "build/modules.json:213 plane (bio-plane/src/plane/, bio-plane/wrangler.jsonc, bio-plane/package.json, bio-plane/package-lock.json, bio-plane/.gitignore, bio-plane/.dev.vars.example) holds no file that imports ai-use, every code file under its paths read at 79aaad96c8",
+  "i": 4,
+  "key": "ai-use:613",
+  "user": "plane"
+ },
+ {
+  "evidence": "build/modules.json:196 plane (bio-plane/src/plane/, bio-plane/wrangler.jsonc, bio-plane/package.json, bio-plane/package-lock.json, bio-plane/.gitignore, bio-plane/.dev.vars.example) holds no file that imports wizard-scripts, every code file under its paths read at 4c1c648486",
+  "i": 5,
+  "key": "wizard-scripts:253",
+  "user": "plane"
+ },
+ {
+  "evidence": "agent-worker/src/draft.mjs:214 its gate is `deps.assistantReady(env, account)`, which /draft now serves from DRAFT_DEPS (agent-worker/src/index.mjs:785, runner forced null), so a sign-in is refused ASSISTANT_REMOTE_NOT_READY exactly as before 569, and its `converse` calls (draft.mjs:250,399,475; action-drafts.mjs:265, gate action-drafts.mjs:221) still name no runner; its imports draft.mjs:42 (ask.mjs: admitRead, readTool, ASK_DECLARED) and :46 (signin.mjs: doorTrace) are untouched by 569 (signin.mjs changed only a comment)",
+  "i": 6,
+  "key": "agent-worker:569",
+  "user": "agent-drafts"
+ },
+ {
+  "evidence": "bio-plane/src/store-door/dispatch.mjs:455 only spreads queue's route map lazily (imported at :18), without classifying any kind",
+  "i": 7,
+  "key": "queue:226",
+  "user": "store-door"
+ },
+ {
+  "evidence": "PR 1099: no requirement id changed; exports read at a787d0110a..ffb55d012e only added (Credentials.alertConnect), none removed or changed",
+  "i": 8,
+  "key": "credentials:1099",
+  "user": "screens-publish"
+ },
+ {
+  "evidence": "bio-plane/src/op-declarations/index.mjs:549 only declares the \"question-explorer\" op family (owner/cite/actor); no import and no principalClaude/principalAi use, so the renamed open-call argument at question-explorer/index.mjs:511 does not reach it (build/modules.json:171)",
+  "i": 9,
+  "key": "question-explorer:199",
+  "user": "op-declarations"
+ },
+ {
+  "evidence": "bio-plane/src/store-assembly/stats.mjs:33 calls only counts(); assemble.mjs:59 and declarations.mjs:43 only wire basisVersionsOf, basisVersionsOps and DECLARED_OPS",
+  "i": 10,
+  "key": "basis-versions:356",
+  "user": "store-assembly"
+ },
+ {
+  "evidence": "build/modules.json:175 signin-door (bio-plane/src/signin-door/) holds no file that imports agent-worker, every code file under its paths read at 7025209576",
+  "i": 11,
+  "key": "agent-worker:97",
+  "user": "signin-door"
+ },
+ {
+  "evidence": "bio-plane/src/publish-schedule/index.mjs:153 uses publication only for registerWaitingEditions and hasCaseStanding (schedule.mjs:284,351); publishDue commits through ratification's registered publisher (schedule.mjs:243), not commitCaseEdition itself",
+  "i": 12,
+  "key": "publication:229",
+  "user": "publish-schedule"
+ },
+ {
+  "evidence": "bio-plane/src/machinery-producers/index.mjs:79 PR 743 (R81) changed no source (commit 7442b693 adds only test bio-plane/test/m/monitoring/pause-reach.test.mjs and the requirement mark); this module's only uses of monitoring are archiveEligible (index.mjs:725, :744) and monitoring({viewer,now}) (index.mjs:762); test world bio-plane/test/m/machinery-producers/world.mjs:125 stubs those same two reads",
+  "i": 13,
+  "key": "monitoring:743",
+  "user": "machinery-producers"
+ },
+ {
+  "evidence": "build/modules.json:193 no paths of its own and no file imports op-declarations",
+  "i": 14,
+  "key": "op-declarations:95",
+  "user": "screens-plan"
+ },
+ {
+  "evidence": "bio-plane/src/accepted-work/index.mjs:224 uses only parseImportedFindingRef (imported line 21), which PR 423 leaves unchanged; it neither runs checkInquiryBasis nor builds or reads file_says legs",
+  "i": 15,
+  "key": "inquiry-grammar:423",
+  "user": "accepted-work"
+ },
+ {
+  "evidence": "build/modules.json:85 money-checks (bio-plane/src/money-checks/) holds no file that imports content, every code file under its paths read at 1c3402baa4",
+  "i": 16,
+  "key": "content:440",
+  "user": "money-checks"
+ },
+ {
+  "evidence": "bio-plane/src/affordances.mjs:120 imports the static arrays SHELVES, ENTRY_KINDS, PROPOSALS, PRESSURE_KINDS and republishes them as-is (lines 562-565); PR 266 left all four unchanged and added per-viewer kinds only as docketOf(...).kinds, which this module does not read",
+  "i": 17,
+  "key": "docket:266",
+  "user": "affordances"
+ },
+ {
+  "evidence": "bio-plane/src/case-disclosures/index.mjs:90 imports only DRAFT_KINDS (used at :1286), defined in run-rules/deployment.mjs:175; AI_RUN_IDEM_CHECKS is not imported or used",
+  "i": 18,
+  "key": "run-rules:407",
+  "user": "case-disclosures"
+ },
+ {
+  "evidence": "bio-plane/src/case-tensions/index.mjs:96 uses basisVersionsOf only as a dependency getter; it never reads legs",
+  "i": 19,
+  "key": "basis-versions:356",
+  "user": "case-tensions"
+ },
+ {
+  "evidence": "bio-plane/src/scheduler/index.mjs:378 registers the connections R18 'connection-derive' job (connectionsOf :1025); derivation scheduling, not neighbours/hubs/named_in",
+  "i": 20,
+  "key": "connections:71",
+  "user": "scheduler"
+ },
+ {
+  "evidence": "bio-plane/src/publication/index.mjs:106 imports membershipOf and viewerPredicate, used for groupDescription (:480), memberFacts (:500) and registerHandleGuard (:3023); no isAdministrator call in publication/, deliverer.mjs (no membership use) or the tests (convert-casesign.test.mjs:13 viewerPredicate, fixture.mjs:10 membershipOf)",
+  "i": 21,
+  "key": "membership:1030",
+  "user": "publication"
+ },
+ {
+  "evidence": "bio-plane/src/answer-envelope/families.mjs:131 imports only ../case-disclosures/checks.mjs (the C-120 CASE_DISCLOSURE_CHECKS family rows); does not use findingFacts, the ungraded writers or subjectNaming",
+  "i": 22,
+  "key": "case-disclosures:269",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "build/modules.json:176 signin-door (bio-plane/src/signin-door/) holds no file that imports op-declarations, every code file under its paths read at 5f33ccd718",
+  "i": 23,
+  "key": "op-declarations:321",
+  "user": "signin-door"
+ },
+ {
+  "evidence": "bio-plane/src/answer-envelope/families.mjs:103 imports skilldoctrine as a namespace (listed at :244) and reads only its *_CHECKS families (:296); PR 409 changed no check rows, only procedureGuideLayer's rendering",
+  "i": 24,
+  "key": "skills:409",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "bio-plane/src/ratification/index.mjs:491 uses only inquiry.subjectEntityOf(bundleId) and earned to build the earned registry; never setSubject, subjectHistory or personFacts",
+  "i": 25,
+  "key": "inquiry:360",
+  "user": "ratification"
+ },
+ {
+  "evidence": "build/modules.json:208 plane (bio-plane/src/plane/, bio-plane/wrangler.jsonc, bio-plane/package.json, bio-plane/package-lock.json, bio-plane/.gitignore, bio-plane/.dev.vars.example) holds no file that imports ai-use, every code file under its paths read at 6db37918fd",
+  "i": 26,
+  "key": "ai-use:378",
+  "user": "plane"
+ },
+ {
+  "evidence": "build/modules.json:186 store-ask has no paths (\"paths\": []) and no file imports capture, so nothing of it calls capture's gradeNoteOf (R76)",
+  "i": 27,
+  "key": "capture:468",
+  "user": "store-ask"
+ },
+ {
+  "evidence": "bio-plane/src/case-check/index.mjs:36 imports only viewerPredicate from membership (a stamp-shape test, :33); no isAdministrator call (bio-plane/test/m/case-check/fixture.mjs:10 only builds membershipOf)",
+  "i": 28,
+  "key": "membership:1030",
+  "user": "case-check"
+ },
+ {
+  "evidence": "bio-plane/src/control-plane/index.mjs:40 imports only captureOf, used solely for loadCaptureSession (:693), heldAt (:706, :716) and recordFetchDone (:723-725, :773-775) in the alarm's delivery of an owed render; it never calls gradeNoteOf or op=gradenote (no gradenote/gradeNote anywhere in bio-plane/src/control-plane), so the R76 null for email/email-attachment receipts does not reach it",
+  "i": 29,
+  "key": "capture:468",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "agent-harness/src/harness.mjs:136 imports only levelEmptyHolds from run-rules",
+  "i": 30,
+  "key": "run-rules:72",
+  "user": "agent-harness"
+ },
+ {
+  "evidence": "build/modules.json:171 op-declarations (bio-plane/src/op-declarations/) holds no file that imports publication, every code file under its paths read at 4b79889359",
+  "i": 31,
+  "key": "publication:229",
+  "user": "op-declarations"
+ },
+ {
+  "evidence": "bio-plane/src/case-account/index.mjs:629 uses only basis-versions noProjectConclusionOf (via the import at :60), which reads the bundle state and frontmatter claim and never reaches the changed leg-capture grading (#legsEarned in versionCollections, basis-versions/index.mjs)",
+  "i": 32,
+  "key": "basis-versions:177",
+  "user": "case-account"
+ },
+ {
+  "evidence": "build/modules.json:221 gives ai-issuer no paths (paths: []), so no file of it imports ai-gate or uses the changed behaviour; its declared use of ai-gate is unimplemented at 85f6787dee",
+  "i": 33,
+  "key": "ai-gate:411",
+  "user": "ai-issuer"
+ },
+ {
+  "evidence": "bio-plane/src/lines/index.mjs:17 imports canonicalExtent, checkContentExtent, contentOf and uses only contentContextFor (:438); no call to cellsAt, the only method PR 440 changes",
+  "i": 34,
+  "key": "content:440",
+  "user": "lines"
+ },
+ {
+  "evidence": "build/modules.json:197 screens-intake (bio-plane/src/screens-intake/) holds no file that imports capture, every code file under its paths read at dc7d4e92f0",
+  "i": 35,
+  "key": "capture:468",
+  "user": "screens-intake"
+ },
+ {
+  "evidence": "bio-plane/src/queue-producers/index.mjs:1186 uses only ai-runs runFor (synchronous read of a run's context, ai-runs/index.mjs:3323), never openMany (ai-runs/index.mjs:1533) whose batch estimate PR 485 changed to name the served entry_id and await ai-use.estimate",
+  "i": 36,
+  "key": "ai-runs:485",
+  "user": "queue-producers"
+ },
+ {
+  "evidence": "bio-plane/test/m/law-relations/fixture.mjs:15 imports only membershipOf and uses membership.inSight (:105, :130); src/law-relations has no import of membership and no isAdministrator call",
+  "i": 37,
+  "key": "membership:1030",
+  "user": "law-relations"
+ },
+ {
+  "evidence": "build/modules.json:68 held-captures (build/requirements/held-captures.md) holds no file that imports capture, every code file under its paths read at dc7d4e92f0",
+  "i": 38,
+  "key": "capture:468",
+  "user": "held-captures"
+ },
+ {
+  "evidence": "bio-plane/src/filings/index.mjs:286 filings reads only local-facts factStatus (R30) and governingView (index.mjs:321-328, 2181-2184 via factReader); PR 429 changed only local-facts DECLARED_OPS layerreportcarry weight (undetermined -> reversible, bio-plane/src/local-facts/index.mjs:1005), and filings has no reference to layerreportcarry or local-facts DECLARED_OPS (its own DECLARED_OPS at index.mjs:3148 are separate)",
+  "i": 39,
+  "key": "local-facts:429",
+  "user": "filings"
+ },
+ {
+  "evidence": "bio-plane/src/affordances.mjs:106 imports only VERSION_MACHINE/VERSION_REASON_REQUIRED (:66 SUFFICIENCY_CLAIM_STATES), and facts.mjs:130 calls only basisVersions.conclusionOf; none touch the leg-grade capping (grade, grade_why, graded_by) that PR 177 changed in index.mjs",
+  "i": 40,
+  "key": "basis-versions:177",
+  "user": "affordances"
+ },
+ {
+  "evidence": "bio-plane/test/m/control-plane/record.mjs:36 imports inquiryOf only, to build the module at :139, and bio-plane/test/m/control-plane/t50-door.test.mjs:15 imports readRefusals (partitionOf answers) from the inquiry test fixtures; no file of control-plane (src or test) mentions INQUIRY_RIVAL_CHECKS, onRivalsListed or rivalStanding",
+  "i": 41,
+  "key": "inquiry:1028",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "bio-plane/src/case-authoring/index.mjs:1888 its only use of capture (imported at :104, instance at :311) is R69 captureAccountsOf(...).actors for the not-co-attested rows; it never calls gradeNoteOf/op=gradenote (R76)",
+  "i": 42,
+  "key": "capture:468",
+  "user": "case-authoring"
+ },
+ {
+  "evidence": "build/modules.json:133 case-disclosures (bio-plane/src/case-disclosures/) holds no file that imports basis-versions, every code file under its paths read at 8a303b1544",
+  "i": 43,
+  "key": "basis-versions:356",
+  "user": "case-disclosures"
+ },
+ {
+  "evidence": "bio-plane/src/control-plane/index.mjs:9 import block has no money import; it reads no money declared op",
+  "i": 44,
+  "key": "money:154",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "bio-plane/src/translations/index.mjs:18 imports only normAlias (as termFold, used at index.mjs:356-357 to fold term names), which PR 432 did not change (bio-plane/src/extraction/index.mjs:212); the PR only adds interpretmark/interpretationwithdraw entries to extraction DECLARED_OPS (extraction/index.mjs:3853-3860), which translations never imports (its DECLARED_OPS at index.mjs:824 is its own)",
+  "i": 45,
+  "key": "extraction:432",
+  "user": "translations"
+ },
+ {
+  "evidence": "bio-plane/src/answer-envelope/families.mjs:95 imports only the check rows from basis-versions/checks.mjs, unchanged",
+  "i": 46,
+  "key": "basis-versions:356",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "build/modules.json:166 affordances (bio-plane/src/affordances.mjs, bio-plane/src/affordances/) holds no file that imports corpus-export, every code file under its paths read at 39ad801299",
+  "i": 47,
+  "key": "corpus-export:398",
+  "user": "affordances"
+ },
+ {
+  "evidence": "bio-plane/src/machinery-producers/index.mjs:471 #gradeNotes attaches the imported ACQUIRE_GRADE_NOTE constant itself to register rows (unattended machine-authored bundles, :563; completed capture requests, :643) and never calls capture's gradeNoteOf, so R76's widened received-route null (email, email-attachment) is not consumed here",
+  "i": 48,
+  "key": "capture:468",
+  "user": "machinery-producers"
+ },
+ {
+  "evidence": "build/modules.json:171 op-declarations (bio-plane/src/op-declarations/) holds no file that imports ai-catalogue, every code file under its paths read at 4ce6c6cb45",
+  "i": 49,
+  "key": "ai-catalogue:204",
+  "user": "op-declarations"
+ },
+ {
+  "evidence": "bio-plane/src/contradiction/index.mjs:1898 uses versionsIn() for name and claim only; basisVersions() is never called",
+  "i": 50,
+  "key": "basis-versions:356",
+  "user": "contradiction"
+ },
+ {
+  "evidence": "build/modules.json:158 tasks (bio-plane/src/tasks/) holds no file that imports publication, every code file under its paths read at 4b79889359",
+  "i": 51,
+  "key": "publication:229",
+  "user": "tasks"
+ },
+ {
+  "evidence": "build/modules.json:122 publication (bio-plane/src/deliverer.mjs, bio-plane/src/publication/) holds no file that imports signatures, every code file under its paths read at c048fe53f4",
+  "i": 52,
+  "key": "signatures:208",
+  "user": "publication"
+ },
+ {
+  "evidence": "bio-plane/src/control-plane/draft.mjs:10 imports only checkDraft (writing-help.mjs, unchanged by PR 546), used at draft.mjs:99 and :106 to check draft text; it reads no screen registry acts or SCREEN_ACTS_ADDED",
+  "i": 53,
+  "key": "wizard-scripts:546",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "bio-plane/src/conformance/index.mjs:691 its only use of publication is publishedEditionsOf (also :1221, :1447, through the getter at :241), which PR 427 left unchanged; it never calls fileSaysCitationView, photoPlaceShown or setPhotoPlaceShown, and never reads PUBLICATION_TABLES or case_photo_places (the purge-list addition in publication/schema.mjs)",
+  "i": 54,
+  "key": "publication:427",
+  "user": "conformance"
+ },
+ {
+  "evidence": "bio-plane/src/capture-sources/credentials.mjs:222 calls isAdministrator(memberId) (also :243 isAdministrator(by), :454 isAdministrator(who)) with a bare member id, never a \"member:\" viewer stamp (viewerOf(memberId) adds the stamp separately at :454-455), so the one-argument call passes through unchanged under (who, ...a); render.mjs, browserrender.mjs, cdx.mjs, drive.mjs have no membership use",
+  "i": 55,
+  "key": "membership:1030",
+  "user": "capture-sources"
+ },
+ {
+  "evidence": "bio-plane/src/interface-shell/index.mjs:140 reads its namespace import (:9) only as DECLARATIONS.BROWSER_ACTS, and :10 imports OPS, NEEDS and SESSION_OPS; none is built from ACT_HELP_ABSENT",
+  "i": 56,
+  "key": "op-declarations:321",
+  "user": "interface-shell"
+ },
+ {
+  "evidence": "build/modules.json:197 paths bio-plane/src/control-plane/, where no file imports basis-versions; its test only names the op string (bio-plane/test/m/control-plane/members-pin.test.mjs:35)",
+  "i": 57,
+  "key": "basis-versions:356",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "bio-plane/src/action-producers/index.mjs:990 only calls localFacts.factsDue (imported at :41, getter :100); PR 429 changed only bio-plane/src/local-facts/index.mjs DECLARED_OPS layerreportcarry weight undetermined->reversible (commit 66f35cdfc9, index.mjs:1005), and the module never reads DECLARED_OPS or layerreportcarry",
+  "i": 58,
+  "key": "local-facts:429",
+  "user": "action-producers"
+ },
+ {
+  "evidence": "bio-plane/src/action-replies/index.mjs:31 imports only membershipOf and noSuchProject; it uses membership.sight and membership.inSight (:342, :345), with no isAdministrator call",
+  "i": 59,
+  "key": "membership:1030",
+  "user": "action-replies"
+ },
+ {
+  "evidence": "bio-plane/src/following/index.mjs:1585 uses only memberFacts, projectOwners, activeAdmins, inSight, founderHandle and listenerRefusal (imported at :51); no isAdministrator call anywhere in the module or its fixture (bio-plane/test/m/following/fixture.mjs:18,28)",
+  "i": 60,
+  "key": "membership:1030",
+  "user": "following"
+ },
+ {
+  "evidence": "bio-plane/src/answer-envelope/checks.mjs:30 imports only setup-words; no connections import or hub/named_in handling in its 3 files",
+  "i": 61,
+  "key": "connections:71",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "build/modules.json:190 screens-investigate (bio-plane/src/screens-investigate/) holds no file that imports store-request, every code file under its paths read at 8d107dafd0",
+  "i": 62,
+  "key": "store-request:133",
+  "user": "screens-investigate"
+ },
+ {
+  "evidence": "bio-plane/test/m/op-declarations/browser.mjs:46 its only reading of the design registry is wizard-scripts' test source registry.json, which PR 163 did not change; no op-declarations file imports SCREEN_REGISTRY, CIVICSMITH_LIBRARY or the new RETIRED_ACTS/currentAct (build/modules.json:171)",
+  "i": 63,
+  "key": "wizard-scripts:163",
+  "user": "op-declarations"
+ },
+ {
+  "evidence": "bio-plane/src/strength/index.mjs:94 imports only basisVersionsOf, BASIS_VERSION_LEGS_MAX and VERSION_MACHINE; it never calls basisVersions()",
+  "i": 64,
+  "key": "basis-versions:356",
+  "user": "strength"
+ },
+ {
+  "evidence": "bio-plane/src/people/index.mjs:29 imports combine; checks.mjs:102 \"counterparty\" is the module's own row-join term, not jurisdictions' counterparties",
+  "i": 65,
+  "key": "jurisdictions:40",
+  "user": "people"
+ },
+ {
+  "evidence": "bio-plane/src/control-plane/draft.mjs:10 imports only checkDraft (writing-help.mjs), unchanged by PR 163; nothing here reads the screen registry or the library",
+  "i": 66,
+  "key": "wizard-scripts:163",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "build/modules.json:174 instance-setup (bio-plane/src/setup.mjs, bio-plane/src/setup-fleet.mjs, bio-plane/src/livefire.mjs) holds no file that imports ai-use, every code file under its paths read at 6db37918fd",
+  "i": 67,
+  "key": "ai-use:378",
+  "user": "instance-setup"
+ },
+ {
+  "evidence": "bio-plane/src/case-authoring/index.mjs:122 imports only workbooksOf, not WORKBOOK_DECLARED_TEXT_MAX; its one call into the provider is readWorkbook (index.mjs:456), keeping only ok reads (:457); PR 285 changed only addWorkbook's declared-text refusal (workbooks/index.mjs:262, :289-293), which readWorkbook (workbooks/index.mjs:640) never reaches, and case-authoring names neither addWorkbook, WORKBOOK_FILE_TOO_LARGE nor declared_text.",
+  "i": 68,
+  "key": "workbooks:285",
+  "user": "case-authoring"
+ },
+ {
+  "evidence": "build/modules.json:203 journey-check (bio-plane/src/journey-check/) holds no file that imports screens-daily, every code file under its paths read at 37b9e1e5df",
+  "i": 69,
+  "key": "screens-daily:281",
+  "user": "journey-check"
+ },
+ {
+  "evidence": "bio-plane/src/public-read/index.mjs:538 it only passes on docket.docketPublic/docketFeed (:549, served :2189-2190), withdrawalOf (:615) and lastEntryOf (:1356); #corrections reads only fields.kind and date (:1525-1532); no file calls docketRecordEdition or reads docketSigners.",
+  "i": 70,
+  "key": "docket:278",
+  "user": "public-read"
+ },
+ {
+  "evidence": "bio-plane/src/answer-envelope/families.mjs:169 imports only queue's checks.mjs namespace (QUEUE), listed at :281 in FILE_LIST to compose CHECK_FAMILIES from its *_CHECKS rows; it reads no signer-self-registered disposition, no Registration wiring, and neither Queue.signerKeysOf nor Queue.signerOptionsOf",
+  "i": 71,
+  "key": "queue:455",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "bio-plane/src/member-roster/order.mjs:208 lists it as a module with no paths of its own; no file imports membership, so nothing calls isAdministrator",
+  "i": 72,
+  "key": "membership:1030",
+  "user": "screens-matter"
+ },
+ {
+  "evidence": "bio-plane/src/screens-action/request.mjs:49 offices come from op entitieskind (R56), not op=federaloffices; no built_in use",
+  "i": 73,
+  "key": "entities:63",
+  "user": "screens-action"
+ },
+ {
+  "evidence": "build/modules.json:190 screens-inquiry (bio-plane/src/screens-inquiry/) holds no file that imports citation, every code file under its paths read at ef3d95d1b8",
+  "i": 74,
+  "key": "citation:351",
+  "user": "screens-inquiry"
+ },
+ {
+  "evidence": "build/modules.json:193 screens-plan has no paths and no tests; nothing of it uses wizard-scripts",
+  "i": 75,
+  "key": "wizard-scripts:163",
+  "user": "screens-plan"
+ },
+ {
+  "evidence": "bio-plane/src/ai-use/index.mjs:231 looks up only AI_USE_CHECKS and AI_RUNS_CHECKS by key (imported at :27), never the new family or its code AI_RUN_IDEM_INVALID",
+  "i": 76,
+  "key": "run-rules:407",
+  "user": "ai-use"
+ },
+ {
+  "evidence": "bio-plane/src/screens-publish/keys.mjs:41 no file in screens-publish imports case-grammar (every import is local); its only mentions are the word key case-grammar.load_bearing here and a comment (parts.mjs:472); nothing reads /10, ungraded_passages, typed_passages, extract_* or caseDocumentFormatFor",
+  "i": 77,
+  "key": "case-grammar:202",
+  "user": "screens-publish"
+ },
+ {
+  "evidence": "PR 1098: no requirement id changed; exports read at a787d0110a..74fc385b70 only added (AiAccounts.aiKeyReference, AiAccounts.aiSignin), none removed or changed",
+  "i": 78,
+  "key": "ai-accounts:1098",
+  "user": "ai-runs"
+ },
+ {
+  "evidence": "build/modules.json lists bio-plane/src/screens-publish/ and no file there imports op-declarations; PR 167 changes only the ACT_HELP_ABSENT lists in bio-plane/src/op-declarations/index.mjs:2665-2735; no use of it",
+  "i": 79,
+  "key": "op-declarations:167",
+  "user": "screens-publish"
+ },
+ {
+  "evidence": "bio-plane/src/action-plans/index.mjs:231 uses only legEarning.projectsDrawingOn (import :60); it never calls earned, earnedForDoc, earnedBasis or legCapped, where R18-R20 change",
+  "i": 80,
+  "key": "leg-earning:138",
+  "user": "action-plans"
+ },
+ {
+  "evidence": "bio-plane/src/affordances.mjs:99 imports only SELF_ATTESTED_SENTENCE (case-authoring R36's self-attested sentence), re-exported as SELF_ATTESTED_PROMPT at bio-plane/src/affordances.mjs:372; nothing of R88's ungraded list, R89's statement or R90's never-refuse rule",
+  "i": 81,
+  "key": "case-authoring:456",
+  "user": "affordances"
+ },
+ {
+  "evidence": "bio-plane/src/store-assembly/assemble.mjs:556 builds questionExplorerOf without aiAccounts, which the factory still defaults (question-explorer/index.mjs:1030) for the new #enablerOf, and migrate() at :558/:739 creates the new explore_off table; owners.mjs:26 and owner-ops.mjs:207-214 call only findAccept/findMute/findDoors, unchanged; nothing uses exploringOff",
+  "i": 82,
+  "key": "question-explorer:346",
+  "user": "store-assembly"
+ },
+ {
+  "evidence": "bio-plane/src/affordances/facts.mjs:530 screens() uses wizardScriptsOf (imported :47) only for registeredScreens(), wizardsAt() (:533) and writingHelpRefused() (:539), none of which reads ADMIN_ACTS; the only reader is startFrom (wizard-scripts/index.mjs:1392), which affordances never calls",
+  "i": 83,
+  "key": "wizard-scripts:255",
+  "user": "affordances"
+ },
+ {
+  "evidence": "bio-plane/src/case-disclosures/index.mjs:67 imports only extractionOf and uses only extraction.unitsOf (index.mjs:212, index.mjs:654); PR 432 only adds the interpretmark and interpretationwithdraw entries to extraction DECLARED_OPS (bio-plane/src/extraction/index.mjs:3853-3860), which case-disclosures never reads",
+  "i": 84,
+  "key": "extraction:432",
+  "user": "case-disclosures"
+ },
+ {
+  "evidence": "bio-plane/src/mail-door/index.mjs:20 imports only viewerMember (used at :634 to name the viewer for mailTally), not MODULE_IDS/MODULE_ORDER, the module-order list PR 446 changed in member-roster/order.mjs",
+  "i": 85,
+  "key": "member-roster:446",
+  "user": "mail-door"
+ },
+ {
+  "evidence": "bio-plane/src/member-roster/order.mjs:186 lists it as a module with no paths of its own; no file imports membership, so nothing calls isAdministrator",
+  "i": 86,
+  "key": "membership:1030",
+  "user": "store-ask"
+ },
+ {
+  "evidence": "bio-plane/src/answer-envelope/families.mjs:101 imports checks.mjs as a namespace and registers the whole family (:242); the new CAPTURE_REQUEST_PRODUCED_BY_MALFORMED row joins with no change here",
+  "i": 87,
+  "key": "capture-requests:359",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "bio-plane/src/following/index.mjs:1106 uses only actionPlans.planRead (via actionPlansOf, line 50 import), not planAsk or the ai.open principal field that PR 183 changed",
+  "i": 88,
+  "key": "action-plans:183",
+  "user": "following"
+ },
+ {
+  "evidence": "agent-worker/test/notice-ai-runs-323.test.mjs:38 its use of ai-runs is open (one run), dispatchMemberRun and pathReadyRead (likewise agent-worker/test/notice-ai-runs-96.test.mjs:42), the op-name table aiRunsOps (agent-worker/test/owners.mjs:6,10, keys unchanged) and fixture tickStateTooLarge (agent-worker/test/requirements.test.mjs:39); PR 485 changed only AiRuns.openMany's batch estimate (bio-plane/src/ai-runs/index.mjs:1545-1557: awaited, names entry_id), which nothing under agent-worker/ calls (no openMany or batch estimate anywhere in it)",
+  "i": 89,
+  "key": "ai-runs:485",
+  "user": "agent-worker"
+ },
+ {
+  "evidence": "bio-plane/src/docket/index.mjs:47 imports only provenanceOf, used at :230 and :332 for homeOf; fixture.mjs:24 builds it and calls migrate (:115-116); no use of grade, archive route, REWRITTEN_REPLAY_GRADE or rawReplayOf",
+  "i": 90,
+  "key": "provenance:1002",
+  "user": "docket"
+ },
+ {
+  "evidence": "bio-plane/src/capture-requests/index.mjs:37 imports captureOf, used only for `capture.acquire` (index.mjs:1051, reading sha/grade from the acquire answer at :1068) and `registerReader(\"captured-for\")` (:2005); it never calls gradeNoteOf/op=gradenote, so R76's change does not reach it",
+  "i": 91,
+  "key": "capture:468",
+  "user": "capture-requests"
+ },
+ {
+  "evidence": "build/modules.json:201 gives screens-document empty paths and tests, so no file of it imports queue (it lists queue under uses, but there is no code yet to use R97, the Registration paragraph or Queue.signerKeysOf/signerOptionsOf)",
+  "i": 92,
+  "key": "queue:455",
+  "user": "screens-document"
+ },
+ {
+  "evidence": "build/modules.json:209 control-plane (bio-plane/src/control-plane/) holds no file that imports question-explorer, every code file under its paths read at ecf41e1cbf",
+  "i": 93,
+  "key": "question-explorer:520",
+  "user": "control-plane"
+ },
+ {
+  "evidence": "build/modules.json:167 instance-reports has no paths and no tests; nothing of it uses ai-runs",
+  "i": 94,
+  "key": "ai-runs:96",
+  "user": "instance-reports"
+ },
+ {
+  "evidence": "build/modules.json:179 gives it empty paths and no file imports ai-use (ai-use is only a declared uses edge)",
+  "i": 95,
+  "key": "ai-use:378",
+  "user": "op-specs-late"
+ },
+ {
+  "evidence": "PR 1099: no requirement id changed; exports read at a787d0110a..ffb55d012e only added (Credentials.alertConnect), none removed or changed",
+  "i": 96,
+  "key": "credentials:1099",
+  "user": "queue"
+ },
+ {
+  "evidence": "build/modules.json:173 op-declarations (bio-plane/src/op-declarations/) holds no file that imports reading-guides, every code file under its paths read at 919d827d08",
+  "i": 97,
+  "key": "reading-guides:352",
+  "user": "op-declarations"
+ },
+ {
+  "evidence": "build/modules.json:176 gives store-jobs no paths and no file imports basis-versions, so there is no code to use #legsEarned's changed leg grading",
+  "i": 98,
+  "key": "basis-versions:177",
+  "user": "store-jobs"
+ },
+ {
+  "evidence": "bio-plane/src/case-authoring/checks.mjs:18 imports only setup-words; no connections import or call of the changed ops in its 4 files",
+  "i": 99,
+  "key": "connections:71",
+  "user": "case-authoring"
+ },
+ {
+  "evidence": "agent-worker/test/owners.mjs:12 only reads the op names captureRequestsOps declares (Object.keys of the table); it never creates a request or supplies a runs sight, and PR 182 changed only the run row's principal_claude to principal_ai read in the request-creating path (bio-plane/src/capture-requests/index.mjs:442)",
+  "i": 100,
+  "key": "capture-requests:182",
+  "user": "agent-worker"
+ },
+ {
+  "evidence": "build/modules.json:194 screens-wizards (bio-plane/src/screens-wizards/) holds no file that imports wizard-scripts, every code file under its paths read at 4d1f56ac93",
+  "i": 101,
+  "key": "wizard-scripts:546",
+  "user": "screens-wizards"
+ },
+ {
+  "evidence": "bio-plane/src/scheduler/index.mjs:472 uses inquiry only for datedWaitsDue/datedWaitsWake/datedWaitsTick (lines 473-475) and onWaitSet (line 1016); neither onBarJudged nor rivalStanding appears in bio-plane/src/scheduler/ or bio-plane/test/m/scheduler/ (new-work.test.mjs:15 imports only the inquiry test fixture world)",
+  "i": 102,
+  "key": "inquiry:1006",
+  "user": "scheduler"
+ },
+ {
+  "evidence": "bio-plane/src/basis-versions/index.mjs:32 imports only checkLegExtentGrammar, INQUIRY_GRAMMAR_CHECKS, biasAppliedFindings, readBiasApplied (conclude.mjs:6 biasAppliedFindings, text.mjs:9 flattenBiasApplied), none changed; it never calls checkInquiryBasis or fileSaysLegFindings and builds no file_says_ leg, and INQUIRY_GRAMMAR_CHECKS at index.mjs:244 is only a translation lookup by the code of findings from basis-version-grammar's basisVersionFindings (index.mjs:235), which never mints FILE_SAYS_LEG_MALFORMED, so the added row is never reached",
+  "i": 103,
+  "key": "inquiry-grammar:423",
+  "user": "basis-versions"
+ },
+ {
+  "evidence": "bio-plane/src/ai-use/index.mjs:27 imports only AI_RUNS_CHECKS, a code table looked up at :231, not startAllowed",
+  "i": 104,
+  "key": "run-rules:330",
+  "user": "ai-use"
+ },
+ {
+  "evidence": "build/modules.json:112 lists ai-gate under agent-runner's uses, but no file under agent-runner/ on tranche imports or names ai-gate; the notice adds exports and drops \"not yet met\" marks only",
+  "i": 105,
+  "key": "ai-gate:393",
+  "user": "agent-runner"
+ },
+ {
+  "evidence": "bio-plane/src/ai-runs/index.mjs:34 imports only aiCatalogueOf and EFFORT_WORD_MAX, and uses them only through aiCatalogueOf(ctx).entryOf(id).display_name (lines 3511, 3551, 4105) and the EFFORT_WORD_MAX bound (3498, 3529). PR 1097 left all of these unchanged. It only added catalogueRead, resultsRead, aiCatalogueOps and CATALOGUE_DECLARED_OPS and changed CATALOGUE_ADDRESS, and none of these is referenced in ai-runs. The test bio-plane/test/m/ai-runs/notices-t53.test.mjs:10 likewise uses only aiCatalogueOf(...).entryOf (line 98) and RELEASE_SEED.",
+  "i": 106,
+  "key": "ai-catalogue:1097",
+  "user": "ai-runs"
+ },
+ {
+  "evidence": "PR 1098: no requirement id changed; exports read at a787d0110a..74fc385b70 only added (AiAccounts.aiKeyReference, AiAccounts.aiSignin), none removed or changed",
+  "i": 107,
+  "key": "ai-accounts:1098",
+  "user": "answer-envelope"
+ },
+ {
+  "evidence": "newgroup/src/steps/bindings.mjs:5 imports only FLEET_BINDINGS from bio-plane/src/setup-fleet.mjs (as do newgroup/test/steps/fleet.test.mjs:8, plane.test.mjs:9, world.mjs:4); nothing in newgroup reads assistantReadiness or op=assistantreadiness",
+  "i": 108,
+  "key": "instance-setup:544",
+  "user": "installer-steps"
+ },
+ {
+  "evidence": "bio-plane/src/plan-work/index.mjs:34 imports only membershipOf and listenerRefusal; its membership use is membershipOf at index.mjs:1173 and listenerRefusal (601), no isAdministrator; tests import only MEMBERSHIP_CHECKS (fixtures.test.mjs:6, stands.test.mjs:6)",
+  "i": 109,
+  "key": "membership:1030",
+  "user": "plan-work"
+ },
+ {
+  "evidence": "build/modules.json:190 screens-inquiry (bio-plane/src/screens-inquiry/) holds no file that imports ai-runs, every code file under its paths read at f32f8e5f18",
+  "i": 110,
+  "key": "ai-runs:391",
+  "user": "screens-inquiry"
+ },
+ {
+  "evidence": "bio-plane/src/corpus-export/index.mjs:22 imports only record-core, provenance, entities, events, lines, money, record-grammar and setup-words (lines 22-32), nothing from registers/; its \"register\" (line 138) is the capture-register SQL table, not the registers module",
+  "i": 111,
+  "key": "registers:86",
+  "user": "corpus-export"
+ },
+ {
+  "evidence": "build/requirements/registers.md:17 (R1) takes only the figures of jurisdictions R129 and never reads a counterparty; no line of registers.md mentions counterparties, and bio-plane/src/registers/ holds 0 files at origin/tranche, so no code reads the federal layer's counterparties entries.",
+  "i": 112,
+  "key": "jurisdictions:40",
+  "user": "registers"
+ },
+ {
+  "evidence": "bio-plane/src/affordances/facts.mjs:130 calls only bv.conclusionOf(); affordances.mjs:66 imports only unchanged constants",
+  "i": 113,
+  "key": "basis-versions:356",
+  "user": "affordances"
+ },
+ {
+  "evidence": "build/modules.json:178 gives it `\"paths\": []` and `\"tests\": []`, so it has no code and no file imports ai-catalogue.",
+  "i": 114,
+  "key": "ai-catalogue:1097",
+  "user": "surface-declarations"
+ },
+ {
+  "evidence": "bio-plane/src/case-import/index.mjs:1184 only calls basisVersions.projectQuestions (inquiry ids and cursor); PR 177 changed only #legsEarned's leg capture grading (reached via versionCollections), which projectQuestions does not use",
+  "i": 115,
+  "key": "basis-versions:177",
+  "user": "case-import"
+ },
+ {
+  "evidence": "bio-plane/src/affordances.mjs:115 imports only the filing-templates state/use/outcome constants (TEMPLATE_STATES etc.); it does not use filings, a draft's `template` record or `layer`.",
+  "i": 116,
+  "key": "filings:64",
+  "user": "affordances"
+ },
+ {
+  "evidence": "build/modules.json:170 has empty paths, so no code can use the changed aiAccountsOps owner arms",
+  "i": 117,
+  "key": "ai-accounts:188",
+  "user": "op-specs-late"
+ },
+ {
+  "evidence": "bio-plane/src/action-plans/index.mjs:72 imports only aiRunsOf and uses registerOpenCheck/onRunOpened/runFor/read/boundOf/consumeBound/open (index.mjs:53, 844-882, 2064-2103); no use of partAdmitted, testBarRecord, groupTestSet/Results or the added gateVerdictRecord(s)",
+  "i": 118,
+  "key": "ai-runs:391",
+  "user": "action-plans"
+ },
+ {
+  "evidence": "bio-plane/test/m/screens-settings/connect.test.mjs:304 accountreferenceset sends query {} and body {kind, secret} with no member (connect.mjs:15-16), so it never relies on R9's dropped example or R3's BODY_ONLY",
+  "i": 119,
+  "key": "store-request:133",
+  "user": "screens-settings"
+ }
+]

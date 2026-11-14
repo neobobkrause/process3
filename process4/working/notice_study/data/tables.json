@@ -1,0 +1,371 @@
+{
+ "behaviour_by_requirement": {
+  "BEH|no public requirement changed|A": 3,
+  "BEH|no public requirement changed|B": 5,
+  "BEH|no public requirement changed|C": 34,
+  "BEH|public requirement changed in the same change|A": 9,
+  "BEH|public requirement changed in the same change|B": 4,
+  "BEH|public requirement changed in the same change|C": 39,
+  "BEH|public requirement changed in the same change|Nc": 9,
+  "DATA|no public requirement changed|B": 2,
+  "DATA|no public requirement changed|C": 25,
+  "DATA|public requirement changed in the same change|A": 1,
+  "DATA|public requirement changed in the same change|B": 2,
+  "DATA|public requirement changed in the same change|C": 12,
+  "DATA|public requirement changed in the same change|Nc": 1
+ },
+ "broken_evidence_cites_user_test": 8,
+ "followup": {
+  "answering merge: none": 26,
+  "answering merge: records only": 5,
+  "answering merge: source": 123,
+  "answering merge: tests only": 87,
+  "mechanical: none": 26,
+  "mechanical: records only": 3,
+  "mechanical: said no change": 98,
+  "mechanical: source at the cited place": 63,
+  "mechanical: source elsewhere": 25,
+  "mechanical: tests at the cited place": 3,
+  "mechanical: tests only": 23,
+  "notice test added": 120,
+  "window: none": 26,
+  "window: records only": 3,
+  "window: source": 138,
+  "window: tests only": 74
+ },
+ "judged_vs_mechanical": {
+  "?|source elsewhere": 1,
+  "A|said no change": 4,
+  "A|source at the cited place": 25,
+  "A|source elsewhere": 5,
+  "B|said no change": 11,
+  "B|source at the cited place": 21,
+  "B|source elsewhere": 4,
+  "B|tests at the cited place": 3,
+  "B|tests only": 1,
+  "C|records only": 3,
+  "C|said no change": 83,
+  "C|source at the cited place": 17,
+  "C|source elsewhere": 15,
+  "C|tests only": 22,
+  "Nc|none": 26
+ },
+ "kind": {
+  "BEH": 103,
+  "DATA": 43,
+  "FIX": 3,
+  "NEW": 19,
+  "NON": 8,
+  "REM": 27,
+  "SIG": 38
+ },
+ "kind_outcome": {
+  "BEH|A": 12,
+  "BEH|B": 9,
+  "BEH|C": 73,
+  "BEH|Nc": 9,
+  "DATA|A": 1,
+  "DATA|B": 4,
+  "DATA|C": 37,
+  "DATA|Nc": 1,
+  "FIX|C": 3,
+  "NEW|A": 10,
+  "NEW|B": 2,
+  "NEW|C": 7,
+  "NON|?": 1,
+  "NON|B": 1,
+  "NON|C": 4,
+  "NON|Nc": 2,
+  "REM|A": 3,
+  "REM|B": 22,
+  "REM|C": 2,
+  "SIG|A": 8,
+  "SIG|B": 2,
+  "SIG|C": 14,
+  "SIG|Nc": 14
+ },
+ "outcome": {
+  "?": 1,
+  "A": 34,
+  "B": 40,
+  "C": 140,
+  "Nc": 26
+ },
+ "sample": {
+  "cross": {
+   "N0|f would send": 41,
+   "N0|g1 would send": 6,
+   "N0|imports the provider": 23,
+   "N0|no import": 24,
+   "N1|f would send": 48,
+   "N1|g1 would send": 9,
+   "N1|imports the provider": 63,
+   "N2|f would send": 2,
+   "N2|g1 would send": 0,
+   "N2|imports the provider": 4,
+   "N3|f would send": 3,
+   "N3|g1 would send": 3,
+   "N3|imports the provider": 5,
+   "N4|f would send": 1,
+   "N4|g1 would send": 0,
+   "N4|imports the provider": 1
+  },
+  "reasons": {
+   "N0": 47,
+   "N1": 63,
+   "N2": 4,
+   "N3": 5,
+   "N4": 1
+  }
+ },
+ "signals": {
+  "call_member": {
+   "adopted": 7,
+   "affected": 43,
+   "broken": 11,
+   "judged": 79,
+   "sent": 83
+  },
+  "cite_req": {
+   "adopted": 20,
+   "affected": 62,
+   "broken": 22,
+   "judged": 149,
+   "sent": 166
+  },
+  "cite_req_hard": {
+   "adopted": 4,
+   "affected": 14,
+   "broken": 6,
+   "judged": 55,
+   "sent": 57
+  },
+  "cite_req_src": {
+   "adopted": 20,
+   "affected": 64,
+   "broken": 22,
+   "judged": 160,
+   "sent": 182
+  },
+  "imp": {
+   "adopted": 31,
+   "affected": 233,
+   "broken": 39,
+   "judged": 1869,
+   "sent": 2197
+  },
+  "imp_class": {
+   "adopted": 0,
+   "affected": 3,
+   "broken": 1,
+   "judged": 23,
+   "sent": 26
+  },
+  "imp_fixture": {
+   "adopted": 2,
+   "affected": 19,
+   "broken": 7,
+   "judged": 77,
+   "sent": 89
+  },
+  "imp_gone": {
+   "adopted": 2,
+   "affected": 8,
+   "broken": 1,
+   "judged": 23,
+   "sent": 26
+  },
+  "imp_value": {
+   "adopted": 4,
+   "affected": 44,
+   "broken": 8,
+   "judged": 103,
+   "sent": 112
+  },
+  "imp_whole_chg": {
+   "adopted": 8,
+   "affected": 44,
+   "broken": 5,
+   "judged": 171,
+   "sent": 188
+  },
+  "ref_noncode": {
+   "adopted": 0,
+   "affected": 0,
+   "broken": 0,
+   "judged": 0,
+   "sent": 0
+  },
+  "user_unmet": {
+   "adopted": 27,
+   "affected": 153,
+   "broken": 32,
+   "judged": 1465,
+   "sent": 1691
+  },
+  "user_unmet_prov": {
+   "adopted": 17,
+   "affected": 57,
+   "broken": 13,
+   "judged": 351,
+   "sent": 390
+  },
+  "vanished": {
+   "adopted": 7,
+   "affected": 51,
+   "broken": 23,
+   "judged": 109,
+   "sent": 109
+  }
+ },
+ "vanished_words": [
+  [
+   "accountreference",
+   15
+  ],
+  [
+   "Civicsmith",
+   8
+  ],
+  [
+   "reference",
+   7
+  ],
+  [
+   "AI_KEPT_AWAY",
+   6
+  ],
+  [
+   "explorer",
+   6
+  ],
+  [
+   "groupkeyset",
+   5
+  ],
+  [
+   "subscriptionsignin",
+   5
+  ],
+  [
+   "projectkeyset",
+   5
+  ],
+  [
+   "principalClaude",
+   4
+  ],
+  [
+   "accountreferenceset",
+   4
+  ],
+  [
+   "groupkeystate",
+   4
+  ],
+  [
+   "subscriptiondisconnect",
+   3
+  ],
+  [
+   "accountUses",
+   3
+  ],
+  [
+   "reasoned",
+   3
+  ],
+  [
+   "accounts",
+   3
+  ],
+  [
+   "principal_claude",
+   2
+  ],
+  [
+   "subscription",
+   2
+  ],
+  [
+   "connected",
+   2
+  ],
+  [
+   "characters",
+   2
+  ],
+  [
+   "assistantstate",
+   2
+  ],
+  [
+   "registerimport",
+   2
+  ],
+  [
+   "remoteOf",
+   1
+  ],
+  [
+   "child_process",
+   1
+  ],
+  [
+   "MODEL_FOR_MODE",
+   1
+  ],
+  [
+   "accountReferenceState",
+   1
+  ],
+  [
+   "MACHINE_CANNOT_MARK",
+   1
+  ],
+  [
+   "factconfirm",
+   1
+  ],
+  [
+   "fiscalyears",
+   1
+  ],
+  [
+   "suspended",
+   1
+  ],
+  [
+   "groupkeynoticeseen",
+   1
+  ],
+  [
+   "otherwise",
+   1
+  ],
+  [
+   "media_box",
+   1
+  ],
+  [
+   "disagree",
+   1
+  ],
+  [
+   "tier3_candidate",
+   1
+  ],
+  [
+   "template",
+   1
+  ],
+  [
+   "password",
+   1
+  ],
+  [
+   "disconnect",
+   1
+  ]
+ ]
+}

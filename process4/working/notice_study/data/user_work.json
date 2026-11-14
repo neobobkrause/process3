@@ -1,0 +1,22 @@
+{
+ "aff ?": 1,
+ "aff ? user_unmet": 1,
+ "aff ? user_unmet_prov": 1,
+ "aff A": 34,
+ "aff A user_unmet": 27,
+ "aff A user_unmet_prov": 17,
+ "aff B": 40,
+ "aff B user_unmet": 32,
+ "aff B user_unmet_prov": 13,
+ "aff C": 140,
+ "aff C user_unmet": 87,
+ "aff C user_unmet_prov": 25,
+ "aff Nc": 26,
+ "aff Nc user_unmet": 6,
+ "aff Nc user_unmet_prov": 1,
+ "not affected": 2101,
+ "not affected user_unmet": 1312,
+ "pairs": 2707,
+ "user_unmet": 1691,
+ "user_unmet_prov": 390
+}
