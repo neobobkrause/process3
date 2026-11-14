@@ -74,3 +74,9 @@ The one fixed form for bounds written in words: If those words are changing, the
 Why is this mine? - may a user’s use of a provider be worked out by the tool from the user’s code and comments, with no separate list kept by hand? You tell me.
 
 Agreed: The comments go in as a step of their own, before the job changes anything else, and they describe the module as it stands.
+
+## 11
+
+*The session had asked which changes to an existing entry of a provider's interface send a notice to that entry's users, and had recommended: for what a provider accepts, tell users only when the new interface cannot stand in for the old (something removed, renamed, newly required or newly refused), so that accepting more tells no one; for what a provider hands back, tell users of the entry on any change to it, because handing back something new can break a user.*
+
+I agree with your recommendation
