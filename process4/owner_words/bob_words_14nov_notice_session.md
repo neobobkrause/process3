@@ -66,3 +66,11 @@ Who is told: ideally only the users of the entry that changed. But in order to d
 What rule applies to a module that has no comments yet: The first time a job for a module without comments starts the first thing it does is add the structured comments.
 
 The one fixed form for bounds written in words: If those words are changing, then there must be a reason why. It must be that that interface is changing, right?
+
+## 10
+
+*The session had asked Bob to decide whether a user module's use of a provider may be worked out by the tool from the user's code and comments, with no separate list kept by hand. It had also said it would add one detail unless he objected: "The comments go in as a step of their own, before the job changes anything else, and they describe the module as it stands."*
+
+Why is this mine? - may a user’s use of a provider be worked out by the tool from the user’s code and comments, with no separate list kept by hand? You tell me.
+
+Agreed: The comments go in as a step of their own, before the job changes anything else, and they describe the module as it stands.
