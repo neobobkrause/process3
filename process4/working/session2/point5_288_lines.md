@@ -4,27 +4,27 @@ Worker report, 14 Nov 2026, second main session. Reading and reporting only; not
 
 ## For the owner, in plain words
 
-Your requirements for the process are 288 separate statements. 151 come from your Keep and Drop Ledger, the page on which a session drafted 159 statements with a suggestion for each and you marked each one keep, modify or drop; the 151 are those marked keep (119) or modify (32). The other 137 are statements in your Foundations, the document a session wrote for you from the Ledger. Earlier auditors, not you, cut the Foundations into those 137.
+Your requirements for the process are 288 separate statements. 151 come from your Keep and Drop Ledger, the page where a session drafted 159 statements with a suggestion for each and you marked each keep, modify or drop; the 151 are those marked keep (119) or modify (32). The other 137 are statements in your Foundations, the document a session wrote for you from the Ledger. Earlier auditors, not you, cut the Foundations into those 137.
 
 I counted again where each of the 288 stands in the fifth draft of the definition. My counts agree with the audit's and add up to 288:
 
 - 112 are kept and stated in the draft.
 - 43 are kept in purpose, with the way of doing them changed.
 - 53 are kept, yet the draft says nothing about them.
-- 75 are ended, wholly or in one clause. Of these, 17 rest on an answer you typed to a proposal on 14 Nov and 1 on a hint you typed; 22 rest on a session's written record of your decisions of 13 and 14 Nov; 2 are filed under your decisions on a sentence a session wrote; and 33 were ended by Claude and never put to you.
+- 75 are ended, wholly or in one clause: 17 on an answer you typed to a proposal on 14 Nov, 1 on a hint you typed, 22 on a session's written record of your decisions of 13 and 14 Nov, 2 on a sentence a session wrote, and 33 by Claude without being put to you.
 - 4 are contradicted: the draft does what the line forbids, without saying so.
 - 1 is no longer mentioned at all.
 
-What is proven: the counts, and that every quotation in this report is exact; I checked both against your documents. That the 53 are absent from the draft is the auditor's search; I searched for 33 of their subjects and found none. What is not proven: that a later session would in fact drop an unstated line or follow the wrong document. An earlier report says a Process3 session brought back a removed check by citing Ledger lines; I did not re-check that.
+Proven: the counts, and that every quotation in this report is exact; I checked both against your documents. That the 53 are absent is the auditor's search; I searched the draft for about thirty of their subjects and found none stated. Not proven: that a later session would in fact drop an unstated line or follow the wrong document. An earlier report says a Process3 session brought back a removed check by citing Ledger lines; I did not re-check it.
 
-What is yours to decide:
+Yours to decide:
 
 1. The 33 endings, as seven yes-or-no proposals (next section). Nine of the 33 are checks or re-tests that your words "three tests and no others" may already end; you were not asked whether your words reach that far.
-2. Which document speaks for you where they disagree. For the 75 ended lines your Ledger still says keep or modify (38 lines) and your Foundations still state the rest (37), and the definition does not say that it comes first. The audit gives two options: one sentence saying the definition is followed from the day you accept it, with the two older documents kept as history; or the two older documents are withdrawn from what sessions read.
+2. Which document speaks for you where they disagree. For the 75 ended lines your Ledger still says keep or modify (38) and your Foundations still state the rest (37), and the definition does not say it comes first. The audit gives two options: one sentence saying the definition is followed from the day you accept it, with the older two kept as history; or the older two are withdrawn from what sessions read.
 3. Whether a job may commit built files (files produced from other files). You kept a line saying it never does; the draft says it does.
 4. One older line lets the architecture session reword a requirement and tell you in one line. Your rule of 14 Nov says a change to what you defined is put to you first. Both cannot stand.
 
-What is Claude's work, to do and report: put the 53 unstated lines back into the definition (three clash with your words on the lane where the process is changed, and come to you instead); restore, or propose ending, the command that prints the current state, which ten of your lines rely on; say plainly that the separate list for a completion round has lapsed; and write "proposed", not "ended", until you answer.
+Claude's work, to do and report: put the 53 unstated lines back into the definition (three clash with your words on the lane where the process is changed, and come to you instead); restore, or propose ending, the command that prints the current state, on which ten of your lines rely; say that the separate list for a completion round has lapsed; and write "proposed", not "ended", until you answer.
 
 ## The 33, grouped, as proposals
 
@@ -403,7 +403,7 @@ To state them: what converting a product writes, and how Civicsmith's open tranc
 
 ### What it means concretely
 
-There are three documents. His Ledger still stores "keep" or "modify" for 38 of the 75 lines (27 keep, 11 modify; V: the store, against the appendix codes). His Foundations still state the other 37 (V: count; FD is unchanged since Process3, A). The definition ends each of the 75, wholly (36) or in one clause (39). The definition says of this only: "Your ledger is unchanged. It still shows "keep" or "modify" for every line this definition ends. Your ledger is yours to change." (v5:307). It contains no sentence saying which is followed; the word "govern" does not occur in it; the third draft's sentence "Where the two differ, this definition says which decision it follows" (v3:221) is gone (V). Its only ranking rule is "Your typed words outrank the session's record wherever they differ" (v5:7), which does not rank the definition against the Ledger or the Foundations (V).
+There are three documents. His Ledger still stores "keep" or "modify" for 38 of the 75 lines (27 keep, 11 modify; V: the store, against the appendix codes). His Foundations still state the other 37 (V: count, and the Foundations text read in full). The definition ends each of the 75, wholly (36) or in one clause (39). The definition says of this only: "Your ledger is unchanged. It still shows "keep" or "modify" for every line this definition ends. Your ledger is yours to change." (v5:307). It contains no sentence saying which is followed; the word "govern" does not occur in it; the third draft's sentence "Where the two differ, this definition says which decision it follows" (v3:221) is gone (V). Its only ranking rule is "Your typed words outrank the session's record wherever they differ" (v5:7), which does not rank the definition against the Ledger or the Foundations (V).
 
 A session that is given, or finds, the Ledger or the Foundations reads an instruction that the definition has ended, in a document that is his and is marked kept. Role texts for Process4 have still to be written and "will be written from one or the other" (A: `process4_audit2.md`:97). An earlier report says that in Process3 "a check removed at your instigation was restored within ten hours by a session citing Ledger lines" (A: `process4_counterarguments.md`:465; not re-checked). One of the four contradicted lines is itself about this: no build starts on a line the documents contradict (section 5).
 
@@ -468,7 +468,7 @@ No decision of his, typed or recorded, ends any of the four by name (A: appendix
 ### Claude's work owed
 
 1. Write the 33 as proposed, not ended, until he answers; say for JOB-7 that the 9 Nov sentence is the decision record's, and correct the statement about the set-up check (section 2, group 4).
-2. Put the 53 back: state the 46 that conflict with nothing (groups A to F and I, and the first three of G, less JOB-4), and restore a sentence saying that a kept line the definition does not mention still stands. Bring the conflicting ones to him (item 3 and 6 above).
+2. Put the 53 back: state the 42 that, by my reading, conflict with nothing; for the five with a partial tension (REQ-3, ARC-5, ENF-1, F-PLAT-16, SHM-2) state the part that fits and name the rest; and restore a sentence saying that a kept line the definition does not mention still stands. Bring the six that conflict to him (F-HUM-9, MNT-3, MNT-6, MNT-9, MNT-10, JOB-4; items 3 and 6 above). The appendix codes only the first three as conflicts; the other three are my reading (J).
 3. The status command: restore it as a thing the tool does (a read; the audit notes it "refuses nothing", audit:97), or put the ending of the ten lines to him.
 4. Built files: restore the line, or put the reversal to him.
 5. PLN-4: one clause saying it has lapsed under his words on rounds.

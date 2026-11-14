@@ -4,31 +4,31 @@
 
 ## For the owner, in plain words
 
-Your rule is that the process is changed only in the PROCESS lane, with you choosing, and that a product moves to a changed process only with your prior approval. Today only words hold that rule.
+Your rule: the process is changed only in the PROCESS lane, with you choosing, and a product moves to a changed process only with your prior approval. Today only words hold it.
 
 **Proven today, read from GitHub and from the repositories.**
 
-- In the process's repository, your standing approvals (the text in your name saying what sessions may do without asking) still say sessions may "merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass". They forbid changing settings. They do not forbid changing the process.
+- In the process's repository, your standing approvals (the text in your name saying what sessions may do without asking) still say sessions may "merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass". They forbid changing settings, not changing the process.
 - GitHub's own rules there ask for nobody's approval: a change merges once two automatic checks pass. The sessions' GitHub account can write there. On 9 Nov it opened and merged the last change to the process, with no person's review.
-- A deny list (a settings file that takes commands away from a session) exists on one branch only, Process3's. It sends merges through Process3's tool and does not stop them. The branch holding the Process4 work has none.
+- A deny list (a settings file that takes commands away from a session) exists only on Process3's branch, where it sends merges through Process3's tool without stopping them. The Process4 branch has none.
 - In Process3, sessions made 270 of the 296 changes to the process.
 
-**Not proven.** No physical way of holding your rule has been tried on your repositories. The options below rest on GitHub's documentation only.
+**Not proven.** No physical way of holding your rule has been tried on your repositories. The options below rest on GitHub's documentation.
 
 **The history.** On 13 Nov Claude proposed that the process change only by your own merge, then withdrew it: it made work wait for you, against what the session had recorded as your requirement that your only acts are occasional settings changes. On 14 Nov the second draft proposed it again without saying so, called its cost "one click", and said silent growth became "impossible". That was withdrawn too. A narrower question followed; your reply was the PROCESS paragraph. Nothing has been put to you since.
 
 **Yours to decide:** whether anything physical stands behind your rule, and which.
 
-1. Words only, as now. No act of yours. The risk stays.
+1. Words only, as now. No act of yours; the risk stays.
 2. Your approvals in the process's repository say a change is merged only on your word at PROCESS. One commit by you. Still words.
 3. A GitHub rule so that only your account can update the branch of the process that products use. One setting, once. Then, for each change you approve, you press merge on GitHub's website, and perhaps a second act moves the product. Nothing merges while you are away.
-4. The sessions' account loses write access to the process's repository. The same acts as 3, and PROCESS could no longer save its proposals there.
+4. The sessions' account loses write access to the process's repository. Same acts as 3, and PROCESS could no longer save its proposals there.
 
 Only you can set 3 or 4: your approvals forbid sessions to change settings, and GitHub refuses them. Your PROCESS paragraph says you choose and approve, not that you merge. Whether pressing merge counts as a gate is yours to say.
 
 None of these stops growth elsewhere: tests and walk steps in the product, or what one session tells another.
 
-**Technical, for Claude to settle and report:** how such a rule is built and tried; which branch PROCESS starts on; how a product names the process version it uses.
+**Technical, for Claude to settle and report:** how such a rule is built and tried; which branch PROCESS uses; how a product names its process version.
 
 ---
 
