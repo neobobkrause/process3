@@ -1,0 +1,4564 @@
+{
+ "changes": [
+  {
+   "change": "acquisition:1024",
+   "module": "acquisition",
+   "merge": "e9f7b1b4bcc4c735b178e4e7c212d1d02c3db3bc",
+   "first": "30943b5bd3740ec678ec4cc0bd7f17d4e15d26cc",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/acquisition/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/acquisition/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 13.8
+  },
+  {
+   "change": "action-clocks:60",
+   "module": "action-clocks",
+   "merge": "468014b3e23a568e5f54fa1d3cbe8d9dab5ba600",
+   "first": "e59fbb54ded373633a2281e1bab0a56db908ea99",
+   "lines_removed_or_altered": 3,
+   "lines_added": 20,
+   "paths": [
+    "bio-plane/src/action-clocks/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/action-clocks/count.mjs",
+    "bio-plane/src/action-clocks/index.mjs",
+    "bio-plane/src/action-clocks/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/action-clocks/count.mjs",
+    "bio-plane/src/action-clocks/index.mjs",
+    "bio-plane/src/action-clocks/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/action-clocks/count.mjs",
+    "bio-plane/src/action-clocks/index.mjs",
+    "bio-plane/src/action-clocks/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.7
+  },
+  {
+   "change": "action-grammar:396",
+   "module": "action-grammar",
+   "merge": "3246bba2aa75d12e2ca0e37aad919305f4943064",
+   "first": "0753837ec852940127525bc00b9d95e7f00fabfc",
+   "lines_removed_or_altered": 0,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/action-grammar/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/action-grammar/checks.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/action-grammar/checks.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/action-grammar/checks.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.7
+  },
+  {
+   "change": "action-plans:183",
+   "module": "action-plans",
+   "merge": "8b365335314c2bbabd9e7e41c0647543d724074e",
+   "first": "f3ddb981a2f2b10d39d37b066bc26d66e78b3442",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/action-plans/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/action-plans/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.1
+  },
+  {
+   "change": "action-plans:726",
+   "module": "action-plans",
+   "merge": "d6c444a5cf1e2c2c9ed7661fbe57568a6c91dfc1",
+   "first": "19dd8818ae4f1af8a88f62c6a67057253927ad47",
+   "lines_removed_or_altered": 1,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/action-plans/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/action-plans/checks.mjs",
+    "bio-plane/src/action-plans/index.mjs",
+    "bio-plane/src/action-plans/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/action-plans/checks.mjs",
+    "bio-plane/src/action-plans/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/action-plans/checks.mjs",
+    "bio-plane/src/action-plans/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.1
+  },
+  {
+   "change": "action-records:696",
+   "module": "action-records",
+   "merge": "c06702976dce378737b9512763d3cbf5ec176bf3",
+   "first": "7623d9796904801881e9b051e7fc8447aa471537",
+   "lines_removed_or_altered": 2,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/action-records/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/action-records/index.mjs",
+    "bio-plane/src/action-records/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/action-records/index.mjs",
+    "bio-plane/src/action-records/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/action-records/index.mjs",
+    "bio-plane/src/action-records/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.4
+  },
+  {
+   "change": "actions:715",
+   "module": "actions",
+   "merge": "d02c296694f7f774392a034e59bdef59eb6c442c",
+   "first": "b17aea00663f3be9fb3aff862ac8167db9da1acc",
+   "lines_removed_or_altered": 3,
+   "lines_added": 32,
+   "paths": [
+    "bio-plane/src/actions/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/actions/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/actions/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/actions/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "admission:171",
+   "module": "admission",
+   "merge": "e31f49938c8874f690cadb4430688c73a8a513b6",
+   "first": "e71640ada5ce94e2ef76b074c92a109146ebd0fe",
+   "lines_removed_or_altered": 1,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/admission/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/admission/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/admission/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/admission/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.0
+  },
+  {
+   "change": "affordances:252",
+   "module": "affordances",
+   "merge": "52b3c9bf008c5225038e17f8be2bfcfe5f9f0cf8",
+   "first": "ad50bef5458fc0e24ca7928815e80a890781f3a5",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/affordances.mjs",
+    "bio-plane/src/affordances/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/affordances/act-help.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/affordances/act-help.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.7
+  },
+  {
+   "change": "affordances:374",
+   "module": "affordances",
+   "merge": "328cb52ad0b2701b10babe142e6784d5bfa21a1c",
+   "first": "f82b92a76bafcd916cacb64b9b8ee794af4ae6a7",
+   "lines_removed_or_altered": 0,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/affordances.mjs",
+    "bio-plane/src/affordances/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/affordances/act-help.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/affordances/act-help.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/affordances/act-help.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.0
+  },
+  {
+   "change": "agent-drafts:358",
+   "module": "agent-drafts",
+   "merge": "3f16c0a7b8543c3991ddbc80569524c66d728a9a",
+   "first": "203c5f140c0e613b79d36e82203decaad78e6a34",
+   "lines_removed_or_altered": 0,
+   "lines_added": 4,
+   "paths": [
+    "agent-worker/src/draft.mjs",
+    "agent-worker/src/action-drafts.mjs",
+    "agent-worker/src/untested.mjs"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "agent-worker/src/action-drafts.mjs",
+    "agent-worker/src/draft.mjs",
+    "agent-worker/src/untested.mjs"
+   ],
+   "writeout_differs": [
+    "agent-worker/src/untested.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-worker/src/untested.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.0
+  },
+  {
+   "change": "agent-drafts:408",
+   "module": "agent-drafts",
+   "merge": "a8ae4a39bdfb94e2b044ba57e4ccd1761f5af916",
+   "first": "8599ecfd70797646ed9cf28f03689f6230cc6d16",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "agent-worker/src/draft.mjs",
+    "agent-worker/src/action-drafts.mjs",
+    "agent-worker/src/untested.mjs"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "agent-worker/src/action-drafts.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 5.7
+  },
+  {
+   "change": "agent-drafts:570",
+   "module": "agent-drafts",
+   "merge": "f6049ea4a41ceade6c5abc8c20032c2bde015b41",
+   "first": "ca983c4b7a59712addce1f6cafc996bf27a07c50",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "agent-worker/src/draft.mjs",
+    "agent-worker/src/action-drafts.mjs",
+    "agent-worker/src/untested.mjs"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "agent-worker/src/action-drafts.mjs",
+    "agent-worker/src/draft.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 6.0
+  },
+  {
+   "change": "agent-harness:353",
+   "module": "agent-harness",
+   "merge": "5e8ae0c2fac4424faaa67f0778cc355ce21573e8",
+   "first": "1185b6d699421af3c94a0991e1d81e6fc53c7842",
+   "lines_removed_or_altered": 0,
+   "lines_added": 26,
+   "paths": [
+    "agent-harness/src/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "agent-harness/src/harness.mjs"
+   ],
+   "writeout_differs": [
+    "agent-harness/src/harness.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-harness/src/harness.mjs"
+   ],
+   "failed": [],
+   "seconds": 5.9
+  },
+  {
+   "change": "agent-model:355",
+   "module": "agent-model",
+   "merge": "ca282a6a36575aa2e112f25455c4e02a02ffe3c2",
+   "first": "30fb4f018ea853f96c45ab9911a265fb85583a06",
+   "lines_removed_or_altered": 1,
+   "lines_added": 23,
+   "paths": [
+    "agent-model/"
+   ],
+   "files_before": 4,
+   "files_after": 5,
+   "source_changed": [
+    "agent-model/src/health.mjs"
+   ],
+   "writeout_differs": [
+    "agent-model/src/health.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-model/src/health.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.8
+  },
+  {
+   "change": "agent-model:395",
+   "module": "agent-model",
+   "merge": "dc0daad8a3621b9535f298345644c1875aa3e963",
+   "first": "0e65c98c73bd549271b83ba58e648a22597a8d26",
+   "lines_removed_or_altered": 11,
+   "lines_added": 337,
+   "paths": [
+    "agent-model/"
+   ],
+   "files_before": 5,
+   "files_after": 16,
+   "source_changed": [
+    "agent-model/src/provider/adapters/anthropic.mjs",
+    "agent-model/src/provider/adapters/index.mjs",
+    "agent-model/src/provider/adapters/openai.mjs",
+    "agent-model/src/provider/adapters/sse.mjs",
+    "agent-model/src/provider/catalogue.mjs",
+    "agent-model/src/provider/converse.mjs",
+    "agent-model/src/provider/index.mjs",
+    "agent-model/src/provider/kit.mjs",
+    "agent-model/src/provider/neutral.mjs",
+    "agent-model/src/provider/params.mjs",
+    "agent-model/src/provider/turn.mjs"
+   ],
+   "writeout_differs": [
+    "agent-model/src/provider/adapters/anthropic.mjs",
+    "agent-model/src/provider/adapters/index.mjs",
+    "agent-model/src/provider/adapters/openai.mjs",
+    "agent-model/src/provider/adapters/sse.mjs",
+    "agent-model/src/provider/catalogue.mjs",
+    "agent-model/src/provider/converse.mjs",
+    "agent-model/src/provider/index.mjs",
+    "agent-model/src/provider/kit.mjs",
+    "agent-model/src/provider/neutral.mjs",
+    "agent-model/src/provider/params.mjs",
+    "agent-model/src/provider/turn.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-model/src/provider/adapters/anthropic.mjs",
+    "agent-model/src/provider/adapters/index.mjs",
+    "agent-model/src/provider/adapters/openai.mjs",
+    "agent-model/src/provider/adapters/sse.mjs",
+    "agent-model/src/provider/catalogue.mjs",
+    "agent-model/src/provider/converse.mjs",
+    "agent-model/src/provider/index.mjs",
+    "agent-model/src/provider/kit.mjs",
+    "agent-model/src/provider/neutral.mjs",
+    "agent-model/src/provider/params.mjs",
+    "agent-model/src/provider/turn.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.7
+  },
+  {
+   "change": "agent-runner:610",
+   "module": "agent-runner",
+   "merge": "8d1e88aad6cf7a788ad6180a118bc6fd6b731170",
+   "first": "247cb41017d1d0a93b4ccd30608a814191ac075f",
+   "lines_removed_or_altered": 230,
+   "lines_added": 233,
+   "paths": [
+    "agent-runner/"
+   ],
+   "files_before": 16,
+   "files_after": 18,
+   "source_changed": [
+    "agent-runner/scripts/build-image.mjs",
+    "agent-runner/scripts/build-words.mjs",
+    "agent-runner/scripts/image-check.mjs",
+    "agent-runner/scripts/install-scripts.mjs",
+    "agent-runner/src/call.mjs",
+    "agent-runner/src/door.mjs",
+    "agent-runner/src/entry.mjs",
+    "agent-runner/src/env.mjs",
+    "agent-runner/src/params.mjs",
+    "agent-runner/src/release.mjs",
+    "agent-runner/src/remote-log.mjs",
+    "agent-runner/src/run.mjs",
+    "agent-runner/src/runner.mjs",
+    "agent-runner/src/says-words.mjs",
+    "agent-runner/src/says.mjs",
+    "agent-runner/src/screen.mjs",
+    "agent-runner/src/scrub.mjs",
+    "agent-runner/src/signin.mjs",
+    "agent-runner/src/version.mjs",
+    "agent-runner/src/waits.mjs",
+    "agent-runner/src/worker.mjs",
+    "agent-runner/src/ws.mjs"
+   ],
+   "writeout_differs": [
+    "agent-runner/scripts/build-image.mjs",
+    "agent-runner/scripts/build-words.mjs",
+    "agent-runner/scripts/image-check.mjs",
+    "agent-runner/src/call.mjs",
+    "agent-runner/src/door.mjs",
+    "agent-runner/src/entry.mjs",
+    "agent-runner/src/env.mjs",
+    "agent-runner/src/params.mjs",
+    "agent-runner/src/release.mjs",
+    "agent-runner/src/remote-log.mjs",
+    "agent-runner/src/run.mjs",
+    "agent-runner/src/runner.mjs",
+    "agent-runner/src/says-words.mjs",
+    "agent-runner/src/says.mjs",
+    "agent-runner/src/screen.mjs",
+    "agent-runner/src/scrub.mjs",
+    "agent-runner/src/signin.mjs",
+    "agent-runner/src/version.mjs",
+    "agent-runner/src/waits.mjs",
+    "agent-runner/src/worker.mjs",
+    "agent-runner/src/ws.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-runner/scripts/build-image.mjs",
+    "agent-runner/scripts/build-words.mjs",
+    "agent-runner/scripts/image-check.mjs",
+    "agent-runner/src/call.mjs",
+    "agent-runner/src/door.mjs",
+    "agent-runner/src/entry.mjs",
+    "agent-runner/src/env.mjs",
+    "agent-runner/src/params.mjs",
+    "agent-runner/src/release.mjs",
+    "agent-runner/src/remote-log.mjs",
+    "agent-runner/src/run.mjs",
+    "agent-runner/src/runner.mjs",
+    "agent-runner/src/says-words.mjs",
+    "agent-runner/src/says.mjs",
+    "agent-runner/src/screen.mjs",
+    "agent-runner/src/scrub.mjs",
+    "agent-runner/src/signin.mjs",
+    "agent-runner/src/version.mjs",
+    "agent-runner/src/waits.mjs",
+    "agent-runner/src/worker.mjs",
+    "agent-runner/src/ws.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "agent-steps:185",
+   "module": "agent-steps",
+   "merge": "efaf53b3007fea1449fc68bf6d49ef988126edf2",
+   "first": "589b844ea4b9d5555368e5f3865bc4e648a42c63",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "agent-steps/src/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "agent-steps/src/plane.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.1
+  },
+  {
+   "change": "agent-steps:361",
+   "module": "agent-steps",
+   "merge": "47d7bf1d033c4dbee5e2cede41316bd45720e008",
+   "first": "533712405d44d0d82244afe52b3579c6b82134cc",
+   "lines_removed_or_altered": 0,
+   "lines_added": 1,
+   "paths": [
+    "agent-steps/src/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "agent-steps/src/drive.mjs",
+    "agent-steps/src/names.mjs"
+   ],
+   "writeout_differs": [
+    "agent-steps/src/names.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-steps/src/names.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.4
+  },
+  {
+   "change": "agent-steps:392",
+   "module": "agent-steps",
+   "merge": "95aae5f57d2fea56f3e41701964e8c75549db6ab",
+   "first": "e09bd125c0e9c1420c6ab6f1efb1dbde04fe1662",
+   "lines_removed_or_altered": 7,
+   "lines_added": 86,
+   "paths": [
+    "agent-steps/src/"
+   ],
+   "files_before": 10,
+   "files_after": 11,
+   "source_changed": [
+    "agent-steps/src/drive.mjs",
+    "agent-steps/src/index.mjs",
+    "agent-steps/src/plane.mjs",
+    "agent-steps/src/subsessions.mjs",
+    "agent-steps/src/talk.mjs",
+    "agent-steps/src/work.mjs"
+   ],
+   "writeout_differs": [
+    "agent-steps/src/drive.mjs",
+    "agent-steps/src/index.mjs",
+    "agent-steps/src/plane.mjs",
+    "agent-steps/src/subsessions.mjs",
+    "agent-steps/src/talk.mjs",
+    "agent-steps/src/work.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-steps/src/drive.mjs",
+    "agent-steps/src/index.mjs",
+    "agent-steps/src/plane.mjs",
+    "agent-steps/src/subsessions.mjs",
+    "agent-steps/src/talk.mjs",
+    "agent-steps/src/work.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.8
+  },
+  {
+   "change": "agent-steps:497",
+   "module": "agent-steps",
+   "merge": "0f115477709b21133adb7bd435c4b32981172bea",
+   "first": "ef40849d5f0e24dd6e4568636b0643482bc3f85f",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "agent-steps/src/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "agent-steps/src/drive.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.8
+  },
+  {
+   "change": "agent-worker:364",
+   "module": "agent-worker",
+   "merge": "808de5b52ae6b8ace8b310dd54fd4e3c07760e1d",
+   "first": "85f411fd03f7f42915eeffbd1b8ccc775d2eeed6",
+   "lines_removed_or_altered": 15,
+   "lines_added": 27,
+   "paths": [
+    "agent-worker/"
+   ],
+   "files_before": 11,
+   "files_after": 12,
+   "source_changed": [
+    "agent-worker/src/circuit.mjs",
+    "agent-worker/src/index.mjs",
+    "agent-worker/src/remote.mjs",
+    "agent-worker/src/signin.mjs"
+   ],
+   "writeout_differs": [
+    "agent-worker/src/circuit.mjs",
+    "agent-worker/src/index.mjs",
+    "agent-worker/src/remote.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-worker/src/circuit.mjs",
+    "agent-worker/src/index.mjs",
+    "agent-worker/src/remote.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.1
+  },
+  {
+   "change": "agent-worker:569",
+   "module": "agent-worker",
+   "merge": "ec79aa08b49e6438916ab67d46ee1e620f15dfda",
+   "first": "8d1e88aad6cf7a788ad6180a118bc6fd6b731170",
+   "lines_removed_or_altered": 1,
+   "lines_added": 1,
+   "paths": [
+    "agent-worker/"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [
+    "agent-worker/src/index.mjs",
+    "agent-worker/src/remote.mjs",
+    "agent-worker/src/signin.mjs"
+   ],
+   "writeout_differs": [
+    "agent-worker/src/remote.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-worker/src/remote.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.5
+  },
+  {
+   "change": "agent-worker:97",
+   "module": "agent-worker",
+   "merge": "8210db576590b827b5a21bd75fd6907be6cc9544",
+   "first": "015b3981819d86e9b17000365b12749ff2e66c05",
+   "lines_removed_or_altered": 0,
+   "lines_added": 1,
+   "paths": [
+    "agent-worker/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "agent-worker/src/ask.mjs",
+    "agent-worker/src/ops.mjs"
+   ],
+   "writeout_differs": [
+    "agent-worker/src/ops.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "agent-worker/src/ops.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.3
+  },
+  {
+   "change": "ai-accounts:1098",
+   "module": "ai-accounts",
+   "merge": "5f99f5ac7bc6fa8c49d6926d5615ee35156b6019",
+   "first": "a787d0110add52515b9850e97cc4dfa2242935e2",
+   "lines_removed_or_altered": 0,
+   "lines_added": 13,
+   "paths": [
+    "bio-plane/src/ai-accounts/"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [
+    "bio-plane/src/ai-accounts/accounts.mjs",
+    "bio-plane/src/ai-accounts/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-accounts/accounts.mjs",
+    "bio-plane/src/ai-accounts/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-accounts/accounts.mjs",
+    "bio-plane/src/ai-accounts/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.6
+  },
+  {
+   "change": "ai-accounts:124",
+   "module": "ai-accounts",
+   "merge": "575bf14884fa85918168e569247d6bac29999669",
+   "first": "e255f11da4d3ab1de730360feac07344ad230e27",
+   "lines_removed_or_altered": 3,
+   "lines_added": 77,
+   "paths": [
+    "bio-plane/src/ai-accounts/"
+   ],
+   "files_before": 11,
+   "files_after": 12,
+   "source_changed": [
+    "bio-plane/src/ai-accounts/index.mjs",
+    "bio-plane/src/ai-accounts/legacy.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-accounts/index.mjs",
+    "bio-plane/src/ai-accounts/legacy.mjs",
+    "bio-plane/src/ai-accounts/serving.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-accounts/index.mjs",
+    "bio-plane/src/ai-accounts/legacy.mjs",
+    "bio-plane/src/ai-accounts/serving.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.5
+  },
+  {
+   "change": "ai-accounts:188",
+   "module": "ai-accounts",
+   "merge": "cfbd5d359d378a7336b8857f3a6281e131688a77",
+   "first": "efaf53b3007fea1449fc68bf6d49ef988126edf2",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-accounts/"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [
+    "bio-plane/src/ai-accounts/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "ai-accounts:316",
+   "module": "ai-accounts",
+   "merge": "637f73a5cf9b3a03fa2a7ec1c9bc9de9b490e1a9",
+   "first": "202498e237437d7040321a986655a9bee046f028",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-accounts/"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [
+    "bio-plane/src/ai-accounts/legacy.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.0
+  },
+  {
+   "change": "ai-accounts:483",
+   "module": "ai-accounts",
+   "merge": "297d25b8a5e61ec8b67f56d88c4e83e09398cf1f",
+   "first": "0f115477709b21133adb7bd435c4b32981172bea",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-accounts/"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [
+    "bio-plane/src/ai-accounts/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.4
+  },
+  {
+   "change": "ai-catalogue:1097",
+   "module": "ai-catalogue",
+   "merge": "8ed25f1db7c0780de65eeacd1e8cb7a1a91ae3d0",
+   "first": "5fd73f9b50a05919e6a71e8598680c87d1b27031",
+   "lines_removed_or_altered": 1,
+   "lines_added": 17,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-catalogue/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-catalogue/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.2
+  },
+  {
+   "change": "ai-catalogue:194",
+   "module": "ai-catalogue",
+   "merge": "66c283828a6d99f88f71e2a071626b7569d7cc0c",
+   "first": "d39797b18d392dad0df42ee428a5a076d250090e",
+   "lines_removed_or_altered": 4,
+   "lines_added": 62,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 5,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.6
+  },
+  {
+   "change": "ai-catalogue:204",
+   "module": "ai-catalogue",
+   "merge": "23ffcbea359df7146b39f0b47880ff07408a7733",
+   "first": "c85d9e38e653d7c46d6606408b7912297a6ea0a5",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 9.1
+  },
+  {
+   "change": "ai-catalogue:317",
+   "module": "ai-catalogue",
+   "merge": "0e140ef762194ecf86cfa86f9fb8d53b84bd0488",
+   "first": "23eeca8099777ae76977a4da65ac307c0e8b9c43",
+   "lines_removed_or_altered": 3,
+   "lines_added": 47,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 6,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs",
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs",
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs",
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.1
+  },
+  {
+   "change": "ai-catalogue:336",
+   "module": "ai-catalogue",
+   "merge": "fb956d123ca4552334ffc275aef4c5c3bf1db32b",
+   "first": "6b7ccce437067a40163643bc5d5010391e98debf",
+   "lines_removed_or_altered": 0,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.4
+  },
+  {
+   "change": "ai-catalogue:484",
+   "module": "ai-catalogue",
+   "merge": "a936799e95031538448a12dbb1dba2326d6f93d9",
+   "first": "297d25b8a5e61ec8b67f56d88c4e83e09398cf1f",
+   "lines_removed_or_altered": 12,
+   "lines_added": 149,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs",
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-catalogue/dev-key.mjs",
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.5
+  },
+  {
+   "change": "ai-catalogue:611",
+   "module": "ai-catalogue",
+   "merge": "6bb3dc8fbeb71673382a2eedebaefb51b2fddcbb",
+   "first": "0210eba56a26687a37b4736bfbd5e4c945edadf6",
+   "lines_removed_or_altered": 1,
+   "lines_added": 6,
+   "paths": [
+    "bio-plane/src/ai-catalogue/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-catalogue/index.mjs",
+    "bio-plane/src/ai-catalogue/seed.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.3
+  },
+  {
+   "change": "ai-gate:372",
+   "module": "ai-gate",
+   "merge": "454ee63b806f17f2d65b3eb2eab2d42969770674",
+   "first": "cb2e54a76b568f22dcae6e5d1f1cd301d41df2da",
+   "lines_removed_or_altered": 12,
+   "lines_added": 276,
+   "paths": [
+    "ai-gate/src/"
+   ],
+   "files_before": 0,
+   "files_after": 12,
+   "source_changed": [
+    "ai-gate/src/bank.mjs",
+    "ai-gate/src/bundle.mjs",
+    "ai-gate/src/canary.mjs",
+    "ai-gate/src/characterize.mjs",
+    "ai-gate/src/estimate.mjs",
+    "ai-gate/src/groups.mjs",
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/params.mjs",
+    "ai-gate/src/plan.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/verdict.mjs",
+    "ai-gate/src/verify.mjs"
+   ],
+   "writeout_differs": [
+    "ai-gate/src/bank.mjs",
+    "ai-gate/src/bundle.mjs",
+    "ai-gate/src/canary.mjs",
+    "ai-gate/src/characterize.mjs",
+    "ai-gate/src/estimate.mjs",
+    "ai-gate/src/groups.mjs",
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/params.mjs",
+    "ai-gate/src/plan.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/verdict.mjs",
+    "ai-gate/src/verify.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "ai-gate/src/bank.mjs",
+    "ai-gate/src/bundle.mjs",
+    "ai-gate/src/canary.mjs",
+    "ai-gate/src/characterize.mjs",
+    "ai-gate/src/estimate.mjs",
+    "ai-gate/src/groups.mjs",
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/params.mjs",
+    "ai-gate/src/plan.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/verdict.mjs",
+    "ai-gate/src/verify.mjs"
+   ],
+   "failed": [],
+   "seconds": 3.8
+  },
+  {
+   "change": "ai-gate:393",
+   "module": "ai-gate",
+   "merge": "215400e835955568bdfe63706c33450d69b75f40",
+   "first": "dc0daad8a3621b9535f298345644c1875aa3e963",
+   "lines_removed_or_altered": 2,
+   "lines_added": 11,
+   "paths": [
+    "ai-gate/src/"
+   ],
+   "files_before": 12,
+   "files_after": 13,
+   "source_changed": [
+    "ai-gate/src/bank.mjs",
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/words.mjs"
+   ],
+   "writeout_differs": [
+    "ai-gate/src/bank.mjs",
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/words.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "ai-gate/src/bank.mjs",
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/words.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.4
+  },
+  {
+   "change": "ai-gate:411",
+   "module": "ai-gate",
+   "merge": "85f6787dee43e465df0b2ec6a0f71468d4ebbb71",
+   "first": "1af284cc08034f117305ce701b6b5bbee3bbd493",
+   "lines_removed_or_altered": 1,
+   "lines_added": 87,
+   "paths": [
+    "ai-gate/src/"
+   ],
+   "files_before": 13,
+   "files_after": 14,
+   "source_changed": [
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/params.mjs",
+    "ai-gate/src/run.mjs",
+    "ai-gate/src/score.mjs",
+    "ai-gate/src/words.mjs"
+   ],
+   "writeout_differs": [
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/run.mjs",
+    "ai-gate/src/score.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "ai-gate/src/index.mjs",
+    "ai-gate/src/run.mjs",
+    "ai-gate/src/score.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.7
+  },
+  {
+   "change": "ai-runs:1004",
+   "module": "ai-runs",
+   "merge": "ac6304508dbf718c07f89f87faef76a7c5872acf",
+   "first": "9dbb197b127cf62719aaf087cc092e36bc844f15",
+   "lines_removed_or_altered": 0,
+   "lines_added": 9,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.7
+  },
+  {
+   "change": "ai-runs:1073",
+   "module": "ai-runs",
+   "merge": "27370c6ec9e13fc8d4f2c02f0c9b2464b22c5e82",
+   "first": "86bdfbd98fdf97d71bde5bd6b4a7e39dac3c1461",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.1
+  },
+  {
+   "change": "ai-runs:213",
+   "module": "ai-runs",
+   "merge": "bf31d37484620e9bf4ac5baae3738015bfc4f856",
+   "first": "65f2815b05975f06f6e115e445f81f8b73a5530f",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.6
+  },
+  {
+   "change": "ai-runs:323",
+   "module": "ai-runs",
+   "merge": "3f2f4d51731c9ab618642ae4ec0102c9d36c7be4",
+   "first": "fb956d123ca4552334ffc275aef4c5c3bf1db32b",
+   "lines_removed_or_altered": 0,
+   "lines_added": 7,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "ai-runs:348",
+   "module": "ai-runs",
+   "merge": "4b75d7f88787165ba584290419b6f05640a8e9f6",
+   "first": "9ab9317ca8960c07dce61e62c60f218a7ad42fa9",
+   "lines_removed_or_altered": 1,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "ai-runs:391",
+   "module": "ai-runs",
+   "merge": "fcc0ac2f25c3e0ff7cbb16b3bda5a895c973849d",
+   "first": "12ac04d36453f7104cf9d485577b9f318c1ec302",
+   "lines_removed_or_altered": 1,
+   "lines_added": 6,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs",
+    "bio-plane/src/ai-runs/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-runs/index.mjs",
+    "bio-plane/src/ai-runs/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-runs/index.mjs",
+    "bio-plane/src/ai-runs/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.3
+  },
+  {
+   "change": "ai-runs:485",
+   "module": "ai-runs",
+   "merge": "d0e9f38396fb90ac258cbf88d858056a4934c1aa",
+   "first": "6a485f7a64aeaa8bc16a1878b3b34b790ccaec77",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-runs/index.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.1
+  },
+  {
+   "change": "ai-runs:96",
+   "module": "ai-runs",
+   "merge": "b7426ef99a6201d16b6e81c713cb5e6305f2a71a",
+   "first": "2d52c515fae9c04c6f8ff5164660be226edb491a",
+   "lines_removed_or_altered": 13,
+   "lines_added": 181,
+   "paths": [
+    "bio-plane/src/ai-runs/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/ai-runs/index.mjs",
+    "bio-plane/src/ai-runs/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-runs/index.mjs",
+    "bio-plane/src/ai-runs/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-runs/index.mjs",
+    "bio-plane/src/ai-runs/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.7
+  },
+  {
+   "change": "ai-use:105",
+   "module": "ai-use",
+   "merge": "fff736698a2a35a17a1ff0b9af9e93edc42c070f",
+   "first": "107027e98212ae77de7ade71f70f3f753c048383",
+   "lines_removed_or_altered": 43,
+   "lines_added": 188,
+   "paths": [
+    "bio-plane/src/ai-use/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/ai-use/checks.mjs",
+    "bio-plane/src/ai-use/index.mjs",
+    "bio-plane/src/ai-use/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-use/checks.mjs",
+    "bio-plane/src/ai-use/index.mjs",
+    "bio-plane/src/ai-use/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-use/checks.mjs",
+    "bio-plane/src/ai-use/index.mjs",
+    "bio-plane/src/ai-use/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.7
+  },
+  {
+   "change": "ai-use:378",
+   "module": "ai-use",
+   "merge": "fdc6cc5538d31327ccd206a6bd98273ef55a4121",
+   "first": "74cea43c971a0011fb31fe9ee976f577db72b665",
+   "lines_removed_or_altered": 1,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/src/ai-use/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/ai-use/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-use/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-use/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "ai-use:613",
+   "module": "ai-use",
+   "merge": "6a485f7a64aeaa8bc16a1878b3b34b790ccaec77",
+   "first": "29197a420d5882c990365d6407d2241f71a2ce20",
+   "lines_removed_or_altered": 0,
+   "lines_added": 9,
+   "paths": [
+    "bio-plane/src/ai-use/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/ai-use/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/ai-use/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/ai-use/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "answer-envelope:212",
+   "module": "answer-envelope",
+   "merge": "e2839c7142731100617fbf8486d61777284a16fa",
+   "first": "45eeef8a8602de44ba332c6cc348f9f78b8b1438",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/answer-envelope/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/answer-envelope/families.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 5.7
+  },
+  {
+   "change": "answers:103",
+   "module": "answers",
+   "merge": "55969d309c66b3e0f23458fc950637c531cfd5e5",
+   "first": "a2a6c584613319dafd97fb3fa44b8e58fc807e80",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/answers/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/answers/scope.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/answers/scope.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 9.2
+  },
+  {
+   "change": "answers:197",
+   "module": "answers",
+   "merge": "57b89472326f59ac8e49d886e8c0135af4e9523e",
+   "first": "ac4394dc831572e0157b7d292ad04ade3e979b30",
+   "lines_removed_or_altered": 1,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/answers/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/answers/index.mjs",
+    "bio-plane/src/answers/standing.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/answers/standing.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/answers/standing.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.2
+  },
+  {
+   "change": "basis-versions:177",
+   "module": "basis-versions",
+   "merge": "2fe2b57ec8c9498b10716c2f4725c0dc2e81c952",
+   "first": "3e095aa5412987adb6d9e06aabadfbf55aaf6c2e",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/basis-versions/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/basis-versions/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.1
+  },
+  {
+   "change": "basis-versions:356",
+   "module": "basis-versions",
+   "merge": "9ab9317ca8960c07dce61e62c60f218a7ad42fa9",
+   "first": "020b72aa16cb7af7bb1dff585a48b729256c4a7c",
+   "lines_removed_or_altered": 0,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/basis-versions/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/basis-versions/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/basis-versions/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/basis-versions/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.6
+  },
+  {
+   "change": "bundler:1086",
+   "module": "bundler",
+   "merge": "53725900198a10da852c2f5680f20e07760c19df",
+   "first": "de0f7dfc07297fc23000aa65af11f92278fe29f6",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/scripts/fleet-bundle.mjs",
+    "bio-plane/scripts/provenance.mjs",
+    "bio-plane/scripts/build-plane.mjs",
+    "bio-plane/scripts/deploy.mjs",
+    "bio-plane/scripts/derive-bindings.mjs",
+    "bio-plane/scripts/resolve-version.mjs",
+    "bio-plane/scripts/jsonc.mjs",
+    "bio-plane/scripts/release-assemble.mjs",
+    "bio-plane/scripts/deploy-fleet.mjs",
+    "bio-plane/scripts/bundles.mjs",
+    "bio-plane/scripts/release-advisories.mjs",
+    "bio-plane/scripts/third-party.json"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/scripts/deploy-fleet.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.7
+  },
+  {
+   "change": "bundler:140",
+   "module": "bundler",
+   "merge": "91fa6f6a61d788589f711505cbbfa25969fb3990",
+   "first": "dc1a8e138eb09bcb2bf46e8515ab09ab267f8c8d",
+   "lines_removed_or_altered": 1,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/scripts/fleet-bundle.mjs",
+    "bio-plane/scripts/provenance.mjs",
+    "bio-plane/scripts/build-plane.mjs",
+    "bio-plane/scripts/deploy.mjs",
+    "bio-plane/scripts/derive-bindings.mjs",
+    "bio-plane/scripts/resolve-version.mjs",
+    "bio-plane/scripts/jsonc.mjs",
+    "bio-plane/scripts/release-assemble.mjs",
+    "bio-plane/scripts/deploy-fleet.mjs",
+    "bio-plane/scripts/bundles.mjs",
+    "bio-plane/scripts/release-advisories.mjs",
+    "bio-plane/scripts/third-party.json"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/scripts/deploy.mjs",
+    "bio-plane/scripts/derive-bindings.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/scripts/derive-bindings.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/scripts/derive-bindings.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.0
+  },
+  {
+   "change": "bundler:57",
+   "module": "bundler",
+   "merge": "4a6fe64514b3026e49cecc9a9edfd34eee57743b",
+   "first": "468014b3e23a568e5f54fa1d3cbe8d9dab5ba600",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/scripts/fleet-bundle.mjs",
+    "bio-plane/scripts/provenance.mjs",
+    "bio-plane/scripts/build-plane.mjs",
+    "bio-plane/scripts/deploy.mjs",
+    "bio-plane/scripts/derive-bindings.mjs",
+    "bio-plane/scripts/resolve-version.mjs",
+    "bio-plane/scripts/jsonc.mjs",
+    "bio-plane/scripts/release-assemble.mjs",
+    "bio-plane/scripts/deploy-fleet.mjs",
+    "bio-plane/scripts/bundles.mjs",
+    "bio-plane/scripts/release-advisories.mjs",
+    "bio-plane/scripts/third-party.json"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/scripts/deploy-fleet.mjs",
+    "bio-plane/scripts/deploy.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.4
+  },
+  {
+   "change": "bundler:82",
+   "module": "bundler",
+   "merge": "89fb6edb57203cc91c6b3633e90bf1ef997ad93e",
+   "first": "7b1e70f93aef9d61f29e3ccb131a41dbb0ebeb0e",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/scripts/fleet-bundle.mjs",
+    "bio-plane/scripts/provenance.mjs",
+    "bio-plane/scripts/build-plane.mjs",
+    "bio-plane/scripts/deploy.mjs",
+    "bio-plane/scripts/derive-bindings.mjs",
+    "bio-plane/scripts/resolve-version.mjs",
+    "bio-plane/scripts/jsonc.mjs",
+    "bio-plane/scripts/release-assemble.mjs",
+    "bio-plane/scripts/deploy-fleet.mjs",
+    "bio-plane/scripts/bundles.mjs",
+    "bio-plane/scripts/release-advisories.mjs",
+    "bio-plane/scripts/third-party.json"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.9
+  },
+  {
+   "change": "bundler:88",
+   "module": "bundler",
+   "merge": "e400d567c66976fc774b8b2100e07dec6fa9264c",
+   "first": "cd9939e2f77d4653e467d929e669b70cee4574a3",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/scripts/fleet-bundle.mjs",
+    "bio-plane/scripts/provenance.mjs",
+    "bio-plane/scripts/build-plane.mjs",
+    "bio-plane/scripts/deploy.mjs",
+    "bio-plane/scripts/derive-bindings.mjs",
+    "bio-plane/scripts/resolve-version.mjs",
+    "bio-plane/scripts/jsonc.mjs",
+    "bio-plane/scripts/release-assemble.mjs",
+    "bio-plane/scripts/deploy-fleet.mjs",
+    "bio-plane/scripts/bundles.mjs",
+    "bio-plane/scripts/release-advisories.mjs",
+    "bio-plane/scripts/third-party.json"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.6
+  },
+  {
+   "change": "calculations:70",
+   "module": "calculations",
+   "merge": "d115856ae18e6f4fb69596f0819cde1378f07e89",
+   "first": "f809232f6da086152e90788eef60ecc23085ee29",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/calculations/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.9
+  },
+  {
+   "change": "capture-requests:182",
+   "module": "capture-requests",
+   "merge": "b974af4ba8efe22906b949a2685334368170b729",
+   "first": "ac1d60686c218b905809617a952c35be26b5d7e1",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/capture-requests/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/capture-requests/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/capture-requests/index.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.5
+  },
+  {
+   "change": "capture-requests:359",
+   "module": "capture-requests",
+   "merge": "533712405d44d0d82244afe52b3579c6b82134cc",
+   "first": "93c817d1a77d52d88241b950dd921506a79e274d",
+   "lines_removed_or_altered": 1,
+   "lines_added": 28,
+   "paths": [
+    "bio-plane/src/capture-requests/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/capture-requests/checks.mjs",
+    "bio-plane/src/capture-requests/index.mjs",
+    "bio-plane/src/capture-requests/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/capture-requests/checks.mjs",
+    "bio-plane/src/capture-requests/index.mjs",
+    "bio-plane/src/capture-requests/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/capture-requests/checks.mjs",
+    "bio-plane/src/capture-requests/index.mjs",
+    "bio-plane/src/capture-requests/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.3
+  },
+  {
+   "change": "capture:468",
+   "module": "capture",
+   "merge": "1349a1d53c1807c9c275914a7b1444b46ebbab20",
+   "first": "92ff3e96622e566ce8a02aaf4eeb067665cb13a0",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/capture/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/capture/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 13.6
+  },
+  {
+   "change": "case-authoring:228",
+   "module": "case-authoring",
+   "merge": "d8829a04da2b9cd45d98db545d010d6dcaaa3339",
+   "first": "ce8f8069d89030244aad518917e55499c2f33568",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/case-authoring/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/case-authoring/document.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-authoring/document.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.6
+  },
+  {
+   "change": "case-authoring:315",
+   "module": "case-authoring",
+   "merge": "67a5ec1840ed08fc31450f23a5f82290b337ba5d",
+   "first": "637f73a5cf9b3a03fa2a7ec1c9bc9de9b490e1a9",
+   "lines_removed_or_altered": 2,
+   "lines_added": 6,
+   "paths": [
+    "bio-plane/src/case-authoring/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/case-authoring/document.mjs",
+    "bio-plane/src/case-authoring/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-authoring/document.mjs",
+    "bio-plane/src/case-authoring/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-authoring/document.mjs",
+    "bio-plane/src/case-authoring/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.3
+  },
+  {
+   "change": "case-authoring:456",
+   "module": "case-authoring",
+   "merge": "ae7e5b071034759f48a469007ed12740b7a4e911",
+   "first": "8540a9867505cc35fadb35b77cdbabbb9c4b3ae5",
+   "lines_removed_or_altered": 0,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/src/case-authoring/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/case-authoring/document.mjs",
+    "bio-plane/src/case-authoring/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-authoring/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-authoring/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.9
+  },
+  {
+   "change": "case-authoring:681",
+   "module": "case-authoring",
+   "merge": "e57de8805fe37693e161ad1b1431ce6e6fcf2924",
+   "first": "00c7b1d383487919163556e2846d17d259b4dfb7",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/case-authoring/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "case-carriage:658",
+   "module": "case-carriage",
+   "merge": "aace4c4cf6c7f651376e5e3dcb33db4ab819e4a2",
+   "first": "2020dcd1fb930482362ae50732ed5fde2109356a",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/case-carriage/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/case-carriage/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 9.1
+  },
+  {
+   "change": "case-catalogue:224",
+   "module": "case-catalogue",
+   "merge": "8579ba781c35e252dadf67b64ea252d6994c3411",
+   "first": "2e9ccc1d8fb70e38f6217bbba848b980e4ec5613",
+   "lines_removed_or_altered": 0,
+   "lines_added": 11,
+   "paths": [
+    "bio-plane/src/case-catalogue/"
+   ],
+   "files_before": 1,
+   "files_after": 1,
+   "source_changed": [
+    "bio-plane/src/case-catalogue/checks.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-catalogue/checks.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-catalogue/checks.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.6
+  },
+  {
+   "change": "case-checker:634",
+   "module": "case-checker",
+   "merge": "6fedfde88900a605c6e7f6fd8beb6500fd3b3289",
+   "first": "641a8445be298295270f6a501b5f40cbd32482dd",
+   "lines_removed_or_altered": 1,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/case-checker/"
+   ],
+   "files_before": 9,
+   "files_after": 9,
+   "source_changed": [
+    "bio-plane/src/case-checker/check.mjs",
+    "bio-plane/src/case-checker/main.mjs",
+    "bio-plane/src/case-checker/spec.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-checker/check.mjs",
+    "bio-plane/src/case-checker/spec.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-checker/check.mjs",
+    "bio-plane/src/case-checker/spec.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.7
+  },
+  {
+   "change": "case-disclosures:269",
+   "module": "case-disclosures",
+   "merge": "1981afb54e4ecef4142242e1dafaedae6af401f1",
+   "first": "5f6684a8fe67c9c229a81b76df371db5b6580ae4",
+   "lines_removed_or_altered": 2,
+   "lines_added": 12,
+   "paths": [
+    "bio-plane/src/case-disclosures/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/case-disclosures/document.mjs",
+    "bio-plane/src/case-disclosures/index.mjs",
+    "bio-plane/src/case-disclosures/people.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-disclosures/document.mjs",
+    "bio-plane/src/case-disclosures/index.mjs",
+    "bio-plane/src/case-disclosures/people.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-disclosures/document.mjs",
+    "bio-plane/src/case-disclosures/index.mjs",
+    "bio-plane/src/case-disclosures/people.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.5
+  },
+  {
+   "change": "case-disclosures:636",
+   "module": "case-disclosures",
+   "merge": "a38a1ffe101047d98a047fadcb5c182633c5bdaa",
+   "first": "994f9e70e2ac61b2a0a4ed3168d8cd4d4d4e1c59",
+   "lines_removed_or_altered": 1,
+   "lines_added": 19,
+   "paths": [
+    "bio-plane/src/case-disclosures/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/case-disclosures/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-disclosures/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-disclosures/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.8
+  },
+  {
+   "change": "case-grammar:202",
+   "module": "case-grammar",
+   "merge": "65f2815b05975f06f6e115e445f81f8b73a5530f",
+   "first": "bf0f3f81bee170f9961c6a6c2ab67c7fe9af2209",
+   "lines_removed_or_altered": 8,
+   "lines_added": 73,
+   "paths": [
+    "bio-plane/src/case-grammar/"
+   ],
+   "files_before": 20,
+   "files_after": 21,
+   "source_changed": [
+    "bio-plane/src/case-grammar/complete.mjs",
+    "bio-plane/src/case-grammar/facts.mjs",
+    "bio-plane/src/case-grammar/formats.mjs",
+    "bio-plane/src/case-grammar/index.mjs",
+    "bio-plane/src/case-grammar/materials.mjs",
+    "bio-plane/src/case-grammar/passages.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-grammar/complete.mjs",
+    "bio-plane/src/case-grammar/facts.mjs",
+    "bio-plane/src/case-grammar/formats.mjs",
+    "bio-plane/src/case-grammar/index.mjs",
+    "bio-plane/src/case-grammar/materials.mjs",
+    "bio-plane/src/case-grammar/passages.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-grammar/complete.mjs",
+    "bio-plane/src/case-grammar/facts.mjs",
+    "bio-plane/src/case-grammar/formats.mjs",
+    "bio-plane/src/case-grammar/index.mjs",
+    "bio-plane/src/case-grammar/materials.mjs",
+    "bio-plane/src/case-grammar/passages.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.7
+  },
+  {
+   "change": "case-import:267",
+   "module": "case-import",
+   "merge": "5f6684a8fe67c9c229a81b76df371db5b6580ae4",
+   "first": "e3624533fb3f40b11f5dedbd1b6c6a28cabf7ffa",
+   "lines_removed_or_altered": 1,
+   "lines_added": 23,
+   "paths": [
+    "bio-plane/src/case-import/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/case-import/index.mjs",
+    "bio-plane/src/case-import/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/case-import/index.mjs",
+    "bio-plane/src/case-import/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/case-import/index.mjs",
+    "bio-plane/src/case-import/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.3
+  },
+  {
+   "change": "case-import:635",
+   "module": "case-import",
+   "merge": "91ad402fd4c71f3e93f31fe1225c22d88a91680c",
+   "first": "2ec3f0bed0c001296309565d060d61561288bca0",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/case-import/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "case-tensions:262",
+   "module": "case-tensions",
+   "merge": "688a978d94495c9ec4c235a232d64e296a92126f",
+   "first": "f211133b3ebfe99a3c5cfa3a93e12db6ea81dd22",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/case-tensions/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/case-tensions/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.3
+  },
+  {
+   "change": "citation:351",
+   "module": "citation",
+   "merge": "30fb4f018ea853f96c45ab9911a265fb85583a06",
+   "first": "f85d56d2ee604912c190cb9366b2ef7a57dc1e61",
+   "lines_removed_or_altered": 1,
+   "lines_added": 13,
+   "paths": [
+    "bio-plane/src/citation/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/citation/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/citation/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/citation/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.3
+  },
+  {
+   "change": "connections:71",
+   "module": "connections",
+   "merge": "dda71a0291b311ff9186b1bf83e161b0ea648974",
+   "first": "0dd847eb5149d7f172d3d750c9f85d75ef54d037",
+   "lines_removed_or_altered": 56,
+   "lines_added": 107,
+   "paths": [
+    "bio-plane/src/connections/"
+   ],
+   "files_before": 8,
+   "files_after": 9,
+   "source_changed": [
+    "bio-plane/src/connections/index.mjs",
+    "bio-plane/src/connections/mentioned.mjs",
+    "bio-plane/src/connections/namedin.mjs",
+    "bio-plane/src/connections/stepsources.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/connections/index.mjs",
+    "bio-plane/src/connections/mentioned.mjs",
+    "bio-plane/src/connections/namedin.mjs",
+    "bio-plane/src/connections/stepsources.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/connections/index.mjs",
+    "bio-plane/src/connections/mentioned.mjs",
+    "bio-plane/src/connections/namedin.mjs",
+    "bio-plane/src/connections/stepsources.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.1
+  },
+  {
+   "change": "content:440",
+   "module": "content",
+   "merge": "74cea43c971a0011fb31fe9ee976f577db72b665",
+   "first": "3246bba2aa75d12e2ca0e37aad919305f4943064",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/content/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/content/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.9
+  },
+  {
+   "change": "control-plane:290",
+   "module": "control-plane",
+   "merge": "ef4ed6fa134815b9ae381deb1f8e5076cbde2eb7",
+   "first": "d2a74592ca992eeb3a2f6cec0f0537d4b6f0e576",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/control-plane/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/control-plane/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.7
+  },
+  {
+   "change": "corpus-export:398",
+   "module": "corpus-export",
+   "merge": "217eb9b4e7b0caadea66673d16e28f390a464977",
+   "first": "e2a16bf9135ec629e5249b1228b1c1154fe7c8bb",
+   "lines_removed_or_altered": 2,
+   "lines_added": 155,
+   "paths": [
+    "bio-plane/src/corpus-export/"
+   ],
+   "files_before": 4,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/corpus-export/index.mjs",
+    "bio-plane/src/corpus-export/whole.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/corpus-export/index.mjs",
+    "bio-plane/src/corpus-export/whole.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/corpus-export/index.mjs",
+    "bio-plane/src/corpus-export/whole.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.5
+  },
+  {
+   "change": "credentials:1099",
+   "module": "credentials",
+   "merge": "6d1803bf90dba3fe520346ee406a2e8c7e603d31",
+   "first": "5f99f5ac7bc6fa8c49d6926d5615ee35156b6019",
+   "lines_removed_or_altered": 0,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/credentials/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/credentials/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/credentials/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/credentials/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.9
+  },
+  {
+   "change": "credentials:74",
+   "module": "credentials",
+   "merge": "72b22c21a0edb71fa826d298b857fb7c5c9791e4",
+   "first": "dda71a0291b311ff9186b1bf83e161b0ea648974",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/credentials/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "docket:266",
+   "module": "docket",
+   "merge": "8ee5ab486d3d138860c1a6acf04cb37bcd80acf6",
+   "first": "ea7129ee8400ea64069bda54a602207112339c54",
+   "lines_removed_or_altered": 0,
+   "lines_added": 21,
+   "paths": [
+    "bio-plane/src/docket/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/docket/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/docket/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/docket/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.7
+  },
+  {
+   "change": "docket:278",
+   "module": "docket",
+   "merge": "61b89c75f1948f8340950dc1aa7be49a0b998025",
+   "first": "f511ba7a42f4f2e5bb030e347338b80c57441a4c",
+   "lines_removed_or_altered": 1,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/docket/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/docket/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/docket/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/docket/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.4
+  },
+  {
+   "change": "entities:63",
+   "module": "entities",
+   "merge": "6ef64d304ca6215d61576340e10f6d968f222183",
+   "first": "97fded6c0d66e142815797819ac4f670f9fb1a64",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/entities/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.2
+  },
+  {
+   "change": "extraction:432",
+   "module": "extraction",
+   "merge": "29197a420d5882c990365d6407d2241f71a2ce20",
+   "first": "ca497db29d7aaceadb4a15851caec110571b709b",
+   "lines_removed_or_altered": 0,
+   "lines_added": 3,
+   "paths": [
+    "bio-plane/src/extractrun.mjs",
+    "bio-plane/src/extraction/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/extraction/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/extraction/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/extraction/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 12.9
+  },
+  {
+   "change": "filing-templates:712",
+   "module": "filing-templates",
+   "merge": "b17aea00663f3be9fb3aff862ac8167db9da1acc",
+   "first": "a24b559676ae387629d7596fda6dc3fc7020ef2c",
+   "lines_removed_or_altered": 2,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/filing-templates/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/filing-templates/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/filing-templates/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/filing-templates/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "filings:64",
+   "module": "filings",
+   "merge": "96a2c4c78cde82b3dd7fa19e74eb260c60ff3de9",
+   "first": "6ca372f021604917df9ab67ca752fe4405bc3ced",
+   "lines_removed_or_altered": 1,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/src/filings/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/filings/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/filings/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/filings/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 12.6
+  },
+  {
+   "change": "filings:727",
+   "module": "filings",
+   "merge": "d7c86d7d91dbb8948414d677a7cbdfb92b963e5c",
+   "first": "d6c444a5cf1e2c2c9ed7661fbe57568a6c91dfc1",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/filings/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.8
+  },
+  {
+   "change": "following:744",
+   "module": "following",
+   "merge": "864850f2d9d00d0255814e48410ea6c6180f2597",
+   "first": "798ad5915e64d86da9424901d9d5c232a8364274",
+   "lines_removed_or_altered": 3,
+   "lines_added": 74,
+   "paths": [
+    "bio-plane/src/following/"
+   ],
+   "files_before": 6,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/following/checks.mjs",
+    "bio-plane/src/following/index.mjs",
+    "bio-plane/src/following/registerwatch.mjs",
+    "bio-plane/src/following/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/following/checks.mjs",
+    "bio-plane/src/following/index.mjs",
+    "bio-plane/src/following/registerwatch.mjs",
+    "bio-plane/src/following/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/following/checks.mjs",
+    "bio-plane/src/following/index.mjs",
+    "bio-plane/src/following/registerwatch.mjs",
+    "bio-plane/src/following/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.5
+  },
+  {
+   "change": "hypotheses:1005",
+   "module": "hypotheses",
+   "merge": "50e7eefd55071777b85e8003c452193ba65909d9",
+   "first": "ac6304508dbf718c07f89f87faef76a7c5872acf",
+   "lines_removed_or_altered": 1,
+   "lines_added": 24,
+   "paths": [
+    "bio-plane/src/hypotheses/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/hypotheses/index.mjs",
+    "bio-plane/src/hypotheses/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/hypotheses/index.mjs",
+    "bio-plane/src/hypotheses/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/hypotheses/index.mjs",
+    "bio-plane/src/hypotheses/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.0
+  },
+  {
+   "change": "hypotheses:1025",
+   "module": "hypotheses",
+   "merge": "7c906cfdfcad8663225c10bdaa53eb9632b32e01",
+   "first": "6316509c05b43b934756d41f2d6348de92ae1c00",
+   "lines_removed_or_altered": 0,
+   "lines_added": 48,
+   "paths": [
+    "bio-plane/src/hypotheses/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/hypotheses/checks.mjs",
+    "bio-plane/src/hypotheses/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/hypotheses/checks.mjs",
+    "bio-plane/src/hypotheses/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/hypotheses/checks.mjs",
+    "bio-plane/src/hypotheses/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.8
+  },
+  {
+   "change": "hypotheses:1050",
+   "module": "hypotheses",
+   "merge": "c2e2567196f91a7b77943a2154666e681d799ee1",
+   "first": "75d6531c71066b537fea9025141210327d186fb3",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/hypotheses/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.9
+  },
+  {
+   "change": "inquiry-grammar:423",
+   "module": "inquiry-grammar",
+   "merge": "ecc17eb3ee22c6675a536a36fbca41e8ef85a5fb",
+   "first": "d0dd3b1c3feaf7c38383e521b178a9ed8fd5e768",
+   "lines_removed_or_altered": 1,
+   "lines_added": 16,
+   "paths": [
+    "bio-plane/src/inquiry-grammar/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/inquiry-grammar/checks.mjs",
+    "bio-plane/src/inquiry-grammar/grammar.mjs",
+    "bio-plane/src/inquiry-grammar/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/inquiry-grammar/checks.mjs",
+    "bio-plane/src/inquiry-grammar/grammar.mjs",
+    "bio-plane/src/inquiry-grammar/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/inquiry-grammar/checks.mjs",
+    "bio-plane/src/inquiry-grammar/grammar.mjs",
+    "bio-plane/src/inquiry-grammar/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.1
+  },
+  {
+   "change": "inquiry:1006",
+   "module": "inquiry",
+   "merge": "9dbb197b127cf62719aaf087cc092e36bc844f15",
+   "first": "f43ce326eb96e9b460c53f3c7be7e33777a51ba9",
+   "lines_removed_or_altered": 1,
+   "lines_added": 30,
+   "paths": [
+    "bio-plane/src/inquiry/"
+   ],
+   "files_before": 7,
+   "files_after": 8,
+   "source_changed": [
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/rivals.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/rivals.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/rivals.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "inquiry:1028",
+   "module": "inquiry",
+   "merge": "7403f3ced096888c5cfd1f05182d10aa5f3aabae",
+   "first": "91ca05387e413c347ee7cc316511287a67de63cc",
+   "lines_removed_or_altered": 16,
+   "lines_added": 27,
+   "paths": [
+    "bio-plane/src/inquiry/"
+   ],
+   "files_before": 8,
+   "files_after": 8,
+   "source_changed": [
+    "bio-plane/src/inquiry/checks.mjs",
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/rivals.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/inquiry/checks.mjs",
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/rivals.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/inquiry/checks.mjs",
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/rivals.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.8
+  },
+  {
+   "change": "inquiry:360",
+   "module": "inquiry",
+   "merge": "69a9e58b136b96ca87ec43670ab7e3154882d838",
+   "first": "c90c7ad24c9957cfa1a4a0a32dd7dd81b17e5ba6",
+   "lines_removed_or_altered": 1,
+   "lines_added": 11,
+   "paths": [
+    "bio-plane/src/inquiry/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/inquiry/index.mjs",
+    "bio-plane/src/inquiry/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.7
+  },
+  {
+   "change": "instance-setup:544",
+   "module": "instance-setup",
+   "merge": "6e171876044c6346428d357d070912d5fa3554e2",
+   "first": "0df62bf17bcba04c75a72d0d8a9c4a277e7b59d4",
+   "lines_removed_or_altered": 0,
+   "lines_added": 8,
+   "paths": [
+    "bio-plane/src/setup.mjs",
+    "bio-plane/src/setup-fleet.mjs",
+    "bio-plane/src/livefire.mjs"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/setup.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/setup.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/setup.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.9
+  },
+  {
+   "change": "instance-setup:99",
+   "module": "instance-setup",
+   "merge": "cd9939e2f77d4653e467d929e669b70cee4574a3",
+   "first": "f3c504c8c6ef09f3eefa77b6e41d53764a02fb1f",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/setup.mjs",
+    "bio-plane/src/setup-fleet.mjs",
+    "bio-plane/src/livefire.mjs"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/setup.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "interface-assets:207",
+   "module": "interface-assets",
+   "merge": "10b4b8f21bfa6aabb6883fd14bda6b272a935b58",
+   "first": "0504f2e09e13695953e98b9f89a0fb58d95e9ec9",
+   "lines_removed_or_altered": 5,
+   "lines_added": 18,
+   "paths": [
+    "bio-plane/src/interface-assets/"
+   ],
+   "files_before": 2,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/interface-assets/faces-1.mjs",
+    "bio-plane/src/interface-assets/faces-2.mjs",
+    "bio-plane/src/interface-assets/generate.mjs",
+    "bio-plane/src/interface-assets/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/interface-assets/faces-1.mjs",
+    "bio-plane/src/interface-assets/faces-2.mjs",
+    "bio-plane/src/interface-assets/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/interface-assets/faces-1.mjs",
+    "bio-plane/src/interface-assets/faces-2.mjs",
+    "bio-plane/src/interface-assets/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.5
+  },
+  {
+   "change": "interface-assets:443",
+   "module": "interface-assets",
+   "merge": "dafa466eddb7b89b1c0662a26bc99bff756159b0",
+   "first": "b750dc3e59f6012bb47313bb144b63aa12a05485",
+   "lines_removed_or_altered": 7,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/interface-assets/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/interface-assets/generate.mjs",
+    "bio-plane/src/interface-assets/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/interface-assets/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/interface-assets/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.7
+  },
+  {
+   "change": "interface-shell:172",
+   "module": "interface-shell",
+   "merge": "de2d3708cd82059215b7db87c61025a3bae84a70",
+   "first": "d5db04200d9866cd332ac9ee841ec450bb3d6c72",
+   "lines_removed_or_altered": 2,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/interface-shell/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/interface-shell/browser.mjs",
+    "bio-plane/src/interface-shell/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/interface-shell/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/interface-shell/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.6
+  },
+  {
+   "change": "interface-shell:310",
+   "module": "interface-shell",
+   "merge": "53066d3292b34db86b54782433569b7a28a21b96",
+   "first": "a839f9fadf2785fc777fe486690b61f647f4c6b7",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/interface-shell/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/interface-shell/browser.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.2
+  },
+  {
+   "change": "investigation:628",
+   "module": "investigation",
+   "merge": "3e15b37e7fed379c4a5be1c588f707301bdc3855",
+   "first": "8754e192e5fc99a8a8bedde2b9ca218e06f55f9a",
+   "lines_removed_or_altered": 3,
+   "lines_added": 47,
+   "paths": [
+    "bio-plane/src/investigation/"
+   ],
+   "files_before": 4,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/investigation/index.mjs",
+    "bio-plane/src/investigation/parts.mjs",
+    "bio-plane/src/investigation/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/investigation/index.mjs",
+    "bio-plane/src/investigation/parts.mjs",
+    "bio-plane/src/investigation/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/investigation/index.mjs",
+    "bio-plane/src/investigation/parts.mjs",
+    "bio-plane/src/investigation/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.3
+  },
+  {
+   "change": "jurisdictions:40",
+   "module": "jurisdictions",
+   "merge": "249b62e6b6400567038824df402de106672d2a9c",
+   "first": "31818275b5c625a9cc0aaf71e9c8a693f58961a3",
+   "lines_removed_or_altered": 2,
+   "lines_added": 67,
+   "paths": [
+    "jurisdictions/"
+   ],
+   "files_before": 7,
+   "files_after": 9,
+   "source_changed": [
+    "jurisdictions/index.mjs",
+    "jurisdictions/profiles/layers/us-federal-offices.mjs",
+    "jurisdictions/profiles/layers/us-federal.mjs",
+    "jurisdictions/scripts/foia-offices.mjs"
+   ],
+   "writeout_differs": [
+    "jurisdictions/profiles/layers/us-federal-offices.mjs",
+    "jurisdictions/profiles/layers/us-federal.mjs",
+    "jurisdictions/scripts/foia-offices.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "jurisdictions/profiles/layers/us-federal-offices.mjs",
+    "jurisdictions/profiles/layers/us-federal.mjs",
+    "jurisdictions/scripts/foia-offices.mjs"
+   ],
+   "failed": [],
+   "seconds": 14.4
+  },
+  {
+   "change": "leg-earning:1003",
+   "module": "leg-earning",
+   "merge": "f43ce326eb96e9b460c53f3c7be7e33777a51ba9",
+   "first": "c7ef3af1d17a08c66de9b08d49186ca0631dc13e",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/leg-earning/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/leg-earning/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.2
+  },
+  {
+   "change": "leg-earning:138",
+   "module": "leg-earning",
+   "merge": "2544faef55d2663e310da09c95440141eb11ecfe",
+   "first": "08efddd42d61417441812338a8d325dee6d7f626",
+   "lines_removed_or_altered": 0,
+   "lines_added": 3,
+   "paths": [
+    "bio-plane/src/leg-earning/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/leg-earning/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/leg-earning/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/leg-earning/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.8
+  },
+  {
+   "change": "lines:422",
+   "module": "lines",
+   "merge": "c6137900b6aa4106c6a1c07842bf5613525939b6",
+   "first": "de9a5e5cbea6b54d95221e9ecc66b87551ba5bfb",
+   "lines_removed_or_altered": 0,
+   "lines_added": 13,
+   "paths": [
+    "bio-plane/src/lines/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/lines/index.mjs",
+    "bio-plane/src/lines/reasons.mjs",
+    "bio-plane/src/lines/vocab.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/lines/index.mjs",
+    "bio-plane/src/lines/vocab.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/lines/index.mjs",
+    "bio-plane/src/lines/vocab.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.5
+  },
+  {
+   "change": "local-facts:429",
+   "module": "local-facts",
+   "merge": "04c458a49faeaf5bd42869f0114ef6a871892974",
+   "first": "ebabbbaa3b4daf5272c9a2c963b3c6a8936a0a94",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/local-facts/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/local-facts/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.3
+  },
+  {
+   "change": "local-facts:62",
+   "module": "local-facts",
+   "merge": "3c7ec47b2148e69b867202bdf84c96719db08c4e",
+   "first": "6ef64d304ca6215d61576340e10f6d968f222183",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/local-facts/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 12.1
+  },
+  {
+   "change": "machinery-producers:383",
+   "module": "machinery-producers",
+   "merge": "1185b6d699421af3c94a0991e1d81e6fc53c7842",
+   "first": "9d2cf6dca3a9ead7254217e4b7a657ec34cb85a9",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/machinery-producers/"
+   ],
+   "files_before": 1,
+   "files_after": 1,
+   "source_changed": [
+    "bio-plane/src/machinery-producers/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.6
+  },
+  {
+   "change": "mail-door:428",
+   "module": "mail-door",
+   "merge": "7bbc540142702d8e844aaa1aeddd6e27ac75c3fe",
+   "first": "926f9abb491912e39db37fd6dd4e3b9477f2fb38",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/mail-door/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/mail-door/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.0
+  },
+  {
+   "change": "mail-door:55",
+   "module": "mail-door",
+   "merge": "8504ad805928fb7306cd6f52b8d6586fd091bef3",
+   "first": "d5bc179b1507bad590cb317b3d3ce2fdb280c7f7",
+   "lines_removed_or_altered": 1,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/src/mail-door/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/mail-door/index.mjs",
+    "bio-plane/src/mail-door/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/mail-door/index.mjs",
+    "bio-plane/src/mail-door/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/mail-door/index.mjs",
+    "bio-plane/src/mail-door/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.2
+  },
+  {
+   "change": "member-roster:157",
+   "module": "member-roster",
+   "merge": "a73fbb5f6f0b9678130126be65b0c3ccb0c25acb",
+   "first": "116ce81881f9bb8307d3d27656ffe5ac2fdb84f0",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/member-roster/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/member-roster/order.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 9.0
+  },
+  {
+   "change": "member-roster:286",
+   "module": "member-roster",
+   "merge": "8e8654c79a778fd1909fae034224b255bba3f823",
+   "first": "14dbe3fc7196407ac7a628fc70e276951622be04",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/member-roster/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/member-roster/order.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 9.0
+  },
+  {
+   "change": "member-roster:446",
+   "module": "member-roster",
+   "merge": "5a998acf43a671f246d836bdb4d3e687498f5bfe",
+   "first": "57c04e34c3adb4232a7e99dd858fbf4f5213f076",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/member-roster/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/member-roster/order.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.8
+  },
+  {
+   "change": "membership:1030",
+   "module": "membership",
+   "merge": "6316509c05b43b934756d41f2d6348de92ae1c00",
+   "first": "ae7cbacd0b47ebea9b6fdeeb5ff963bedb265636",
+   "lines_removed_or_altered": 1,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/membership/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/membership/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/membership/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/membership/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.1
+  },
+  {
+   "change": "membership:77",
+   "module": "membership",
+   "merge": "0dd847eb5149d7f172d3d750c9f85d75ef54d037",
+   "first": "d115856ae18e6f4fb69596f0819cde1378f07e89",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/membership/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 6.8
+  },
+  {
+   "change": "money:154",
+   "module": "money",
+   "merge": "ae9403b397c52df13cf1aa769047e64a0e044e3d",
+   "first": "ebecd76ff77fd491b14457cf60dc9ac9df97c47b",
+   "lines_removed_or_altered": 1,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/money/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/money/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/money/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/money/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.9
+  },
+  {
+   "change": "monitoring:743",
+   "module": "monitoring",
+   "merge": "57cd57b3e2cb1c9c47afb8a43dd91a9e9233c4c0",
+   "first": "7f02e010afb169e95e57c7a764faf79b95bf10d5",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/monitoring/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.5
+  },
+  {
+   "change": "network-notices:633",
+   "module": "network-notices",
+   "merge": "994f9e70e2ac61b2a0a4ed3168d8cd4d4d4e1c59",
+   "first": "91ad402fd4c71f3e93f31fe1225c22d88a91680c",
+   "lines_removed_or_altered": 0,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/network-notices/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/network-notices/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/network-notices/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/network-notices/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.6
+  },
+  {
+   "change": "notice-producers:211",
+   "module": "notice-producers",
+   "merge": "89cd623199090e12d4191dedb3c5312b5dff8a6d",
+   "first": "c6f50136dc2967b284863c1205b98bee5fc9476b",
+   "lines_removed_or_altered": 2,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/notice-producers/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/notice-producers/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/notice-producers/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/notice-producers/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.0
+  },
+  {
+   "change": "op-declarations:167",
+   "module": "op-declarations",
+   "merge": "ef8db6f6ed50d2c384c40a0e5487a2e73cd74bee",
+   "first": "370b7c4d2735816177804d979cfeb9fbd248737a",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/op-declarations/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/op-declarations/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.9
+  },
+  {
+   "change": "op-declarations:289",
+   "module": "op-declarations",
+   "merge": "a319afec583dd16fd24dc930d97d42e227120650",
+   "first": "b52da7eed60487949721e9841757c63917a8b4fd",
+   "lines_removed_or_altered": 0,
+   "lines_added": 7,
+   "paths": [
+    "bio-plane/src/op-declarations/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/op-declarations/t47.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/op-declarations/t47.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/op-declarations/t47.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.0
+  },
+  {
+   "change": "op-declarations:321",
+   "module": "op-declarations",
+   "merge": "a632275c6f729ca3dbf4c3f801f83247511e11bc",
+   "first": "25ffbd20f28ba96576c5fdb25fb258e3c4187472",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/op-declarations/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/op-declarations/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.4
+  },
+  {
+   "change": "op-declarations:95",
+   "module": "op-declarations",
+   "merge": "ee13f80efd7fcd012c22d0adf6559ff10707b697",
+   "first": "398015cc5cf6edf4b2874c6242a6387edf8861fb",
+   "lines_removed_or_altered": 26,
+   "lines_added": 36,
+   "paths": [
+    "bio-plane/src/op-declarations/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/op-declarations/index.mjs",
+    "bio-plane/src/op-declarations/t47.mjs",
+    "bio-plane/src/op-declarations/t48.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/op-declarations/t47.mjs",
+    "bio-plane/src/op-declarations/t48.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/op-declarations/t47.mjs",
+    "bio-plane/src/op-declarations/t48.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.2
+  },
+  {
+   "change": "op-grades:365",
+   "module": "op-grades",
+   "merge": "ca8d6a01ca62cdb45e5888d66123ba70eb89f5b0",
+   "first": "3f16c0a7b8543c3991ddbc80569524c66d728a9a",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/op-grades/"
+   ],
+   "files_before": 18,
+   "files_after": 18,
+   "source_changed": [
+    "bio-plane/src/op-grades/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.3
+  },
+  {
+   "change": "plan-work:184",
+   "module": "plan-work",
+   "merge": "2f7a1b954a8b2f63202265155cdb7eeb104cd857",
+   "first": "8b365335314c2bbabd9e7e41c0647543d724074e",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/plan-work/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/plan-work/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 8.1
+  },
+  {
+   "change": "provenance:1002",
+   "module": "provenance",
+   "merge": "91ca05387e413c347ee7cc316511287a67de63cc",
+   "first": "dd6c9b582ba6fd43b13f9e146248eb74aadfb78d",
+   "lines_removed_or_altered": 0,
+   "lines_added": 7,
+   "paths": [
+    "bio-plane/src/provenance/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/provenance/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/provenance/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/provenance/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.7
+  },
+  {
+   "change": "public-read:268",
+   "module": "public-read",
+   "merge": "b52da7eed60487949721e9841757c63917a8b4fd",
+   "first": "c3caff9869e12a04c70eecd95f6a45bc00100246",
+   "lines_removed_or_altered": 2,
+   "lines_added": 36,
+   "paths": [
+    "bio-plane/src/public-read/",
+    "bio-plane/src/publication/worker.mjs",
+    "bio-plane/src/container.mjs",
+    "bio-plane/src/inband.mjs"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [
+    "bio-plane/src/public-read/index.mjs",
+    "bio-plane/src/public-read/legs.mjs",
+    "bio-plane/src/publication/worker.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/public-read/index.mjs",
+    "bio-plane/src/public-read/legs.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/public-read/index.mjs",
+    "bio-plane/src/public-read/legs.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.0
+  },
+  {
+   "change": "public-read:642",
+   "module": "public-read",
+   "merge": "02a112a634d2a6eb0d9cd11a60acf6c51bb4ad21",
+   "first": "6fedfde88900a605c6e7f6fd8beb6500fd3b3289",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/public-read/",
+    "bio-plane/src/publication/worker.mjs",
+    "bio-plane/src/container.mjs",
+    "bio-plane/src/inband.mjs"
+   ],
+   "files_before": 12,
+   "files_after": 12,
+   "source_changed": [],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.0
+  },
+  {
+   "change": "publication:229",
+   "module": "publication",
+   "merge": "96d3d754c15750657a1894b27a224d6281ab57f2",
+   "first": "d8829a04da2b9cd45d98db545d010d6dcaaa3339",
+   "lines_removed_or_altered": 0,
+   "lines_added": 8,
+   "paths": [
+    "bio-plane/src/deliverer.mjs",
+    "bio-plane/src/publication/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/publication/index.mjs",
+    "bio-plane/src/publication/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/publication/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/publication/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.9
+  },
+  {
+   "change": "publication:427",
+   "module": "publication",
+   "merge": "a0361f9226abfba1dd9692f78a7bfe301d64041e",
+   "first": "ef4ed6fa134815b9ae381deb1f8e5076cbde2eb7",
+   "lines_removed_or_altered": 1,
+   "lines_added": 17,
+   "paths": [
+    "bio-plane/src/deliverer.mjs",
+    "bio-plane/src/publication/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/publication/index.mjs",
+    "bio-plane/src/publication/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/publication/index.mjs",
+    "bio-plane/src/publication/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/publication/index.mjs",
+    "bio-plane/src/publication/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.0
+  },
+  {
+   "change": "publication:632",
+   "module": "publication",
+   "merge": "3258868d57d0984be91b50ea01ceabc257eaab37",
+   "first": "a38a1ffe101047d98a047fadcb5c182633c5bdaa",
+   "lines_removed_or_altered": 0,
+   "lines_added": 11,
+   "paths": [
+    "bio-plane/src/deliverer.mjs",
+    "bio-plane/src/publication/"
+   ],
+   "files_before": 6,
+   "files_after": 6,
+   "source_changed": [
+    "bio-plane/src/publication/index.mjs",
+    "bio-plane/src/publication/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/publication/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/publication/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.4
+  },
+  {
+   "change": "question-explorer:199",
+   "module": "question-explorer",
+   "merge": "b980224aa020bd6fa0ebfe07e13b9c2866e69892",
+   "first": "1b6f2bc38390026d1a7b98f19f712cc3382545cb",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/question-explorer/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/question-explorer/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 6.5
+  },
+  {
+   "change": "question-explorer:346",
+   "module": "question-explorer",
+   "merge": "fb3c534bd314b482a9d5f72b3dad81601c700126",
+   "first": "dafa466eddb7b89b1c0662a26bc99bff756159b0",
+   "lines_removed_or_altered": 1,
+   "lines_added": 12,
+   "paths": [
+    "bio-plane/src/question-explorer/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/question-explorer/index.mjs",
+    "bio-plane/src/question-explorer/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/question-explorer/index.mjs",
+    "bio-plane/src/question-explorer/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/question-explorer/index.mjs",
+    "bio-plane/src/question-explorer/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.3
+  },
+  {
+   "change": "question-explorer:520",
+   "module": "question-explorer",
+   "merge": "5c9e04dd0251377e40c205791ac59708cbf65a71",
+   "first": "7af174c30991ec9f7148585fcdb9068c0cffa3ae",
+   "lines_removed_or_altered": 2,
+   "lines_added": 3,
+   "paths": [
+    "bio-plane/src/question-explorer/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/question-explorer/index.mjs",
+    "bio-plane/src/question-explorer/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/question-explorer/index.mjs",
+    "bio-plane/src/question-explorer/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/question-explorer/index.mjs",
+    "bio-plane/src/question-explorer/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.1
+  },
+  {
+   "change": "question-explorer:90",
+   "module": "question-explorer",
+   "merge": "116ce81881f9bb8307d3d27656ffe5ac2fdb84f0",
+   "first": "91fa6f6a61d788589f711505cbbfa25969fb3990",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/question-explorer/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/question-explorer/index.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 5.8
+  },
+  {
+   "change": "queue-producers:362",
+   "module": "queue-producers",
+   "merge": "203c5f140c0e613b79d36e82203decaad78e6a34",
+   "first": "30289f6784965b403d27995044bcd42f19b9da68",
+   "lines_removed_or_altered": 0,
+   "lines_added": 8,
+   "paths": [
+    "bio-plane/src/queue-producers/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/queue-producers/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/queue-producers/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/queue-producers/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.7
+  },
+  {
+   "change": "queue:226",
+   "module": "queue",
+   "merge": "ce8f8069d89030244aad518917e55499c2f33568",
+   "first": "aa85aeb73aa44a091fbb21d33cbbced2d3160d9c",
+   "lines_removed_or_altered": 0,
+   "lines_added": 7,
+   "paths": [
+    "bio-plane/src/queuestate.mjs",
+    "bio-plane/src/queue/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/queue/index.mjs",
+    "bio-plane/src/queuestate.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/queue/index.mjs",
+    "bio-plane/src/queuestate.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/queue/index.mjs",
+    "bio-plane/src/queuestate.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.3
+  },
+  {
+   "change": "queue:455",
+   "module": "queue",
+   "merge": "054621f50d497315724308ae2c3b5c1340299828",
+   "first": "ae7e5b071034759f48a469007ed12740b7a4e911",
+   "lines_removed_or_altered": 1,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/queuestate.mjs",
+    "bio-plane/src/queue/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/queue/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/queue/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/queue/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.9
+  },
+  {
+   "change": "reading-guides:352",
+   "module": "reading-guides",
+   "merge": "3ae19c5fde060568931a5cdcb8e68d70f6109b2b",
+   "first": "328cb52ad0b2701b10babe142e6784d5bfa21a1c",
+   "lines_removed_or_altered": 2,
+   "lines_added": 18,
+   "paths": [
+    "bio-plane/src/reading-guides/"
+   ],
+   "files_before": 5,
+   "files_after": 5,
+   "source_changed": [
+    "bio-plane/src/reading-guides/checks.mjs",
+    "bio-plane/src/reading-guides/index.mjs",
+    "bio-plane/src/reading-guides/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/reading-guides/checks.mjs",
+    "bio-plane/src/reading-guides/index.mjs",
+    "bio-plane/src/reading-guides/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/reading-guides/checks.mjs",
+    "bio-plane/src/reading-guides/index.mjs",
+    "bio-plane/src/reading-guides/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.5
+  },
+  {
+   "change": "reading-pipeline:272",
+   "module": "reading-pipeline",
+   "merge": "c893421ca4868b7d8dba04b60e91577f26e2fe91",
+   "first": "81c507c4ee69746a2ec1657c981bdddb6d86ba40",
+   "lines_removed_or_altered": 228,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/reading-pipeline/"
+   ],
+   "files_before": 4,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/reading-pipeline/html.mjs",
+    "bio-plane/src/reading-pipeline/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/reading-pipeline/html.mjs",
+    "bio-plane/src/reading-pipeline/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/reading-pipeline/html.mjs",
+    "bio-plane/src/reading-pipeline/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.6
+  },
+  {
+   "change": "registers:426",
+   "module": "registers",
+   "merge": "6dfb4ff84a78c688b155b51f0839f566802e6774",
+   "first": "e2edad2bacff79dbda277cfcb0abe5628caf1cc4",
+   "lines_removed_or_altered": 1,
+   "lines_added": 3,
+   "paths": [
+    "bio-plane/src/registers/"
+   ],
+   "files_before": 10,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/registers/core.mjs",
+    "bio-plane/src/registers/ops.mjs",
+    "bio-plane/src/registers/runner.mjs",
+    "bio-plane/src/registers/schema.mjs",
+    "bio-plane/src/registers/search.mjs",
+    "bio-plane/src/registers/watch.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/registers/ops.mjs",
+    "bio-plane/src/registers/runner.mjs",
+    "bio-plane/src/registers/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/registers/ops.mjs",
+    "bio-plane/src/registers/runner.mjs",
+    "bio-plane/src/registers/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.6
+  },
+  {
+   "change": "registers:86",
+   "module": "registers",
+   "merge": "45d4686d8a3a88bbcdf43b52d04aec5690916111",
+   "first": "575bf14884fa85918168e569247d6bac29999669",
+   "lines_removed_or_altered": 10,
+   "lines_added": 723,
+   "paths": [
+    "bio-plane/src/registers/"
+   ],
+   "files_before": 0,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/registers/core.mjs",
+    "bio-plane/src/registers/index.mjs",
+    "bio-plane/src/registers/limits.mjs",
+    "bio-plane/src/registers/ops.mjs",
+    "bio-plane/src/registers/port.mjs",
+    "bio-plane/src/registers/reduced.mjs",
+    "bio-plane/src/registers/runner.mjs",
+    "bio-plane/src/registers/schema.mjs",
+    "bio-plane/src/registers/search.mjs",
+    "bio-plane/src/registers/watch.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/registers/core.mjs",
+    "bio-plane/src/registers/index.mjs",
+    "bio-plane/src/registers/limits.mjs",
+    "bio-plane/src/registers/ops.mjs",
+    "bio-plane/src/registers/port.mjs",
+    "bio-plane/src/registers/reduced.mjs",
+    "bio-plane/src/registers/runner.mjs",
+    "bio-plane/src/registers/schema.mjs",
+    "bio-plane/src/registers/search.mjs",
+    "bio-plane/src/registers/watch.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/registers/core.mjs",
+    "bio-plane/src/registers/index.mjs",
+    "bio-plane/src/registers/limits.mjs",
+    "bio-plane/src/registers/ops.mjs",
+    "bio-plane/src/registers/port.mjs",
+    "bio-plane/src/registers/reduced.mjs",
+    "bio-plane/src/registers/runner.mjs",
+    "bio-plane/src/registers/schema.mjs",
+    "bio-plane/src/registers/search.mjs",
+    "bio-plane/src/registers/watch.mjs"
+   ],
+   "failed": [],
+   "seconds": 5.2
+  },
+  {
+   "change": "run-productions:357",
+   "module": "run-productions",
+   "merge": "b5965d09b1e1d2ec8dff53a4c65d639a6714ded7",
+   "first": "7adf923fd30bf4897f8fdc99530867ebb6d5a232",
+   "lines_removed_or_altered": 1,
+   "lines_added": 10,
+   "paths": [
+    "bio-plane/src/run-productions/"
+   ],
+   "files_before": 4,
+   "files_after": 4,
+   "source_changed": [
+    "bio-plane/src/run-productions/checks.mjs",
+    "bio-plane/src/run-productions/index.mjs",
+    "bio-plane/src/run-productions/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/run-productions/index.mjs",
+    "bio-plane/src/run-productions/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/run-productions/index.mjs",
+    "bio-plane/src/run-productions/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.5
+  },
+  {
+   "change": "run-rules:330",
+   "module": "run-rules",
+   "merge": "da20f555330b7a210541503e6a3bebf7aafd16ae",
+   "first": "38374217e816b842bab0278bb7748dddbaf57564",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/run-rules/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/run-rules/rules.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/run-rules/rules.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.1
+  },
+  {
+   "change": "run-rules:407",
+   "module": "run-rules",
+   "merge": "12ac04d36453f7104cf9d485577b9f318c1ec302",
+   "first": "1c52a988e872c9e43fbb4f2bd94544d24fa555b6",
+   "lines_removed_or_altered": 0,
+   "lines_added": 17,
+   "paths": [
+    "bio-plane/src/run-rules/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/run-rules/checks.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/run-rules/checks.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/run-rules/checks.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.1
+  },
+  {
+   "change": "run-rules:72",
+   "module": "run-rules",
+   "merge": "7b1e70f93aef9d61f29e3ccb131a41dbb0ebeb0e",
+   "first": "72b22c21a0edb71fa826d298b857fb7c5c9791e4",
+   "lines_removed_or_altered": 1,
+   "lines_added": 28,
+   "paths": [
+    "bio-plane/src/run-rules/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/run-rules/checks.mjs",
+    "bio-plane/src/run-rules/index.mjs",
+    "bio-plane/src/run-rules/test-bar.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/run-rules/checks.mjs",
+    "bio-plane/src/run-rules/test-bar.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/run-rules/checks.mjs",
+    "bio-plane/src/run-rules/test-bar.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.4
+  },
+  {
+   "change": "scheduler:748",
+   "module": "scheduler",
+   "merge": "7f8494924d9a9ac0fd60b56ebe9845c5d2a0df44",
+   "first": "864850f2d9d00d0255814e48410ea6c6180f2597",
+   "lines_removed_or_altered": 1,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/src/scheduler/"
+   ],
+   "files_before": 1,
+   "files_after": 1,
+   "source_changed": [
+    "bio-plane/src/scheduler/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/scheduler/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/scheduler/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.2
+  },
+  {
+   "change": "screens-daily:281",
+   "module": "screens-daily",
+   "merge": "81c507c4ee69746a2ec1657c981bdddb6d86ba40",
+   "first": "cae531278c3587f5a3cad5d22142cc3913937833",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/screens-daily/"
+   ],
+   "files_before": 23,
+   "files_after": 23,
+   "source_changed": [
+    "bio-plane/src/screens-daily/index.mjs",
+    "bio-plane/src/screens-daily/queue.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 13.0
+  },
+  {
+   "change": "screens-entry:170",
+   "module": "screens-entry",
+   "merge": "52a611028bf41b295607774cf6b84ef321e42484",
+   "first": "2fe2b57ec8c9498b10716c2f4725c0dc2e81c952",
+   "lines_removed_or_altered": 1,
+   "lines_added": 6,
+   "paths": [
+    "bio-plane/src/screens-entry/"
+   ],
+   "files_before": 8,
+   "files_after": 8,
+   "source_changed": [
+    "bio-plane/src/screens-entry/setup.mjs",
+    "bio-plane/src/screens-entry/words.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/screens-entry/setup.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/screens-entry/setup.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.8
+  },
+  {
+   "change": "screens-inquiry:173",
+   "module": "screens-inquiry",
+   "merge": "e5aff064f0b56c96e5db9fb5593beb68fc342532",
+   "first": "947e5d1710d4a5f44f43116696714999d021b813",
+   "lines_removed_or_altered": 112,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/screens-inquiry/"
+   ],
+   "files_before": 11,
+   "files_after": 10,
+   "source_changed": [
+    "bio-plane/src/screens-inquiry/assistant.mjs",
+    "bio-plane/src/screens-inquiry/index.mjs",
+    "bio-plane/src/screens-inquiry/project.mjs",
+    "bio-plane/src/screens-inquiry/projectai.mjs",
+    "bio-plane/src/screens-inquiry/question.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/screens-inquiry/assistant.mjs",
+    "bio-plane/src/screens-inquiry/index.mjs",
+    "bio-plane/src/screens-inquiry/projectai.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/screens-inquiry/assistant.mjs",
+    "bio-plane/src/screens-inquiry/index.mjs",
+    "bio-plane/src/screens-inquiry/projectai.mjs"
+   ],
+   "failed": [],
+   "seconds": 18.7
+  },
+  {
+   "change": "screens-publish:469",
+   "module": "screens-publish",
+   "merge": "4bf17b5d207f8036acbd7e252df1e3cb8e5cc5d6",
+   "first": "cbcdef7b7f3c8fc9b76fe7e04dc2187b88d6f30b",
+   "lines_removed_or_altered": 0,
+   "lines_added": 13,
+   "paths": [
+    "bio-plane/src/screens-publish/"
+   ],
+   "files_before": 15,
+   "files_after": 15,
+   "source_changed": [
+    "bio-plane/src/screens-publish/ceremony.mjs",
+    "bio-plane/src/screens-publish/doorbell.mjs",
+    "bio-plane/src/screens-publish/imported.mjs",
+    "bio-plane/src/screens-publish/keys.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/screens-publish/ceremony.mjs",
+    "bio-plane/src/screens-publish/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/screens-publish/ceremony.mjs",
+    "bio-plane/src/screens-publish/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 12.8
+  },
+  {
+   "change": "screens-publish:607",
+   "module": "screens-publish",
+   "merge": "0210eba56a26687a37b4736bfbd5e4c945edadf6",
+   "first": "6e171876044c6346428d357d070912d5fa3554e2",
+   "lines_removed_or_altered": 0,
+   "lines_added": 3,
+   "paths": [
+    "bio-plane/src/screens-publish/"
+   ],
+   "files_before": 15,
+   "files_after": 15,
+   "source_changed": [
+    "bio-plane/src/screens-publish/published-pages.mjs",
+    "bio-plane/src/screens-publish/published-parts.mjs",
+    "bio-plane/src/screens-publish/published.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/screens-publish/index.mjs",
+    "bio-plane/src/screens-publish/published-parts.mjs",
+    "bio-plane/src/screens-publish/published.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/screens-publish/index.mjs",
+    "bio-plane/src/screens-publish/published-parts.mjs",
+    "bio-plane/src/screens-publish/published.mjs"
+   ],
+   "failed": [],
+   "seconds": 14.0
+  },
+  {
+   "change": "screens-settings:174",
+   "module": "screens-settings",
+   "merge": "ea7129ee8400ea64069bda54a602207112339c54",
+   "first": "ea43d1d8b9cc994335b1dff0a77735be815657af",
+   "lines_removed_or_altered": 166,
+   "lines_added": 2,
+   "paths": [
+    "bio-plane/src/screens-settings/"
+   ],
+   "files_before": 20,
+   "files_after": 18,
+   "source_changed": [
+    "bio-plane/src/screens-settings/account.mjs",
+    "bio-plane/src/screens-settings/connect.mjs",
+    "bio-plane/src/screens-settings/index.mjs",
+    "bio-plane/src/screens-settings/keys.mjs",
+    "bio-plane/src/screens-settings/members.mjs",
+    "bio-plane/src/screens-settings/settings.mjs",
+    "bio-plane/src/screens-settings/teamai.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/screens-settings/connect.mjs",
+    "bio-plane/src/screens-settings/teamai.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/screens-settings/connect.mjs",
+    "bio-plane/src/screens-settings/teamai.mjs"
+   ],
+   "failed": [],
+   "seconds": 12.6
+  },
+  {
+   "change": "screens-settings:291",
+   "module": "screens-settings",
+   "merge": "794cf0867983f1961cd78036909231e9106af7ba",
+   "first": "8a27c3244125108f097dea846c1fd236ebec1bd2",
+   "lines_removed_or_altered": 0,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/screens-settings/"
+   ],
+   "files_before": 18,
+   "files_after": 18,
+   "source_changed": [
+    "bio-plane/src/screens-settings/account.mjs",
+    "bio-plane/src/screens-settings/panel.mjs",
+    "bio-plane/src/screens-settings/settings.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/screens-settings/panel.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/screens-settings/panel.mjs"
+   ],
+   "failed": [],
+   "seconds": 12.2
+  },
+  {
+   "change": "screens-settings:437",
+   "module": "screens-settings",
+   "merge": "b6a4a8fffeef0536feb4d1208ed26bd619018cf3",
+   "first": "18935dc7c40097200e66fdb6c878dabca8e35b97",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/screens-settings/"
+   ],
+   "files_before": 18,
+   "files_after": 18,
+   "source_changed": [
+    "bio-plane/src/screens-settings/index.mjs",
+    "bio-plane/src/screens-settings/keys.mjs",
+    "bio-plane/src/screens-settings/members.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 12.4
+  },
+  {
+   "change": "signatures:101",
+   "module": "signatures",
+   "merge": "45a97e9fc97ef22eb428a1162ab1cc0e0eef55f8",
+   "first": "fb8566cefdc518719ec64269bd739325ae07974d",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/sshsig.mjs",
+    "bio-plane/src/tsa.mjs",
+    "bio-plane/scripts/sign-sshsig.mjs",
+    "bio-plane/scripts/catalogue-keys.html"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/sshsig.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.2
+  },
+  {
+   "change": "signatures:208",
+   "module": "signatures",
+   "merge": "c6f50136dc2967b284863c1205b98bee5fc9476b",
+   "first": "dac36790cdddbd1bee3df12500fc87eb0489c957",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/sshsig.mjs",
+    "bio-plane/src/tsa.mjs",
+    "bio-plane/scripts/sign-sshsig.mjs",
+    "bio-plane/scripts/catalogue-keys.html"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/sshsig.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.0
+  },
+  {
+   "change": "signin-door:153",
+   "module": "signin-door",
+   "merge": "3c74131df71fdd0145e64b2646945173bc8b1509",
+   "first": "ae9403b397c52df13cf1aa769047e64a0e044e3d",
+   "lines_removed_or_altered": 1,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/signin-door/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/signin-door/index.mjs",
+    "bio-plane/src/signin-door/ops.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/signin-door/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/signin-door/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 5.7
+  },
+  {
+   "change": "signin-door:168",
+   "module": "signin-door",
+   "merge": "370b7c4d2735816177804d979cfeb9fbd248737a",
+   "first": "8c10de62aa8d679d5a905f3c7e68869150da03c6",
+   "lines_removed_or_altered": 3,
+   "lines_added": 11,
+   "paths": [
+    "bio-plane/src/signin-door/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/signin-door/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/signin-door/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/signin-door/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.0
+  },
+  {
+   "change": "skills:409",
+   "module": "skills",
+   "merge": "def0097be97aa76d13f61f79f358fd3e2b358773",
+   "first": "b4f0985846d274d56441cbbb7396d984ca8274e8",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/skilldoctrine.mjs",
+    "bio-plane/src/skillpack.mjs"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/skilldoctrine.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/skilldoctrine.mjs"
+   ],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 7.5
+  },
+  {
+   "change": "steps:1023",
+   "module": "steps",
+   "merge": "5b8a4cb7a4c8a1665fdead14a80f63b2674bb5e9",
+   "first": "a77735ceb977e57f108fb8f6111e44f84c98d415",
+   "lines_removed_or_altered": 2,
+   "lines_added": 14,
+   "paths": [
+    "bio-plane/src/steps/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/steps/index.mjs",
+    "bio-plane/src/steps/schema.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/steps/index.mjs",
+    "bio-plane/src/steps/schema.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/steps/index.mjs",
+    "bio-plane/src/steps/schema.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.6
+  },
+  {
+   "change": "store-assembly:242",
+   "module": "store-assembly",
+   "merge": "cab6b703e49f2f699af0b53425535859f5d012f9",
+   "first": "b8a5e14f04201659c3805afaad434efe169f7a3d",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/store-assembly/"
+   ],
+   "files_before": 16,
+   "files_after": 16,
+   "source_changed": [
+    "bio-plane/src/store-assembly/assemble.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.5
+  },
+  {
+   "change": "store-assembly:93",
+   "module": "store-assembly",
+   "merge": "0a8d04348a7b8104c0f15e32d80ffcb6baf088af",
+   "first": "5b6a2bf15ba8293920ef0a846c3de66ed64309fd",
+   "lines_removed_or_altered": 2,
+   "lines_added": 9,
+   "paths": [
+    "bio-plane/src/store-assembly/"
+   ],
+   "files_before": 16,
+   "files_after": 16,
+   "source_changed": [
+    "bio-plane/src/store-assembly/ask.mjs",
+    "bio-plane/src/store-assembly/assemble.mjs",
+    "bio-plane/src/store-assembly/declarations.mjs",
+    "bio-plane/src/store-assembly/owner-ops.mjs",
+    "bio-plane/src/store-assembly/transcribe.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/store-assembly/ask.mjs",
+    "bio-plane/src/store-assembly/assemble.mjs",
+    "bio-plane/src/store-assembly/declarations.mjs",
+    "bio-plane/src/store-assembly/owner-ops.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/store-assembly/ask.mjs",
+    "bio-plane/src/store-assembly/assemble.mjs",
+    "bio-plane/src/store-assembly/declarations.mjs",
+    "bio-plane/src/store-assembly/owner-ops.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.8
+  },
+  {
+   "change": "store-door:200",
+   "module": "store-door",
+   "merge": "b1e9e47ac817d61fb38096e40aa823de8a23ba41",
+   "first": "b980224aa020bd6fa0ebfe07e13b9c2866e69892",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/store-door/"
+   ],
+   "files_before": 3,
+   "files_after": 3,
+   "source_changed": [
+    "bio-plane/src/store-door/dispatch.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 6.5
+  },
+  {
+   "change": "store-request:133",
+   "module": "store-request",
+   "merge": "d215584b762c2ece9644e028ef5bb8ac52b4b1ce",
+   "first": "0a8d04348a7b8104c0f15e32d80ffcb6baf088af",
+   "lines_removed_or_altered": 1,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/store-request/"
+   ],
+   "files_before": 2,
+   "files_after": 2,
+   "source_changed": [
+    "bio-plane/src/store-request/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/store-request/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/store-request/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 6.6
+  },
+  {
+   "change": "strength:1037",
+   "module": "strength",
+   "merge": "6c4a5ae14486d94343b7e5019adadd98c5552b97",
+   "first": "7c906cfdfcad8663225c10bdaa53eb9632b32e01",
+   "lines_removed_or_altered": 0,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/strength/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/strength/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/strength/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/strength/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.1
+  },
+  {
+   "change": "strength:176",
+   "module": "strength",
+   "merge": "e71640ada5ce94e2ef76b074c92a109146ebd0fe",
+   "first": "cfbd5d359d378a7336b8857f3a6281e131688a77",
+   "lines_removed_or_altered": 1,
+   "lines_added": 5,
+   "paths": [
+    "bio-plane/src/strength/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/strength/index.mjs",
+    "bio-plane/src/strength/method.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/strength/index.mjs",
+    "bio-plane/src/strength/method.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/strength/index.mjs",
+    "bio-plane/src/strength/method.mjs"
+   ],
+   "failed": [],
+   "seconds": 9.8
+  },
+  {
+   "change": "wizard-scripts:163",
+   "module": "wizard-scripts",
+   "merge": "60b53634d30e3ef18d4156d762321190ad67b929",
+   "first": "b7426ef99a6201d16b6e81c713cb5e6305f2a71a",
+   "lines_removed_or_altered": 0,
+   "lines_added": 14,
+   "paths": [
+    "bio-plane/src/wizard-scripts/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/src/wizard-scripts/civicsmith-library.mjs",
+    "bio-plane/src/wizard-scripts/data.mjs",
+    "bio-plane/src/wizard-scripts/screen-registry.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/wizard-scripts/data.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/wizard-scripts/data.mjs"
+   ],
+   "failed": [],
+   "seconds": 11.3
+  },
+  {
+   "change": "wizard-scripts:253",
+   "module": "wizard-scripts",
+   "merge": "e43068e54818ac16a9f4ef7f91cf8dcc88da8419",
+   "first": "cfd27968d321dc6121126ae804a025639ea7d60b",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/wizard-scripts/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/src/wizard-scripts/admin.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 11.5
+  },
+  {
+   "change": "wizard-scripts:255",
+   "module": "wizard-scripts",
+   "merge": "015b3981819d86e9b17000365b12749ff2e66c05",
+   "first": "a9c387c689f47c6abd8d321672bd973d294cdb72",
+   "lines_removed_or_altered": 0,
+   "lines_added": 0,
+   "paths": [
+    "bio-plane/src/wizard-scripts/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/src/wizard-scripts/admin.mjs"
+   ],
+   "writeout_differs": [],
+   "writeout_differs_without_comments": [],
+   "failed": [],
+   "seconds": 10.6
+  },
+  {
+   "change": "wizard-scripts:546",
+   "module": "wizard-scripts",
+   "merge": "05f50fcc84328affd0cafba6d6a9d7e2b0461375",
+   "first": "c9f76034b0698267e77284442abd59a4fab8e7ce",
+   "lines_removed_or_altered": 0,
+   "lines_added": 4,
+   "paths": [
+    "bio-plane/src/wizard-scripts/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/src/wizard-scripts/data.mjs",
+    "bio-plane/src/wizard-scripts/screen-registry.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/wizard-scripts/data.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/wizard-scripts/data.mjs"
+   ],
+   "failed": [],
+   "seconds": 10.5
+  },
+  {
+   "change": "wizard-scripts:98",
+   "module": "wizard-scripts",
+   "merge": "de5dce6d601a367599ab238a6fa470b5d65ea1f1",
+   "first": "7a5a8ebaebd04dd93ee996e96dfbbb19209fcd1b",
+   "lines_removed_or_altered": 1,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/wizard-scripts/"
+   ],
+   "files_before": 11,
+   "files_after": 11,
+   "source_changed": [
+    "bio-plane/src/wizard-scripts/build-data.mjs",
+    "bio-plane/src/wizard-scripts/screen-registry.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/wizard-scripts/build-data.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/wizard-scripts/build-data.mjs"
+   ],
+   "failed": [],
+   "seconds": 8.9
+  },
+  {
+   "change": "workbooks:285",
+   "module": "workbooks",
+   "merge": "99f33f132fc612982a854c0e12e91dfd190216d0",
+   "first": "fb627796851ba27cf47eab0fa72cee5a8bfd286b",
+   "lines_removed_or_altered": 0,
+   "lines_added": 1,
+   "paths": [
+    "bio-plane/src/workbooks/"
+   ],
+   "files_before": 7,
+   "files_after": 7,
+   "source_changed": [
+    "bio-plane/src/workbooks/index.mjs"
+   ],
+   "writeout_differs": [
+    "bio-plane/src/workbooks/index.mjs"
+   ],
+   "writeout_differs_without_comments": [
+    "bio-plane/src/workbooks/index.mjs"
+   ],
+   "failed": [],
+   "seconds": 7.5
+  }
+ ],
+ "tip": {
+  "modules": 190,
+  "files": 1181,
+  "kinds_stated": 128386,
+  "kinds_any": 56485,
+  "params": 6431,
+  "params_any": 6252
+ }
+}
