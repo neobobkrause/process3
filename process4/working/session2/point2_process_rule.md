@@ -6,10 +6,10 @@
 
 Your rule: the process is changed only in the PROCESS lane, with you choosing, and a product moves to a changed process only with your prior approval. Today only words hold it.
 
-**Proven today, read from GitHub and from the repositories.**
+**Proven today, from GitHub and the repositories.**
 
 - In the process's repository, your standing approvals (the text in your name saying what sessions may do without asking) still say sessions may "merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass". They forbid changing settings, not changing the process.
-- GitHub's own rules there ask for nobody's approval: a change merges once two automatic checks pass. The sessions' GitHub account can write there. On 9 Nov it opened and merged the last change to the process, with no person's review.
+- GitHub's own rules there ask for nobody's approval: a change merges once two automatic checks pass. The sessions' GitHub account can write there. On 9 Nov it merged the last change to the process, with no person's review.
 - A deny list (a settings file that takes commands away from a session) exists only on Process3's branch, where it sends merges through Process3's tool without stopping them. The Process4 branch has none.
 - In Process3, sessions made 270 of the 296 changes to the process.
 
@@ -26,7 +26,7 @@ Your rule: the process is changed only in the PROCESS lane, with you choosing, a
 
 Only you can set 3 or 4: your approvals forbid sessions to change settings, and GitHub refuses them. Your PROCESS paragraph says you choose and approve, not that you merge. Whether pressing merge counts as a gate is yours to say.
 
-None of these stops growth elsewhere: tests and walk steps in the product, or what one session tells another.
+None stops growth elsewhere: tests and walk steps in the product, or what one session tells another.
 
 **Technical, for Claude to settle and report:** how such a rule is built and tried; which branch PROCESS uses; how a product names its process version.
 

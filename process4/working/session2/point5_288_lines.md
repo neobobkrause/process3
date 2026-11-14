@@ -4,9 +4,9 @@ Worker report, 14 Nov 2026, second main session. Reading and reporting only; not
 
 ## For the owner, in plain words
 
-Your requirements for the process are 288 separate statements. 151 come from your Keep and Drop Ledger, the page where a session drafted 159 statements with a suggestion for each and you marked each keep, modify or drop; the 151 are those marked keep (119) or modify (32). The other 137 are statements in your Foundations, the document a session wrote for you from the Ledger. Earlier auditors, not you, cut the Foundations into those 137.
+Your requirements for the process are 288 statements. 151 come from your Keep and Drop Ledger, the page where a session drafted 159 statements with a suggestion for each and you marked each keep, modify or drop; the 151 are those marked keep (119) or modify (32). The other 137 come from your Foundations, the document a session wrote for you from the Ledger; earlier auditors, not you, cut it into those 137.
 
-I counted again where each of the 288 stands in the fifth draft of the definition. My counts agree with the audit's and add up to 288:
+I counted again where each stands in the fifth draft of the definition. My counts agree with the audit's and add up to 288:
 
 - 112 are kept and stated in the draft.
 - 43 are kept in purpose, with the way of doing them changed.
@@ -15,12 +15,12 @@ I counted again where each of the 288 stands in the fifth draft of the definitio
 - 4 are contradicted: the draft does what the line forbids, without saying so.
 - 1 is no longer mentioned at all.
 
-Proven: the counts, and that every quotation in this report is exact; I checked both against your documents. That the 53 are absent is the auditor's search; I searched the draft for about thirty of their subjects and found none stated. Not proven: that a later session would in fact drop an unstated line or follow the wrong document. An earlier report says a Process3 session brought back a removed check by citing Ledger lines; I did not re-check it.
+Proven: the counts, and that every quotation in this report is exact; I checked both against your documents. That the 53 are absent is the auditor's search; I searched the draft for about thirty of their subjects and found none stated. Not proven: that a later session would in fact drop an unstated line or follow the wrong document.
 
 Yours to decide:
 
-1. The 33 endings, as seven yes-or-no proposals (next section). Nine of the 33 are checks or re-tests that your words "three tests and no others" may already end; you were not asked whether your words reach that far.
-2. Which document speaks for you where they disagree. For the 75 ended lines your Ledger still says keep or modify (38) and your Foundations still state the rest (37), and the definition does not say it comes first. The audit gives two options: one sentence saying the definition is followed from the day you accept it, with the older two kept as history; or the older two are withdrawn from what sessions read.
+1. The 33 endings, as seven yes-or-no proposals (next section). Nine are checks or re-tests that your words "three tests and no others" may already end; you were not asked whether they reach that far.
+2. Which document speaks for you where they disagree. For the 75 ended lines your Ledger still says keep or modify (38) and your Foundations still state the rest (37), and the definition does not say it comes first. The audit's two options: a sentence saying the definition is followed from the day you accept it, the older two kept as history; or the older two withdrawn from what sessions read.
 3. Whether a job may commit built files (files produced from other files). You kept a line saying it never does; the draft says it does.
 4. One older line lets the architecture session reword a requirement and tell you in one line. Your rule of 14 Nov says a change to what you defined is put to you first. Both cannot stand.
 
