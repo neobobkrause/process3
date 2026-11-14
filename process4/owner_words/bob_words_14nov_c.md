@@ -49,3 +49,15 @@ O13: three tests and no others
 # Fourth message, 14 Nov 2026 (verbatim, complete)
 
 screens and journeys are kept in docs/development/ux-substrate/ in the product repo
+
+
+# Fifth message, 14 Nov 2026 (verbatim, complete). The numbers 1 to 3 answer the three readings in section P of the fifth draft.
+
+1. A tranche can end without an AI enabled run
+2. installer and website are outside the tranche
+3. installer and site updates wait for a clean development release walk
+
+
+We'll use a different session then. Give me what I need to start it and task it.
+
+Meanwhile, perhaps this is a good time to repeat the full audit of process4 as currently defined, including a counter-argument audit. This will give a clearer look at that shape the design is in and provide a map where the focus is still needed.

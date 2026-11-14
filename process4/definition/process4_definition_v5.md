@@ -413,11 +413,11 @@ Your Foundations say: "Nothing here is in force until it has run on a real tranc
 
 ## P. Still open with you
 
-**Three readings of your words on the tranche and the release.** Each is Claude's reading, and yours to confirm or correct.
+**The tranche and the release: your answers of 14 Nov.** The fifth draft put three readings to you. You answered each, and your answers are quoted here exactly.
 
-1. **The journeys that use AI.** Your words say "all journeys". Some journeys use AI and need an AI account connected to the deployment. Process3's decision record quotes you on 9 Nov: "The first run or two of the external system will run without without an AI account connected". Claude reads your words of 14 Nov to mean that a tranche cannot end until those journeys too are walked without flaws.
-2. **The installer and the website page.** Process3's decision record quotes you on 8 Nov: "build the installer only when the internal walk completes without the need for another round, and build the site update only once the external walks complete without the need for another round." Claude reads your words of 14 Nov as moving both into the release, after the tranche.
-3. **A walk of the release itself.** The same record quotes you on 9 Nov: "the installer update and site update wait until a release walk with AI on is also clean." Your words of 14 Nov do not say whether a release has a walk of its own. Claude reads them to mean it has none, since the three tests end with the tranche's external walk. If so, nothing walks what the installer places.
+1. **The journeys that use AI.** You answered: "A tranche can end without an AI enabled run". So the external walk that ends a tranche may be made with no AI account connected. When the journeys that use AI are walked is not said; Claude will bring it to you when the release is built.
+2. **The installer and the website page.** You answered: "installer and website are outside the tranche". Both belong to the release, which can be started after a tranche has ended.
+3. **What a release waits for.** You answered: "installer and site updates wait for a clean development release walk". Claude reads "development release walk" as the external walk of the development deployment, the one that ends the tranche. Say if you meant a further walk.
 
 **Tests for the process's own tool.** Claude's reading of your "agreed" beside your words that no more tests are needed (section E).
 

@@ -1,6 +1,6 @@
 # Brief for a session on one question: when must a module's users be updated?
 
-Written 14 Nov 2026 as the starting text for a separate session that continues this study with Bob, the owner. It stands on its own; the full study is `/home/user/work/notice_study/study.md`.
+Written 14 Nov 2026 as the starting text for a separate session that continues this study with Bob, the owner. It stands on its own; the full study is `process4/working/notice_study/study.md` in this repository (branch `process4`).
 
 ## How to talk to Bob (his standing rules)
 
@@ -24,9 +24,9 @@ Background he has set (the session's record of 13 Nov, which he has referred to 
 
 ## What exists to measure against
 
-Process3, the earlier process, left a record in `/home/user/repos/civicsmith-copy` (branch `origin/process-state`, folder `notices/`): 178 changes to a module, 2,707 notifications to modules that use it, and 2,342 written verdicts by AI workers, 241 "affected" and 2,101 "not affected". Each verdict gives a one-sentence reason with a file and line. An earlier replay of this record is in `/home/user/work/replay/` (`results.md`).
+Process3, the earlier process, left a record in the public repository `neobobkrause/civicsmith-copy` (clone it read-only; it is not attached to the session) (branch `origin/process-state`, folder `notices/`): 178 changes to a module, 2,707 notifications to modules that use it, and 2,342 written verdicts by AI workers, 241 "affected" and 2,101 "not affected". Each verdict gives a one-sentence reason with a file and line. An earlier replay of this record is in `process4/working/replay/` (`results.md`).
 
-**Read-only.** Never commit, push, fetch into or check out in `/home/user/repos/*`. Start no cloud sessions for this work.
+**Read-only.** Never commit, push, fetch into or check out in any clone of the product repository. Start no cloud sessions for this work.
 
 ## What has been measured so far
 
@@ -114,9 +114,9 @@ Neither has been run. Both rest on a sorting that one reader made.
 
 ## Where everything is
 
-- The study: `/home/user/work/notice_study/study.md`. Scripts beside it, run with `python3 -I <script>`; the order is at the end of the study. `signals.py` takes about five minutes.
-- One row per affected verdict, with its sorting, its follow-up and which rules reach it: `/home/user/work/notice_study/data/classified241.tsv`.
+- The study: `process4/working/notice_study/study.md` in this repository (branch `process4`). Scripts beside it, run with `python3 -I <script>`; the order is at the end of the study. `signals.py` takes about five minutes.
+- One row per affected verdict, with its sorting, its follow-up and which rules reach it: `process4/working/notice_study/data/classified241.tsv`.
 - The reader's sorting of the 241: `judged241.txt`. Of the 120 sampled: `judged_sample.txt`. Rule scores: `data/rules.json`.
-- The earlier replay: `/home/user/work/replay/results.md`, with its scripts and data, which this study's scripts read.
-- Background: `/home/user/handoff/interface_and_cycle.md` (what a module's interface is in practice), `/home/user/handoff/no_layers_width.md`, `/home/user/handoff/process4_definition_v4.md` sections D and E.
-- The record: `/home/user/repos/civicsmith-copy`, branch `origin/process-state` at `c4c252913b`, folder `notices/`; the code at `origin/tranche` `e7ec72e093`.
+- The earlier replay: `process4/working/replay/results.md`, with its scripts and data, which this study's scripts read.
+- Background: `process4/evidence/interface_and_cycle.md` (what a module's interface is in practice), `process4/evidence/no_layers_width.md`, `process4/evidence/process4_definition_v4.md` sections D and E.
+- The record: the public repository `neobobkrause/civicsmith-copy` (clone it read-only; it is not attached to the session), branch `origin/process-state` at `c4c252913b`, folder `notices/`; the code at `origin/tranche` `e7ec72e093`.
