@@ -77,3 +77,28 @@ Bob is starting a separate session for the question of when a changed module's u
 ## Trials
 
 Only one has run: the offline replay of Process3's recorded notifications (`working/replay/results.md`). No session has been started on his account and no setting of his has been changed. Ask before either. The combined trial needs things built first; see `working/trial_plan_facts.md` and section 5 of the second audit. The second audit found the trial plan weak and its cost to him understated.
+
+## Added by the second main session, 14 Nov 2026
+
+What this session did. Nothing of Bob's was changed, no session was started on his account, and no setting was touched. The product repository was cloned for reading only.
+
+- `definition/process4_five_points.md`: the five points of "What most stands in the way" in detail, in plain words, with what is Bob's to decide and a recommendation for each. Given to him in chat. He has not answered yet.
+- `definition/process4_lanes.md`: lanes filled in from his documents, as a proposed section for the sixth draft. Section 3 holds five questions that are his; section 4 holds wording of his that Process4 cannot keep as written. He has not answered yet.
+- `working/session2/`: the workers' reports behind both (one for each of the five points, two on lanes, one on requirements missing from the 288). Each begins with a plain-words section. `point5_288_lines.md` holds the 33 lines grouped as seven yes-or-no proposals, ready to be put to him.
+- `evidence/foundations_tranche_9nov.md`: the later copy of his Foundations, taken from the process repository's `tranche` branch. The 288 lines were made from the earlier copy and from the first Keep and Drop page only.
+
+Corrections to this handoff and to the audits, found by checking primary sources:
+
+1. His standing approvals in the process repository's `CLAUDE.md` say nothing about lanes. The lanes paragraph is in the product repository's `CLAUDE.md` on its `tranche` branch.
+2. All the lane machinery of Process3 is on the process repository's `tranche` branch. The `process4` branch and `main` carry the tool of 2 Nov, with no lane code.
+3. "The documents are not in the folder" is only partly right: the folder differs between the product's main branch and its tranche branch, and the Screens page is built from the folder. There are three journey lists (27, 27 and 32 journeys).
+4. All 63 November changes to that folder were by sessions, not 61.
+5. The fifth draft's sentence on ROOT's start of 5 Nov is wrong in three ways; the third and fourth drafts had it right.
+6. The process repository's `tranche` branch has a list of forbidden commands; `main` and `process4` have none.
+7. The audits' "33 lanes" is 33 branches; Civicsmith had three lanes.
+8. The set-up check was not ended on Bob's instruction of 9 Nov: Process3's decision record kept it, run less often. Ending it was Claude's.
+9. GitHub's settings for the process repository can be read from a session (a worker did). The product repository's cannot without attaching it.
+
+Withdrawn by Claude in this session, and to be removed from the sixth draft: the request that Bob make the tranche branch the default branch; the sentence "Only your word ends a tranche that will not come clean" (it was Claude's, unmarked).
+
+Still owed: everything under "Still owed by Claude" above, plus bringing the requirements found in `working/session2/later_requirements.md` into the appendix, comparing the 27-journey and 32-journey lists for him, and a written order for converting the three repositories that lists Bob's own acts.
