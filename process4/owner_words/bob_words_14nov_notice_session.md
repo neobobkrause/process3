@@ -56,3 +56,13 @@ I need more info on whether the trigger is the written-out interface. You also a
 which event sends the notice: B
 
 the tool may refuse a disagreeing comment
+
+## 9
+
+*The session had listed four points on which Bob had typed nothing yet: who is told (every user of the provider, or only the users of the entry that changed); how a user module states which parts of a provider it uses; what rule applies to a module that has no comments yet; and the one fixed form for bounds written in words.*
+
+Who is told: ideally only the users of the entry that changed. But in order to do so, a user module must state which parts of a provider it uses. Is that a reasonable thing to support?
+
+What rule applies to a module that has no comments yet: The first time a job for a module without comments starts the first thing it does is add the structured comments.
+
+The one fixed form for bounds written in words: If those words are changing, then there must be a reason why. It must be that that interface is changing, right?
