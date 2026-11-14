@@ -80,3 +80,7 @@ Agreed: The comments go in as a step of their own, before the job changes anythi
 *The session had asked which changes to an existing entry of a provider's interface send a notice to that entry's users, and had recommended: for what a provider accepts, tell users only when the new interface cannot stand in for the old (something removed, renamed, newly required or newly refused), so that accepting more tells no one; for what a provider hands back, tell users of the entry on any change to it, because handing back something new can break a user.*
 
 I agree with your recommendation
+
+## 12
+
+So where does this leave us with regard to the task of making a distinction between meaningful interface changes of a provider and all other changes? Is it your assessment that what we have is load-bearing?
