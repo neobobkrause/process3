@@ -6,26 +6,26 @@ Worker report, 14 Nov 2026, second main session. Reading and reporting only. Not
 
 **What your documents say a lane is.** A lane is a standing area of design responsibility. It has its own folder of knowledge in the product's repository and is worked by one session (one running Claude conversation) at a time. A lane delivers designs, never product code.
 
-Your statements, oldest first:
+Oldest first:
 
-- 31 Oct, your note in your Keep and Drop Ledger: a lane is "a knowledge directory and design responsibility plus an on-demand worker", long-lived "only where measured worthwhile".
+- 31 Oct, your note in your ledger: a lane is "a knowledge directory and design responsibility plus an on-demand worker", long-lived "only where measured worthwhile".
 - Your Foundations: "You identify the need for a lane" and the architecture session (then called BOB, now ARCH) opens it; "the UX lane is always there"; jobs and lanes reach a lane only through that session, which "keeps the final say".
-- Your standing approvals, in the product's repository on the branch it is built on: design lanes "own their lane folders", the screens-and-journeys folder included; "each lane runs as one session at a time"; they "decide design and wording"; their design documents are claude.ai pages; a change inside a lane's own folder merges without a test run.
-- 5 and 6 Nov, as sessions recorded you (not your typing): a lane is not a read-only helper; before deciding anything a lane must be "fully qualified" as "the load-bearing source of truth in their area", by research it keeps in its own area of the repository; three lanes for Civicsmith (user experience, investigation design, publication design); and two "triage" lanes, one for the process and one for the product, that study each problem and bring you options.
+- Your standing approvals in the product's repository: design lanes "own their lane folders", the screens-and-journeys folder included; "each lane runs as one session at a time"; they "decide design and wording"; their design documents are claude.ai pages; a change inside a lane's own folder merges without a test run.
+- 5 and 6 Nov, as sessions recorded you (not your typing): a lane is not a read-only helper; a lane must first be "fully qualified" as "the load-bearing source of truth in their area", by research kept in the repository; three lanes for Civicsmith (user experience, investigation design, publication design); and two "triage" lanes, for the process and for the product, that study each problem and bring you options.
 - 14 Nov, typed: process changes happen only in "a separate process lane call PROCESS that I interact with"; the first session you start (ROOT) starts it.
 
-**What is proven.** Every quotation above was checked against its source today. Your live ledger and your two other live documents are unchanged from the copies kept here; the two others do not mention lanes. Nothing about lanes in Process4 has run.
+**What is proven.** Each quotation was checked against the document it comes from. Your three live documents are unchanged from the copies kept here; only the ledger mentions lanes. Nothing about lanes in Process4 has run.
 
-**What is wrong today.** Your lane requirements of 5 and 6 Nov are in none of the 288 requirement lines Process4 is checked against: that list was made from an earlier copy of your Foundations and from the first of your two ledger pages. The fifth draft gives lanes four sentences. It says ARCH defines lanes, where your Foundations say you identify the need. It leaves out one session per lane, qualification, the always-present UX lane, and the triage lanes.
+**What is wrong today.** Your lane requirements of 5 and 6 Nov are in none of the 288 requirement lines Process4 is checked against: that list was made from an earlier copy of your Foundations. The fifth draft gives lanes four sentences and says ARCH defines lanes, where your Foundations say you identify the need. It leaves out one session per lane, qualification, the always-present UX lane and the triage lanes.
 
 **Yours to decide** (your documents disagree or are silent):
 
 1. Who starts a lane: your documents say only the architecture session; on 14 Nov you had ROOT start PROCESS.
 2. Whether PROCESS replaces the two triage lanes.
-3. Whether you talk with design lanes directly, as on 5 Nov, or only through the coordinator (the session named as your front door).
+3. Whether you talk with design lanes directly, as on 5 Nov, or only through the coordinator (your front-door session).
 4. Which lanes Process4 begins with, and whether a new lane needs your word.
-5. Whether "design documents are claude.ai pages" (5 Nov) or "screens and journeys are kept in" the product's folder (14 Nov) governs, since both walks are measured against them.
-6. Whether a lane session takes one of the eight job slots.
+5. Where the screens and journeys the walks are measured against live: claude.ai pages (5 Nov) or the product's folder (14 Nov).
+6. Whether a lane session takes a job slot.
 
 **Technical, for Claude to decide and report:** how a lane session is started, handed over and recorded; where its research is kept; how its changes merge.
 
@@ -256,7 +256,7 @@ Disposition table: `process4_disposition.tsv:49` (F-FOR-3, KEEP, "No decision en
 | --- | --- | --- | --- |
 | A1 | "Design lanes, run under BOB, own their lane folders, the design stream (docs/development/ux-substrate) included, and each lane runs as one session at a time. Within the product’s principles they decide design and wording there. Their design documents are claude.ai artifacts, not repository files. A pull request that changes only files in its own lane's folder lands through the merge tool without a test suite run, and the large files a lane's generators build are built at layer close, deploy and release, never committed." | COPY-T:CLAUDE.md:11 | His committed approvals (text V; that he committed it, and that a session drafted the wording, A: CLOG:591, 597; `permissions_inventory.md:30`). V5:141 cites one clause |
 | A2 | "widened on 5 Nov 2026 for design lanes and a scheduled branch cleanup" | COPY-T:CLAUDE.md:3 | As A1 |
-| A3 | "No session starts its own successor: ROOT starts a new BOB (the handover) and a new coordinator ... A successor takes over its predecessor's unarchived children: it answers or archives each." | COPY-T:CLAUDE.md:22 | Process lines copied in by a session (`permissions_inventory.md:53`, A); not approvals |
+| A3 | "No session starts its own successor: ROOT starts a new BOB (the handover) and a new coordinator ... A successor takes over its predecessor's unarchived children: it answers or archives each." | COPY-T:CLAUDE.md:22 | Process lines copied in by a session (`permissions_inventory.md:55`, A); not approvals |
 
 An earlier wording of A1 is quoted in the tool's README: "and their changes land through the gated merge train like any job's" (P3T:README.md:71). The 9 Nov text replaced it with "without a test suite run" (V for both texts; the order is J).
 
@@ -293,7 +293,7 @@ None of D1 to D5 is among the 288 lines. PD-1 is the ground the session's record
 | # | Quote | File:line | Whose |
 | --- | --- | --- | --- |
 | C3 | `"lanes": [ {"name": "ux", "dir": "docs/development/ux-substrate/", "module": "ux-design"}, {"name": "investigation", "dir": "docs/development/investigation-design/"}, {"name": "publication", "dir": "docs/development/publication-design/"} ]` | COPY-T:process/config.json:27-41 | The process config, written by sessions |
-| C4 | "BD-2: Two design lanes beside ux, investigation and publication (BOB, 6 Nov) Context: Bob, 6 Nov, through the coordinator: lanes keep the earlier partition, with investigation design and publication design beside ux. Each must qualify as the load-bearing source of truth in its area before it decides anything ... Bob, ~17:05Z: "Yes, publication design is the ACTIONS-DESIGN area"." and "Neither new lane names a `module`" | COPY-T:DECISIONS.md:25-26, 32 | The architecture session's record |
+| C4 | "BD-2: Two design lanes beside ux, investigation and publication (BOB, 6 Nov) Context: Bob, 6 Nov, through the coordinator: lanes keep the earlier partition, with investigation design and publication design beside ux. Each must qualify as the load-bearing source of truth in its area before it decides anything ... Bob, ~17:05Z: "Yes, publication design is the ACTIONS-DESIGN area"." and "Neither new lane names a `module`" | COPY-T:DECISIONS.md:25-26, 33 | The architecture session's record |
 | C5 | "BD-4: Where Bob's UX ends and the ux lane's begins (BOB, 6 Nov, on Bob's word) ... Bob, 6 Nov ~18:05Z, through the coordinator: "agreed". Decision: Bob keeps the product's UX direction, its audiences and its principles. Beneath them, the ux lane decides design and wording: screens, flows, words, layout and visual language. ... A decision that would change a direction, an audience or a principle goes to Bob as "decision: Bob's", with options and the lane's recommendation." | COPY-T:DECISIONS.md:51-53 | Session's record; his word is "agreed" |
 | C5b | "BD-3: Screens and words stay with ux; the other lanes design behaviour ... ux owns every screen and every word." "BD-13: The border between the investigation and publication lanes ... Requests across the border go through BOB." | COPY-T:DECISIONS.md:45-47, 112-122 | The architecture session's decisions |
 | C6 | "This folder holds only what the product's build and checks read (Bob, 5 Nov 2026). The design documents are claude.ai artifacts, kept by the ux lane and recorded with `p3 lane artifact ux`." with a table giving "Journeys" and "Screens" as claude.ai links | COPY-T:docs/development/ux-substrate/README.md:3, 15-25 | Session's text citing him |
@@ -311,6 +311,6 @@ None of D1 to D5 is among the 288 lines. PD-1 is the ground the session's record
 | S4 | "The Foundations name ROOT, BOB, jobs, lanes and workers. The coordinator appears nowhere in the original design." | `evidence/review.txt:317` |
 | S5 | "5. Jobs and lanes meet only through you. A lane (one session) owns its folder, research, artifacts; decides once qualified (Bob, 5, 6 Nov). Ask it or a `lane ask` worker; you decide last." | P3T:rulebooks/bob.md:16 |
 | S6 | "The process-triage lane's folder ... BOB starts the lane. It studies each identified Process3 problem and brings Bob options with their context before a response is chosen (AUD-8). Product problems go to the product's own triage lane." | P3T:triage/README.md:3 |
-| S7 | "No earlier charter, lane, branch or ruling names a "publication design" lane. The lane that sat beside INVESTIGATION-DESIGN was **ACTIONS-DESIGN** ..." and, of the earliest rule for design lanes (K592, 30 Sep), Bob's words as that note quotes them: "make sure that this session only does design; you manage action development as you do all other development, in tranches with layers" | P3T:notes/lane-charters.md:11, 16 |
+| S7 | "No earlier charter, lane, branch or ruling names a "publication design" lane. The lane that sat beside INVESTIGATION-DESIGN was **ACTIONS-DESIGN** ..." and, of the earliest rule for design lanes (K592, 30 Sep), Bob's words as that note quotes them: "make sure that this session only does design; you manage action development as you do all other development, in tranches with layers" | P3T:notes/lane-charters.md:10, 16 |
 
 `evidence/no_layers_width.md:25` counts "lanes" among other ledger entries and says nothing about what a lane is. `working/assessment_doc.txt`: no mention (V).

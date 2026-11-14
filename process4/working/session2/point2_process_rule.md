@@ -8,27 +8,27 @@ Your rule is that the process is changed only in the PROCESS lane, with you choo
 
 **Proven today, read from GitHub and from the repositories.**
 
-- In the process's repository, your standing approvals (the text in your name that tells sessions what they may do without asking) still say sessions may "merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass". They forbid changing settings. They do not forbid changing the process.
-- GitHub's own rules on that repository ask for nobody's approval. A change merges once two automatic checks pass. The GitHub account the sessions use can write there. The last change to the process, on 9 Nov, was opened and merged by that account with no review.
-- A deny list (a settings file that takes commands away from a session) exists on one branch only, the one Process3 worked on. It sends merges through Process3's tool. It does not stop them. The main branch and the branch holding the Process4 work have none.
+- In the process's repository, your standing approvals (the text in your name saying what sessions may do without asking) still say sessions may "merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass". They forbid changing settings. They do not forbid changing the process.
+- GitHub's own rules there ask for nobody's approval: a change merges once two automatic checks pass. The sessions' GitHub account can write there. On 9 Nov it opened and merged the last change to the process, with no person's review.
+- A deny list (a settings file that takes commands away from a session) exists on one branch only, Process3's. It sends merges through Process3's tool and does not stop them. The branch holding the Process4 work has none.
 - In Process3, sessions made 270 of the 296 changes to the process.
 
-**Not proven.** No physical way of holding your rule has ever been tried on your repositories. What follows rests on GitHub's documentation only.
+**Not proven.** No physical way of holding your rule has been tried on your repositories. The options below rest on GitHub's documentation only.
 
-**The history.** On 13 Nov Claude proposed that the process change only by your own merge, then withdrew it: it made you the merger of every change and made work wait for you, against what the session had recorded as your requirement that your only acts are occasional settings changes. On 14 Nov the second draft proposed the same thing again without saying so, called its cost "one click", and said it made silent growth "impossible". That was withdrawn too. A narrower question followed. Your reply was the PROCESS paragraph. Nothing has been put to you since.
+**The history.** On 13 Nov Claude proposed that the process change only by your own merge, then withdrew it: it made work wait for you, against what the session had recorded as your requirement that your only acts are occasional settings changes. On 14 Nov the second draft proposed it again without saying so, called its cost "one click", and said silent growth became "impossible". That was withdrawn too. A narrower question followed; your reply was the PROCESS paragraph. Nothing has been put to you since.
 
 **Yours to decide:** whether anything physical stands behind your rule, and which.
 
 1. Words only, as now. No act of yours. The risk stays.
-2. Your approvals in the process's repository say a change there is merged only on your word at PROCESS. One commit by you. Still words.
-3. A GitHub rule so that only your account can update the branch of the process that products use. One setting, once. Then, for each change you approve, you press merge on GitHub's website, and perhaps make a second act to move the product. Nothing merges while you are away.
+2. Your approvals in the process's repository say a change is merged only on your word at PROCESS. One commit by you. Still words.
+3. A GitHub rule so that only your account can update the branch of the process that products use. One setting, once. Then, for each change you approve, you press merge on GitHub's website, and perhaps a second act moves the product. Nothing merges while you are away.
 4. The sessions' account loses write access to the process's repository. The same acts as 3, and PROCESS could no longer save its proposals there.
 
-Only you can set 3 or 4: your approvals forbid sessions to change settings, and GitHub refuses them. Your PROCESS paragraph says you choose and approve. It does not say you merge. Whether pressing merge counts as a gate is yours to say.
+Only you can set 3 or 4: your approvals forbid sessions to change settings, and GitHub refuses them. Your PROCESS paragraph says you choose and approve, not that you merge. Whether pressing merge counts as a gate is yours to say.
 
 None of these stops growth elsewhere: tests and walk steps in the product, or what one session tells another.
 
-**Technical, for Claude to settle and report:** how such a rule is built and tried in the throwaway repository; which branch PROCESS starts on; how a product names the process version it uses.
+**Technical, for Claude to settle and report:** how such a rule is built and tried; which branch PROCESS starts on; how a product names the process version it uses.
 
 ---
 
@@ -70,7 +70,7 @@ New in this session: GitHub's API answered read requests for the process reposit
 | :305-340 | Finding 8: PROCESS can grow the process through the options it writes; his approval is recorded by the session that wants it. Best answer :336: "his own merge is the approval, so no session records it for him." | J (auditor) |
 | :430-444 | Finding 12: the guard on his approvals was ended, the start-up comparison kept; the approvals stand behind the permission checker alone, measured 2 of 2. | A |
 | :448-506 | Appendix A, 51 rules. Rows on this point: 5 (:458), 32 (:485), 35 (:488), 36 (:489), 38 (:491), 40 (:493), 47 (:500). Summary :506: "Of 51, something physical stands behind six in whole or part (5, 8, 12, 30, 40, 45)... The first round counted 36 text rules in the second draft with three held." | A |
-| :523 | Appendix B row 10: "A comparison that would have shown whether the process stayed as approved was taken out of the draft as a check". | V (`working/v5_notes.md`:17) |
+| :523 | Appendix B row 10: "A comparison that would have shown whether the process stayed as approved was taken out of the draft as a check". | V (`working/v5_notes.md`:15) |
 | :525 | "The real change since then ... is that the sessions building the product are no longer the ones who may change the process, if finding 2 is dealt with." | J (auditor) |
 | :542-543 | Appendix C: the process's repository "today holds Process3's whole tool, guide and decision record on other branches, and his Process3 approvals"; "His approval is recorded by PROCESS: Bob's". | First part V |
 | :584-585 | Not established by that audit: live GitHub settings; whether a session started from `process4` would in fact merge a change there. | The first is now read (2e) |
@@ -212,7 +212,7 @@ Between `main` and `tranche` only `ci.yml` differs, in one line (the time limit)
 | Auto-merge | off |
 | The bypass list; the collaborator list | not readable (the first comes back empty to a non-admin; the second is refused by the proxy) |
 | Pull request 302, the last change to the process | opened and merged by `believeinoakland`, 9 Nov 18:13 UTC, into `tranche`; no review on it |
-| Pull requests ever merged into `main` | two: number 8 (1 Nov) and number 21 (2 Nov), both Bob's |
+| Pull requests ever merged into `main` | two: number 8 (merged 2 Nov 03:06 UTC) and number 21 (2 Nov 18:08 UTC), both opened by Bob's account |
 
 (V) From git: all four first-parent commits on the process repository's `main` are Bob's; `tranche` is 1,232 commits ahead of `main`. On `tranche`, 270 first-parent commits are by the two session accounts (177 Civicsmith, 93 believeinoakland) and 26 by Bob (`git log --first-parent --format=%an origin/tranche`).
 
@@ -294,7 +294,7 @@ For the wall (the sessions' account cannot write the process's repository, or ca
 
 (V) Fourth draft: "the third draft's fix session and its question to you about a setting are removed" (`definition/process4_definition_v4.md`:9). None of its thirteen proposals concerns a setting (section O, :358-440). Its notes: the 13 Nov withdrawal is "Not mentioned in the draft. His words today do not say he merges anything; they say he chooses and approves" (`working/v4_notes.md`:19); and "I did not write in the lever ... (the sessions' account holding no write access to the process's repository), because PROCESS itself would work under that account and the task did not ask for a mechanism" (`working/v4_notes.md`:66). The risk is listed as one with no trial (`definition/process4_definition_v4.md`:349).
 
-(V) Fifth draft: the rule is stated (`definition/process4_definition_v5.md`:264); approval is "PROCESS writes your approving words into the record of the change ... Nothing else counts as approval", marked Claude decided (:273); "one fixed version for each tranche, moved only with your prior approval" (:309); "Nothing physical yet stops a session building a product from changing the process's files, or from moving to a changed process" (:407). Two Process3 checks that stood near this rule are ended: "the check of the process version at a session's start; the check that the process files a product holds have not drifted" (:327). The fourth draft's one comparison from git of whether the process stayed as approved was removed as a check (`working/v5_notes.md`:17). The draft says "No proposal is waiting for your yes or no" (:9).
+(V) Fifth draft: the rule is stated (`definition/process4_definition_v5.md`:264); approval is "PROCESS writes your approving words into the record of the change ... Nothing else counts as approval", marked Claude decided (:273); "one fixed version for each tranche, moved only with your prior approval" (:309); "Nothing physical yet stops a session building a product from changing the process's files, or from moving to a changed process" (:407). Two Process3 checks that stood near this rule are ended: "the check of the process version at a session's start; the check that the process files a product holds have not drifted" (:327). The fourth draft's one comparison from git of whether the process stayed as approved was removed as a check (`working/v5_notes.md`:15). The draft says "No proposal is waiting for your yes or no" (:9).
 
 (V) So since the PROCESS paragraph the question of a setting has not been put to him in any draft. The second audit puts it as question 3 (`definition/process4_audit2.md`:69-75); he has not answered it (`HANDOFF.md`:69).
 
@@ -389,7 +389,7 @@ Three things from the same evidence that are not settings:
 
 ### Technical: Claude's to decide and report
 
-1. Which branch PROCESS starts on and works on; which branch products follow. Today the default branch `main` is twelve days and 1,232 commits behind `tranche`, and the product points at a `tranche` commit.
+1. Which branch PROCESS starts on and works on; which branch products follow. Today the default branch `main` has not moved since 2 Nov and is 1,232 commits behind `tranche`, and the product points at a `tranche` commit.
 2. How a product names the process version it uses: a submodule entry as now, a line naming a commit, or a name in the process's repository.
 3. How any chosen means is built, and its trial in the throwaway repository before it is relied on. What a trial can show: that GitHub refuses the session account's merge. What it cannot show: that growth stops.
 4. Whether today's two required checks on the process's `main` and `tranche` (`ci` and `record`) fit Process4, and whether the `record` check, which runs under `pull_request_target`, will still report after GitHub's change of 2 Dec 2026 to that trigger in public repositories ((A) `working/enforcement_levers.md`:122; not checked by me). If it stops reporting, nothing could merge into those two branches.
