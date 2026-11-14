@@ -1,0 +1,208 @@
+### ANCHOR: /** R72: a provider's refusal for a spent limit (Anthropic's 429
+/**
+ * A lens manifest's bundles as `bias` lists them or as the opener handed them; each entry's kind is `bias`' to fix
+ * (the open records `{bundle_id, revision}` for each).
+ * @typedef {unknown[]} LensBundles
+ */
+/**
+ * R20: the lens in force when the run opened, as the open recorded it. Three forms: recorded and readable
+ * (`recorded: true` with the lens fields); recorded and unreadable (`recorded: true, unreadable: true, stated`); not
+ * recorded, a run opened before the open recorded it (`recorded: false, stated: "not recorded"`).
+ * @typedef {object} LensAtOpen
+ * @property {boolean} recorded
+ * @property {boolean} [unreadable]  True only in the unreadable form.
+ * @property {string} [stated]  The sentence of the two forms that carry no lens.
+ * @property {boolean} [in_force]  Whether any lens was in force at the open.
+ * @property {string|null} [statements_sha]  The hash of the statements in force at the open; null when none was.
+ * @property {string|null} [scope]
+ * @property {string|null} [scope_id]
+ * @property {LensBundles} [bundles]
+ * @property {string|null} [at]  The open's instant.
+ */
+/**
+ * R20: the lens block of a run.
+ * @typedef {object} RunBiasBlock
+ * @property {boolean} in_force  Whether a readable manifest was handed at the open.
+ * @property {string|null} stated  The sentence when none was handed or the handed one is unreadable; null otherwise.
+ * @property {{scope: string|null, scope_id: string|null, statements_sha: string|null, bundles: LensBundles}|null} manifest
+ *  The handed manifest as recorded, never recomputed; null when none was handed or it is unreadable.
+ * @property {{in_force: boolean, statements_sha: string|null, bundles: LensBundles}|null} now  The lens in force now for the run's
+ *  context; null when no manifest is readable and the open recorded no lens.
+ * @property {boolean|null} moved  Whether the lens has moved: the open's against now where the open is recorded, else the handed
+ *  one against now; null when either side is undetermined.
+ * @property {"at_open"|"handed"|null} moved_basis  Which of the two comparisons `moved` is.
+ * @property {LensAtOpen} at_open
+ * @property {"in_force"|"stale"|null} hand  Whether the handed lens was the one in force at the open; null where the open
+ *  recorded none or the handed manifest is unreadable.
+ */
+/**
+ * R21, R86: the bar of a run. Never filled in.
+ * @typedef {object} RunStandard
+ * @property {boolean} in_force  True exactly when `basis` is `recorded`.
+ * @property {StandardBasis} basis
+ * @property {string} stated  The basis' sentence (run-rules' `STANDARD_BASIS`).
+ * @property {{capture: string|null, connection: string|null}|null} pair  Only when `basis` is `recorded`; each axis trimmed, null
+ *  when the pair names none for it.
+ */
+/**
+ * R19: a run as `read` and `listInContext` answer it. (The requirements name `principal.ai` where this code answers
+ * `principal.claude`: R19 as amended at T53, not yet met.)
+ * @typedef {object} RunSession
+ * @property {string} id  The run's id.
+ * @property {string|null} label
+ * @property {string|null} mode  A `RunMode` for every run `open` wrote; the column itself is nullable.
+ * @property {string} status  A `RunStatus` for every run this module wrote.
+ * @property {number} ticks  [bound ticks: a whole number of one or more]
+ * @property {IsoSecond} created
+ * @property {IsoSecond} updated
+ * @property {IsoSecond} expires
+ * @property {{type: string, id: string, questions?: string[]}} context  `type` is a `RunContextType` for every run `open` wrote.
+ *  `questions` only for a project run: the questions the project confirmed-cites that the viewer sees, sorted.
+ * @property {{plane: string, claude: string, ref: string|null, skill: string|null}} principal  `plane`: the plane principal;
+ *  `claude`: the paying owner (`member:<id>`, `project:<id>` or `group`); `ref`: the member whose act the run is (`member:<id>`);
+ *  `skill`: the skill version.
+ * @property {BudgetRow[]} budget  In bound-name order.
+ * @property {{kind: string, detail: string, bound: string, at: string|null}|null} condition  For an ended run: `kind` the queue
+ *  condition named at its ending (empty when none), `detail` the stopping bound's or ending's sentence, `bound`, `at`. Null while it runs.
+ * @property {RunBiasBlock} bias
+ * @property {RunStandard} standard
+ * @property {unknown} state  The run's resumable scratch as its last tick wrote it, parsed; null when it cannot be read back.
+ * @property {string|null} rerun_of  The run this run re-runs, when the viewer can see that run; else null.
+ * @property {UntestedLabel|null} untested  R78.
+ * @property {string|null} project  R89.
+ * @property {string} [step]  R73: present only on a run that works a step.
+ * @property {string} [origin]  Present only when the origin is not `member`.
+ * @property {RunCost} [cost]  R76: present only for an owner of the paying account.
+ * @property {string|null} [plan]  R46: present only on a run in mode `plan`.
+ * @property {string|null} [response]  R77: present only on a re-examination run.
+ */
+/**
+ * What `read` hands back (R19): an absent run and one the viewer cannot see answer alike.
+ * @typedef {{run: string|null, found: false, session: null} | {run: string, found: true, session: RunSession}} ReadAnswer
+ */
+/**
+ * `listInContext`'s refusal (R22).
+ * @typedef {object} ListRefusal
+ * @property {false} ok
+ * @property {"AI_RUNS_NO_CONTEXT_TYPE"|"AI_RUNS_UNKNOWN_CONTEXT_TYPE"|"AI_RUNS_NO_CONTEXT_ID"} code
+ * @property {string} reason  The code again.
+ * @property {string} check
+ * @property {string} translation
+ * @property {string} detail
+ */
+/**
+ * `listInContext`'s list (R22).
+ * @typedef {object} ListAnswer
+ * @property {true} ok
+ * @property {{type: RunContextType, id: string}} context  As normalised: the type trimmed and lower-cased, the id trimmed.
+ * @property {RunSession[]} runs  The visible runs over that context, newest first (then by id).
+ * @property {number} count  The length of `runs`.
+ * @property {number} limit  The limit applied. [bound limit: 1 to 1,000]
+ * @property {boolean} truncated  Whether more runs than `limit` were there.
+ */
+/**
+ * R85: what a run's search should look at.
+ * @typedef {object} RunSubjects
+ * @property {{id: string, extent: string|null, kind: "leg"|"cited"}[]} items  Only records the viewer sees, no two alike in `id` and
+ *  `extent`. [bound items: at most 50]
+ * @property {boolean} truncated  True when more than 50 were there.
+ */
+/**
+ * R23, R85: what a spawned half is handed. No lens field is in it.
+ * @typedef {object} SpawnPayload
+ * @property {string} run
+ * @property {{type: string, id: string}} context
+ * @property {string|null} mode
+ * @property {string|null} skill
+ * @property {string|null} standard_pair  The bar as handed at the open, verbatim.
+ * @property {RunStandard} standard
+ * @property {BudgetRow[]} budget  [bound budget: at most as many rows as there are bounds, 9]
+ * @property {RunSubjects} subjects
+ */
+/**
+ * What `spawnPayload` hands back (R23).
+ * @typedef {object} SpawnFound
+ * @property {string} run
+ * @property {true} found
+ * @property {"search"|"compose"} half
+ * @property {SpawnPayload} payload
+ * @property {number} limit  The cap the budget was read under, the number of bounds.
+ * @property {boolean} truncated  Whether the budget had more rows than `limit`.
+ * @property {RunBiasBlock} [bias]  R20: present only for the `compose` half.
+ * @property {string} fence  Why the half carries what it carries, in plain words.
+ */
+/**
+ * @typedef {SpawnFound | {run: string|null, found: false, half: null, payload: null}} SpawnAnswer
+ */
+/**
+ * One entry of a run's log as `log` answers it (R24). (The requirements' `read` and `disagree`, R100 at T53, are not
+ * answered by this code.)
+ * @typedef {object} RunLogRow
+ * @property {number} seq  The entry's ordinal in this answer, from 1.
+ * @property {string} at
+ * @property {string} level  An `ObservationLevel`.
+ * @property {string|null} subject
+ * @property {string} state  An `ObservationState`.
+ * @property {boolean} governed
+ * @property {string|null} condition
+ * @property {string|null} bound
+ * @property {boolean} terminal  True on the run's one terminal entry.
+ * @property {string|null} detail
+ * @property {string|null} result_kind
+ * @property {string|null} result_ref  For kind `observation`, the ordinal (as text) of the entry referred to when it is in this answer.
+ * @property {ObservationCoverage} coverage
+ */
+/**
+ * `log`'s answer for a run found (R24).
+ * @typedef {object} LogFound
+ * @property {string} run
+ * @property {true} found
+ * @property {string} status
+ * @property {RunLogRow[]} entries  In order.
+ * @property {number} limit  [bound limit: 1 to 5,000]
+ * @property {boolean} truncated
+ * @property {{bound: string, condition: string|null, at: string|null}|null} stopped  What stopped the run; null while it runs.
+ * @property {{states: Record<string, string>, levels: Record<string, string>, bounds: Record<string, string>, endings: Record<string, string>, coverage: Record<string, string>, coverage_undetermined: "undetermined"}} vocabulary
+ *  The vocabularies the entries are written in, each word with its sentence.
+ */
+/**
+ * @typedef {LogFound | {run: string|null, found: false, entries: never[], stopped: null, limit: number, truncated: false}} LogAnswer
+ */
+/**
+ * R28: the facts of a run a producer gates on. (The requirements name `principal_ai` where this code answers
+ * `principal_claude`: R28 as amended at T53, not yet met.)
+ * @typedef {object} RunFacts
+ * @property {string} run
+ * @property {string} status  A `RunStatus`.
+ * @property {string|null} mode
+ * @property {string} context_type
+ * @property {string} context_id
+ * @property {string} principal_plane
+ * @property {string} principal_claude  The paying owner.
+ * @property {UntestedLabel|null} untested  R78.
+ * @property {string|null} project  R89.
+ * @property {string|null} [plan]  Present only on a run in mode `plan`.
+ * @property {string|null} [response]  Present only on a re-examination run.
+ */
+/**
+ * R37: the run gate's answer.
+ * @typedef {object} RunGateAnswer
+ * @property {boolean} found  False for a blank id, an absent run and an invisible one alike.
+ * @property {boolean} running
+ * @property {RunFacts|null} run
+ * @property {RuleRefusal|null} refusal  run-rules R5's `AI_RUN_NOT_PRINCIPAL` when the caller is not the run's principal; else null.
+ */
+/**
+ * R27: which run a question was opened inside. Four forms: no surfacing row (`recorded: false`, or `inquiry`'s
+ * `migratedSurfacing` record passed on as it came, whose fields are `inquiry`'s to fix); a run the viewer cannot read
+ * (`run: null` with `stated`); a run read.
+ * @typedef {object} SurfacedIn
+ * @property {boolean} recorded
+ * @property {string|null} run
+ * @property {RunBiasBlock|null} lens
+ * @property {string} [stated]
+ * @property {string|null} [by]  The principal that surfaced the question.
+ * @property {string} [at]
+ * @property {{type: string, id: string, questions?: string[]}} [context]
+ * @property {string} [status]
+ */

@@ -1,0 +1,25 @@
+### ANCHOR:   #refuse(code, detail, extra = {}) {
+  /** (Private; typed so the public answers built from it can be checked.)
+   *  @returns {{ok: false, reason: any, code: any, check: string|null, translation: string|null, detail: string}} */
+### ANCHOR:   static #shed({ ok: _ok, ...rest }) { return rest; }
+  /** (Private.) @param {any} refusal @returns {any} */
+### ANCHOR:   #standardForRun(row, viewer = null) {
+  /** (Private.) @returns {RunStandard} */
+### ANCHOR:   async #biasForRun(row, viewer) {
+  /** (Private.) @returns {Promise<RunBiasBlock>} */
+### ANCHOR:   async #aiRunDispatch(d, resumer, iso) {
+  /** (Private.) @returns {Promise<DispatchOutcome>} */
+### ANCHOR:     let outcome, timer;
+    /** @type {DispatchOutcome|undefined} */
+### ANCHOR:   #providerLimit() {
+  /** (Private.) @returns {{provider_limit: true, detail: string}} */
+### ANCHOR:   #runSubjects(row, viewer) {
+  /** (Private.) @returns {RunSubjects} */
+### ANCHOR:     const refusal = (code, detail) => {
+    /** @type {(code: ListRefusal["code"], detail: string) => ListRefusal} */
+### ANCHOR:     let next = null;
+    /** @type {SegmentEndAnswer["next"]|null} */
+### ANCHOR:         const lens = bias.moved_basis === "at_open"
+        /** @type {RunWorkProduct["lens"]} */
+### ANCHOR:     let dispatch;
+    /** @type {ContinuationDispatch|undefined} */

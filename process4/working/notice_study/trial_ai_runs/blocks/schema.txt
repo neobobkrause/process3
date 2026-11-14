@@ -1,0 +1,17 @@
+### ANCHOR: export const AI_RUNS_TABLES = Object.freeze([
+/**
+ * The names of the tables this module owns (R38, R53). Frozen.
+ * @type {readonly ["ai_runs", "ai_run_bounds", "inquiry_run_surfacings", "ai_mode_verifications", "ai_run_looks", "ai_test_bar", "ai_group_tests"]}
+ */
+### ANCHOR: export const AI_RUNS_ADDED_COLUMNS = Object.freeze([
+/**
+ * The columns of `ai_runs` added after the table's first form, each of type TEXT; `migrate` adds any that a table
+ * created before them lacks. Frozen.
+ * @type {readonly ["lens_at_open", "rerun_of", "plan", "step", "origin", "own_step", "response", "untested", "project"]}
+ */
+### ANCHOR: export const AI_RUNS_SCHEMA = `
+/**
+ * This module's tables and indexes as SQL: `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` statements
+ * separated by semicolons, with `--` comment lines, which `migrate` strips before running each statement.
+ * @type {string}
+ */

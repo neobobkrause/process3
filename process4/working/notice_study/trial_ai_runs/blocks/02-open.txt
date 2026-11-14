@@ -1,0 +1,165 @@
+### ANCHOR: /** R72: a provider's refusal for a spent limit (Anthropic's 429
+/**
+ * One declared bound of `open`'s `bounds` (run-rules R3, `checkConsume` in list form).
+ * @typedef {object} BoundDeclaration
+ * @property {RunBound} bound  Any `RunBound` but `lease` (`AI_RUN_BOUND_PLANE_COUNTED`); another word is `AI_RUN_BOUND_UNKNOWN`.
+ * @property {number} allowed  [bound allowed: a safe integer of one or more; absent, null or 0 is `AI_RUN_BOUND_NO_ALLOWANCE`, any other
+ *  value `AI_RUN_CONSUME_INVALID`; in mode `plan` a `fetches` or `subsessions` allowance above 0 is `AI_RUN_PLAN_NO_SEARCH`]
+ * @property {number|null} [consumed]  What is already spent; absent or null is 0. [bound consumed: a safe integer of zero or more
+ *  (`AI_RUN_CONSUME_INVALID`); for a `PlaneCountedBound` only 0 (`AI_RUN_BOUND_PLANE_COUNTED`)]
+ * @property {string|null} [unit]  Stored as text, answered by `read`; no length bound is checked.
+ */
+/**
+ * What `open` is handed (R9, R46, R73, R77, R89). `aiRunsOps` takes all but the three stamps from the request body.
+ * @typedef {object} OpenArgs
+ * @property {string} run  The new run's id, stored verbatim as the key. Absent or empty: `AI_RUN_NO_CONTEXT`. [bound run: non-empty; no
+ *  further format is checked at the open, but ai-use counts a tick's usage only under an id of 1 to 128 characters of letters, digits,
+ *  dot, underscore, colon and hyphen]
+ * @property {RunContextType} contextType  Absent or empty: `AI_RUN_NO_CONTEXT`; another word: `AI_RUN_NO_SUCH_CONTEXT`.
+ * @property {string} contextId  The id of a bundle of that kind which the viewer sees. Absent or empty: `AI_RUN_NO_CONTEXT`; absent
+ *  from the record, hidden, or of another kind: `AI_RUN_NO_SUCH_CONTEXT`.
+ * @property {Stamp} principalPlane  The plane credential acting, the control plane's stamp; stored as text. Absent or empty:
+ *  `AI_RUN_CAPABILITY_UNAVAILABLE`.
+ * @property {string} principalClaude  The second principal, which must be named: absent or empty is
+ *  `AI_RUN_CAPABILITY_UNAVAILABLE`. It is read further only when no member is behind `actor` or `principalPlane`: then
+ *  `member:<id>` names the member whose account carries the run. What is STORED as `principal_claude` is the paying owner
+ *  `ai-accounts` answers, not this value. (The requirements name this argument `principalAi`, R9 as amended at T53, not yet met.)
+ * @property {string} skillVersion  The skill version the run runs under, stored trimmed. [bound skillVersion: after trimming, no
+ *  whitespace and exactly one at sign with text on both sides, the form `pack`, at sign, `edition`; else `AI_RUN_SKILL_VERSION_UNNAMED`]
+ * @property {string|null} [label]  A label for people, stored verbatim; no length bound is checked.
+ * @property {RunMode|null} [mode]  Absent or null is `check` (run-rules' `DEFAULT_MODE`); otherwise trimmed. One not deployed and
+ *  admitted here is `AI_RUN_MODE_NOT_DEPLOYED`.
+ * @property {unknown} [principalClaudeRef]  Accepted and never read: the stored `principal_claude_ref` is `member:<id>` of the
+ *  member whose act the open is.
+ * @property {string|null} [biasManifest]  The lens manifest the opener was handed, stored verbatim and never judged at the open.
+ *  [bound biasManifest: to be read back it is the JSON text of an object `{scope?, scope_id?, statements_sha?, bundles?}`; any other
+ *  text is stored and reads back as unreadable]
+ * @property {string|null} [standardPair]  The launching project's bar, stored verbatim and never judged at the open.
+ *  [bound standardPair: to be read back it is the JSON text of an object `{capture?: string, connection?: string}`; any other text is
+ *  stored and reads back with basis `unreadable`]
+ * @property {BoundDeclaration[]|null} [bounds]  The run's budget, one entry per bound it is held to; a value that is not a list, or
+ *  an entry that is not an object, is `AI_RUN_BOUND_UNKNOWN`.
+ * @property {unknown} [state]  The run's resumable scratch, stored as JSON; absent or null is stored as `{}`.
+ *  [bound state: its JSON is at most 262,144 bytes of UTF-8 (run-rules' `AI_RUN_STATE_MAX_BYTES`), else `AI_RUN_STATE_TOO_LARGE`]
+ * @property {number|null} [leaseMs]  The lease of this open in milliseconds. [bound leaseMs: used when `Number(leaseMs)` is above 0,
+ *  otherwise the default lease (600,000 ms, or the environment's `AI_RUN_LEASE_MS`); no upper bound is checked]
+ * @property {InstantArg} [at]
+ * @property {string|null} [rerunOf]  The run this one re-runs, trimmed; blank is none. Itself: `AI_RUN_RERUN_SELF`; absent or
+ *  out of the viewer's sight: `AI_RUN_RERUN_UNKNOWN`; over another context: `AI_RUN_RERUN_OTHER_CONTEXT`.
+ * @property {string|null} [plan]  R46: the plan a run in mode `plan` works on, an opaque id stored verbatim. Required in mode `plan`
+ *  (non-blank text, else `AI_RUN_PLAN_REQUIRED`); in any other mode anything but null or absent is `AI_RUN_PLAN_UNEXPECTED`.
+ * @property {string|null} [step]  R73: an existing step the run works, trimmed; one the viewer cannot see, or one named beside
+ *  `place` or `work`, is `AI_RUN_STEP_UNKNOWN`.
+ * @property {RunOrigin|null} [origin]  Absent or null is `member`. `explore` needs `place` or `work` and no `step`
+ *  (`AI_RUN_EXPLORE_NEEDS_STEP`); `reexamination` is a planning run's only; any other word is `AI_RUN_ORIGIN_UNKNOWN`.
+ * @property {unknown} [place]  R73: the place of a system step of the run's own, handed on to `steps.stepCreate` unjudged here;
+ *  `openMany` hands `{project: string}` or `{questions: string[]}`. Its kind is `steps`' to fix.
+ * @property {unknown} [work]  R73: that step's work, handed on to `steps.stepCreate` unjudged here; `openMany` hands a text of at
+ *  most 500 characters (`steps`' `WORK_MAX`). Its kind is `steps`' to fix.
+ * @property {string|null} [response]  R77: the recorded response a re-examination run re-examines its plan after, an opaque id
+ *  stored trimmed; read only in mode `plan` with origin `reexamination`, where a blank one is `AI_RUN_REEXAM_NEEDS_RESPONSE`.
+ * @property {string|null} [project]  R89: the project a run over a question is opened in, trimmed; it must draw on the question and
+ *  the opening member must have joined it, else `AI_RUN_NOT_PROJECT_MEMBER`. Ignored for a project context (the context is the project).
+ * @property {Stamp|null} [actor]  Which member is asking; empty for a machine credential.
+ * @property {Viewer|null} [viewer]
+ */
+/**
+ * The codes `open` refuses with, in the order they are asked. Those after `RelayedCode` in the description of
+ * `OpenRefusal.code` are other modules'.
+ * @typedef {"AI_RUN_NO_CONTEXT"|"PROJECT_SEEN_NOT_A_PARTICIPANT"|"AI_RUN_NO_SUCH_CONTEXT"|"AI_RUN_NOT_PROJECT_MEMBER"|"AI_RUN_CAPABILITY_UNAVAILABLE"|"AI_RUN_SKILL_VERSION_UNNAMED"|"AI_RUN_MODE_NOT_DEPLOYED"|"AI_RUN_PLAN_REQUIRED"|"AI_RUN_PLAN_UNEXPECTED"|"AI_RUN_PLAN_NEEDS_PROJECT"|"AI_RUN_PLAN_NEEDS_MEMBER"|"AI_RUN_PLAN_NO_SEARCH"|"AI_RUN_ORIGIN_UNKNOWN"|"AI_RUN_EXPLORE_NOT_DEPLOYABLE"|"AI_RUN_REEXAM_NEEDS_RESPONSE"|"AI_RUN_REEXAM_OPEN"|"AI_RUN_EXPLORE_NEEDS_STEP"|"AI_RUN_STEP_UNKNOWN"|"AI_RUN_BOUND_UNKNOWN"|"AI_RUN_BOUND_PLANE_COUNTED"|"AI_RUN_BOUND_NO_ALLOWANCE"|"AI_RUN_CONSUME_INVALID"|"AI_RUN_STATE_TOO_LARGE"|"AI_RUN_ALREADY_OPEN"|"AI_RUN_RERUN_SELF"|"AI_RUN_RERUN_UNKNOWN"|"AI_RUN_RERUN_OTHER_CONTEXT"|"AI_RUN_NOT_A_MEMBER_ACT"|"AI_NO_ACCOUNT"|"AI_RUN_MODE_UNCHECKED"|"STEP_REFUSED"} OpenOwnCode
+ */
+/**
+ * `open`'s refusal: nothing was written.
+ * @typedef {object} OpenRefusal
+ * @property {string|null} run  The id as handed; null when none was.
+ * @property {false} started
+ * @property {OpenOwnCode|RelayedCode} code  One of `OpenOwnCode`; or relayed unchanged: `PROJECT_SEEN_NOT_A_PARTICIPANT` is
+ *  membership's existence refusal; a code of `ai-accounts.accountFor` other than `NO_ACCOUNT`; a code of `ai-use.useCheck`; whatever
+ *  code the check registered for the mode answers (`registerOpenCheck`); the code or reason of `steps.stepCreate`'s refusal
+ *  (`STEP_REFUSED` when it names neither).
+ * @property {string|null} check
+ * @property {string|null} translation
+ * @property {string} [note]  What the refusal means for the caller, in plain words.
+ * @property {string|null} [detail]  The rule's own sentence.
+ * @property {false} [ok]  Only on a refusal of the account (`AI_NO_ACCOUNT`, `ai-accounts`' own).
+ * @property {string} [reason]  The code again, on a refusal of the account and on `ai-use`'s.
+ * @property {string} [mode]  With `AI_RUN_MODE_NOT_DEPLOYED`: the mode asked for. [bound mode: cut to 60 characters]
+ * @property {string[]} [deployed]  With `AI_RUN_MODE_NOT_DEPLOYED`: the modes deployed and admitted here.
+ * @property {string} [bound]  With `AI_RUN_PLAN_NO_SEARCH`: `fetches` or `subsessions`.
+ * @property {number} [bytes]  With `AI_RUN_STATE_TOO_LARGE`: the state's size as JSON.
+ * @property {number} [limit]  With `AI_RUN_STATE_TOO_LARGE`: 262,144.
+ * @property {string} [plan]  With `AI_RUN_REEXAM_OPEN`. [bound plan: cut to 60 characters]
+ * @property {string} [response]  With `AI_RUN_REEXAM_OPEN`. [bound response: cut to 60 characters]
+ * @property {string} [project]  With membership's existence refusal: the project's id.
+ * @property {string|null} [name]  With membership's existence refusal: the project's name.
+ * @property {string} [step]  With `steps`' refusal of the run's own step, when it names one.
+ */
+/**
+ * `open`'s success (R10): the run is written, `running`, with one bound row per declared bound.
+ * @typedef {object} OpenStarted
+ * @property {string} run
+ * @property {true} started
+ * @property {"running"} status
+ * @property {1} ticks
+ * @property {IsoSecond} created
+ * @property {IsoSecond} expires  The open's instant plus the lease.
+ * @property {string} [rerun_of]  Present only when the open named a run it re-runs.
+ * @property {string} [step]  Present only on a run that works a step: the system step made for it, else the step it named.
+ * @property {"explore"|"reexamination"} [origin]  Present only when the origin is not `member`.
+ * @property {string} [response]  Present only on a re-examination run.
+ * @property {UntestedLabel|null} untested  R78: the test-instance exception's label; null for a run the bar admitted.
+ * @property {string|null} project  R89: the project the run was opened in; null for a run in none.
+ * @property {ProjectGateStated} projectGate
+ */
+/**
+ * What `open` hands back.
+ * @typedef {OpenStarted|OpenRefusal} OpenAnswer
+ */
+/**
+ * What `openMany` is handed (R74).
+ * @typedef {object} OpenManyArgs
+ * @property {string[]} steps  The member's steps, each named once. [bound steps: 1 to 50 entries (`AiRuns.OPEN_MANY_MAX`), each a
+ *  non-blank text after trimming, no two alike; else the whole batch is `AI_RUN_NO_CONTEXT`]
+ * @property {Stamp} actor  The member whose act the batch is; with none behind it and none behind `principalPlane` the batch is
+ *  `AI_RUN_NOT_A_MEMBER_ACT`.
+ * @property {Viewer|null} [viewer]  The sight each step is looked up in.
+ * @property {RunMode|null} [mode]  Each run's mode, as `open` takes it.
+ * @property {string|null} [owner]  The paying owner the one estimate is asked of (`group`, `project:<id>` or `member:<id>`, ai-use's
+ *  spelling); absent or null is the owner `ai-accounts.accountFor` answers for the member's act.
+ * @property {BoundDeclaration[]|null} [bounds]  Each run's bounds, as `open` takes them.
+ * @property {string|null} [skillVersion]  Each run's skill version, as `open` takes it (so in effect required: without one each
+ *  step is refused `AI_RUN_SKILL_VERSION_UNNAMED`).
+ * @property {string|null} [label]  Each run's label.
+ * @property {Stamp|null} [principalPlane]  Each run's plane principal, as `open` takes it (in effect required, as there).
+ * @property {InstantArg} [at]
+ */
+/**
+ * One step's outcome in `openMany`'s answer.
+ * @typedef {object} OpenManyRun
+ * @property {string} step  The step named.
+ * @property {string} [run]  The run opened for it, `RUN-<step>-<k>` with `k` the first whole number from 1 not yet held; absent on a refusal.
+ * @property {string|null} [system_step]  The run's own system step; absent on a refusal.
+ * @property {Record<string, unknown>} [refusal]  Why none was opened for it: `open`'s refusal less `run` and `started`, or this
+ *  method's own `{ok: false, reason, code, check, translation, detail}` with code `AI_RUN_STEP_UNKNOWN` or `AI_RUN_NO_CONTEXT`.
+ */
+/**
+ * What `openMany` hands back: a refusal of the whole batch, or one outcome per step.
+ * @typedef {object} OpenManyRefusal
+ * @property {false} ok
+ * @property {"AI_RUN_NOT_A_MEMBER_ACT"|"AI_RUN_NO_CONTEXT"} code
+ * @property {string|null} check
+ * @property {string|null} translation
+ * @property {string} detail
+ * @property {string} [reason]  With `AI_RUN_NO_CONTEXT`: the code again.
+ * @property {false} [started]  With `AI_RUN_NO_CONTEXT`.
+ */
+/**
+ * @typedef {object} OpenManyOpened
+ * @property {true} ok
+ * @property {Record<string, unknown>|null} estimate  `ai-use.estimate`'s answer for the batch as it came (a refusal of its own
+ *  included); this module's `AI_NO_ACCOUNT` refusal when no account serves the member; null when the estimate threw.
+ * @property {OpenManyRun[]} runs  In the order of `steps`.
+ */
+/**
+ * @typedef {OpenManyOpened|OpenManyRefusal} OpenManyAnswer
+ */

@@ -1,0 +1,254 @@
+### ANCHOR: export const AI_RUN_MODE_WRITES = Object.freeze({
+/**
+ * R18: the writes a segment's credential holds, by the run's mode. Frozen, and each list frozen. `check`: `airuntick`,
+ * `suggest`, `capturerequest`, `airunclose`. `plan`: `airuntick`, `optionpropose`, `airunclose`. (The lists are written
+ * here in words: the tool reads a frozen list inside a frozen object as a list of texts.)
+ * @type {Readonly<{check: readonly string[], plan: readonly string[]}>}
+ */
+### ANCHOR: export function hiddenRuns(viewer, column = undefined) {
+/**
+ * R42: the one predicate for "runs this viewer cannot see", as a WHERE tail. Pure over its arguments; never throws.
+ * @param {Viewer|null|undefined} viewer  Whose sight. A machine class gets the empty tail; an absent or unrecognised viewer the
+ *  tail that keeps no run.
+ * @param {string} [column]  Absent: the tail is over `observation_log`'s own `authority_kind` and `authority` columns. Given: the
+ *  tail is over that column, which names a run id. [bound column: a plain SQL identifier, a letter or underscore followed by
+ *  letters, digits or underscores; anything else answers the tail that keeps nothing, ` AND 0=1`]
+ * @returns {HiddenRunsTail}
+ */
+### ANCHOR: export class AiRuns {
+/**
+ * The AI run's mechanism, one instance per Durable Object storage (reach it through `aiRunsOf`). Constructing it
+ * registers this module with record-core, observation-log, retrieval, bias, contradiction, promotion and steps.
+ */
+### ANCHOR:   constructor(ctx, env = {}, deps = {}) {
+  /**
+   * @param {StoreContext} ctx
+   * @param {RunsEnv} [env]
+   * @param {RunsDeps} [deps]
+   */
+### ANCHOR:     this.ctx = ctx;
+    /** The Durable Object's state this instance was made on. @type {StoreContext} */
+### ANCHOR:     this.env = env || {};
+    /** The Worker environment; `aiRunsOf` fills it later when the instance was made without one. @type {RunsEnv} */
+### ANCHOR:     this.sql = ctx.storage.sql;
+    /** The storage's SQL door. @type {StoreContext["storage"]["sql"]} */
+### ANCHOR:   static systemOf(run) {
+  /**
+   * R73, R74: the run's own system identity.
+   * @param {string} run  The run's id.
+   * @returns {string}  `class:daemon/<run>`.
+   */
+### ANCHOR:   runHolder(by, run) {
+  /**
+   * B2: whether `by` holds `run`, for steps' machine arm. Writes nothing; never throws.
+   * @param {Stamp} by  The principal asked about: the run's plane principal (run-rules R5's comparison), or the run's own system
+   *  identity (`AiRuns.systemOf(run)`).
+   * @param {string} run  The run's id; trimmed.
+   * @returns {RunHolder|null}  Null for a blank `by` or `run`, an unknown run, a run not running, or one another principal holds.
+   */
+### ANCHOR:   static COUNT_KEYS = Object.freeze(["aiRuns", "aiRunBounds", "inquiryRunSurfacings", "aiRunLog"]);
+  /** R38: the keys of `counts`' answer. Frozen. @type {readonly ["aiRuns", "aiRunBounds", "inquiryRunSurfacings", "aiRunLog"]} */
+### ANCHOR:   counts(hid = null) {
+  /**
+   * R38: the figures of this module's tables, through the caller's sight. Synchronous; writes nothing.
+   * @param {HiddenBundles|null} [hid]  The bundles the viewer may not see; null or absent counts whole.
+   * @returns {RunCounts}
+   */
+### ANCHOR:   workProducts() {
+  /**
+   * R30: the runs as the bias debt's work products.
+   * @returns {RunWorkProducts}
+   */
+### ANCHOR:   registerWaitSource(module, source) {
+  /**
+   * R41: registers the one wait source. One registration; a second is refused.
+   * @param {string} module  The registering module's name. [bound module: non-empty]
+   * @param {WaitSource} source  One lacking any of its five functions is `WAIT_SOURCE_MALFORMED`.
+   * @returns {WaitSourceAnswer}
+   */
+### ANCHOR:   onRunOpened(module, fn) {
+  /**
+   * R43: registers a listener called after each successful `open` commits, in the modules' total order. A listener that
+   * throws or rejects changes neither the run nor the open's answer.
+   * @param {string} module  The registering module's name; one registration for each module. [bound module: non-empty]
+   * @param {(notice: RunOpenedNotice) => unknown} fn  May be asynchronous: it is awaited.
+   * @returns {{ok: true, module: string} | ListenerRefusal}
+   */
+### ANCHOR:   registerOpenCheck(module, mode, fn) {
+  /**
+   * R47: registers the check `open` applies last for one mode. One for each mode and one for each module.
+   * @param {string} module  The registering module's name. [bound module: non-empty]
+   * @param {string} mode  The mode checked; trimmed. A blank or non-text mode is `LISTENER_MALFORMED`. No list of modes is checked here.
+   * @param {OpenCheck} fn  Synchronous.
+   * @returns {{ok: true, module: string, mode: string} | ListenerRefusal}
+   */
+### ANCHOR:   testInstance() {
+  /**
+   * R78: whether this is a test instance. Reads the environment only; never throws.
+   * @returns {boolean}  True exactly when `env.CIVICSMITH_TEST_INSTANCE` and `env.INSTANCE_NAME` are equal non-empty texts.
+   */
+### ANCHOR:   partAdmitted(part) {
+  /**
+   * R78: may this AI part run here, on what this record holds. Never throws. (The requirements give it a second
+   * argument, `entry`: R78 as amended at T53, not yet met; this code takes one.)
+   * @param {AiPart|OtherText} part  Any other value answers not admitted.
+   * @returns {PartAdmission}
+   */
+### ANCHOR:   static AI_RUN_LEASE_MS = 600000;
+  /** R83: the default lease in milliseconds, extended by every tick and every accepted dispatch. (The requirements' Terms
+   *  still say 3,600,000; R83 says ten minutes.) @type {number} */
+### ANCHOR:   static AI_RUN_LOG_LIMIT_DEFAULT = 200;
+  /** R24: `log`'s default limit. @type {number} */
+### ANCHOR:   static AI_RUN_LOG_LIMIT_MAX = 5000;
+  /** R24: `log`'s greatest limit. @type {number} */
+### ANCHOR:   static AI_RUNS_LIMIT_DEFAULT = 200;
+  /** R22: `listInContext`'s default limit. @type {number} */
+### ANCHOR:   static AI_RUNS_LIMIT_MAX = 1000;
+  /** R22: `listInContext`'s greatest limit. @type {number} */
+### ANCHOR:   #aiRunTerminate({ run, offered = null, condition = null, at, expired = false, derive = true }) {
+  /**
+   * (Private; typed so the public answers that carry its answer can be checked.)
+   * @param {{run: string, offered?: string|null, condition?: string|null, at: string, expired?: boolean, derive?: boolean}} args
+   * @returns {ExitAnswer}
+   */
+### ANCHOR:   async open({ run, contextType, contextId, label = null, mode = null,
+  /**
+   * `op=airunopen` (R9, R10, R40, R46, R47, R52, R73, R77, R78, R89): opens a run over an inquiry or a project. Every
+   * refusal leaves nothing written. Handed nothing at all, it answers `AI_RUN_NO_CONTEXT`.
+   * Refusals in the order asked: no run id, context type or id (`AI_RUN_NO_CONTEXT`); a project the viewer may only
+   * know to exist (membership's); the context's kind (`AI_RUN_NO_SUCH_CONTEXT`); the project gate and the project the
+   * run is opened in (`AI_RUN_NOT_PROJECT_MEMBER`); a principal absent (`AI_RUN_CAPABILITY_UNAVAILABLE`); the skill
+   * version; the mode; the plan rules; the origin; the re-examination rules; the step rules; `bounds`; `state`; the id
+   * already held; the re-run link; no member's act; no account; the account's limits; the mode's registered check;
+   * `steps`' refusal of the run's own step.
+   * Throws: a RangeError for an `at` that cannot be read; whatever the store or `bias.biasManifest` throws.
+   * @overload
+   * @param {OpenArgs} args
+   * @returns {Promise<OpenAnswer>}
+   */
+  /**
+   * @param {Partial<OpenArgs>} [args]
+   * @returns {Promise<OpenAnswer>}
+   */
+### ANCHOR:     const refusal = (code, more = {}) => {
+    /** @type {(code: OpenOwnCode, more?: Partial<OpenRefusal>) => OpenRefusal} */
+### ANCHOR:   static OPEN_MANY_MAX = 50;
+  /** R74: the most steps one batch names. @type {number} */
+### ANCHOR:   async openMany({ steps = null, mode = null, owner = null, bounds = null, skillVersion = null, label = null,
+  /**
+   * R74: a member's batch, one bounded run for each step she may see, under one act and one estimate. A refusal of one
+   * step is answered for it and the others open.
+   * @overload
+   * @param {OpenManyArgs} args
+   * @returns {Promise<OpenManyAnswer>}
+   */
+  /**
+   * @param {Partial<OpenManyArgs>} [args]
+   * @returns {Promise<OpenManyAnswer>}
+   */
+### ANCHOR:   tick({ run, state = null, consume = null, log = null, leaseMs = null, at = null,
+  /**
+   * The tick of `op=airuntick` (R11, R12, R45, R52, R72, R84): the heartbeat, the spend and the log in one call.
+   * Synchronous. In order: absent or invisible (`found: false`); the caller is not the run's principal; the project
+   * gate; not running; `consume`; `state`; `usage` no list; no member to count the usage to; the paying account's limit.
+   * Then, in one transaction: the usage counted, each log entry appended (a refused one returned in `refused`), the
+   * segment's end appended, each figure added, the lease extended, the state replaced when given, the ticks raised by
+   * one. A bound then exhausted ends the run through the one exit (`ended`).
+   * Throws: a RangeError for an `at` that cannot be read; whatever the store throws.
+   * @overload
+   * @param {TickArgs} args
+   * @returns {TickAnswer}
+   */
+  /**
+   * @param {Partial<TickArgs>} [args]
+   * @returns {TickAnswer}
+   */
+### ANCHOR:   async tickAndContinue(args = {}) {
+  /**
+   * `op=airuntick` (R84): `tick`, then, for a segment that stopped on its own bound with the run not done, the next
+   * segment's dispatch without a member's act. The answer is `tick`'s, its `segment_end` carrying `dispatch` when a
+   * continuation was tried.
+   * @overload
+   * @param {TickArgs} args
+   * @returns {Promise<TickAnswer>}
+   */
+  /**
+   * @param {any} [args]  (The implementation's own kind: it hands its argument on to `tick` whole.)
+   * @returns {Promise<TickAnswer>}
+   */
+### ANCHOR:   async close({ run, bound = null, condition = null, at = null, actor = null, viewer = null,
+  /**
+   * `op=airunclose` (R13, R14, R76): ends a run with the bound or ending the caller names. In order: for a held run,
+   * invisible (`found: false`), the caller is not its principal, the project gate; then the one exit: a run not held
+   * (`found: false`), one already ended (`terminated: false` with its status), a bound that names nothing
+   * (`AI_RUN_BOUND_UNNAMED`), an unknown condition (`AI_RUN_CONDITION_UNKNOWN`). A run ended here answers its cost to
+   * the paying account's owners and `bias`' word on the debt it re-ran.
+   * Throws: a RangeError for an `at` that cannot be read; whatever the store or `bias.biasDebtRerun` throws.
+   * @overload
+   * @param {CloseArgs} args
+   * @returns {Promise<ExitAnswer>}
+   */
+  /**
+   * @param {Partial<CloseArgs>} [args]
+   * @returns {Promise<ExitAnswer>}
+   */
+### ANCHOR:   reapDue(now) {
+  /**
+   * R15: how many running runs' leases have lapsed. For `scheduler`.
+   * @param {EpochMs} now
+   * @returns {number}
+   */
+### ANCHOR:   reapWake(now) {
+  /**
+   * R15: the earliest lease expiry of a running run. For `scheduler`.
+   * @param {EpochMs} now
+   * @returns {EpochMs|null}  Never before `now`; null when no run is running or the stored expiry cannot be read.
+   */
+### ANCHOR:   reap(now) {
+  /**
+   * R15: ends each running run whose lease has lapsed, with bound `lease` (or a bound it had exhausted), through the one exit.
+   * @param {EpochMs} now
+   * @returns {ReapAnswer}
+   */
+### ANCHOR:   static AI_RUN_WAKE_TICK_BATCH = 25;
+  /** R16: the most runs one wake tick holds, and the most it wakes. @type {number} */
+### ANCHOR:   wakeDue(now) {
+  /**
+   * R16, R17: how many runs the wake would hold or wake now; 0 with no wait source registered.
+   * @param {EpochMs} now
+   * @returns {number}  [bound: at most 50, a batch of holds and a batch of wakes]
+   */
+### ANCHOR:   wakeWake(now) {
+  /**
+   * R16: when the wake is next due.
+   * @param {EpochMs} now
+   * @returns {EpochMs|null}  `now` plus the wake's cadence (at least 1,000 ms, at most a quarter of the lease); null when nothing is due.
+   */
+### ANCHOR:   async wake(now) {
+  /**
+   * R16, R18: holds the leases of runs with requests outstanding, wakes the runs whose requests completed, and
+   * dispatches the woken runs the instance's own organisation credential opened.
+   * @param {EpochMs} now
+   * @returns {Promise<WakeAnswer>}
+   */
+### ANCHOR:   static AI_RUN_DISPATCH_WAIT_MS = 10_000;
+  /** R82: how long a dispatch waits for `agent-worker` to accept the segment, in milliseconds. @type {number} */
+### ANCHOR:   async dispatchMemberRun({ run = null, by = null, viewer = null, at = null, trace = null, memberRef = null } = {}) {
+  /**
+   * R18, R82, R87, R89: a member's own run, dispatched at her own act under a credential minted for that segment.
+   * In order, nothing sent on any: absent or invisible (`found: false`); `by` is not the run's member
+   * (`AI_RUN_NOT_PRINCIPAL`); not running; a mode other than `check` or `plan` (`MEMBER_RUN_MODE_NOT_ADMITTED`);
+   * withheld `AGENT_WORKER_UNBOUND`, `NAMESPACE_UNDETERMINED`; the group's keep-away (`AI_KEPT_AWAY`, relayed); an
+   * account other than her own sign-in (withheld `MEMBER_PRINCIPAL_RUN`); the mint refused (relayed) or silent
+   * (withheld `CREDENTIAL_RECORD_SILENT`). Then the call, answered as `dispatch`. No token is ever answered.
+   * Throws: a RangeError for an `at` that cannot be read.
+   * @overload
+   * @param {MemberDispatchArgs} args
+   * @returns {Promise<MemberDispatchAnswer|MemberDispatchNotFound>}
+   */
+  /**
+   * @param {Partial<MemberDispatchArgs>} [args]
+   * @returns {Promise<MemberDispatchAnswer|MemberDispatchNotFound>}
+   */
+### ANCHOR:     const withheld = (w, extra = {}) => ({ run, found: true, dispatched: false, status: row.status, withheld: w, ...extra,
+    /** @type {(w: NonNullable<MemberDispatchAnswer["withheld"]>, extra?: object) => MemberDispatchAnswer} */

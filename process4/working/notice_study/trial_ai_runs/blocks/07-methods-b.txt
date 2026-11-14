@@ -1,0 +1,186 @@
+### ANCHOR:   async read({ run, viewer = null } = {}) {
+  /**
+   * `op=airun` (R19, R20, R21, R76, R78, R86, R89): one run as the viewer may read it. Writes nothing.
+   * @overload
+   * @param {{run: string, viewer?: Viewer|null}} args  `run`: the run's id. `viewer`: absent or null sees no run.
+   * @returns {Promise<ReadAnswer>}
+   */
+  /**
+   * @param {{run?: string, viewer?: Viewer|null}} [args]
+   * @returns {Promise<ReadAnswer>}
+   */
+### ANCHOR:   async listInContext({ contextType = null, contextId = null,
+  /**
+   * `op=airuns` (R22): the visible runs over one context, newest first, each as `read` answers it. Writes nothing.
+   * @overload
+   * @param {object} args
+   * @param {RunContextType|OtherText|null} args.contextType  Trimmed and lower-cased before it is judged. Absent or blank:
+   *  `AI_RUNS_NO_CONTEXT_TYPE`; another word: `AI_RUNS_UNKNOWN_CONTEXT_TYPE`.
+   * @param {string|null} args.contextId  Trimmed. Absent, null or blank: `AI_RUNS_NO_CONTEXT_ID`.
+   * @param {Viewer|null} [args.viewer]
+   * @param {number|string|null} [args.limit]  The most runs to answer; the door hands the query's text. [bound limit: its `Number()`
+   *  floored and clamped to 1 to 1,000; absent, 0 or not a number reads as 200]
+   * @returns {Promise<ListAnswer|ListRefusal>}
+   */
+  /**
+   * @param {{contextType?: string|null, contextId?: string|null, viewer?: Viewer|null, limit?: number|string|null}} [args]
+   * @returns {Promise<ListAnswer|ListRefusal>}
+   */
+### ANCHOR:   async spawnPayload({ run, half = "search", viewer = null } = {}) {
+  /**
+   * `op=airunspawn` (R23, R85): what a spawned half of the run is handed. The `search` half carries no lens field at
+   * all; the `compose` half adds `bias`. Writes nothing.
+   * @overload
+   * @param {object} args
+   * @param {string} args.run
+   * @param {"search"|"compose"|OtherText|null} [args.half]  Exactly `compose` is the composing half; absent, null or any other word is `search`.
+   * @param {Viewer|null} [args.viewer]
+   * @returns {Promise<SpawnAnswer>}
+   */
+  /**
+   * @param {{run?: string, half?: string|null, viewer?: Viewer|null}} [args]
+   * @returns {Promise<SpawnAnswer>}
+   */
+### ANCHOR:   log({ run, viewer = null, limit = null } = {}) {
+  /**
+   * `op=airunlog` (R24): the run's log entries in order, numbered from 1, with the vocabularies they are written in.
+   * Synchronous; writes nothing. No cursor: a run with more entries than the greatest limit cannot be read whole here.
+   * @overload
+   * @param {object} args
+   * @param {string} args.run
+   * @param {Viewer|null} [args.viewer]
+   * @param {number|string|null} [args.limit]  The most entries to answer; the door hands the query's text. [bound limit: its
+   *  `Number()` floored and clamped to 1 to 5,000; absent, 0 or not a number reads as 200]
+   * @returns {LogAnswer}
+   */
+  /**
+   * @param {{run?: string, viewer?: Viewer|null, limit?: number|string|null}} [args]
+   * @returns {LogAnswer}
+   */
+### ANCHOR:   runFor(run, viewer) {
+  /**
+   * R28: the run's facts a producer gates on. Never throws; writes nothing.
+   * @param {string|null|undefined} run  The run's id; trimmed.
+   * @param {Viewer|null|undefined} viewer
+   * @returns {RunFacts|null}  Null for a blank id, an absent run and one the viewer cannot see, alike.
+   */
+### ANCHOR:   boundOf(run, bound) {
+  /**
+   * R29: one bound's figures. Writes nothing.
+   * @param {string} run
+   * @param {RunBound} bound
+   * @returns {{allowed: number, consumed: number}|null}  Null when the run holds no row for the bound (it declared none and none was spent).
+   */
+### ANCHOR:   consumeBound(run, bound, n) {
+  /**
+   * R29: adds `n` to a bound's consumption, in the caller's transaction; the row is made, at allowed 0, when the run
+   * declared none. It never ends a run. Whether the run exists is not checked.
+   * @param {string} run
+   * @param {RunBound} bound  Any `RunBound` but `lease` (`AI_RUN_BOUND_PLANE_COUNTED`); another word is `AI_RUN_BOUND_UNKNOWN`.
+   * @param {number} n  [bound n: a safe integer of zero or more, else `AI_RUN_CONSUME_INVALID`; 0 writes nothing]
+   * @returns {RuleRefusal|null}  Null when the figure was added (or was 0); else run-rules' refusal, nothing written.
+   */
+### ANCHOR:   runGate(run, viewer, caller, act = null) {
+  /**
+   * R37: the run gate `contradiction` offers, from `runFor` and run-rules R5.
+   * @param {string|null|undefined} run
+   * @param {Viewer|null|undefined} viewer
+   * @param {Stamp|null|undefined} caller  The caller's principal.
+   * @param {string|null} [act]  What the caller is doing, for the refusal's sentence.
+   * @returns {RunGateAnswer}
+   */
+### ANCHOR:   verifications() {
+  /**
+   * run-rules R19: every verification this record holds, oldest first. Never throws.
+   * @returns {VerificationRecorded[]}  Empty when the table cannot be read.
+   */
+### ANCHOR:   verificationRecord({ mode = null, run = null, evidence = null, by = null, at = null } = {}) {
+  /**
+   * `op=airunverify` (run-rules R19): records that a mode's first live run was verified by a member. Append-only.
+   * Throws: a RangeError for an `at` that cannot be read.
+   * @overload
+   * @param {VerificationArgs} args
+   * @returns {VerificationDone|VerificationRefusal}
+   */
+  /**
+   * @param {Partial<VerificationArgs>} [args]
+   * @returns {VerificationDone|VerificationRefusal}
+   */
+### ANCHOR:   testBarRecord({ part = null, set = null, set_version = null, false_alarm_rate = null, passed = null, graded_by = null,
+  /**
+   * R75: records an AI part's result on a test set; an in-plane call, reached by no op. Append-only; figures only.
+   * (The requirements move this act to `ai-gate`: R75 as amended at T53, not yet met.)
+   * Throws: a RangeError for an `at` that cannot be read.
+   * @overload
+   * @param {TestBarArgs} args
+   * @returns {(Omit<TestBarRecord, "graded_by"> & {ok: true}) | TestBarRefusal}  On success the record as written, less `graded_by`.
+   */
+  /**
+   * @param {Partial<TestBarArgs>} [args]
+   * @returns {(Omit<TestBarRecord, "graded_by"> & {ok: true}) | TestBarRefusal}
+   */
+### ANCHOR:   testBarRecords() {
+  /**
+   * R75: every result recorded on a set other than a group's own, oldest first. Writes nothing; never throws.
+   * @returns {TestBarRecord[]}  Empty when the table cannot be read.
+   */
+### ANCHOR:   groupTestSet({ part = null, matter = null, answers = null, by = null, at = null } = {}) {
+  /**
+   * R75: a member adds one of the group's own test investigations for a part. A matter already held for the part is
+   * replaced by its newer answers.
+   * Throws: a RangeError for an `at` that cannot be read.
+   * @overload
+   * @param {GroupTestSetArgs} args
+   * @returns {{ok: true, part: string, matter: string, at: IsoSecond} | GroupTestRefusal}
+   */
+  /**
+   * @param {Partial<GroupTestSetArgs>} [args]
+   * @returns {{ok: true, part: string, matter: string, at: IsoSecond} | GroupTestRefusal}
+   */
+### ANCHOR:   groupTestResults({ part = null, viewer = null } = {}) {
+  /**
+   * R75: a part's results on the group's own test investigations. Writes nothing. No refusal: anyone but an active
+   * member is answered none.
+   * @param {object} [args]
+   * @param {string|null} [args.part]  Trimmed.
+   * @param {Viewer|null} [args.viewer]  An active member.
+   * @returns {GroupTestResults}
+   */
+### ANCHOR:   async surfacedIn(bundleId, viewer) {
+  /**
+   * R27: which run a question was opened inside, and under what lens.
+   * @param {string} bundleId  The question's bundle id.
+   * @param {Viewer|null|undefined} viewer
+   * @returns {Promise<SurfacedIn>}
+   */
+### ANCHOR:   migrate() {
+  /**
+   * Creates this module's tables and adds their later columns; folds a pre-fold `ai_run_log` into the observation log
+   * once. Idempotent.
+   * @returns {void}
+   */
+### ANCHOR: export function aiRunsOf(ctx, env = null, deps = null) {
+/**
+ * The one instance for each Durable Object storage (K61).
+ * @param {StoreContext} ctx
+ * @param {RunsEnv|null} [env]  Fills an instance that was made without one (or with an empty one); otherwise ignored.
+ * @param {RunsDeps|null} [deps]  Read on the first call only.
+ * @returns {AiRuns}
+ */
+### ANCHOR: export function aiRunsOps(runs, url, body) {
+/**
+ * The run's ops (K3), for the control plane's dispatch. Every identity is read from the query and set after the
+ * body's spread, so a body's own copy is overwritten.
+ * @param {AiRuns} runs
+ * @param {OpUrl} url  The request's address: `principal`, `actor`, `viewer` and `by` are the control plane's stamps; `run`,
+ *  `limit`, `contextType`, `contextId` and `half` are the reads' arguments.
+ * @param {any} body  The request's parsed JSON body, not judged here: an object, or null or absent for none. Each write's method
+ *  judges its fields (`OpenArgs`, `TickArgs`, `CloseArgs`, `VerificationArgs`).
+ * @returns {AiRunsOps}
+ */
+### ANCHOR: export const DECLARED_OPS = Object.freeze({
+/**
+ * R90: the ops this module serves that the screens send. Frozen. (Its `airunopen` row names `principalClaude` and
+ * `principalClaudeRef`, where the requirements name `principalAi` and `principalAiRef`: R9 as amended at T53, not yet met.)
+ * @type {Readonly<{airunopen: DeclaredOp, airunclose: DeclaredOp}>}
+ */

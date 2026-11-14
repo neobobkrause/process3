@@ -1,0 +1,317 @@
+### ANCHOR: /** R72: a provider's refusal for a spent limit (Anthropic's 429
+/**
+ * One log entry of a tick (R12), handed on to observation-log's one writer, which judges it (its `checkObservation`);
+ * a refused entry comes back in the tick's `refused` and the others are appended. Only the fields below are read.
+ * (The requirements' `read` and `disagree` fields, R99 at T53, are not passed on by this code.)
+ * @typedef {object} RunLogEntry
+ * @property {ObservationState} state  What the look established; `NEVER_LOOKED` is refused by the writer on a tick's entry.
+ * @property {ObservationLevel} [level]  Absent or empty is `document`.
+ * @property {string|null} [subject]  What was looked at, stored as text.
+ * @property {boolean} [governed]  Counted only when exactly `true`.
+ * @property {ConditionKind|null} [condition]
+ * @property {string|null} [bound]
+ * @property {string|null} [result_kind]  The kind of what the look produced (the writer's vocabulary, e.g. `capture`, `content`, `lead`, `record`, `observation`).
+ * @property {string|number|null} [result_ref]  What the look produced; the writer requires one for `PRESENT`.
+ * @property {string|null} [detail]
+ * @property {string|null} [bundle]  Must be absent or empty: the writer refuses an entry naming a bundle (`AI_LOG_NOT_A_BUNDLE`).
+ */
+/**
+ * R84: how a segment ended, as `agent-worker` reports it. A value that is not a plain object is read as none sent.
+ * @typedef {object} SegmentEnd
+ * @property {string|null} [by]  What stopped the segment; null or absent when it stopped on its own segment bound.
+ *  [bound by: trimmed and cut to 80 characters; blank is null]
+ * @property {boolean} [done]  Whether the run's work is done; counted only when exactly `true`.
+ * @property {string[]} [refusals]  The refusal codes the segment met. [bound refusals: each trimmed and cut to 80 characters,
+ *  blanks and non-texts dropped, at most the first 20 kept]
+ * @property {string|null} [error]  A code, when the segment ended in an error. [bound error: trimmed and cut to 80 characters]
+ */
+/**
+ * R72, R88: one conversation that reached a provider since the last tick, handed on to `ai-use.countUsage`, which
+ * judges it; an entry it refuses refuses the whole tick `AI_RUN_CONSUME_INVALID`, nothing counted. (The requirements'
+ * shape `{mode, entry_id, label, usage, calls}`, R72 as amended at T53, is not this code's: it reads `model` and
+ * `effort` and passes on no `entry_id` or `label`.)
+ * @typedef {object} UsageEntry
+ * @property {string} mode  The conversation's mode; ai-use judges it.
+ * @property {string|null} [model]  The model that served it; absent is null.
+ * @property {string|null} [effort]  R88: the conversation's effort; absent is null. [bound effort: a lowercase word (R88); ai-use judges it]
+ * @property {unknown} usage  The provider's figures, the neutral record `agent-worker` passes; ai-use fixes its kind.
+ * @property {number|null} [calls]  [bound calls: a positive whole number, or null (R72); ai-use judges it]
+ */
+/**
+ * What `tick` and `tickAndContinue` are handed (R11, R12). `aiRunsOps` takes all but the three stamps from the request body.
+ * @typedef {object} TickArgs
+ * @property {string} run  The run's id; one not held, or not in the viewer's sight, answers `found: false`.
+ * @property {unknown} [state]  The run's new resumable scratch; absent or null leaves the held state as it is.
+ *  [bound state: its JSON is at most 262,144 bytes of UTF-8, else `AI_RUN_STATE_TOO_LARGE`]
+ * @property {Partial<Record<RunBound, number>>|null} [consume]  What was spent since the last tick, bound by bound; a value that is
+ *  not a plain object, or a key that is no bound, is `AI_RUN_BOUND_UNKNOWN`. [bound consume: each figure a safe integer of zero or
+ *  more (`AI_RUN_CONSUME_INVALID`); `lease` takes no figure at all and a `PlaneCountedBound` only 0 (`AI_RUN_BOUND_PLANE_COUNTED`)]
+ * @property {RunLogEntry[]|null} [log]  The entries to append, in order; a value that is not a list appends nothing.
+ * @property {number|null} [leaseMs]  [bound leaseMs: used when `Number(leaseMs)` is above 0, otherwise the default lease]
+ * @property {InstantArg} [at]
+ * @property {SegmentEnd|null} [segment_end]
+ * @property {UsageEntry[]|null} [usage]  Absent or null is none; a value that is not a list is `AI_RUN_CONSUME_INVALID`.
+ * @property {Stamp|null} [actor]
+ * @property {Viewer|null} [viewer]
+ * @property {Stamp|null} [caller]  The caller's principal; one that is not the run's `principal_plane` (run-rules R5: a member's
+ *  compared without its token id) is `AI_RUN_NOT_PRINCIPAL`.
+ */
+/**
+ * `tick`'s answer for a run that is not held or that the viewer cannot see: the two answer alike.
+ * @typedef {object} TickNotFound
+ * @property {string|null} run  The id as handed; null when none was.
+ * @property {false} found
+ * @property {string} note
+ * @property {never} [ticked]  Never present on this form.
+ * @property {never} [segment_end]  Never present on this form.
+ */
+/**
+ * The one exit's and `close`'s answer for a run that is not held or that the viewer cannot see: the two answer alike.
+ * @typedef {object} ExitNotFound
+ * @property {string} run  The id as handed.
+ * @property {false} found
+ * @property {string} note
+ * @property {never} [terminated]  Never present on this form.
+ * @property {never} [bound]  Never present on this form.
+ */
+/**
+ * `dispatchMemberRun`'s answer for a run that is not held or that the viewer cannot see: the two answer alike.
+ * @typedef {object} MemberDispatchNotFound
+ * @property {string|null} run  The id as handed; null when none was.
+ * @property {false} found
+ * @property {string} note
+ * @property {never} [dispatched]  Never present on this form.
+ * @property {never} [dispatch]  Never present on this form.
+ * @property {never} [withheld]  Never present on this form.
+ * @property {never} [code]  Never present on this form.
+ */
+/**
+ * `tick`'s refusal: nothing was appended and no budget was spent (the conversations of a tick held back by a limit are
+ * still counted, they were made and paid for).
+ * @typedef {object} TickRefusal
+ * @property {string} run
+ * @property {true} found
+ * @property {false} ticked
+ * @property {string} status  The run's status as held.
+ * @property {"AI_RUN_NOT_PRINCIPAL"|"AI_RUN_NOT_PROJECT_MEMBER"|"AI_RUN_BOUND_UNKNOWN"|"AI_RUN_BOUND_PLANE_COUNTED"|"AI_RUN_CONSUME_INVALID"|"AI_RUN_STATE_TOO_LARGE"|"AI_NO_ACCOUNT"|RelayedCode} code
+ *  In the order asked; a relayed code is `ai-use.useCheck`'s (the paying account's limit).
+ * @property {string|null} check
+ * @property {string|null} translation
+ * @property {string} [detail]
+ * @property {string} [note]
+ * @property {string} [reason]  The code again, on a refusal of `usage`, of the account, and on ai-use's.
+ * @property {string|null} [bound]  With a refused `consume`: the bound refused, null when `consume` was no map.
+ * @property {number} [bytes]  With `AI_RUN_STATE_TOO_LARGE`.
+ * @property {number} [limit]  With `AI_RUN_STATE_TOO_LARGE`: 262,144.
+ * @property {number} [counted]  With ai-use's limit refusal: how many of the tick's conversations were counted all the same.
+ */
+/**
+ * `tick`'s answer for a run that has already ended: nothing is appended.
+ * @typedef {object} TickNotRunning
+ * @property {string} run
+ * @property {true} found
+ * @property {false} ticked
+ * @property {string} status
+ * @property {string|null} bound  The bound or ending that stopped the run.
+ * @property {string} note
+ */
+/**
+ * What became of the segment whose end a tick carried (R84).
+ * @typedef {object} SegmentEndAnswer
+ * @property {boolean} logged  Whether anything was appended by this tick.
+ * @property {"continue"|"done"|"error"|"ended"} next  `continue`: the segment stopped on its own bound, the run is running and not
+ *  done; `done`: the run's work is done; `error`: the segment ended in an error; `ended`: the run is no longer running.
+ * @property {ContinuationDispatch} [dispatch]  Only from `tickAndContinue`, and only when `next` is `continue` and the run still runs.
+ */
+/**
+ * R84: what `tickAndContinue` did about a segment to be continued.
+ * @typedef {object} ContinuationDispatch
+ * @property {boolean} dispatched
+ * @property {"RUNNING"|"DISPATCHED"|"LIMIT"|"REFUSED"|"SILENT"|"WITHHELD"} state  The dispatch's outcome, or `WITHHELD` when nothing was sent.
+ * @property {string} [reason]  With `WITHHELD`: the reason's name (a `WithheldReason`, a refusal's code, `NOT_DISPATCHED` or
+ *  `DISPATCH_FAILED`). [bound reason: cut to 80 characters]
+ * @property {string} [says]  With `WITHHELD` of a run that is not a member's: the decision's sentence.
+ */
+/**
+ * `tick`'s success (R12).
+ * @typedef {object} TickDone
+ * @property {string} run
+ * @property {true} found
+ * @property {true} ticked
+ * @property {number} ticks  The run's tick count after this one.
+ * @property {RunStatus} status  After this tick (not `running` when it exhausted a bound).
+ * @property {IsoSecond} expires
+ * @property {number} appended  How many entries were appended, the segment's end among them.
+ * @property {RuleRefusal[]} refused  The entries the writer refused, in order, each as its refusal.
+ * @property {number} [counted]  Present only when `usage` held entries: how many were counted.
+ * @property {ProjectGateStated} projectGate
+ * @property {SegmentEndAnswer} [segment_end]  Present only when the tick carried a `segment_end`.
+ * @property {ExitAnswer} [ended]  Present only when a bound was exhausted after this tick: the one exit's answer (R14).
+ */
+/**
+ * What `tick` and `tickAndContinue` hand back.
+ * @typedef {TickDone|TickNotRunning|TickRefusal|TickNotFound} TickAnswer
+ */
+/**
+ * What became of the run's own step at its ending (R73, R74).
+ * @typedef {object} StepEnd
+ * @property {boolean} told  Whether `steps` was reached and, for the run's own system step, accepted its end.
+ * @property {string} [reason]  When `steps` could not be reached or did not answer.
+ * @property {"ended"|"set_aside"|null} [end]  How the run's own system step was ended; null when the step is a member's.
+ * @property {{kind: string, record: string, ok: boolean}[]} [products]  Each record the run's looks named, tied to the step.
+ *  [bound products: at most 200]
+ * @property {string|null} [refusal]  `steps`' code or reason when it refused the end.
+ */
+/**
+ * THE ONE EXIT's answer when it ended the run (R14).
+ * @typedef {object} ExitEnded
+ * @property {string} run
+ * @property {true} found
+ * @property {true} terminated
+ * @property {"finished"|"stopped"|"never-started"} status
+ * @property {RunBound|RunEnding} bound  What stopped the run.
+ * @property {ConditionKind|""|null} condition  As the caller gave it; null or empty when none was named.
+ * @property {ObservationState} state  The rolled-up search state the terminal entry states.
+ * @property {IsoSecond} at
+ * @property {StepEnd} [step_end]  Present only on a run that works a step.
+ * @property {RunCost} [cost]  R76, from `close` only: present only for an owner of the paying account.
+ * @property {BiasDebtDischarge} [bias_debt]  R13, from `close` only: `bias`'s answer about the debt this run re-ran, when it gives one.
+ */
+/**
+ * THE ONE EXIT's answer when it ended nothing.
+ * @typedef {object} ExitNotEnded
+ * @property {string} run
+ * @property {true} found
+ * @property {false} terminated
+ * @property {string} [status]  For a run already ended: its status.
+ * @property {string|null} [bound]  For a run already ended: what stopped it.
+ * @property {string|null} [condition]  For a run already ended.
+ * @property {string} [note]
+ * @property {false} [ok]  On a refusal.
+ * @property {"AI_RUN_BOUND_UNNAMED"|"AI_RUN_CONDITION_UNKNOWN"|"AI_RUN_NOT_PRINCIPAL"|"AI_RUN_NOT_PROJECT_MEMBER"|RelayedCode} [code]
+ *  On a refusal: a bound that is neither a bound nor an ending (C-22.5), a condition outside the vocabulary (C-22.4), from `close`
+ *  the caller is not the run's principal or has not joined its project, or the writer's refusal of the terminal entry (relayed).
+ * @property {string} [check]
+ * @property {string} [translation]
+ * @property {string} [detail]
+ */
+/**
+ * What the one exit hands back.
+ * @typedef {ExitEnded|ExitNotEnded|ExitNotFound} ExitAnswer
+ */
+/**
+ * R13: `bias.biasDebtRerun`'s answer, passed on as it came.
+ * @typedef {object} BiasDebtDischarge
+ * @property {string} re_ran  The run this run re-ran.
+ * @property {boolean} discharged
+ * @property {string} [outcome]  `bias`' word when nothing was discharged.
+ * @property {string|null} [lens_ran_under]
+ * @property {string|null} [lens_in_force]
+ * @property {string} [stated]
+ * @property {unknown} [settled]  `bias`' settlement when the debt was discharged.
+ */
+/**
+ * R76: a run's actual cost, `ai-use.actualOf`'s answer for the run less its `ok` and `found`, with `final`. Its
+ * further fields (`act`, `owner`, `use`, `mode`, `calls`, `tokens`, `cost_reported`, `cost_estimated`, `by_entry` and
+ * the rest) are ai-use's to fix.
+ * @typedef {{final: boolean} & Record<string, unknown>} RunCost
+ */
+/**
+ * What `close` is handed (R13).
+ * @typedef {object} CloseArgs
+ * @property {string} run
+ * @property {RunBound|RunEnding} bound  What stopped the run, the caller's own word; absent, null or any other word is
+ *  `AI_RUN_BOUND_UNNAMED` and the run stays running (nothing is derived for a close).
+ * @property {ConditionKind|null} [condition]  Absent, null or empty is none; any other word is `AI_RUN_CONDITION_UNKNOWN`.
+ * @property {InstantArg} [at]
+ * @property {Stamp|null} [actor]
+ * @property {Viewer|null} [viewer]
+ * @property {Stamp|null} [caller]  As at `tick`.
+ */
+/**
+ * `reap`'s answer (R15).
+ * @typedef {object} ReapAnswer
+ * @property {IsoSecond} at
+ * @property {number} lapsed  How many running runs' leases had lapsed.
+ * @property {{run: string, terminated: boolean, bound: string|null}[]} reaped  One per lapsed run, in run-id order; `bound` is what
+ *  ended it (`lease`, or a bound it had exhausted), null when it was not ended.
+ */
+/**
+ * Why a resumption was not dispatched (R18). `NO_INSTANCE_AI_CREDENTIAL` and
+ * `INSTANCE_AI_CREDENTIAL_REVOKED_BY_PUBLICATION` are `tokens.mjs`' reasons, relayed.
+ * @typedef {"NO_ACCOUNT"|"MEMBER_PRINCIPAL_RUN"|"NOT_THE_INSTANCE_CREDENTIALS_RUN"|"AGENT_WORKER_UNBOUND"|"NAMESPACE_UNDETERMINED"|"CREDENTIAL_RECORD_SILENT"|"INSTANCE_AI_CREDENTIAL_NOT_ON_RECORD"|"INSTANCE_AI_CREDENTIAL_REVOKED"|"INSTANCE_AI_CREDENTIAL_NOT_ORGANISATION"|"NO_INSTANCE_AI_CREDENTIAL"|"INSTANCE_AI_CREDENTIAL_REVOKED_BY_PUBLICATION"} WithheldReason
+ */
+/**
+ * The outcome of one call to `agent-worker`'s `/run` (R18, R82). It carries no secret.
+ * @typedef {object} DispatchOutcome
+ * @property {"RUNNING"|"DISPATCHED"|"LIMIT"|"REFUSED"|"SILENT"} state  `RUNNING`: the worker accepted the segment; `DISPATCHED`: an
+ *  older worker answered that the segment ran; `LIMIT`: the provider's spending limit is reached; `REFUSED`: the worker refused, or
+ *  no account serves the run; `SILENT`: no acceptance within the wait, or the call did not complete.
+ * @property {number|null} status  The worker's HTTP status; null when nothing was sent or nothing came back.
+ * @property {string} [reason]  With `REFUSED` and `SILENT`. [bound reason: with `REFUSED`, cut to 80 characters]
+ * @property {true} [provider_limit]  With `LIMIT`.
+ * @property {string} [detail]  With `LIMIT`: the limit, in plain words.
+ * @property {RuleRefusal} [unwritable]  The writer's refusal, when the log entry for a call that did not go through could not be appended.
+ */
+/**
+ * One run the wake held (R16).
+ * @typedef {object} WakeHold
+ * @property {string} run
+ * @property {number} outstanding  Its requests still outstanding, as the wait source counts them.
+ * @property {IsoSecond} expires  Its lease after the hold.
+ */
+/**
+ * One run the wake woke (R16, R18).
+ * @typedef {object} WakeWoken
+ * @property {string} run
+ * @property {number} completions  [bound completions: 1 to 25, one tick's batch]
+ * @property {number} captured
+ * @property {number} refused
+ * @property {number} expired
+ * @property {boolean} woken  False when the wake's log entry could not be appended (then nothing was marked woken).
+ * @property {RuleRefusal} [unwritable]  Present only when `woken` is false.
+ * @property {IsoSecond} [expires]  Present only when `woken` is true.
+ * @property {"DISPATCH"|WithheldReason} resume  The resume decision.
+ * @property {DispatchOutcome} [dispatch]  Present only when the run was woken and the decision was `DISPATCH`.
+ */
+/**
+ * `wake`'s answer (R16).
+ * @typedef {object} WakeAnswer
+ * @property {IsoSecond} at
+ * @property {number} held  [bound held: at most 25]
+ * @property {WakeHold[]} holds
+ * @property {number} woken  [bound woken: at most 25]
+ * @property {WakeWoken[]} wakes
+ * @property {number} dispatched  How many dispatches ended `RUNNING` or `DISPATCHED`.
+ */
+/**
+ * What `dispatchMemberRun` is handed (R18, R87). A `credential` beside these is never read.
+ * @typedef {object} MemberDispatchArgs
+ * @property {string} run  Trimmed for the lookup.
+ * @property {Stamp} by  Who acts, the door's stamp; it must be the member the run's principal names, else `AI_RUN_NOT_PRINCIPAL`.
+ * @property {Viewer|null} [viewer]  Absent, null or empty: `by`.
+ * @property {InstantArg} [at]
+ * @property {string|null} [trace]  R87: sent as the `x-civicsmith-trace` header, kept nowhere. [bound trace: sent only when it is
+ *  1 to 200 printable ASCII characters with no space; otherwise no header is sent and nothing is refused]
+ * @property {string|null} [memberRef]  R87: sent as the `x-civicsmith-member-ref` header, kept nowhere. [bound memberRef: as `trace`]
+ */
+/**
+ * `dispatchMemberRun`'s answer when the run was found (R18).
+ * @typedef {object} MemberDispatchAnswer
+ * @property {string} run  As handed.
+ * @property {true} found
+ * @property {boolean} dispatched  True only when the worker accepted the segment (`RUNNING`) or ran it (`DISPATCHED`).
+ * @property {string} status  The run's status as held.
+ * @property {DispatchOutcome} [dispatch]  Present only when the call to the worker was tried.
+ * @property {"AGENT_WORKER_UNBOUND"|"NAMESPACE_UNDETERMINED"|"MEMBER_PRINCIPAL_RUN"|"CREDENTIAL_RECORD_SILENT"} [withheld]
+ *  Present when nothing was sent for one of these named reasons.
+ * @property {"AI_RUN_NOT_PRINCIPAL"|"MEMBER_RUN_MODE_NOT_ADMITTED"|RelayedCode} [code]  Present on a refusal: relayed codes are
+ *  `ai-accounts`' `AI_KEPT_AWAY` and `credentials.aiRunCredentialMint`'s (`ACCOUNT_MEMBER_NOT_ACTIVE`, `AI_RUN_CREDENTIAL_MALFORMED`,
+ *  `AI_KEPT_AWAY`), each passed on with its own fields but never a token.
+ * @property {string|null} [check]
+ * @property {string|null} [translation]
+ * @property {string} [detail]
+ * @property {string} [reason]
+ * @property {string} [mode]  With `MEMBER_RUN_MODE_NOT_ADMITTED`: the run's mode.
+ * @property {string} [note]
+ */

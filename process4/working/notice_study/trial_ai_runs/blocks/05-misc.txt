@@ -1,0 +1,269 @@
+### ANCHOR: /** R72: a provider's refusal for a spent limit (Anthropic's 429
+/**
+ * One row of an SQL answer: an object of column name to value, whatever the statement selects. Left open (`any`): its
+ * kind is the statement's, not this interface's.
+ * @typedef {any} SqlRow
+ */
+/**
+ * The Durable Object's state as the hosting platform hands it. Only what this file reads is listed; the modules this
+ * one reaches through their factories on the same `ctx` read what they need of it themselves.
+ * @typedef {object} StoreContext
+ * @property {{sql: {exec: (query: string, ...bindings: unknown[]) => Iterable<SqlRow>}}} storage  The object's storage: the key of
+ *  the one instance (`aiRunsOf`), and its SQL door, which every read and write of this module goes through.
+ * @property {{equals: (other: unknown) => boolean}} [id]  The object's id, compared with the `STORE` namespace's ids to learn which
+ *  namespace this object is; without it no run is dispatched (`NAMESPACE_UNDETERMINED`).
+ */
+/**
+ * The Worker environment, as far as this file reads it. `tokens.mjs` (`instanceAiCredential`) and `store-place.mjs`
+ * (`storeId`, `storeStub`) are handed the same object and read their own bindings from it (the instance's `ai`
+ * credential, the `STORE` namespace); those are theirs to fix.
+ * @typedef {object} RunsEnv
+ * @property {string} [CIVICSMITH_TEST_INSTANCE]  R78: the deployer's test-instance name.
+ * @property {string} [INSTANCE_NAME]  R78.
+ * @property {number|string} [AI_RUN_LEASE_MS]  R83: overrides the lease. [bound AI_RUN_LEASE_MS: used when its `Number()` is finite and above 0]
+ * @property {number|string} [AI_RUN_DISPATCH_WAIT_MS]  R82: overrides the dispatch wait. [bound AI_RUN_DISPATCH_WAIT_MS: used when its `Number()` is finite and above 0]
+ * @property {{fetch: (url: string, init: {method: string, headers: Record<string, string>, body: string}) => Promise<{ok: boolean, status: number, json: () => Promise<{accepted?: boolean, ok?: boolean, reason?: string, code?: string, type?: string}|null>}>}} [AGENT_WORKER]
+ *  The `agent-worker` binding a run is dispatched through; without it nothing is dispatched (`AGENT_WORKER_UNBOUND`).
+ * @property {{idFromName: (name: string) => unknown}} [STORE]  The store's namespace binding.
+ */
+/**
+ * In-process wiring, never the wire or `env`; read on the first `aiRunsOf` call only. Each module is that module's
+ * own instance or a stand-in with the methods named; absent, its factory on this `ctx` is used.
+ * @typedef {object} RunsDeps
+ * @property {{migratedSurfacing: Function}} [inquiry]  R27.
+ * @property {{step: Function, stepCreate: Function, stepEnd?: Function, recordProduct?: Function, registerRunHolder?: Function}} [steps]  R73, R74.
+ * @property {{useCheck: Function, countUsage: Function, estimate: Function, actualOf: Function}} [aiUse]  R52, R76.
+ * @property {{accountFor: Function, accountUses: Function, groupKeySwitches: Function, accountReferenceState: Function, groupKeyState: Function}} [aiAccounts]  R18, R52.
+ * @property {string[]} [deployedModes]  For a module test alone: in place of run-rules' `DEPLOYED_MODES`.
+ * @property {{id: string, version: number, matters: unknown[]}} [testSet]  For a module test alone: in place of run-rules' `CIVICSMITH_TEST_SET`.
+ */
+/**
+ * A WHERE tail and its bindings: ` AND ...` to append to a statement, or the empty text for no restriction.
+ * @typedef {object} SqlTail
+ * @property {string} sql
+ * @property {unknown[]} args  The values for the tail's `?` marks, in order.
+ */
+/**
+ * R42's answer.
+ * @typedef {SqlTail} HiddenRunsTail
+ */
+/**
+ * membership's `hiddenBundles` (record-core R63): a parenthesised sub-select naming the bundles a viewer may not see,
+ * with its bindings.
+ * @typedef {object} HiddenBundles
+ * @property {string} sql
+ * @property {unknown[]} args
+ */
+/**
+ * R38: the figures of this module's tables.
+ * @typedef {object} RunCounts
+ * @property {number} aiRuns
+ * @property {number} aiRunBounds
+ * @property {number} inquiryRunSurfacings
+ * @property {number} aiRunLog  The observation log's rows under authority kind `run`.
+ */
+/**
+ * B2: what `runHolder` answers for a running run `by` holds.
+ * @typedef {object} RunHolder
+ * @property {string|null} enabled_by  The paying owner the run records (`principal_claude`).
+ * @property {string} principal  The viewer the run's opener acts as: `member:<id>` for a member, the class for a machine (`class:ai`).
+ */
+/**
+ * R30: one run as the bias debt's work product.
+ * @typedef {object} RunWorkProduct
+ * @property {{type: string, id: string}|null} context
+ * @property {string|null} principal  The member's id when the plane principal is a member's; else null.
+ * @property {{basis: "at_open"|"handed", statements_sha: string|null}|null} lens  The lens the run began under; null when neither the
+ *  open's nor the handed one can be read.
+ * @property {string|null} ranUnder  The handed manifest's hash when a readable manifest was handed; else null.
+ * @property {string|null} rerunOf
+ * @property {string|null} registered  The run's `created`; null when the stored instant cannot be read.
+ */
+/**
+ * R30: the runs as `bias` reads them.
+ * @typedef {object} RunWorkProducts
+ * @property {(after: string|null|undefined, limit: number) => string[]} list  The run ids after `after`, ascending.
+ *  [bound limit: at least 1; a limit that is not a number, or 0, reads as 50]
+ * @property {(run: string) => Promise<RunWorkProduct|null>} read  Null for a run not held.
+ * @property {(run: string, viewer: Viewer|null) => Promise<boolean>} visible  R19's sight.
+ */
+/**
+ * R41: the wait source `capture-requests` registers. Every function is synchronous.
+ * @typedef {object} WaitSource
+ * @property {() => number} tickMs  The source's own cadence in milliseconds.
+ * @property {(iso: IsoSecond, limit: number) => {run: string, outstanding: number}[]} holds  The running runs with a request
+ *  outstanding and unexpired at `iso`, at most `limit`.
+ * @property {(limit: number) => string[]} woken  The running runs with completions not yet woken, at most `limit`.
+ * @property {(run: string, limit: number) => {request: string, state: string}[]} completions  A run's completions not yet woken;
+ *  `state` is `captured`, `expired`, or any other word, which is counted as refused.
+ * @property {(requests: string[], iso: IsoSecond) => unknown} markWoken  Stamps those requests woken, inside the wake's transaction.
+ * @property {() => boolean} [configured]  Optional: whether anything drains at all; absent is read as true.
+ */
+/**
+ * `registerWaitSource`'s answer. Its two refusals name a `reason` and carry no `code`, `check` or `translation`.
+ * @typedef {{ok: true, module: string} | {ok: false, reason: "WAIT_SOURCE_MALFORMED", detail: string} | {ok: false, reason: "WAIT_SOURCE_DECLARED", module: string, declaredBy: string}} WaitSourceAnswer
+ */
+/**
+ * member-roster's `listenerRefusal`, passed on (R43, R47).
+ * @typedef {object} ListenerRefusal
+ * @property {false} ok
+ * @property {"LISTENER_MALFORMED"|"LISTENER_DECLARED"} code
+ * @property {string} reason  The code again.
+ * @property {string} detail
+ * @property {string|null} [module]  With `LISTENER_DECLARED`: the module that holds the registration.
+ * @property {string} check
+ * @property {string} translation
+ */
+/**
+ * R43: what each `onRunOpened` listener is called with, once after each successful `open` commits.
+ * @typedef {object} RunOpenedNotice
+ * @property {string} run
+ * @property {string} contextType
+ * @property {string} contextId
+ * @property {IsoSecond} expires
+ */
+/**
+ * R47, R77: what the check registered for a mode is asked.
+ * @typedef {object} OpenCheckAsk
+ * @property {string} contextType
+ * @property {string} contextId
+ * @property {string|null|undefined} plan
+ * @property {Stamp|null|undefined} actor
+ * @property {Viewer|null|undefined} viewer
+ * @property {string} origin  A `RunOrigin`.
+ * @property {string|null} response  The response of a re-examination run; null otherwise.
+ */
+/**
+ * R47: a mode's check. It answers null to let the open land, or a refusal naming a `code` (a text), which `open`
+ * passes on unchanged. Any other answer, or a throw, is read as no answer: `AI_RUN_MODE_UNCHECKED`.
+ * @typedef {(ask: OpenCheckAsk) => (null | ({code: string} & Record<string, unknown>))} OpenCheck
+ */
+/**
+ * An AI part the test bar is held for: run-rules' `TEST_BAR_PARTS`.
+ * @typedef {"check"|"investigate"|"extract"|"plan"|"ask"|"enquire"|"explore"|"draft:own_words"|"draft:translation"|"draft:case_account"|"draft:account_check"|"draft:bearing_note"|"draft:textcheck"|"draft:infractiondraft"|"draft:bearingdraft"|"draft:statusreport"|"draft:reading"|"transcribe"|"read"} AiPart
+ */
+/**
+ * R78: whether an AI part may run here.
+ * @typedef {object} PartAdmission
+ * @property {boolean} admitted
+ * @property {UntestedLabel|null} untested  Set only for a part admitted on the test-instance exception.
+ */
+/**
+ * One recorded verification of a mode's first live run (run-rules R19).
+ * @typedef {object} VerificationRecorded
+ * @property {string} mode
+ * @property {string} run
+ * @property {string} verified_by
+ * @property {string} at
+ * @property {unknown} evidence  As recorded, parsed; null when it cannot be read back.
+ */
+/**
+ * What `verificationRecord` is handed. `aiRunsOps` takes all but `by` from the request body.
+ * @typedef {object} VerificationArgs
+ * @property {RunMode} mode  A mode of the deployment order; any other value is refused, field `mode`.
+ * @property {string} run  The run verified: a run this record holds in that mode, in `by`'s sight; else refused, field `run`.
+ *  [bound run: a non-blank text]
+ * @property {string|unknown[]} evidence  What the verifier saw. [bound evidence: a non-blank text, or a list with at least one
+ *  non-blank entry; else refused, field `evidence`]
+ * @property {Stamp} by  The member who verified, the control plane's stamp; a machine or nobody is refused, field `verified_by`.
+ * @property {InstantArg} [at]
+ */
+/**
+ * What `verificationRecord` hands back.
+ * @typedef {object} VerificationDone
+ * @property {true} ok
+ * @property {RunMode} mode
+ * @property {string} run
+ * @property {string} verified_by  `member:<id>` of the verifier.
+ * @property {string} at  When it was recorded; for a mode and run already recorded, the first recording's instant.
+ * @property {boolean} existed  True when that mode and run were already recorded (nothing is written again).
+ * @property {{mode: RunMode, deployable: boolean}|null} next  The next mode of the order and whether it is now admitted here; null after the last.
+ */
+/**
+ * @typedef {object} VerificationRefusal
+ * @property {false} ok
+ * @property {"AI_RUN_VERIFICATION_UNFIT"} code
+ * @property {string} check
+ * @property {string} translation
+ * @property {string} detail
+ * @property {"mode"|"run"|"verified_by"|"evidence"|null} field  The field refused; null when the record itself is no object.
+ */
+/**
+ * One result of an AI part on a test set (R75), as `testBarRecord` is handed it and `testBarRecords` answers it.
+ * @typedef {object} TestBarRecord
+ * @property {AiPart} part
+ * @property {string} set  The set's id; `group` is a group's own set. [bound set: a non-blank text]
+ * @property {number} set_version  [bound set_version: a safe integer of one or more]
+ * @property {number} false_alarm_rate  [bound false_alarm_rate: a number from 0 to 1]
+ * @property {boolean} passed
+ * @property {string} graded_by  [bound graded_by: a non-blank text]
+ * @property {string} at  When it was recorded.
+ */
+/**
+ * What `testBarRecord` is handed: a `TestBarRecord` whose `at` is an `InstantArg`.
+ * @typedef {Omit<TestBarRecord, "at"> & {at?: InstantArg}} TestBarArgs
+ */
+/**
+ * @typedef {object} TestBarRefusal
+ * @property {false} ok
+ * @property {"AI_TEST_BAR_UNFIT"} code
+ * @property {string} check
+ * @property {string} translation
+ * @property {string} detail
+ * @property {"part"|"set"|"set_version"|"false_alarm_rate"|"passed"|"graded_by"|"at"|"entry_id"|null} field
+ */
+/**
+ * What `groupTestSet` is handed (R75).
+ * @typedef {object} GroupTestSetArgs
+ * @property {string} part  [bound part: a non-blank text of at most 60 characters; stored trimmed]
+ * @property {string} matter  [bound matter: a non-blank text of at most 200 characters; stored trimmed]
+ * @property {string|object} answers  The answers the group's people wrote. [bound answers: a non-blank text of at most 20,000
+ *  characters, or an object whose JSON is at most 20,000 characters]
+ * @property {Stamp} by  An active member, the control plane's stamp.
+ * @property {InstantArg} [at]
+ */
+/**
+ * @typedef {object} GroupTestRefusal
+ * @property {false} ok
+ * @property {"AI_GROUP_TEST_INVALID"} code
+ * @property {string} reason  The code again.
+ * @property {string|null} check
+ * @property {string|null} translation
+ * @property {string} detail
+ */
+/**
+ * What `groupTestResults` hands back (R75). To anyone but an active member, and for a blank part: no matters, no results.
+ * @typedef {object} GroupTestResults
+ * @property {true} ok
+ * @property {string|null} part  The part asked, trimmed; null when blank.
+ * @property {number} matters  How many of the group's own test matters are held for the part.
+ * @property {{set_version: string|number, false_alarm_rate: number, passed: boolean, at: string}[]} results  The part's results on
+ *  the group's own set, oldest first; `set_version` as the store returns it (a text column written with a number).
+ */
+/**
+ * R90: one declared op.
+ * @typedef {object} DeclaredOp
+ * @property {string[]} classes  The classes of caller the op is open to.
+ * @property {boolean} mutating
+ * @property {string} weight
+ * @property {string} description
+ * @property {{accepts: string[], requires: string[]}} fields  The body fields the op's arm reads, and those it cannot do without.
+ */
+/**
+ * A request's address, as far as `aiRunsOps` reads it: the query, where every stamp and every read's argument is.
+ * @typedef {object} OpUrl
+ * @property {{get: (name: string) => string|null}} searchParams
+ */
+/**
+ * The run's ops, by door name (K3): each a function of no argument that runs the op with the request's body and
+ * stamps and answers what the method named answers.
+ * @typedef {object} AiRunsOps
+ * @property {() => Promise<OpenAnswer>} airunopen  `open`.
+ * @property {() => Promise<TickAnswer>} airuntick  `tickAndContinue`.
+ * @property {() => Promise<ExitAnswer>} airunclose  `close`.
+ * @property {() => Promise<ReadAnswer>} airun  `read`.
+ * @property {() => LogAnswer} airunlog  `log`.
+ * @property {() => Promise<ListAnswer|ListRefusal>} airuns  `listInContext`.
+ * @property {() => Promise<SpawnAnswer>} airunspawn  `spawnPayload`.
+ * @property {() => (VerificationDone|VerificationRefusal)} airunverify  `verificationRecord`.
+ */

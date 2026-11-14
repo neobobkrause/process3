@@ -1,0 +1,159 @@
+### ANCHOR: /** R72: a provider's refusal for a spent limit (Anthropic's 429
+/* ====================================================================================================================
+ * THE INTERFACE AS KINDS. Structured comments only: nothing below is read by running code. Each exported function,
+ * each public method of `AiRuns` and each exported table states what it is handed (its domain) and what it hands back
+ * (its range), every refusal included. A refusal here is an answer, an object naming a `code`, never a thrown error,
+ * except where a comment says "throws".
+ *
+ * A BOUND a kind cannot express is written in the description of the field it binds, always in this one form:
+ *     [bound <field>: <the bound>]
+ * A field marked required has no `?`; where the running code is nevertheless handed nothing for it, the answer is the
+ * refusal its description names (the code tolerates the absence, the contract does not).
+ *
+ * Sources: this file's code; `build/requirements/ai-runs.md` (cited as R<n>); `test/m/ai-runs/`. Where they disagree
+ * the code is followed and the difference is said in the description.
+ * ================================================================================================================== */
+
+/**
+ * An instant as this module writes and answers it.
+ * [bound IsoSecond: ISO-8601, UTC, to the second, `YYYY-MM-DDTHH:MM:SSZ`, as record-core's `stampInstant("second")` writes it]
+ * @typedef {string} IsoSecond
+ */
+/**
+ * The instant an act is recorded at, as a caller gives it; absent, null or empty means now.
+ * [bound InstantArg: a text `Date.parse` can read; one it cannot read makes the call THROW a RangeError, it is not refused]
+ * @typedef {string|null} InstantArg
+ */
+/**
+ * A clock reading handed by `scheduler`.
+ * [bound EpochMs: milliseconds since the Unix epoch, a finite number]
+ * @typedef {number} EpochMs
+ */
+/**
+ * A stamp of the control plane naming a credential or a person: `actor` (who acts), `caller` and `principalPlane`
+ * (the credential acting). Set server-side by `control-plane`; a request body's own copy is overwritten (`aiRunsOps`).
+ * [bound Stamp: a member is `member:<id>` or `member:<id>/<tokenId>` (an `actor` may also be the bare `<id>`, R81), `<id>` being 1 to 128
+ *  characters of letters, digits, dot, underscore and hyphen; a machine is `class:<cls>` or `class:<cls>/<tokenId>`; an empty or absent
+ *  actor means no member is behind the caller]
+ * @typedef {string} Stamp
+ */
+/**
+ * Whose sight an answer is taken in, the control plane's stamp, read by membership's `viewerPredicate`: a member
+ * (`member:<id>`), the founder (`admin` in the tests), or a machine class (`class:admin`, `class:member`, `class:probe`,
+ * `class:daemon`, `class:ai`), which sees every run. Absent, null or unrecognised sees no run at all (fail closed).
+ * @typedef {string} Viewer
+ */
+/**
+ * A bound of a run: the keys of run-rules' `RUN_BOUNDS`, in its order. The requirements' Terms list seven of these and
+ * `lease`; the code also holds `pages`.
+ * @typedef {"fetches"|"subsessions"|"wallclock"|"runtime"|"mints"|"surfaces"|"proposals"|"pages"|"lease"} RunBound
+ */
+/**
+ * The bounds a caller may send a figure above zero for (`tick`'s `consume`, a declaration's `consumed`).
+ * @typedef {"fetches"|"subsessions"|"wallclock"|"runtime"} CallerCountedBound
+ */
+/**
+ * The bounds the plane counts as the run's work lands (run-rules' `PLANE_COUNTED_BOUNDS`): a caller's figure for one
+ * may only be 0.
+ * @typedef {"mints"|"surfaces"|"proposals"|"pages"} PlaneCountedBound
+ */
+/**
+ * An ending of a run that is not a bound: the keys of run-rules' `RUN_ENDINGS`. The requirements' Terms name three;
+ * the code also holds `nothing-written`.
+ * @typedef {"completed"|"cancelled"|"nothing-written"|"mode-not-deployed"} RunEnding
+ */
+/**
+ * A run's status: `running` from the open; after the one exit, run-rules' `runStatusFor` of what stopped it
+ * (`stopped` for a bound, `never-started` for `mode-not-deployed`, `finished` for any other ending).
+ * @typedef {"running"|"finished"|"stopped"|"never-started"} RunStatus
+ */
+/**
+ * The kind of a run's context: the keys of run-rules' `RUN_CONTEXTS`.
+ * @typedef {"inquiry"|"project"} RunContextType
+ */
+/**
+ * A run's mode: run-rules' `RUN_MODES`, the deployment order. `open` admits only the deployed and admitted ones
+ * (`check` and `plan` as the flags stand, R40).
+ * @typedef {"check"|"investigate"|"extract"|"plan"} RunMode
+ */
+/**
+ * Where a run comes from: run-rules' `RUN_ORIGINS` and `PLAN_ORIGINS`. `explore` is not a planning run's origin and
+ * `reexamination` is only a planning run's.
+ * @typedef {"member"|"explore"|"reexamination"} RunOrigin
+ */
+/**
+ * R21: what a run's bar rests on, the keys of run-rules' `STANDARD_BASIS`.
+ * @typedef {"recorded"|"none-recorded"|"context-has-no-project"|"names-no-axis"|"unreadable"} StandardBasis
+ */
+/**
+ * What a look established: the keys of observation-log's `OBSERVATION_STATES`.
+ * @typedef {"NEVER_LOOKED"|"LOOKED_ABSENT"|"LOOKED_INDETERMINATE"|"PRESENT"|"partial"} ObservationState
+ */
+/**
+ * The level of a look: the keys of observation-log's `OBSERVATION_LEVELS`.
+ * @typedef {"meaning"|"content"|"document"|"internet"} ObservationLevel
+ */
+/**
+ * Whether a log row names what its look produced: observation-log's `observationCoverage`.
+ * @typedef {"backed"|"none_owed"|"undetermined"} ObservationCoverage
+ */
+/**
+ * A queue condition named beside an ending or a look: the keys of observation-log's `CONDITION_KINDS`, read live at
+ * each call (C-22.4), so that file fixes the list; this is the list as it stands in this tree.
+ * @typedef {"monitoring-recheck-due"|"archive-fallback-eligible"|"capture-session-ttl-expiring"|"source-unreachable-governed"|"capture-completed-unattended"|"partial-capture-outstanding"|"text-undetermined"|"client-rendered-shell"|"invitation-spent-or-expired"|"governor-holding-host"|"runtime-ceiling-reached"|"render-deferred"|"sweep-held-backlog"|"sweep-yield-anomaly"|"sweep-seed-unreachable"|"sweep-redirect-out-of-scope"|"sweep-silent"|"notice-attestation-missed"|"notice-lapse-near"|"notice-project-closed"} ConditionKind
+ */
+/**
+ * A refusal code minted by another module and passed on unchanged; that module fixes the list, so it is left open
+ * here. (Written `string & {}` so the codes named beside it stay readable in the written-out interface.)
+ * @typedef {string & {}} RelayedCode
+ */
+/**
+ * Any other text. Written beside a closed list where this module is handed the value unjudged (a query's text from the
+ * door, a mode from a test's wiring) and answers every word outside the list as the field's description says.
+ * @typedef {string & {}} OtherText
+ */
+/**
+ * The catalogue row every refusal of this module carries beside its `code` (Terms: "Every refusal names `code` and
+ * carries its catalogue `check` and `translation`").
+ * @typedef {object} CatalogueRow
+ * @property {string|null} check  The catalogue check's id, e.g. `C-33.30`; null only where run-rules' table holds no row for the code.
+ * @property {string|null} translation  The row's sentence in plain words; null only where no row is held.
+ */
+/**
+ * A refusal as observation-log's one writer answers it for a log entry it did not append (its `checkObservation`),
+ * or as run-rules' pure rules answer it: passed on whole.
+ * @typedef {object} RuleRefusal
+ * @property {false} ok
+ * @property {string} code  The rule's code; for a log entry observation-log's (`AI_LOG_STATE_UNKNOWN`, `AI_LOG_NOT_A_BUNDLE`, `OBS_PRESENT_NO_REFERENT` and the rest of its table).
+ * @property {string} check
+ * @property {string} translation
+ * @property {string} detail
+ * @property {string|null} [bound]  The bound a figure was refused for (run-rules' `checkConsume`).
+ * @property {string|null} [field]  The field refused (run-rules' `checkVerification`, `checkTestBarRecord`).
+ */
+/**
+ * R78: the label of a run admitted on the test-instance exception, as run-rules' `untestedLabel` builds it and as it
+ * is stored at the open and read back (any JSON object stored there is answered as stored).
+ * @typedef {object} UntestedLabel
+ * @property {"untested"} kind
+ * @property {string} part  The AI part admitted, here the run's mode.
+ * @property {string} set  The test set's id (`civicsmith`, or a module test's own).
+ * @property {number} set_version  [bound set_version: a whole number of one or more]
+ * @property {"ai.label.untested"} words  The word-table key of the label's sentence.
+ */
+/**
+ * R10: how the project gate (run-rules R6) let the act through, stated on a success answer of `open` and `tick`.
+ * @typedef {object} ProjectGateStated
+ * @property {boolean} applied  True only when a project's participation was asked and held.
+ * @property {"NO_MEMBER_BEHIND_CALLER"|"INQUIRY"|"PARTICIPANT"} ground  run-rules' `PROJECT_GATE_GROUNDS` key.
+ * @property {string} why  That ground's sentence.
+ * @property {number} projects  How many of the context's projects the viewer sees. [bound projects: a whole number of zero or more]
+ */
+/**
+ * One bound's figures as stored (`ai_run_bounds`) and answered by `read` and `spawnPayload`.
+ * @typedef {object} BudgetRow
+ * @property {string} bound  A `RunBound` for every row this module writes.
+ * @property {number} allowed  [bound allowed: a whole number; 0 on a row made by a spend with no declaration]
+ * @property {number} consumed  [bound consumed: a whole number of zero or more]
+ * @property {string|null} unit  The unit the opener named, verbatim; null when none.
+ */
