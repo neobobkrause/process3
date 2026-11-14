@@ -1,0 +1,58 @@
+# Bob's own typed words, 14 Nov 2026, to the session on one question: when must a module's users be updated? (verbatim, complete, in order)
+
+These are every message Bob typed to that session, exactly as typed. Lines in *italics between messages* are the session's notes on what a message answered; they are not his words.
+
+---
+
+## 1
+
+I am Bob. This session has one question: when a module changes, how do we know which of the modules that use it must be updated, so that the others are left alone?
+
+Read this file first and follow it: process4/working/notice_study/session_brief.md
+It gives my rules for how to work with me, the question in my own words, what has been measured so far, and where the data and scripts are. The full groundwork study is beside it, in study.md.
+
+The product's record is in the public repository neobobkrause/civicsmith-copy. Read only. Never commit or push to it.
+
+Start by telling me, in plain words, what the groundwork found and what you think the next step is. Then we will explore it together.
+
+## 2
+
+*The session had asked whether a user module must be updated only when, with the provider's change in place, the user itself is wrong (it no longer loads, its own tests fail, or it breaks a requirement of its own).*
+
+To be clear, a provider's answer to a user changing (content) doesn't necessitate the user being retested. What matters is when the interface to the provider (metadata) changes.
+
+## 3
+
+*The session had reported that, on its reading of the record, ten user modules broke after a change of content only.*
+
+Help me understand why a content change would cause a previously passing test to fail. The interface to a provider is it's domain. The bounds of valid values passed to and received from a provider are it's range. So what I'm saying is that any change to either a provider's domain or range necessitates that its users be retested. But if both domain and range stay the same, then no retesting of users is needed.
+
+## 4
+
+Your last response is highlighting how important it is that module tests be designed and written correctly. The tests are supposed to confirm bounds, confirm the accuracy of results under valid conditions, and confirm the recognition of an error when out of bounds. Tests should not fail because they expect a specific valid response but receive a different though still valid response.
+
+Programming languages like JS include language constructs for defining an interface. The specificity of the interface can vary because of many factors that include how typed a language is. But even in loosely typed languages the formal interface can be augmented with structured comments that the language runtime doesn't see but that clarifies how the interface is to be used, and used by our build tools to determine whether the domain or range has changed so that user modules need to be updated.
+
+## 5
+
+I need your assessment of TypeScript’s reader tool. Once every module has these comments that define an interface, if an interface changes then the comments would also change. The act of changing those comments would result in the provider's users being notified that there was an interface change that they may need to respond to. If a job makes changes but none of those changes result in interface comment changes, then that provider's users don't need to be notified. Is that a solid strategy?
+
+## 6
+
+The comments and tool can also inform module tests to ensure that boundaries are properly checked.
+
+Properly done, this sounds like a means by which the set of notifications sent out when a provider changes to be greatly reduced while still ensuring that user modules are still notified when an interface changes.
+
+That said, in order for this to work every module needs to be edited to add structured comments. This will be a challenge given that adding comments that describe the range of an interface requires a level of understanding that isn't readily apparent without careful and rigorous analysis.
+
+## 7
+
+I need more info on whether the trigger is the written-out interface. You also ask whether the tool may refuse a comment that disagrees with its code. You know what we're trying to achieve. What do you think on both of these questions?
+
+## 8
+
+*The session had put two questions, each with its recommendation. First, which event sends the notice to user modules: "A. A job edited a comment" or "B. The listing after the change differs from the listing before", where the listing is the module's interface as the tool writes it out from the code and its structured comments together. Second, whether the build tool may refuse a comment that disagrees with its code, inside a job's own module tests.*
+
+which event sends the notice: B
+
+the tool may refuse a disagreeing comment
