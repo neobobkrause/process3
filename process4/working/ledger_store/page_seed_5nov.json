@@ -1,0 +1,799 @@
+{
+ "seed": {
+  "ARC-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:44:23.798Z"
+  },
+  "ARC-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:44:59.423Z"
+  },
+  "ARC-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:45:08.468Z"
+  },
+  "ARC-4": {
+   "choice": "modify",
+   "note": "The architecture, ownership, format and coverage checks run only against the job's module in its gate, layer checks when a layer closes, and over the whole product before a release or when I ask for one.",
+   "at": "2026-10-31T02:05:32.708Z"
+  },
+  "ARC-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:46:59.160Z"
+  },
+  "ENF-1": {
+   "choice": "modify",
+   "note": "at most a handful of command hooks, each for a zero-exception rule, each with a legitimate blocked exit; none that hold a turn or judge text.",
+   "at": "2026-10-31T01:28:59.798Z"
+  },
+  "ENF-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:29:42.183Z"
+  },
+  "ENF-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:29:55.331Z"
+  },
+  "ENF-4": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T01:30:57.010Z"
+  },
+  "ENF-5": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T01:31:44.036Z"
+  },
+  "ENF-6": {
+   "choice": "modify",
+   "note": "native /goal with a mechanical condition (PR state on GitHub), no model judging the transcript. Superseded by Bob's word, walk-through question 2, 1 Nov (\"Yes, as recommended\"): no /goal, since its check is a model reading the conversation; a stopped job is caught by status and the sweep. Recorded by the coordinator, 3 Nov, walk-through question 36.",
+   "at": "2026-11-03T20:00:00.000Z"
+  },
+  "ENF-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:33:20.898Z"
+  },
+  "GAP-1": {
+   "choice": "modify",
+   "note": "A tranche CAN RUN from open to close with no one watching: every stop is a named blocker in the record, BOB starts other work meanwhile, and only a blocker that only Bob can clear reaches him.",
+   "at": "2026-11-03T17:28:09.576Z"
+  },
+  "GAP-10": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:35:54.974Z"
+  },
+  "GAP-11": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:36:20.330Z"
+  },
+  "GAP-12": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:36:32.217Z"
+  },
+  "GAP-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:28:47.182Z"
+  },
+  "GAP-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:30:37.399Z"
+  },
+  "GAP-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:31:27.168Z"
+  },
+  "GAP-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:31:54.576Z"
+  },
+  "GAP-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:32:32.406Z"
+  },
+  "GAP-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:32:48.703Z"
+  },
+  "GAP-8": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:35:16.155Z"
+  },
+  "GAP-9": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:35:31.213Z"
+  },
+  "GAT-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:01:25.569Z"
+  },
+  "GAT-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:01:48.519Z"
+  },
+  "GAT-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:02:12.550Z"
+  },
+  "GAT-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:02:28.833Z"
+  },
+  "GAT-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:03:04.866Z"
+  },
+  "GAT-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:03:13.317Z"
+  },
+  "GAT-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:03:19.270Z"
+  },
+  "GAT-8": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:05:58.871Z"
+  },
+  "INT-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:06:02.469Z"
+  },
+  "INT-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:06:25.562Z"
+  },
+  "INT-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:08:03.836Z"
+  },
+  "INT-4": {
+   "choice": "modify",
+   "note": "Bob's word, walk-through question 3, 1 Nov (\"Yes, as recommended\"), with his ARC-4 note: a layer closes when every PR is merged and the layer's checks pass; whole-product checks run before a release or when Bob asks; the next layer starts at once. Recorded by the coordinator, 3 Nov, walk-through question 36.",
+   "at": "2026-11-03T20:00:00.000Z"
+  },
+  "INT-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:09:57.607Z"
+  },
+  "INT-6": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T02:11:04.917Z"
+  },
+  "INT-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:10:29.077Z"
+  },
+  "JOB-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:52:43.771Z"
+  },
+  "JOB-10": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:56:53.633Z"
+  },
+  "JOB-11": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:57:04.470Z"
+  },
+  "JOB-12": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:57:17.025Z"
+  },
+  "JOB-13": {
+   "choice": "modify",
+   "note": "Suggest: later, after the first tranche, on payment and data paths only.",
+   "at": "2026-10-31T01:57:50.971Z"
+  },
+  "JOB-14": {
+   "choice": "modify",
+   "note": "As suggested (keep) but the restarted session should recognize that corrections were made and try to understand why to anticipate all other needed corrections so it doesn't continue to fail.",
+   "at": "2026-10-31T02:00:54.202Z"
+  },
+  "JOB-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:53:26.386Z"
+  },
+  "JOB-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:53:43.016Z"
+  },
+  "JOB-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:53:54.684Z"
+  },
+  "JOB-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:54:24.182Z"
+  },
+  "JOB-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:54:40.053Z"
+  },
+  "JOB-7": {
+   "choice": "modify",
+   "note": "Suggest: Evidence is a machine-readable receipt (command, exit code, git SHA, and an explicit not-verified list), never prose.",
+   "at": "2026-10-31T01:55:18.818Z"
+  },
+  "JOB-8": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:55:46.728Z"
+  },
+  "JOB-9": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:56:35.236Z"
+  },
+  "MNT-1": {
+   "choice": "modify",
+   "note": "Suggest: yes, but as the thin process this ledger describes, not as the twelve-module architecture of MNT-2.",
+   "at": "2026-10-31T02:26:13.126Z"
+  },
+  "MNT-10": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:29:58.211Z"
+  },
+  "MNT-11": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:30:54.040Z"
+  },
+  "MNT-12": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T02:31:04.202Z"
+  },
+  "MNT-2": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T02:26:18.334Z"
+  },
+  "MNT-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:26:28.317Z"
+  },
+  "MNT-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:26:47.877Z"
+  },
+  "MNT-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:27:12.708Z"
+  },
+  "MNT-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:27:15.274Z"
+  },
+  "MNT-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:27:30.949Z"
+  },
+  "MNT-8": {
+   "choice": "modify",
+   "note": "Certification is a long-term goal that indicates that it's ready for general use. Suggest: one shadow of a representative slice, then the live first tranche is the certification with SES-11 and SES-12 measured; a full 128-module shadow per release is itself a token sink.",
+   "at": "2026-10-31T02:29:38.112Z"
+  },
+  "MNT-9": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:29:49.802Z"
+  },
+  "MSG-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:23:59.779Z"
+  },
+  "MSG-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:24:17.186Z"
+  },
+  "MSG-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:24:22.541Z"
+  },
+  "MSG-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:24:48.580Z"
+  },
+  "MSG-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:25:10.591Z"
+  },
+  "MSG-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:25:31.142Z"
+  },
+  "MSG-7": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T02:25:41.913Z"
+  },
+  "P1": {
+   "choice": "modify",
+   "note": "Keep as Process3's purpose, with my 3 Nov words added: quickly and cheaply, behaviour that survives, my time only where it is mine.",
+   "at": "2026-11-03T16:58:45.275Z"
+  },
+  "P10": {
+   "choice": "modify",
+   "note": "Keep concurrency, which was lost and is why Phase 2 planned only two jobs, and keep nothing waits. Drop jobs stay active until all are complete: under Process3 a job ends at its merge (INT-1, INT-4) and a later service change reaches its users by GAT-3.",
+   "at": "2026-11-03T17:05:07.747Z"
+  },
+  "P11": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:05:44.868Z"
+  },
+  "P12": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:05:51.170Z"
+  },
+  "P13": {
+   "choice": "modify",
+   "note": "Keep the cost reason and the rule; the threshold stays in the start table (SES-4, SES-6) rather than a fixed 40%.",
+   "at": "2026-11-03T17:06:26.864Z"
+  },
+  "P16": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-11-03T17:06:37.450Z"
+  },
+  "P17": {
+   "choice": "modify",
+   "note": "Keep it whole after onboarding; no Ledger line holds it today. Your word, 3 Nov: during onboarding the platform forces a few GitHub steps of yours; keep those as few as possible, each walked through.",
+   "at": "2026-11-03T17:06:57.362Z"
+  },
+  "P18": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:07:01.914Z"
+  },
+  "P19": {
+   "choice": "modify",
+   "note": "Keep. PLN-2 holds the plan rule and SES-17 a nudge, but BOB never idles and never stops for Bob were lost. Drop overcome by code where it would mean a hook: the mechanism is the tool naming the next act and the sweep's wake, never anything that holds a turn (ENF-1, ENF-3), and it must be shown efficient and effective (my word, 3 Nov).",
+   "at": "2026-11-03T17:08:04.307Z"
+  },
+  "P2": {
+   "choice": "modify",
+   "note": "The build state is what tells BOB what to do. Process3 keeps requirements and layers at the product's own paths, so one subtree becomes the paths the product's config names.",
+   "at": "2026-11-03T16:59:30.646Z"
+  },
+  "P20": {
+   "choice": "modify",
+   "note": "Keep the evidence rule, which the Ledger lost. Process3 already decided that no hook refuses a short read (ENF-4 dropped) and that reads are a matter of record (REC-8).",
+   "at": "2026-11-03T17:13:24.490Z"
+  },
+  "P21": {
+   "choice": "modify",
+   "note": "Keep for questions that are Bob's by P17 only. Lanes stay as SES-14 (modify) and SES-15 settled them.",
+   "at": "2026-11-03T17:08:54.249Z"
+  },
+  "P22": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:09:02.447Z"
+  },
+  "P23": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:09:12.585Z"
+  },
+  "P3": {
+   "choice": "modify",
+   "note": "Development under Process3 is development of that product, not of Process3. A serious enough flaw pauses the product, Process3 is fixed separately, and the product resumes on the fixed version. Changes during Process3's own first build are expected.",
+   "at": "2026-11-03T17:00:40.088Z"
+  },
+  "P4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:00:53.646Z"
+  },
+  "P5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:01:11.250Z"
+  },
+  "P6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:01:39.767Z"
+  },
+  "P7": {
+   "choice": "modify",
+   "note": "Keep no requirement goes untested, which was lost (JOB-12 only checks that tests are not inert). Keep the mechanical pass, shorter: it is the efficient route for changes that need no judgment.",
+   "at": "2026-11-03T17:02:48.596Z"
+  },
+  "P8": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:03:42.830Z"
+  },
+  "P9": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-11-03T17:03:54.451Z"
+  },
+  "PLN-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:51:11.290Z"
+  },
+  "PLN-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:51:27.909Z"
+  },
+  "PLN-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:51:28.815Z"
+  },
+  "PLN-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:51:49.742Z"
+  },
+  "PLN-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:51:55.030Z"
+  },
+  "PLN-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:52:09.541Z"
+  },
+  "PLN-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:52:18.661Z"
+  },
+  "PLT-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T00:54:23.113Z"
+  },
+  "PLT-10": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:28:19.438Z"
+  },
+  "PLT-2": {
+   "choice": "modify",
+   "note": "Bob's word in chat, 3 Nov (written here by the coordinator): depend only on acts the committed approvals cover and that were measured to pass; archiving sessions and switching off or deleting tasks are housekeeping, counted and reported, never needed for correctness.",
+   "at": "2026-11-03T19:30:00.000Z"
+  },
+  "PLT-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:26:27.254Z"
+  },
+  "PLT-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:26:38.944Z"
+  },
+  "PLT-5": {
+   "choice": "modify",
+   "note": "Bob's word in chat, 3 Nov, option A (written here by the coordinator): no session starts its own successor; depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3. The watcher is started beside ROOT by whoever starts ROOT.",
+   "at": "2026-11-03T19:30:00.000Z"
+  },
+  "PLT-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:26:57.560Z"
+  },
+  "PLT-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:27:16.286Z"
+  },
+  "PLT-8": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:27:29.135Z"
+  },
+  "PLT-9": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:27:36.236Z"
+  },
+  "REC-1": {
+   "choice": "modify",
+   "note": "keep the split, but move coordination traffic to PR bodies, comments and issues, or to a separate bookkeeping repository; add the size check in REC-10.",
+   "at": "2026-10-31T01:34:42.944Z"
+  },
+  "REC-10": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:41:41.273Z"
+  },
+  "REC-11": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:42:42.720Z"
+  },
+  "REC-12": {
+   "choice": "drop",
+   "note": "",
+   "at": "2026-10-31T01:43:47.849Z"
+  },
+  "REC-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:34:49.585Z"
+  },
+  "REC-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:35:31.044Z"
+  },
+  "REC-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:35:59.799Z"
+  },
+  "REC-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:37:20.501Z"
+  },
+  "REC-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:37:33.017Z"
+  },
+  "REC-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:37:53.914Z"
+  },
+  "REC-8": {
+   "choice": "modify",
+   "note": "keep the audit, but judge reading by what a session can cite from the end of a document, and shrink documents so the question rarely arises.",
+   "at": "2026-10-31T01:39:09.293Z"
+  },
+  "REC-9": {
+   "choice": "keep",
+   "note": "Try this, but measure the experience with an open mind as to whether it's work or not.",
+   "at": "2026-10-31T01:40:57.170Z"
+  },
+  "REQ-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:47:37.317Z"
+  },
+  "REQ-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:47:49.350Z"
+  },
+  "REQ-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:48:10.988Z"
+  },
+  "REQ-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:48:23.085Z"
+  },
+  "REQ-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:48:54.278Z"
+  },
+  "REQ-6": {
+   "choice": "modify",
+   "note": "Suggest: a cap that triggers a split or consolidation by BOB before any job starts, measured on the real product; never a refusal at a job's start.",
+   "at": "2026-10-31T01:50:10.532Z"
+  },
+  "REQ-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T01:50:46.878Z"
+  },
+  "SES-1": {
+   "choice": "modify",
+   "note": "Suggest: ROOT's creation of sessions moves to a scheduled task that creates a fresh session on each firing where possible; ROOT as a session only where a message must be answered.",
+   "at": "2026-10-31T02:12:28.436Z"
+  },
+  "SES-10": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:16:25.842Z"
+  },
+  "SES-11": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:16:32.240Z"
+  },
+  "SES-12": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:16:49.107Z"
+  },
+  "SES-13": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:17:06.170Z"
+  },
+  "SES-14": {
+   "choice": "modify",
+   "note": "Suggest: a lane is a knowledge directory and design responsibility plus an on-demand worker BOB starts with that directory as its reading set; a long-lived lane only where measured worthwhile. The lifecycle of a lane includes refreshes that BOB manages to keep the session depth consistant.",
+   "at": "2026-10-31T02:18:57.727Z"
+  },
+  "SES-15": {
+   "choice": "modify",
+   "note": "Bob's word, settled 1 Nov (Foundations, open tension 4): BOB routes every request between spokes and translates only where a requester cannot use the answer as given; toward Bob it always explains each decision of his with context, options and a recommendation. Routing share measured after the first layer. Recorded by the coordinator, 3 Nov, walk-through question 36.",
+   "at": "2026-11-03T20:00:00.000Z"
+  },
+  "SES-16": {
+   "choice": "modify",
+   "note": "Suggest: I'm skeptical, but let's measure on the first tranche, comparing tokens per wake against the handoff cost already paid.",
+   "at": "2026-10-31T02:20:10.269Z"
+  },
+  "SES-17": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:20:25.784Z"
+  },
+  "SES-18": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:20:35.884Z"
+  },
+  "SES-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:12:37.100Z"
+  },
+  "SES-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:12:47.839Z"
+  },
+  "SES-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:13:09.792Z"
+  },
+  "SES-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:13:43.369Z"
+  },
+  "SES-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:13:54.395Z"
+  },
+  "SES-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:14:11.795Z"
+  },
+  "SES-8": {
+   "choice": "modify",
+   "note": "Models, effort, and permissions mode come from one table, picked by the start command; always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand.",
+   "at": "2026-10-31T02:15:50.439Z"
+  },
+  "SES-9": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:16:01.880Z"
+  },
+  "SHM-1": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:31:17.447Z"
+  },
+  "SHM-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:31:25.223Z"
+  },
+  "SHM-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:31:38.740Z"
+  },
+  "SHM-4": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:31:50.958Z"
+  },
+  "SHM-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:32:01.885Z"
+  },
+  "TXT-1": {
+   "choice": "modify",
+   "note": "Bob's word, walk-through question 7, 1 Nov (\"Yes, as recommended\"): hand-written means BOB writes and keeps the product's CLAUDE.md line by line, each line passing the per-line test, never by /init or a tool reading the repository, with no approval needed and each change listed in the tranche report; the approvals block stays Bob's own. Recorded by the coordinator, 3 Nov, walk-through question 36.",
+   "at": "2026-11-03T20:00:00.000Z"
+  },
+  "TXT-2": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:21:15.837Z"
+  },
+  "TXT-3": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:21:24.746Z"
+  },
+  "TXT-4": {
+   "choice": "modify",
+   "note": "Suggest: I'm skeptical, but let's try to apply TXT-2 to the principles too; most roles need two or three of them.",
+   "at": "2026-10-31T02:22:20.213Z"
+  },
+  "TXT-5": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:22:56.344Z"
+  },
+  "TXT-6": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:23:09.364Z"
+  },
+  "TXT-7": {
+   "choice": "keep",
+   "note": "",
+   "at": "2026-10-31T02:23:45.520Z"
+  }
+ }
+}

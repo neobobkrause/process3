@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-03T16:59:30.646Z",
+  "choice": "modify",
+  "note": "The build state is what tells BOB what to do. Process3 keeps requirements and layers at the product's own paths, so one subtree becomes the paths the product's config names."
+}

@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-31T02:15:50.439Z",
+  "choice": "modify",
+  "note": "Models, effort, and permissions mode come from one table, picked by the start command; always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand."
+}

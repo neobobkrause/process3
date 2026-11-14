@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-31T02:12:28.436Z",
+  "choice": "modify",
+  "note": "Suggest: ROOT's creation of sessions moves to a scheduled task that creates a fresh session on each firing where possible; ROOT as a session only where a message must be answered."
+}

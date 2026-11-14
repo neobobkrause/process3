@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-03T17:06:26.864Z",
+  "choice": "modify",
+  "note": "Keep the cost reason and the rule; the threshold stays in the start table (SES-4, SES-6) rather than a fixed 40%."
+}

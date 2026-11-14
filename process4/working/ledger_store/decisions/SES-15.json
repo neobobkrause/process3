@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-14T00:17:04.377Z",
+  "choice": "modify",
+  "note": "BOB routes every request between spokes and translates only where a requester cannot use the answer as given; toward Bob it always explains each decision of his with context, options and a recommendation. Routing share measured after the first layer. "
+}

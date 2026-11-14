@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-14T00:15:24.972Z",
+  "choice": "modify",
+  "note": "hand-written means BOB writes and keeps the product's CLAUDE.md line by line, each line passing the per-line test, never by /init or a tool reading the repository, with no approval needed and each change listed in the tranche report; the approvals block stays Bob's own."
+}

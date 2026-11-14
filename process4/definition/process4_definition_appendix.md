@@ -1,0 +1,318 @@
+## Appendix: where each of the 288 requirement lines went
+
+**Note added after this table was drawn up.** Three lines have since moved from "open" to "ended" (the check that new tests fail when the change is undone, the second test run on the merged result, and the check that built files match their sources), the line about when a layer closes has ended, and the five notes written as yours were confirmed by you on 14 Nov. Sections H and K above are current; the rows below for those lines are not.
+
+Codes are allowed here. The line ids, their order and the "disposition table" column are those of `process4_disposition.md`, which was written before some of the decisions of 13 and 14 Nov. "Decision n" means the owner's decisions 1 to 18 of those two days. The table used an earlier numbering, D1 to D11.
+
+**Place.** A to K are the sections of the main body. "G" is followed by the theme in section G's list. "I n", "J n" and "Kn" are the numbered items of sections I, J and K. "K-tech n" is the numbered list "Technical points Claude will decide" in section K.
+
+**Counts now.**
+
+| Status now | Lines | In the disposition table |
+| --- | --- | --- |
+| Kept (of which 23 with one clause ended or changed) | 208 | 198 kept |
+| Purpose kept; the way it is done set by a decision or not yet specified | 45 | 45 |
+| Ended (section H) | 11 | 9 |
+| For the owner's yes or no (section I) | 17 | 17 candidates |
+| Open point for the owner (section K, points 1, 2 and 4) | 7 | 19 conflicts |
+| Total | 288 | 288 |
+
+**Lines whose disposition changes because of decisions 1 to 18** (17): PLT-9, ARC-2, F-HUM-12, F-REQ-4, INT-2, INT-7, F-JOB-1, F-PLAT-3, F-PLAT-8, F-PLAT-10, P7, GAP-6, GAP-7, GAP-8, F-REL-2, TM-9, OT-1.
+
+- Decision 4 corrects the table's reading of readiness (F-JOB-1): a job does not wait for the modules it uses. The table's figures that rest on waiting (21 waves; 27 modules that can never start) do not apply.
+- Decision 9 keeps the mechanical pass that the table marked ended (F-REQ-4, and the same clause in P7).
+- Decision 12 ends review (INT-2, INT-7) and the review clauses inside F-SHAPE-2, SES-18, F-JOB-10, F-PLAT-14, F-SET-2, MNT-1, INT-3 and GAP-10. It also means the measurement in TM-9 must be taken again.
+- Decision 13, with decision 1, keeps the permission lines the table held as conflicts (PLT-9, F-PLAT-8, F-PLAT-10, GAP-6). F-MNT-1 stays a candidate (section I, item 11) and is kept unless the owner says otherwise.
+- Decision 14 settles who starts ROOT (OT-1) and the account move (GAP-8). Decision 15 settles the release approval (GAP-7, F-REL-2). Decision 5 ends the default of 24 (F-PLAT-3). Decision 11 bounds F-HUM-12.
+- Seven conflict lines stay open: ARC-2, F-PROP-3, JOB-12, GAT-4 and GAT-8 under K1; F-SET-4 under K2; F-ROLES-4 under K4.
+
+| # | Line | What it asks, in short | In the disposition table | Now | Place in this document | Flag |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | PLT-1 | One dated table of measured platform constraints, each with its evidence and workaround; nothing depends on a ... | Keep | Kept | F; G platform |  |
+| 2 | PLT-2 | Depend only on acts the committed approvals cover and that were measured to pass; archiving sessions and switching ... | Keep | Kept | F | Its note was written in by a session as the owner's word: K9 (decision 16) |
+| 3 | PLT-3 | Hard permission rules live in allow and deny lists, which run before the classifier; the classifier is never the policy. | Keep | Kept | F |  |
+| 4 | PLT-4 | No step runs longer than the in-session background limit of about thirty minutes; anything longer is a CI workflow. | Keep | Kept | G platform |  |
+| 5 | PLT-5 | No session starts its own successor; depth stays at most 3. | Keep | Kept | B | Its note was written in by a session as the owner's word: K9 (decision 16) |
+| 6 | PLT-6 | A scheduled task is never required for correctness; a wake is a convenience and the record is read at every wake ... | Keep | Kept | B |  |
+| 7 | PLT-7 | A session works on one repository, the product's; the process is a read-only clone at a pinned commit. | Keep | Kept | F |  |
+| 8 | PLT-8 | GitHub acts a session cannot take run on GitHub's runner, by workflows with the owner's tokens as secrets. | Keep | Kept | F; G platform |  |
+| 9 | PLT-9 | Every credential is gathered once and checked at every tranche open; a missing grant stops a tranche from opening, ... | Conflict | Kept | F | CHANGED: was CONFLICT. Kept by decision 13 (permission management preserved). It can stop a tranche from opening |
+| 10 | PLT-10 | A session's platform status is never read as its work state; the record is. | Keep | Kept | G record |  |
+| 11 | ENF-1 | At most a handful of command hooks, each for a zero-exception rule, each with a legitimate blocked exit; none that ... | Keep | Kept | F |  |
+| 12 | ENF-2 | No model judge sits between a session's message and the owner. | Keep | Kept | G platform |  |
+| 13 | ENF-3 | Nothing holds a turn; when the owner says stop, the session stops in that turn. | Keep | Kept | G platform; K-tech 6 |  |
+| 14 | ENF-6 | No /goal and no model judging the transcript; a job that stops early is caught by status and the sweep. | Keep | Kept | E; G platform | Its note was written in by a session as the owner's word: K9 (decision 16) |
+| 15 | ENF-7 | Every gate or hard rule offers the model a legitimate exit, "blocked", recorded and visible to ARCH. | Keep | Kept | E |  |
+| 16 | REC-1 | Keep the durable and transient split, but move coordination traffic to pull-request bodies, comments and issues, or ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 1 |  |
+| 17 | REC-2 | One writer per file. | Keep | Kept | G record |  |
+| 18 | REC-3 | One status command reads the whole state a role needs from git and prints it with sizes; a successor of any role ... | Keep | Kept | G record |  |
+| 19 | REC-4 | Record writes by the architecture session never cost a job a gate run or a completion. | Keep | Kept | D; G record |  |
+| 20 | REC-5 | A remote act is recorded as done only from the tool call's result, never from its request. | Keep | Kept | G record |  |
+| 21 | REC-6 | An address is read from git at the moment of sending, and an address change is on the branch before it is announced. | Keep | Kept | G record |  |
+| 22 | REC-7 | The record of a halted build is complete: a fresh session's status tells everything open, idle, merged, unmerged and ... | Keep | Kept | G record |  |
+| 23 | REC-8 | Keep a reading audit that judges reading by what a session can cite from the end of a document, and shrink documents ... | Candidate | For the owner's yes or no | I 10 |  |
+| 24 | REC-9 | The build ledger is a schema-constrained JSON file with one mutable field per entry, not free-form markdown. | Candidate | For the owner's yes or no | I 6 |  |
+| 25 | REC-10 | A CI check fails any commit that adds a file over a set size or under a transient path; a scheduled prune removes ... | Candidate | For the owner's yes or no | I 5 |  |
+| 26 | REC-11 | Decisions go to short decision records the moment they are made, each in its own file, never as a line in a long plan. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | B; K-tech 5 | Decision 16 governs whose decision a record is |
+| 27 | ARC-1 | Modules sit in one total order, each in one layer, lower first; uses are declared and matched by imports; a ... | Keep | Kept; one clause ended or changed | C; D; E | Clause "each in one layer" ended (decision 4) |
+| 28 | ARC-2 | Each file has one owner module; a job writes only its module's paths and tests and the strike of its own marks. | Conflict | Open point for the owner | C (purpose); K1 (the check) | CHANGED: was CONFLICT. Purpose restated by decision 3; the merge-stopping check is open point K1 |
+| 29 | ARC-3 | A test asserts on a text's key, never on its words; every user-facing sentence lives once in the word table. | Keep | Kept | G modules |  |
+| 30 | ARC-4 | Architecture, ownership, format and coverage checks run only against the job's module in its gate, layer checks when ... | Ended | Ended | H |  |
+| 31 | ARC-5 | Every check and gate finding names module, file and line in one machine-readable result that status reads; a red is ... | Keep | Kept | G job |  |
+| 32 | REQ-1 | Each module's requirements file has a public part and a private part, every statement under a permanent id. | Keep | Kept | D; G modules |  |
+| 33 | REQ-2 | A requirement states behaviour at the interface, never an implementation; an ambiguity is removed by rewriting the text. | Keep | Kept | G modules |  |
+| 34 | REQ-3 | A figure at a scale beyond the suite is a measurement with its own plan id, never a test line; a review never counts ... | Keep | Kept | G modules; K-tech 10 |  |
+| 35 | REQ-4 | A not-yet-met mark is struck only by the job that meets it, in its own commit. | Keep | Kept | C; G modules |  |
+| 36 | REQ-5 | A change to what a provided service means goes to the owner only where it changes what the product does for its ... | Keep | Kept | G purpose |  |
+| 37 | REQ-6 | A size cap on a module's requirements triggers a split or consolidation before any job starts, with the number ... | Candidate | For the owner's yes or no | I 3 |  |
+| 38 | REQ-7 | Only explicitly marked words of the owner's become decisions; a ruling lives only until the requirement it refines ... | Keep | Kept | B; G purpose | Restated by decision 16 |
+| 39 | PLN-1 | Work is structured as layers within rounds within tranches; nothing else about a product's size or shape is assumed. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | "Layers" ended (decision 4); rounds and tranches set by decisions 7 and 10 |
+| 40 | PLN-2 | A plan is written from the work that remains; an entry is deferred only for one of three named reasons. | Keep | Kept | C; G job |  |
+| 41 | PLN-3 | Work found while a round runs is placed at once: in the running job, else a later START, else the completion round. | Keep | Kept; one clause ended or changed | C | "A later layer's START" loses its layer (decision 4) |
+| 42 | PLN-4 | The completion round has its own file, distinct from the next tranche's list. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 11 |  |
+| 43 | PLN-5 | Pause and resume are first class: the owner's word is recorded once in the plan's status line; every session reads ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | B; K-tech 6; J 12 |  |
+| 44 | PLN-6 | A tranche's report states elapsed time, work finished, deferrals with reasons, work left, cost, and the share of ... | Keep | Kept | G reports |  |
+| 45 | PLN-7 | Two products may run tranches at once on one account; nothing in the process names a product. | Keep | Kept | K7 | Open point K7: eight slots per product or per account (decision 5) |
+| 46 | F-FOR-1 | The process exists to meet the standards the owner sets in two roles, product manager and software engineer. | Keep | Kept | A |  |
+| 47 | F-FOR-2 | The owner's audience attributes are carried in the canon and each module's requirements, cited by id. | Keep | Kept | G purpose |  |
+| 48 | F-FOR-3 | Lanes for design areas the owner identifies; the UX lane is always there. | Keep | Kept | G sessions |  |
+| 49 | F-FOR-4 | The owner's engineering standards are carried by the module order and layers, the checks, the gate, measurements at ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 10 | Layers and extra checks no longer carry it (decisions 4, 7) |
+| 50 | F-FOR-5 | Put correct, working product behaviour that meets its requirements onto main, quickly and cheaply, so that it ... | Keep | Kept | A |  |
+| 51 | F-FOR-6 | Nothing else is output: a rule, record, check or test has value only as far as it serves that. | Keep | Kept | A |  |
+| 52 | F-HUM-1 | The owner defines the project; ARCH does everything else and decides everything technical and detailed (P17). | Keep | Kept | A; B |  |
+| 53 | F-HUM-2 | ARCH keeps the record, manages the development environment, takes the owner's input and reports to him in plain ... | Keep | Kept; one clause ended or changed | B | The owner's input now arrives through the coordinator (decision 14) |
+| 54 | F-HUM-3 | In the middle ground both offer opinions, options and recommendations; neither is dogmatic. | Keep | Kept | G purpose |  |
+| 55 | F-HUM-4 | The owner's time is the scarcest resource; he sees rendered pages, with options and a recommendation, only for what ... | Keep | Kept | G purpose |  |
+| 56 | F-HUM-5 | An act only the owner can take is named and walked through in plain steps. | Keep | Kept | E |  |
+| 57 | F-HUM-6 | By default a job, layer or tranche merges on a green gate without the owner; a public release waits for him; he may ... | Keep | Kept; one clause ended or changed | C; K3 | "Layer" ended (decision 4); approval of a particular merge is open point K3 (decision 1) |
+| 58 | F-HUM-7 | The owner does not edit files or enter commands; the few steps the platform forces at onboarding are kept as few as ... | Keep | Kept | B | Tightened by decision 1 |
+| 59 | F-HUM-8 | When ARCH is unsure whether a question is the owner's, it decides by this section and says how it read it. | Keep | Kept | G purpose |  |
+| 60 | F-HUM-9 | When a mechanism cannot be built or a better one is measured, ARCH restates the line with its purpose unchanged and ... | Keep | Kept | G purpose |  |
+| 61 | F-HUM-10 | A tranche can run from open to close with no one watching: every stop is a named blocker, ARCH starts other work ... | Keep | Kept; one clause ended or changed | A; E | "Can run" becomes "runs" (decision 2) |
+| 62 | F-HUM-11 | Caution is a cost, paid only against a measured failure or the owner's word; a reviewer's "what if" is one line in a ... | Keep | Kept | E; G purpose |  |
+| 63 | F-HUM-12 | Every problem is an architecture bug: ARCH finds why, corrects the design by rewriting the line it belongs to, and ... | Conflict | Kept; one clause ended or changed | E | CHANGED: was CONFLICT. Kept, bounded by decision 11: the correction may only correct or remove |
+| 64 | F-HUM-13 | The default answer to a finding with nothing measured behind it is no change; a rule, check, review round or ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; I 7 | Decision 11 now carries the purpose |
+| 65 | F-HUM-14 | When in doubt, run the product and let it show what matters. | Keep | Kept | D |  |
+| 66 | F-HUM-15 | A question that is the owner's becomes his decision, and a design, before anything is built on it (P21). | Keep | Kept | G purpose |  |
+| 67 | F-HUM-16 | Questions that are the owner's are asked in one place, numbered, with a column for his word; a decided question is ... | Keep | Kept | G purpose |  |
+| 68 | F-HUM-17 | A word the owner gives in chat is written into the walk-through by ARCH. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | B; K-tech 5 | Decision 16 |
+| 69 | F-SHAPE-1 | Git and GitHub carry all state; messages only wake; each job's coordination is in its pull request. | Keep | Kept | B; G record |  |
+| 70 | F-SHAPE-2 | One architecture session per product plans from the build state and routes; job sessions each build one module as ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | B; C | Readiness, slots and names set by decisions 4, 5, 14; review by workers ended (decision 12) |
+| 71 | F-SHAPE-3 | Nothing the model says is evidence: a job's claim is a receipt, the gate is CI, the revert check proves tests real, ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | D; I 1; K1 |  |
+| 72 | F-SHAPE-4 | Rules are few, each cites a failure, and each names the tool that enforces it or is labelled a nudge. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; I 7 |  |
+| 73 | F-SHAPE-5 | The process is measured by its false-done rate and its cost per surviving pull request; these are the standing judge ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K5 |  |
+| 74 | F-SHAPE-6 | The process is re-tested one component at a time at each model release. | Keep | Kept | G maintaining |  |
+| 75 | F-PROP-0 | Each property names what holds it; one held only by text is a nudge and is marked so; the record exposes a violated ... | Keep | Kept | J; G texts |  |
+| 76 | F-PROP-2 | Done means merged; main never moves while a tranche runs. | Keep | Kept | C |  |
+| 77 | F-PROP-3 | A job's tests must fail when its change is reverted. | Conflict | Open point for the owner | K1 |  |
+| 78 | F-PROP-8 | Work is never lost or left waiting: no session ends a turn while work it can do remains, and everything is pushed ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | Decisions 2, 5, 6 |
+| 79 | F-PROP-12 | The process is pinned per tranche and changed only by a recorded act. | Keep | Kept | G maintaining; J 9 |  |
+| 80 | F-REC-1 | The process and the product are separate; the process lives in its own repository (P2). | Keep | Kept | G maintaining |  |
+| 81 | F-REC-2 | The product's build state lives at the paths the product's config names, is written only through the process, and is ... | Keep | Kept | G record |  |
+| 82 | F-REC-3 | Sessions are kept short, because cost grows with context times turns; ARCH refreshes at a threshold. | Keep | Kept | G sessions |  |
+| 83 | F-REC-4 | The handoff is a pointer set on one screen, written by the tool, never by hand. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 4 |  |
+| 84 | F-REC-5 | No branch is deleted or force-pushed; the owner's approvals and rulesets forbid both. | Keep | Kept | F |  |
+| 85 | F-REC-6 | A session acts only on what it has read in full or measured; every claim names its source; anything unread or ... | Keep | Kept | G record |  |
+| 86 | F-REQ-1 | The owner decides only the layers and modules that carry product capability; the rest is ARCH's. | Keep | Kept; one clause ended or changed | G modules | "Layers" ended (decision 4) |
+| 87 | F-REQ-2 | Each module's file states the services it provides, the services it uses by module, its invariants and the product ... | Keep | Kept | D; G modules |  |
+| 88 | F-REQ-3 | A module fits in one reading: one session can read in full its code, its requirements and those of the services it ... | Keep | Kept | G modules |  |
+| 89 | F-REQ-4 | A change needing no judgment across many modules is one mechanical pass by a worker while no job runs, with one full ... | Ended | Kept; one clause ended or changed | C; K-tech 7; J 12 | CHANGED: was ENDED. Kept by decision 9. Its "one full test run in CI" is ended by decision 7 |
+| 90 | F-REQ-5 | One rulebook per role, at most ten rules on one screen, rewritten in place and never appended; when the owner raises ... | Keep | Kept | G texts |  |
+| 91 | F-REQ-6 | Each role's starting prompt names its own text in the pinned process, so a role loads only its rules (TXT-5). | Keep | Kept | G texts |  |
+| 92 | F-REQ-7 | The principles are trimmed so each role loads only the few that govern its stage (TXT-4). | Keep | Kept | G texts |  |
+| 93 | F-REQ-8 | The product's CLAUDE.md is under thirty lines, written by ARCH line by line, and changes without the owner's ... | Keep | Kept | F; G texts |  |
+| 94 | F-REQ-9 | Every line in any instruction file is failure-backed, non-inferable from the code, or tool-enforced; lines are ... | Candidate | For the owner's yes or no | I 8 |  |
+| 95 | F-REQ-10 | Every text names its audience and speaks plainly (TXT-7). | Keep | Kept | G texts |  |
+| 96 | F-REQ-11 | Each role's reading set is fixed and printed with sizes (SES-5). | Keep | Kept | G texts |  |
+| 97 | F-REQ-12 | Nothing is ever refused for size: budgets are fractions of the model's window in one table, never bytes in code; an ... | Candidate | For the owner's yes or no | I 9 |  |
+| 98 | F-REQ-13 | A summary is an option ARCH may take, never a requirement (SES-7). | Keep | Kept | G texts |  |
+| 99 | JOB-1 | A job is a draft pull request from job/<module> to the tranche branch; its body is its START, its report is a ... | Keep | Kept | C |  |
+| 100 | JOB-2 | A START names only acts the tool supports, each as the command the job runs. | Keep | Kept | C; F |  |
+| 101 | JOB-3 | A module's earlier unmerged work is taken in by a tool command on the job's own branch. | Keep | Kept | C |  |
+| 102 | JOB-4 | A job is never restarted for a process reason; a blocking flaw holds it at its next command, the fix lands, and the ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; K-tech 3 |  |
+| 103 | JOB-5 | A job's completion runs locally only checks that take seconds; the gate is CI. It pushes, posts its report, marks ... | Keep | Kept | C |  |
+| 104 | JOB-6 | An unmerged job whose session is gone is restartable by one command that keeps its branch and pull request. | Keep | Kept | E |  |
+| 105 | JOB-7 | A job's report carries Met, Evidence as a machine-readable receipt, and what it found elsewhere; a flaw in another ... | Candidate | For the owner's yes or no | I 1 |  |
+| 106 | JOB-8 | A job never commits a generated artifact. | Keep | Kept | G job |  |
+| 107 | JOB-9 | A job ends a turn only COMPLETE or on a named wait with everything pushed. | Keep | Kept | E; G job |  |
+| 108 | JOB-10 | A job's reading set is recorded at its start and its tokens at its end, per attempt, so restarts are never counted ... | Candidate | For the owner's yes or no | I 4 |  |
+| 109 | JOB-11 | Each job runs in its own checkout; its cost per attempt is an alarm the sweep reads, not a cap. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | G job (own checkout); I 4 (cost) |  |
+| 110 | JOB-12 | A revert check in CI: with the production change reverted, the job's new tests must fail. | Conflict | Open point for the owner | K1 |  |
+| 111 | JOB-13 | Mutation sampling on critical paths, nightly, after the first tranche, payment and data paths only. | Ended | Ended | H |  |
+| 112 | JOB-14 | One module or one feature per session; after two failed corrections, a fresh session whose brief says what was ... | Keep | Kept | E |  |
+| 113 | GAT-1 | The gate runs in CI, once per pull request tip, and never in a session. | Keep | Kept | D |  |
+| 114 | GAT-2 | The gate runs the module's own suite, its layer's tests if any, and the checks scoped to the module; it never runs ... | Keep | Kept; one clause ended or changed | D | "Its layer's tests if any" ended (decisions 4, 7) |
+| 115 | GAT-3 | A change to a provided service reaches its users through the architecture session's requirement notice and each user ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | D; J 4; J 5 | Set by decisions 7(b) and 8 |
+| 116 | GAT-4 | The gate regenerates every listed artifact and verifies only those the regeneration changed. | Conflict | Open point for the owner | K1 |  |
+| 117 | GAT-5 | The gate installs every lock file the product has, where it sits, and runs the product's Node version. | Keep | Kept | G job |  |
+| 118 | GAT-6 | The gate is triggered only by changes under the module's paths, tests, check inputs and generated inputs; a green ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | D | Decision 8 |
+| 119 | GAT-7 | The full product regression runs only at a release or on the owner's word, as its own workflow with its own time budget. | Ended | Ended | H |  |
+| 120 | GAT-8 | The gate runs again on the merged result before the tool merges, and the tool merges only a green, current tip. | Conflict | Open point for the owner | K1 |  |
+| 121 | INT-1 | Done means merged: a job by its pull request into the tranche branch, a tranche by one pull request into main; main ... | Keep | Kept | C |  |
+| 122 | INT-2 | ARCH decides per merge, from listed reasons and cost, whether a fresh reviewer runs; the reviewer never saw the job ... | Conflict | Ended | H | CHANGED: was CONFLICT. Ended by decision 12 |
+| 123 | INT-3 | Review findings are diagnosis, never the merge gate; a green gate merges without the owner, who approves a ... | Keep | Kept; one clause ended or changed | C; K3 | Its review clause is moot (decision 12); approval of a particular merge is K3 |
+| 124 | INT-4 | A layer closes when every pull request is merged and the layer's checks pass; whole-product checks run before a ... | Ended | Ended | H |  |
+| 125 | INT-5 | Nothing in a merge or close depends on archiving a session; retirement of a job is a record line. | Keep | Kept | G job |  |
+| 126 | INT-7 | A review reports everything it finds in one pass, every gap with file and line, so a job never fails review ... | Conflict | Ended | H | CHANGED: was CONFLICT. Ended by decision 12 |
+| 127 | SES-1 | Roles: ROOT as a depth-0 starter; one architecture session per product; jobs; workers. ROOT's creation of sessions ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | B | Set by decision 14 |
+| 128 | SES-2 | The two-phase handover: ROOT creates the new architecture session and repoints the address; nothing in flight is ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 4 |  |
+| 129 | SES-3 | A refresh handoff is written by the tool from git, never by hand, at most one screen, a pointer set, not a narrative. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 4 |  |
+| 130 | SES-4 | The refresh threshold is read by status and printed as REFRESH; it is text, not a hook. | Keep | Kept | G platform |  |
+| 131 | SES-5 | Each role's reading set is fixed in advance and printed with sizes at its start. | Keep | Kept | G texts |  |
+| 132 | SES-6 | Budgets are fractions of the model's context window, in one table, never bytes fixed in code; an overrun is measured ... | Candidate | For the owner's yes or no | I 9 |  |
+| 133 | SES-7 | A summary is an option ARCH may take, never required by the tool. | Keep | Kept | G texts |  |
+| 134 | SES-8 | Models, effort and permission mode come from one table, picked by the start command: "always a model and effort ... | Keep | Kept | B; F; K-tech 12 | Decision 14: the first prompt may suggest model and effort |
+| 135 | SES-9 | A session's usage is read by an allowed route; where none exists it is named unmeasured, never estimated. | Keep | Kept | G reports; I 4 |  |
+| 136 | SES-10 | Workers run in the background, read exactly what their brief names, and return machine-readable receipts. | Keep | Kept | B |  |
+| 137 | SES-11 | The process measures its own overhead per tranche: commits by purpose, sessions per job, gate runs per merged job, ... | Keep | Kept | G reports |  |
+| 138 | SES-12 | Two health metrics from day one: the false-done rate, and cost per pull request that survives a revert window. | Keep | Kept | G reports; K5 |  |
+| 139 | SES-13 | A session that outlives its parent is ordinary and costs nothing idle; no step counts on a parent being alive. | Keep | Kept | G sessions |  |
+| 140 | SES-14 | A lane is a knowledge directory and design responsibility plus an on-demand worker; the UX lane is always there. | Keep | Kept | G sessions |  |
+| 141 | SES-15 | ARCH routes every request between spokes and translates only where needed; spokes never see each other; toward the ... | Keep | Kept; one clause ended or changed | B | Toward the owner, the coordinator is now the front door (decision 14). Its note was written in by a session: K9 |
+| 142 | SES-16 | A stateless architecture session, every wake a fresh session started by a scheduled task: to be measured on the ... | Keep | Kept | K-tech 4 |  |
+| 143 | SES-17 | Urgency and persistence are instilled through memory, style and goals so sessions keep working until legitimately ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | Decisions 2, 5, 6 |
+| 144 | SES-18 | In-session workers are used for three things only: noisy bulk work, a read-only reviewer, independent parallel ... | Keep | Kept; one clause ended or changed | B | "A read-only reviewer" ended (decision 12) |
+| 145 | MSG-1 | Git carries the state; a message only wakes; every message that asks for an act is preceded by the pushed record. | Keep | Kept | G record |  |
+| 146 | MSG-2 | A message from the architecture session's address, read from git, is a session's instruction; every other message is ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | B | Decisions 14 and 16 |
+| 147 | MSG-3 | Push-then-send is one tool command; messages are numbered and a duplicate is ignored. | Keep | Kept | G record |  |
+| 148 | MSG-4 | A message to the owner is one per turn, in plain words, with a link, and a numbered list only for an act of his. | Keep | Kept | E; G purpose |  |
+| 149 | MSG-5 | A flaw report from a product session reaches the process by the state branch and the reply by main of the process ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 2 |  |
+| 150 | MSG-6 | A message that cannot be delivered is recorded as undelivered and listed by status. | Keep | Kept | G record |  |
+| 151 | F-ROLES-1 | ROOT is the only creator of the architecture session; that session is the only creator of jobs and lanes; nothing ... | Keep | Kept; one clause ended or changed | B | ROOT also starts the coordinator (decision 14) |
+| 152 | F-ROLES-2 | The record, git and GitHub, is the only thing any role trusts. | Keep | Kept | G record |  |
+| 153 | F-ROLES-3 | Every role runs in Auto, and its starting prompt or START lists every act it may take. | Keep | Kept | F |  |
+| 154 | F-ROLES-4 | A full or silent ROOT is replaced by the watcher, and by the owner only if the watcher declines; the architecture ... | Conflict | Open point for the owner | K4 |  |
+| 155 | F-ROLES-5 | The two scheduled tasks are created once and never edited; neither is required for correctness; each bounds how long ... | Keep | Kept; one clause ended or changed | B; K4 | The hourly alarm is kept by decision 14; the daily standby's alarm is open point K4 |
+| 156 | F-ROLES-6 | The hourly sweep runs status, wakes the architecture session when acts are listed while it is idle or when a session ... | Keep | Kept | B; E | Kept by decision 14 ("exactly as in Process3") |
+| 157 | F-ROLES-7 | Two coordinators never both act: the address in git decides, and a replaced ROOT's old task finds another address ... | Keep | Kept | G record |  |
+| 158 | F-JOB-1 | ARCH takes its work from the record without being asked: every module of the open layer with unmet marks and no open ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C; K8 | CHANGED READING: the table read readiness as waiting for every module used; decision 4 says a job does not wait. The bound is eight slots (decision 5). "Your word reorders work" is open point K8 |
+| 159 | F-JOB-2 | A module has at most one job at a time, and the job applies every plan entry for its module. | Keep | Kept | C |  |
+| 160 | F-JOB-3 | ARCH never idles while work remains and never ends a turn waiting on the owner while anything can be done. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | Decisions 2, 5, 6 |
+| 161 | F-JOB-4 | While a tranche runs ARCH prepares the next round or tranche, so the next opens the moment this one closes. | Keep | Kept | G job |  |
+| 162 | F-JOB-5 | ARCH subscribes to the job's pull request so its completion, a red gate or a comment reaches it as an event; no role ... | Keep | Kept | C; J 6 |  |
+| 163 | F-JOB-6 | A flaw or improvement in another module goes to ARCH as a report in that module's terms; ARCH confirms it and sends ... | Keep | Kept; one clause ended or changed | C | "If its layer is open" replaced by decision 4 |
+| 164 | F-JOB-7 | A job that cannot proceed sets the blocked state and ends the turn with everything pushed; a turn ends only COMPLETE ... | Keep | Kept | E |  |
+| 165 | F-JOB-8 | A red is fixed by the job; a red the tranche already had is named, not owned. | Keep | Kept | D |  |
+| 166 | F-JOB-9 | Jobs never merge: the plain merge routes are denied to every session; a refused merge is retried a bounded number of ... | Keep | Kept | C; F |  |
+| 167 | F-JOB-10 | A module whose post-merge review finds gaps may be reopened for a second attempt (the owner's 1A). | Keep | Kept; one clause ended or changed | C; D | "Post-merge review" ended (decision 12); reopening a module stands |
+| 168 | F-GATE-1 | The tool's test command installs the module's lock files in a job session, so a job's suite never depends on the ... | Keep | Kept | G job |  |
+| 169 | F-GATE-2 | Every requirement is tested at the module's interface and proven met; none goes untested (P7). | Purpose kept, mechanism open | Purpose kept; how it is done: see place | D |  |
+| 170 | F-GATE-3 | Module and layer coverage should be more complete than the earlier processes produced; fuller fixtures run by tier: ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | D; H (clauses); K1 | Tiers "at layer close" and "nightly" ended (decisions 4, 7); release-tier tests are K1 |
+| 171 | F-GATE-4 | The gate runs as two jobs: product code with no token, so no test can read one; a failed fetch fails the check (the ... | Candidate | For the owner's yes or no | I 13 |  |
+| 172 | F-PLAT-1 | The process depends only on acts the committed approvals cover and that were measured to pass; archiving sessions ... | Keep | Kept | F |  |
+| 173 | F-PLAT-2 | The process stands only on platform behaviour that has been measured. | Keep | Kept | F; G platform |  |
+| 174 | F-PLAT-3 | The process keeps at most 24 live sessions by default and ARCH fills that room with jobs for the ready work; ARCH ... | Conflict | Ended | H; C | CHANGED: was CONFLICT. The default of 24 and ARCH's power to change it are ended by decision 5 |
+| 175 | F-PLAT-4 | The live count stays within the bound, and every new session is checked to have started. | Keep | Kept; one clause ended or changed | F; G platform | "24" follows decision 5 |
+| 176 | F-PLAT-5 | Hard rules live in deny lists in the repository's settings file. | Keep | Kept | F |  |
+| 177 | F-PLAT-6 | A session stopped by three refusals in a row is caught by status and the sweep; the tool counts each session's ... | Keep | Kept | F; G platform |  |
+| 178 | F-PLAT-7 | A session stopped by refusals is replaced by its parent (a job from its branch and pull request, the architecture ... | Keep | Kept | E; F |  |
+| 179 | F-PLAT-8 | The owner's standing approvals are the one policy at every depth, in his own words, committed by him to each ... | Conflict | Kept | F; I 11 | CHANGED: was CONFLICT. Kept by decisions 1 and 13 |
+| 180 | F-PLAT-9 | Every refusal of an approved act is recorded with the act, depth and channel and counted per tranche; the approvals ... | Keep | Kept | F; J 1 |  |
+| 181 | F-PLAT-10 | An act the judge refused is never reworded or rerouted to another session; it is recorded and raised. A model's own ... | Conflict | Kept | F | CHANGED: was CONFLICT. Kept by decision 13 |
+| 182 | F-PLAT-11 | Outward acts (sessions, tasks, merges) belong to ARCH and ROOT; STARTs name every act a job needs. | Keep | Kept | B; F |  |
+| 183 | F-PLAT-12 | Every START carries the session's authority, and who its coordinator is, through the address file in git. | Keep | Kept | F |  |
+| 184 | F-PLAT-13 | The gate runs on every pull request, and records reach a protected branch only through a pull request. | Keep | Kept | D |  |
+| 185 | F-PLAT-14 | The sweep catches lack of progress, not only silence: status reads each attempt's elapsed time and cost against its ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; I 4 | Its review-round clause ended (decision 12) |
+| 186 | F-PLAT-15 | One act per command: a judged act is never chained with another command; a nudge in every START and in the tool's ... | Keep | Kept | F |  |
+| 187 | F-PLAT-16 | At most a handful of command hooks; no model judge between a session and the owner; nothing holds a turn; no /goal. | Keep | Kept | F; G platform |  |
+| 188 | TXT-1 | The product's CLAUDE.md is under thirty lines, hand-written, naming the pinned process commit and the command that ... | Keep | Kept | F; G texts | Its note was written in by a session as the owner's word: K9 (decision 16) |
+| 189 | TXT-2 | Every line in an instruction file is failure-backed, non-inferable from the code, or tool-enforceable; failing lines ... | Candidate | For the owner's yes or no | I 8 |  |
+| 190 | TXT-3 | One rulebook per area, at most ten rules on one screen, rewritten in place, never appended; when the owner raises a ... | Keep | Kept | G texts |  |
+| 191 | TXT-4 | Apply the per-line test to the principles, so most roles load two or three; tried and measured. | Keep | Kept | G texts |  |
+| 192 | TXT-5 | Each role's starting prompt names its own rulebook in the pinned process; product rules load by path. | Keep | Kept | G texts |  |
+| 193 | TXT-6 | Every rule cites the measured failure or the owner's decision that justified it; a rule with neither is removed. | Candidate | For the owner's yes or no | I 7 |  |
+| 194 | TXT-7 | Every text names its audience and speaks plainly. | Keep | Kept | G texts |  |
+| 195 | MNT-1 | The process is a product under itself, as the thin process: its own ledger, requirements, jobs on branches with ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; K-tech 2 | "Review" ended (decision 12); who fixes the process: decision 11 |
+| 196 | MNT-3 | A tranche of the process is built with the last released version of the process. | Keep | Kept | G maintaining |  |
+| 197 | MNT-4 | A tranche runs on one pinned process version, named in the plan; every session verifies the pin once at start and ... | Keep | Kept | G maintaining; J 9 |  |
+| 198 | MNT-5 | A fix for a blocking flaw is adopted by a running tranche once, as an explicit recorded act that moves the pin; no ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; K-tech 3 |  |
+| 199 | MNT-6 | A fix for a non-blocking flaw waits for the next process release and the product's next tranche. | Keep | Kept | E |  |
+| 200 | MNT-7 | A flaw report is filed from any session by one command, listed at each status, answered by main; never fixed in place. | Keep | Kept | E; K-tech 2 |  |
+| 201 | MNT-8 | Certification is a long-term goal that indicates readiness for general use (the owner's words): a shadow of one ... | Keep | Kept | G maintaining |  |
+| 202 | MNT-9 | Flaws found in the shadow are fixed before release and the run repeats from the step that found them. | Keep | Kept | G maintaining |  |
+| 203 | MNT-10 | Each release names the platform rows and product sizes it was certified against, so a larger product is told at ... | Keep | Kept | G maintaining |  |
+| 204 | MNT-11 | On each model release, remove one component at a time and see what breaks. | Keep | Kept | G maintaining |  |
+| 205 | SHM-1 | A product receives the short CLAUDE.md, one skill, a settings file with the permission list, the gate workflow and ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 14 |  |
+| 206 | SHM-2 | Shims are regenerated on GitHub's runner with the owner's token and merged by pull request; no session attaches a ... | Keep | Kept | G maintaining |  |
+| 207 | SHM-3 | Onboarding writes the build state's skeleton, the grant list and the first plan, and measures the product against ... | Keep | Kept | G maintaining; K2 |  |
+| 208 | SHM-4 | A product mid-tranche at conversion carries it by one command ("Needed for Civicsmith now"). | Keep | Kept | G maintaining |  |
+| 209 | SHM-5 | A product's session setup is the product's own script, run by the session's first command, not by a hook. | Keep | Kept | G maintaining |  |
+| 210 | P1 | The process exists to put correct, working product behaviour that meets every defined requirement onto main; the ... | Keep | Kept | A |  |
+| 211 | P2 | Process and product are separate; the build state at the product's own paths tells ARCH what to do. | Keep | Kept | G maintaining |  |
+| 212 | P3 | Development under the process is development of the product, not of the process; a serious enough flaw pauses the ... | Keep | Kept | E |  |
+| 213 | P4 | One total order; each module in one layer; a module uses only earlier modules; declared use is checked against ... | Keep | Kept; one clause ended or changed | C; E | Layer clauses ended (decision 4) |
+| 214 | P5 | Module requirements in four parts; they may suggest, never require, an implementation; concise because read whole; ... | Keep | Kept | D |  |
+| 215 | P6 | A module fits in one reading. | Keep | Kept | G modules |  |
+| 216 | P7 | Only module jobs change module code; every requirement is tested at the interface and proven met, none untested ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | D; C | CHANGED: its mechanical-pass clause, which the table marked ended, is kept by decision 9 |
+| 217 | P8 | At most one job per module at a time; the job applies every plan entry for its module and deals with what it finds ... | Keep | Kept | C |  |
+| 218 | P9 | A flaw in another module goes to ARCH as a report in that module's terms; ARCH confirms it, sends it to that ... | Keep | Kept | C |  |
+| 219 | P10 | One layer at a time, lowest first, all the module jobs of a layer run concurrently; nothing found waits for the next ... | Ended | Ended | H |  |
+| 220 | P11 | Module tests per module, small layer tests at layer completion, and the full regression only at release or on the ... | Ended | Ended | H |  |
+| 221 | P12 | Done means merged; main never changes while a tranche runs; the close merges main into the tranche and re-runs the ... | Keep | Kept | C; K1 | "Re-runs the checks" at the tranche's close is part of K1 |
+| 222 | P13 | Sessions are kept short; state lives in the build state; ARCH refreshes at a threshold. | Keep | Kept | G sessions |  |
+| 223 | P17 | The owner defines the project; ARCH does everything else, decides every technical matter and reports it in plain ... | Keep | Kept | A; B |  |
+| 224 | P18 | While a tranche runs, ARCH prepares what the next round or tranche needs so it opens the moment this one closes. | Keep | Kept | G job |  |
+| 225 | P19 | ARCH never idles while work remains; the work never stops for the owner, and no session ends a turn waiting on him ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | Decisions 2, 5, 6 |
+| 226 | P20 | A session acts only on what it has read in full or measured; every claim names its source; a cause is named only ... | Keep | Kept | G record |  |
+| 227 | P21 | A question that is the owner's (by P17 only) becomes his decision and a design before anything is built; a lane has ... | Keep | Kept | G purpose; G sessions |  |
+| 228 | P22 | A release is cut from the open tranche, proven by the full regression, deployed and walked; what a walk finds ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | "Proven by the full regression" ended (decision 7); deploy-and-walk follows a tranche (decision 10) |
+| 229 | P23 | The repository holds only what a session must read or a merge must carry. | Keep | Kept | G record; I 5 |  |
+| 230 | GAP-1 | A tranche can run from open to close with no one watching: every stop is a named blocker in the record, ARCH starts ... | Keep | Kept; one clause ended or changed | A; E | "Can run" becomes "runs" (decision 2) |
+| 231 | GAP-2 | Each job in its own checkout; its cost per attempt is an alarm the sweep reads, not a cap. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | G job (own checkout); I 4 (cost) |  |
+| 232 | GAP-3 | A rule, check, review round, measurement run or owed task exists only against a measured failure or the owner's ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | E; I 7 | Decision 11 now carries the purpose |
+| 233 | GAP-4 | Status names each role's next acts from git alone, so a fresh architecture session given only status takes the right ... | Keep | Kept | G record |  |
+| 234 | GAP-5 | No role waits on ROOT or a scheduled task for work the record allows: a job's report or a merge wakes ARCH at once, ... | Keep | Kept | C; J 6 |  |
+| 235 | GAP-6 | The owner's standing approvals in each repository's CLAUDE.md are the one policy for every act at every depth; the ... | Conflict | Kept | F; I 11 | CHANGED: was CONFLICT. Kept by decisions 1 and 13 |
+| 236 | GAP-7 | A public release or promotion to installed sites waits for the owner's approval through the protected GitHub ... | Conflict | Kept | C | CHANGED: was CONFLICT. Kept by decisions 1 and 15 |
+| 237 | GAP-8 | On one plain request the process stops development under one Claude account and writes a tested page of steps to ... | Conflict | Kept | B; K2; J 12 | CHANGED: was CONFLICT. Kept by decision 14; the owner's Claude-side steps are open point K2 |
+| 238 | GAP-9 | The Ledger, the Foundations and the Build Plan agree: each section and row cites the Ledger lines it serves, and no ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | This appendix | The decisions of 13 and 14 Nov override conflicting lines |
+| 239 | GAP-10 | Review findings go to the job as diagnosis; review is never the merge gate; a green gate merges without the owner, ... | Keep | Kept; one clause ended or changed | C; K3 | Its review clause is moot (decision 12); approval of a particular merge is K3 |
+| 240 | GAP-11 | A platform behaviour is measured once by default, more only when the first result is ambiguous or a failure recurs. | Keep | Kept | G reports |  |
+| 241 | GAP-12 | The tranche report states ARCH's idle time while work was ready and the minutes of the owner's it took. | Keep | Kept | G reports |  |
+| 242 | F-HOW-1 | Nothing here is in force until it has run on a real tranche with the two health metrics measured. | Keep | Kept | J |  |
+| 243 | F-HOW-2 | A build plan is derived from the document and reviewed, assessed and evolved; implementation starts only when the ... | Keep | Kept | G maintaining |  |
+| 244 | F-SET-1 | Every account, setting and branch rule is listed, checked before each job starts, and set by the developer through ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | F; I 2 |  |
+| 245 | F-SET-2 | The setup list names each condition: what it is, why, its value and who sets it; it is reviewed like code. | Keep | Kept; one clause ended or changed | F | "Reviewed like code" ended (decision 12) |
+| 246 | F-SET-3 | The setup check reads every condition at onboarding and before every job start; a missing one stops the start; it ... | Candidate | For the owner's yes or no | I 2 |  |
+| 247 | F-SET-4 | One document, the developer's steps, lists only the acts the developer must take, each with why; each product gets ... | Conflict | Open point for the owner | K2 |  |
+| 248 | F-SET-5 | Sessions act on GitHub as a collaborator that can push and merge but cannot change settings; the owner acts as the ... | Keep | Kept | F |  |
+| 249 | F-SET-6 | GitHub holds: every branch refuses deletion and force-push; main and the tranche take changes only by pull request, ... | Keep | Kept | F |  |
+| 250 | F-SET-7 | A session reads the deny list only when it holds one repository and starts from a branch that carries it; every ... | Keep | Kept | F |  |
+| 251 | F-SET-8a | The process deploys so walkers can run, so a project runs unattended only if it can deploy. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | Deploying is now needed only for the optional external walk and for releases (decisions 7, 10) |
+| 252 | F-SET-8b | Deploy tokens are added to the cloud environment as environment variables; the setup check confirms each by name. | Candidate | For the owner's yes or no | I 12 |  |
+| 253 | F-SET-8c | Deploying, releasing and acting on a live site are ARCH's acts, not a job's. | Keep | Kept | B; C |  |
+| 254 | F-SET-9 | The checks hold against mistakes and outsiders' fork pull requests; a deliberate attack is held by GitHub's walls ... | Keep | Kept | G platform |  |
+| 255 | F-MNT-1 | Every session starts at the tranche's tip by commit and first verifies the pin, HEAD and the approvals block; on a ... | Candidate | For the owner's yes or no | I 11 | Decision 13 keeps it unless the owner says otherwise |
+| 256 | F-MNT-2 | Re-test at each model release and each Claude Code version change; the approval test reruns too. | Keep | Kept | G maintaining |  |
+| 257 | F-MNT-3 | Per tranche: commits by purpose, sessions per job, gate runs per merged job, restarts, tokens by role; the tranche ... | Keep | Kept | G reports |  |
+| 258 | F-MNT-4 | False-done rate: the share of COMPLETE claims refuted by the gate's re-run and revert check, from the first tranche. | Keep | Kept | G reports; K5 | Rests in part on a check that is in K1 |
+| 259 | F-MNT-5 | Cost per surviving pull request: tokens or dollars per pull request still in place after a two-week revert window. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K5; I 4 |  |
+| 260 | F-MNT-6 | Usage is read by an allowed route or named unmeasured. | Keep | Kept | G reports |  |
+| 261 | F-MNT-7 | The process is judged by two numbers; they are the standing judge of every other line. | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K5 |  |
+| 262 | F-STOP-1 | The process owns what can be proven in git and CI and nothing on a live site; rollout and operations are the ... | Keep | Kept | C; G releases |  |
+| 263 | F-STOP-2 | Release packaging is the Release workflow (installer artifact, update manifest, signing, draft releases); a ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C; K1 | Release-tier install and upgrade tests are in K1 (decision 7) |
+| 264 | F-STOP-3 | Coming back: the walk's findings after a deployment enter the next round as entries. | Keep | Kept | C |  |
+| 265 | F-REL-1 | A development release is cut and deployed by the process in each round, without the owner, to the product's own ... | Purpose kept, mechanism open | Purpose kept; how it is done: see place | C | "In each round" replaced by decision 10 |
+| 266 | F-REL-2 | A public release is a development release the walkers have passed, published only with the owner's approval; the ... | Conflict | Kept | C; K6 | CHANGED: was CONFLICT. Kept by decisions 1 and 15 |
+| 267 | F-DROP-1 | Dropped: the hook refusing partial reads (ENF-4). | Keep | Kept | G already dropped |  |
+| 268 | F-DROP-2 | Dropped: the Stop hook enforcing the refresh threshold (ENF-5). | Keep | Kept | G already dropped |  |
+| 269 | F-DROP-3 | Dropped: the mandated test-first red step (INT-6). | Keep | Kept | G already dropped |  |
+| 270 | F-DROP-4 | Dropped: the twelve-module process architecture (MNT-2). | Keep | Kept | G already dropped |  |
+| 271 | F-DROP-5 | Dropped: in force the day written, certified on a toy (MNT-12). | Keep | Kept | G already dropped |  |
+| 272 | F-DROP-6 | Dropped: the repository doorbell and mailboxes (MSG-7). | Keep | Kept | G already dropped |  |
+| 273 | F-DROP-7 | Dropped: the git-synced multi-writer tracker (REC-12). | Keep | Kept | G already dropped |  |
+| 274 | F-DROP-8 | Dropped: every rule names the principle it serves (P16). | Keep | Kept | G already dropped |  |
+| 275 | TM-1 | Decide stateless against long-lived architecture session by tokens per wake (SES-16). | Keep | Kept | K-tech 4 |  |
+| 276 | TM-2 | Decide the JSON ledger on whether sessions corrupt or bypass it (REC-9). | Candidate | For the owner's yes or no | I 6 |  |
+| 277 | TM-4 | Measure the architecture session's routing share of its context (SES-15). | Keep | Kept | G reports |  |
+| 278 | TM-5 | Decide which lanes run as long-lived sessions and which as workers (SES-14). | Keep | Kept | G reports |  |
+| 279 | TM-6 | Set the requirements cap number from reading-set sizes and job outcomes by module size (REQ-6). | Candidate | For the owner's yes or no | I 3 |  |
+| 280 | TM-7 | Decide the home for transient state on repository growth, writer conflicts and status latency (REC-1). | Purpose kept, mechanism open | Purpose kept; how it is done: see place | K-tech 1 |  |
+| 281 | TM-8 | Permission mode per role: settled 1 Nov, every role runs in Auto; denials per role are counted in the metrics (SES-8). | Keep | Kept | F |  |
+| 282 | TM-9 | Merging without a person: settled at 0 refusals in about 450 acts in the confirming round. | Keep | Kept; one clause ended or changed | J 1 | CHANGED: the settled measurement was of reviewed merges only; with decision 12 it must be taken again |
+| 283 | TM-10 | Mutation sampling on payment and data paths, decided by mutation score after the first tranche (JOB-13). | Ended | Ended | H |  |
+| 284 | TM-11 | Decide the model and effort table by tokens per merged pull request (SES-8). | Keep | Kept | G reports; K-tech 12 |  |
+| 285 | OT-1 | ROOT stays a session and, with the sweep and the watcher, creates and refreshes the architecture session; the owner ... | Conflict | Kept; one clause ended or changed | B; K4 | CHANGED: was CONFLICT. ROOT as a session the owner starts is kept by decision 14; the standby is open point K4 |
+| 286 | OT-2 | A layer closes when every pull request is merged and the layer's checks pass; whole-product checks run before a release. | Ended | Ended | H |  |
+| 287 | OT-3 | The settings file carries only hooks ENF-1 allows; the drift check fails on any other; today there are none. | Keep | Kept | F |  |
+| 288 | OT-4 | ARCH routes between spokes and does not translate every exchange; it explains toward the owner with context, in ... | Keep | Kept | B |  |

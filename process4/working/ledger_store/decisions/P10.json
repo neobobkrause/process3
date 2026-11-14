@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-03T17:05:07.747Z",
+  "choice": "modify",
+  "note": "Keep concurrency, which was lost and is why Phase 2 planned only two jobs, and keep nothing waits. Drop jobs stay active until all are complete: under Process3 a job ends at its merge (INT-1, INT-4) and a later service change reaches its users by GAT-3."
+}

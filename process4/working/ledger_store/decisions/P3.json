@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-03T17:00:40.088Z",
+  "choice": "modify",
+  "note": "Development under Process3 is development of that product, not of Process3. A serious enough flaw pauses the product, Process3 is fixed separately, and the product resumes on the fixed version. Changes during Process3's own first build are expected."
+}

@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-14T00:17:37.407Z",
+  "choice": "modify",
+  "note": "no /goal, since its check is a model reading the conversation; a stopped job is caught by status and the sweep."
+}

@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-31T01:34:42.944Z",
+  "choice": "modify",
+  "note": "keep the split, but move coordination traffic to PR bodies, comments and issues, or to a separate bookkeeping repository; add the size check in REC-10."
+}

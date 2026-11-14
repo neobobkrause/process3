@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-03T17:02:48.596Z",
+  "choice": "modify",
+  "note": "Keep no requirement goes untested, which was lost (JOB-12 only checks that tests are not inert). Keep the mechanical pass, shorter: it is the efficient route for changes that need no judgment."
+}

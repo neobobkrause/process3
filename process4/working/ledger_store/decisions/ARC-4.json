@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-31T02:05:32.708Z",
+  "choice": "modify",
+  "note": "The architecture, ownership, format and coverage checks run only against the job's module in its gate, layer checks when a layer closes, and over the whole product before a release or when I ask for one."
+}

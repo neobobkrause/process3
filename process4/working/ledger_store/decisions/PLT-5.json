@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-14T00:15:57.611Z",
+  "choice": "modify",
+  "note": "no session starts its own successor; depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3. The watcher is started beside ROOT by whoever starts ROOT."
+}

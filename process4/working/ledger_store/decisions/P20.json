@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-03T17:13:24.490Z",
+  "choice": "modify",
+  "note": "Keep the evidence rule, which the Ledger lost. Process3 already decided that no hook refuses a short read (ENF-4 dropped) and that reads are a matter of record (REC-8)."
+}

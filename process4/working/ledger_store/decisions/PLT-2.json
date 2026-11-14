@@ -1,0 +1,5 @@
+{
+  "at": "2026-11-14T00:15:41.967Z",
+  "choice": "modify",
+  "note": "depend only on acts the committed approvals cover and that were measured to pass; archiving sessions and switching off or deleting tasks are housekeeping, counted and reported, never needed for correctness."
+}
