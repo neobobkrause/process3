@@ -44,3 +44,8 @@ O10: agreed
 O11: agreed
 O12: agreed
 O13: three tests and no others
+
+
+# Fourth message, 14 Nov 2026 (verbatim, complete)
+
+screens and journeys are kept in docs/development/ux-substrate/ in the product repo
