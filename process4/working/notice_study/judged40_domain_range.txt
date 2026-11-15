@@ -1,0 +1,30 @@
+# The 40 judged-broken cases of classified241.tsv, re-sorted by Bob's line of 14 Nov 2026:
+# a change to a provider's domain or range, or neither.
+# Judged by the study session (one reader), from the AI workers' written reasons; the code was read for index 38 only.
+# index = the index column of data/classified241.tsv.
+#
+# INTERFACE  a name, operation, field or way of calling was removed, renamed or changed (25)
+# ADDED      the interface gained something and a user's test that listed or compared everything failed,
+#            or operation names were dropped from a published table (4)
+# RANGE      the provider began handing back, or stopped accepting, a kind of value it had not before (7)
+# NEITHER    domain and range unchanged; only a test of the user's failed (3)
+# COPY       the user kept a built copy of the provider's code that went stale (1)
+#
+# INTERFACE: every case with kind REM (22) and SIG (2) in judged241.txt, and index 20 (a record lost two fields)
+20 INTERFACE
+9 ADDED      an answer gained a field; the user's tests compared the whole answer
+13 ADDED     names were added; a user's test calls every name the provider offers
+218 ADDED    an operation's entry was dropped from a published table
+225 ADDED    operation names were dropped from a registry row
+11 RANGE     the provider stopped handing one piece on to a function the user supplies
+12 RANGE     an input formerly accepted is now refused, with a new refusal
+84 RANGE     a published list of allowed operations gained one
+108 RANGE    a new document version; rows may carry a new field
+119 RANGE    a published list of checks gained a row; a new refusal is possible
+138 RANGE    offices with no ids began to appear
+191 RANGE    a field that held a key now holds a member
+38 NEITHER   the test set the stage to suit the provider's inner workings (code read)
+213 NEITHER  the same, by the worker's reason
+41 NEITHER   the test wrote out one particular valid answer
+128 COPY
+# Of the 40: 36 are a change of domain or range (25 + 4 + 7). All 26 cases broken in the user's source are among the 36.

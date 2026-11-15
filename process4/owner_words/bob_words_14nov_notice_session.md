@@ -92,3 +92,11 @@ So where does this leave us with regard to the task of making a distinction betw
 How do we make the calls by name made followable?
 
 What else is needed for a load-bearing approach?
+
+## 14
+
+*Received on 15 Nov 2026 by the session's clock. The session had asked whether the tool may also refuse a module's code that disagrees with a provider's stated interface, inside that module's own module tests and on that module only, and had recommended yes.*
+
+As recommended.
+
+How do we wrap this up?
