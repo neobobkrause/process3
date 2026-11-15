@@ -84,3 +84,11 @@ I agree with your recommendation
 ## 12
 
 So where does this leave us with regard to the task of making a distinction between meaningful interface changes of a provider and all other changes? Is it your assessment that what we have is load-bearing?
+
+## 13
+
+*Received on 15 Nov 2026 by the session's clock. The session had reported that the tool pointed at 5 of the 11 broken user modules and at none that was not broken, and that the largest reason for the misses was operations called by name through a door.*
+
+How do we make the calls by name made followable?
+
+What else is needed for a load-bearing approach?
