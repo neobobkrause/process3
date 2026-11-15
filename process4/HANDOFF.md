@@ -102,3 +102,14 @@ Corrections to this handoff and to the audits, found by checking primary sources
 Withdrawn by Claude in this session, and to be removed from the sixth draft: the request that Bob make the tranche branch the default branch; the sentence "Only your word ends a tranche that will not come clean" (it was Claude's, unmarked).
 
 Still owed: everything under "Still owed by Claude" above, plus bringing the requirements found in `working/session2/later_requirements.md` into the appendix, comparing the 27-journey and 32-journey lists for him, and a written order for converting the three repositories that lists Bob's own acts.
+
+### The notification study has reported (15 Nov 2026)
+
+The separate session Bob set up on the notification sent word, at his request, that it has a result. Checked here against the files: both exist, and the table of his settled points in the result matches his messages as recorded.
+
+- `owner_words/bob_words_14nov_notice_session.md`: every message he typed to that session, verbatim. Only this file is his word. Read it in full.
+- `working/notice_study/result.md`: that session's account. Its section A lists what he settled, section B what Claude decided there, section E what is not proven, section F what it asks of the main session.
+
+What it changes here. Of the three things the fifth draft's section on the notification marks "under study", two now have his typed words: what counts as an interface change, and which event sends the notice and to whom. The third, what a told job does, was not studied and is still open. So are two groundwork questions: who is told when the product's list of modules itself changes, and what becomes of a declared use that no code backs. Nothing in the result has run as a process. That session is now running a proof on made-up modules in the trial repository, separate from the trial of the whole chain of sessions.
+
+Owed: rewrite the definition's section on the notification from his words in that file, with the study's technical decisions marked as Claude's, in the sixth draft. His rule there on how module tests are written ("The tests are supposed to confirm bounds, confirm the accuracy of results under valid conditions, and confirm the recognition of an error when out of bounds.") belongs in the definition's section on module tests.
