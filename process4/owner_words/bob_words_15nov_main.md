@@ -11,3 +11,7 @@ After much research it seems pretty clear that there is no means to reliably tel
 Okay, I'll follow your recommendation: 2
 
 I don't care if the proof session recommends. We are clear about which tests will be run. There will be no additional tests added to the process than the 3 already identified.
+
+## Third message of 15 Nov
+
+You're talking as I know everything you know and have been following every session has said in detail. I have not. If there things I need to know, please walk me through them in an organized fashion using words and providing context so that I understand what's being said.
