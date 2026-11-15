@@ -106,3 +106,9 @@ How do we wrap this up?
 *Received on 15 Nov 2026 by the session's clock. The session had asked whether it should send the main session a message naming the result files, or Bob would tell it himself.*
 
 Send the other session a message. Are you ready to run a proof session to confirm that everything works? You can use the process3-probes repo for that purpose. If you run it, pick a model and effort that's appropriate.
+
+## 16
+
+*Received on 15 Nov 2026 by the session's clock. The session had reported that the proof session, after six designs of its tool, still met holes in a fresh blind round (10 in 16 changes, by the proof session's own table), had recommended stopping it, and had asked whether to stop it and have it write up or let it continue.*
+
+Stop, write it up. It's usable, even if there's an occasional extra unnecessary notice sent out. It's 2 orders of magnitude better than the old method.
