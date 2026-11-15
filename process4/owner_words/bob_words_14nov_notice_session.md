@@ -100,3 +100,9 @@ What else is needed for a load-bearing approach?
 As recommended.
 
 How do we wrap this up?
+
+## 15
+
+*Received on 15 Nov 2026 by the session's clock. The session had asked whether it should send the main session a message naming the result files, or Bob would tell it himself.*
+
+Send the other session a message. Are you ready to run a proof session to confirm that everything works? You can use the process3-probes repo for that purpose. If you run it, pick a model and effort that's appropriate.
