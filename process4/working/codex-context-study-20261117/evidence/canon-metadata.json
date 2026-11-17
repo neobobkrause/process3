@@ -1,0 +1,183 @@
+{
+  "commit": "e7ec72e093014e59abcd736b9f8724bd57698b81",
+  "scope": "Whole-file envelope only. Excluded historical sections remain excluded; this is not canon token size.",
+  "files": [
+    {
+      "path": "docs/architecture/BIO_Complete_Roadmap_v5.md",
+      "bytes": 53168
+    },
+    {
+      "path": "docs/architecture/BIO_Design_Requirements_v2.md",
+      "bytes": 30822
+    },
+    {
+      "path": "docs/architecture/BIO_Functional_Architecture_v3.md",
+      "bytes": 30980
+    },
+    {
+      "path": "docs/architecture/BIO_System_Design.md",
+      "bytes": 55202
+    },
+    {
+      "path": "docs/development/DECISIONS.md",
+      "bytes": 1269169
+    },
+    {
+      "path": "docs/architecture/BIO_Content_Framework_v0_10.md",
+      "bytes": 268007
+    },
+    {
+      "path": "docs/architecture/BIO_Intake_Doctrine_v1_1.md",
+      "bytes": 71865
+    },
+    {
+      "path": "docs/architecture/BIO_Membership_Architecture_v2.md",
+      "bytes": 146053
+    },
+    {
+      "path": "docs/architecture/BIO_Case_Making_v0_1.md",
+      "bytes": 114671
+    },
+    {
+      "path": "BIO_Action_v0_2.md",
+      "bytes": null
+    },
+    {
+      "path": "docs/architecture/BIO_Investigation_v0_1.md",
+      "bytes": 35571
+    },
+    {
+      "path": "docs/architecture/BIO_Action_v0_2.md",
+      "bytes": 32273
+    },
+    {
+      "path": "BIO_Action_v0_1.md",
+      "bytes": null
+    },
+    {
+      "path": "docs/architecture/BIO_Declared_Bias_v0_1.md",
+      "bytes": 46294
+    },
+    {
+      "path": "docs/architecture/BIO_Interaction_Constructs_v0_1.md",
+      "bytes": 94662
+    },
+    {
+      "path": "docs/architecture/BIO_Assistant_and_AI_Roles_v0_1.md",
+      "bytes": 54521
+    },
+    {
+      "path": "docs/architecture/BIO_Publication_v0_1.md",
+      "bytes": 155737
+    },
+    {
+      "path": "docs/architecture/BIO_Distribution_v0_1.md",
+      "bytes": 35812
+    },
+    {
+      "path": "docs/architecture/BIO_State_Rules_Consistency_v1_5.md",
+      "bytes": 110159
+    },
+    {
+      "path": "docs/architecture/BIO_Technical_Architecture_Decisions_v10.md",
+      "bytes": 96566
+    },
+    {
+      "path": "docs/architecture/BIO_Bundle_Skill_Composite_Design_v1_7.md",
+      "bytes": 45123
+    },
+    {
+      "path": "docs/architecture/BIO_Capability_Ladders_v0_1.md",
+      "bytes": 307643
+    },
+    {
+      "path": "docs/development/CONTENT-EXTENT-DESIGN-SPACE.md",
+      "bytes": 39832
+    },
+    {
+      "path": "docs/development/CONTENT-SEARCH-DESIGN.md",
+      "bytes": 78482
+    },
+    {
+      "path": "docs/development/OBSERVATION-LOG-DESIGN.md",
+      "bytes": 94564
+    },
+    {
+      "path": "docs/development/EXTRACTION-BREADTH-DESIGN.md",
+      "bytes": 48630
+    },
+    {
+      "path": "docs/development/MEMBER-KNOWLEDGE-DESIGN.md",
+      "bytes": 40128
+    },
+    {
+      "path": "docs/development/CONTRADICTION-IDENTIFY-DESIGN.md",
+      "bytes": 22299
+    },
+    {
+      "path": "docs/development/INVESTIGATIVE-SESSION.md",
+      "bytes": 194019
+    },
+    {
+      "path": "docs/development/ASSISTANT-PILOT.md",
+      "bytes": 25689
+    },
+    {
+      "path": "docs/development/RETRIEVAL-SUBSTRATE.md",
+      "bytes": 27713
+    },
+    {
+      "path": "docs/development/DOCUMENT-PROFILES.md",
+      "bytes": 31929
+    },
+    {
+      "path": "docs/development/OFFICE-FORMATS.md",
+      "bytes": 31248
+    },
+    {
+      "path": "docs/development/AUTHORITY-AND-TRUST.md",
+      "bytes": 18696
+    },
+    {
+      "path": "docs/development/LINK-FIDELITY.md",
+      "bytes": 41254
+    },
+    {
+      "path": "docs/development/ARCHIVE-FALLBACK.md",
+      "bytes": 16650
+    },
+    {
+      "path": "docs/development/SOURCE-ACCESS.md",
+      "bytes": 21339
+    },
+    {
+      "path": "docs/development/CAPTURE-FIDELITY.md",
+      "bytes": 5626
+    },
+    {
+      "path": "docs/development/CLIENT-RENDERED.md",
+      "bytes": 54525
+    },
+    {
+      "path": "docs/development/INBOX-GRAMMAR.md",
+      "bytes": 12155
+    },
+    {
+      "path": "docs/development/NOTIFICATIONS.md",
+      "bytes": 44556
+    },
+    {
+      "path": "docs/development/UI-KICKOFF.md",
+      "bytes": 16997
+    },
+    {
+      "path": "docs/development/SCHEDULER.md",
+      "bytes": 15093
+    },
+    {
+      "path": "docs/development/MULTI-INSTANCE-ISOLATION.md",
+      "bytes": 10616
+    }
+  ],
+  "total_file_bytes": 3946338
+}

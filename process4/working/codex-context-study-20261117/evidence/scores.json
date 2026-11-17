@@ -1,0 +1,310 @@
+{
+  "full-read": {
+    "correct": 16,
+    "n": 16,
+    "rows": [
+      {
+        "id": "q01",
+        "expected": "NO",
+        "actual": "NO",
+        "correct": true
+      },
+      {
+        "id": "q02",
+        "expected": "YES",
+        "actual": "YES",
+        "correct": true
+      },
+      {
+        "id": "q03",
+        "expected": "30",
+        "actual": "30",
+        "correct": true
+      },
+      {
+        "id": "q04",
+        "expected": "JSON_ALLOWED",
+        "actual": "JSON",
+        "correct": true
+      },
+      {
+        "id": "q05",
+        "expected": "CSV",
+        "actual": "CSV",
+        "correct": true
+      },
+      {
+        "id": "q06",
+        "expected": "NO",
+        "actual": "NO",
+        "correct": true
+      },
+      {
+        "id": "q07",
+        "expected": "NO",
+        "actual": "NO",
+        "correct": true
+      },
+      {
+        "id": "q08",
+        "expected": "YES",
+        "actual": "YES",
+        "correct": true
+      },
+      {
+        "id": "q09",
+        "expected": "NO",
+        "actual": "NO",
+        "correct": true
+      },
+      {
+        "id": "q10",
+        "expected": "NO",
+        "actual": "NO",
+        "correct": true
+      },
+      {
+        "id": "q11",
+        "expected": "12",
+        "actual": "12",
+        "correct": true
+      },
+      {
+        "id": "q12",
+        "expected": "ORCHID-47",
+        "actual": "ORCHID-47",
+        "correct": true
+      },
+      {
+        "id": "q13",
+        "expected": "AMBER",
+        "actual": "AMBER",
+        "correct": true
+      },
+      {
+        "id": "q14",
+        "expected": "3",
+        "actual": "3",
+        "correct": true
+      },
+      {
+        "id": "q15",
+        "expected": "YES",
+        "actual": "YES",
+        "correct": true
+      },
+      {
+        "id": "q16",
+        "expected": "UNKNOWN",
+        "actual": "UNKNOWN",
+        "correct": true
+      }
+    ]
+  },
+  "lossy-only": {
+    "correct": 2,
+    "n": 16,
+    "rows": [
+      {
+        "id": "q01",
+        "expected": "NO",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q02",
+        "expected": "YES",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q03",
+        "expected": "30",
+        "actual": "90",
+        "correct": false
+      },
+      {
+        "id": "q04",
+        "expected": "JSON_ALLOWED",
+        "actual": "JSON",
+        "correct": true
+      },
+      {
+        "id": "q05",
+        "expected": "CSV",
+        "actual": "JSON",
+        "correct": false
+      },
+      {
+        "id": "q06",
+        "expected": "NO",
+        "actual": "Yes",
+        "correct": false
+      },
+      {
+        "id": "q07",
+        "expected": "NO",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q08",
+        "expected": "YES",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q09",
+        "expected": "NO",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q10",
+        "expected": "NO",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q11",
+        "expected": "12",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q12",
+        "expected": "ORCHID-47",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q13",
+        "expected": "AMBER",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q14",
+        "expected": "3",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q15",
+        "expected": "YES",
+        "actual": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "q16",
+        "expected": "UNKNOWN",
+        "actual": "UNKNOWN",
+        "correct": true
+      }
+    ]
+  },
+  "reload": {
+    "correct": 15,
+    "n": 16,
+    "rows": [
+      {
+        "id": "q01",
+        "expected": "NO",
+        "actual": "No",
+        "correct": true
+      },
+      {
+        "id": "q02",
+        "expected": "YES",
+        "actual": "Yes",
+        "correct": true
+      },
+      {
+        "id": "q03",
+        "expected": "30",
+        "actual": "30",
+        "correct": true
+      },
+      {
+        "id": "q04",
+        "expected": "JSON_ALLOWED",
+        "actual": "CSV; JSON permitted",
+        "correct": false
+      },
+      {
+        "id": "q05",
+        "expected": "CSV",
+        "actual": "CSV",
+        "correct": true
+      },
+      {
+        "id": "q06",
+        "expected": "NO",
+        "actual": "No",
+        "correct": true
+      },
+      {
+        "id": "q07",
+        "expected": "NO",
+        "actual": "No",
+        "correct": true
+      },
+      {
+        "id": "q08",
+        "expected": "YES",
+        "actual": "Yes",
+        "correct": true
+      },
+      {
+        "id": "q09",
+        "expected": "NO",
+        "actual": "No",
+        "correct": true
+      },
+      {
+        "id": "q10",
+        "expected": "NO",
+        "actual": "No",
+        "correct": true
+      },
+      {
+        "id": "q11",
+        "expected": "12",
+        "actual": "12",
+        "correct": true
+      },
+      {
+        "id": "q12",
+        "expected": "ORCHID-47",
+        "actual": "ORCHID-47",
+        "correct": true
+      },
+      {
+        "id": "q13",
+        "expected": "AMBER",
+        "actual": "AMBER",
+        "correct": true
+      },
+      {
+        "id": "q14",
+        "expected": "3",
+        "actual": "3",
+        "correct": true
+      },
+      {
+        "id": "q15",
+        "expected": "YES",
+        "actual": "Yes",
+        "correct": true
+      },
+      {
+        "id": "q16",
+        "expected": "UNKNOWN",
+        "actual": "UNKNOWN",
+        "correct": true
+      }
+    ],
+    "semantic_correct": 16,
+    "semantic_note": "q04 raw answer CSV; JSON permitted is semantically correct for the beta exception. Raw code score remains 15/16. This adjudication was made after reading results and is explicit."
+  }
+}

@@ -1,0 +1,139 @@
+[
+  {
+    "id": "q01",
+    "answer": "No",
+    "sources": [
+      "01-principles.md:P1",
+      "02-owner-amendment.md:O1"
+    ],
+    "explanation": "Personal addresses remain prohibited."
+  },
+  {
+    "id": "q02",
+    "answer": "Yes",
+    "sources": [
+      "02-owner-amendment.md:O1"
+    ],
+    "explanation": "Approved owner exception permits public civic office addresses without expiry."
+  },
+  {
+    "id": "q03",
+    "answer": "30",
+    "sources": [
+      "01-principles.md:P2",
+      "02-owner-amendment.md:O2",
+      "00-authority.md:A1-A2"
+    ],
+    "explanation": "90 days is merely proposed; lower-level claims do not amend policy."
+  },
+  {
+    "id": "q04",
+    "answer": "CSV; JSON permitted",
+    "sources": [
+      "03-area.md:R1-R2"
+    ],
+    "explanation": "CSV is the area rule; beta may use JSON through 2026-11-20 inclusive."
+  },
+  {
+    "id": "q05",
+    "answer": "CSV",
+    "sources": [
+      "03-area.md:R1-R2"
+    ],
+    "explanation": "JSON exception expires before 2026-11-21; area CSV rule controls."
+  },
+  {
+    "id": "q06",
+    "answer": "No",
+    "sources": [
+      "01-principles.md:P3",
+      "00-authority.md:A1"
+    ],
+    "explanation": "Only ARCH may merge. Worker and plan notes cannot override this."
+  },
+  {
+    "id": "q07",
+    "answer": "No",
+    "sources": [
+      "01-principles.md:P4",
+      "03-area.md:R3",
+      "04-module.md:M2"
+    ],
+    "explanation": "Published results require source identifiers; module statement cannot waive the higher rule."
+  },
+  {
+    "id": "q08",
+    "answer": "Yes",
+    "sources": [
+      "04-module.md:M1"
+    ],
+    "explanation": "Tide exports add a checksum."
+  },
+  {
+    "id": "q09",
+    "answer": "No",
+    "sources": [
+      "01-principles.md:P6",
+      "06-plan.md:N2"
+    ],
+    "explanation": "Completion requires durable receipt; receipt writing failed."
+  },
+  {
+    "id": "q10",
+    "answer": "No",
+    "sources": [
+      "07-state.json:stop"
+    ],
+    "explanation": "Current state has stop=true; changing ARCH successor does not clear it."
+  },
+  {
+    "id": "q11",
+    "answer": "12",
+    "sources": [
+      "07-state.json:generation"
+    ],
+    "explanation": "Current standing ARCH generation is explicitly 12."
+  },
+  {
+    "id": "q12",
+    "answer": "ORCHID-47",
+    "sources": [
+      "03-area.md:R4",
+      "05-history.md:H2"
+    ],
+    "explanation": "Current area rule controls over superseded LARCH-09."
+  },
+  {
+    "id": "q13",
+    "answer": "AMBER",
+    "sources": [
+      "09-long-annex.md:L1"
+    ],
+    "explanation": "Binding global addendum gives emergency label."
+  },
+  {
+    "id": "q14",
+    "answer": "3",
+    "sources": [
+      "09-long-annex.md:L2"
+    ],
+    "explanation": "Binding global retry limit; no area exception changes it."
+  },
+  {
+    "id": "q15",
+    "answer": "Yes",
+    "sources": [
+      "09-long-annex.md:L3",
+      "01-principles.md:P6"
+    ],
+    "explanation": "Emergency exports require durable receipt even offline."
+  },
+  {
+    "id": "q16",
+    "answer": "UNKNOWN",
+    "sources": [
+      "01-principles.md:P5"
+    ],
+    "explanation": "No controlling publication license number appears in restored sources; do not infer it."
+  }
+]

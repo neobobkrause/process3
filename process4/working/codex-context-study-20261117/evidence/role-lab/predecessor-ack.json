@@ -1,0 +1,10 @@
+{
+  "pending_question": "Q-17",
+  "logical_role": "DECIDER",
+  "generation": 1,
+  "source_revision": "role-lab-v1",
+  "native_instance": "/root/role_predecessor",
+  "acknowledged": true,
+  "material_question_answered": false,
+  "binding_at_receipt": null
+}

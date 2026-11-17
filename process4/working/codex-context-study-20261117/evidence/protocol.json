@@ -1,0 +1,23 @@
+{
+  "status": "Protocol reconstruction from the actual issued tasks; not a native event transcript",
+  "inference_route": "Native collaboration tools only, no CLI/API inference",
+  "main_fixture": {
+    "prewritten_key": "answer-key.json",
+    "worker_isolation": "fork_turns=none; no model/effort overrides",
+    "full_reader": "Read numbered 00 through 09 and questions whole with bounded outputs; answer all sixteen with citations; no key access",
+    "lossy_restore": "Read only misleading handoff and questions; save answers before restoring 00 through 07 and 09 whole; save second answer set",
+    "packet_reader": "Read 00 through 07 and 09 plus questions whole; write <=4000-byte authority/scope/exception/source packet. Initially compressed repetitive lines; corrected with verbatim remainder.",
+    "packet_consumer": "Fresh worker reads packet and questions only, not sources/key; answer all sixteen",
+    "grading": "Compare key normalized case; q04 JSON aliases JSON_ALLOWED. Preserve reload raw15/16 and post-hoc semantic16/16."
+  },
+  "role_fixture": {
+    "state_writer": "Parent research session only",
+    "order": [
+      "spawn predecessor: ACK Q-17 without answer; bind generation1 (initial read raced and saw unbound)",
+      "repoint local registry to generation2; spawn fresh successor with same pending question and delegated material authority",
+      "followup original retained predecessor; observe stale refusal",
+      "repoint generation3 with synthetic stop=true; spawn fresh child; observe held decision and preserved pending/history distinction"
+    ],
+    "native_scope": "Current agent tree only. No top-level replacement, physical archive, native identity authentication or forced compaction."
+  }
+}

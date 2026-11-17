@@ -1,0 +1,305 @@
+{
+  "status": "Research prototype; not adopted canon or a substitute for full reading",
+  "registry": {
+    "repo": "believeinoakland/civicsmith2",
+    "commit": "e7ec72e093014e59abcd736b9f8724bd57698b81",
+    "path": "requirements/README.md"
+  },
+  "precedence": "Only explicit approvals, amendments, replacements and scopes from the registry are represented. Classification levels do not create an inferred universal precedence rule. Original source sections remain binding.",
+  "entries": [
+    {
+      "document_cell": "`docs/architecture/BIO_Complete_Roadmap_v5.md`",
+      "scope_verbatim": "\u00a7\u00a71\u201312",
+      "description_verbatim": "the mission of record: values, operational principles, trust hierarchy",
+      "classification": "Mission and product requirements",
+      "index_line": 11
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Design_Requirements_v2.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the fifteen design requirements; the system fails if any is violated",
+      "classification": "Mission and product requirements",
+      "index_line": 12
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Functional_Architecture_v3.md`",
+      "scope_verbatim": "the functional analysis, not the v3 annotations",
+      "description_verbatim": "Information, Analysis, Action: every function a group needs, and where human judgment is required",
+      "classification": "Mission and product requirements",
+      "index_line": 13
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_System_Design.md`",
+      "scope_verbatim": "whole except \u00a73's state column",
+      "description_verbatim": "the whole system at level 0: every construct and its home document",
+      "classification": "Mission and product requirements",
+      "index_line": 14
+    },
+    {
+      "document_cell": "Bob's product rulings (DEC-n), in `docs/development/DECISIONS.md` and quoted in the home documents",
+      "scope_verbatim": "each ruling",
+      "description_verbatim": "binding doctrine; at T6 each ruling a module rests on is cited in its requirements",
+      "classification": "Mission and product requirements",
+      "index_line": 15
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Content_Framework_v0_10.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "content: extraction substrate (Part I) and the content, meaning and retrieval model (Part II)",
+      "classification": "Construct designs (level 1)",
+      "index_line": 21
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Intake_Doctrine_v1_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "how material enters the record: provenance, the intake contract, capture grades",
+      "classification": "Construct designs (level 1)",
+      "index_line": 22
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Membership_Architecture_v2.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "members, administrators, capabilities, invitations, projects, verified export",
+      "classification": "Construct designs (level 1)",
+      "index_line": 23
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Case_Making_v0_1.md`",
+      "scope_verbatim": "whole except \u00a72's action paragraphs and \u00a7THE ACTION PLAN (history since K608; `BIO_Action_v0_2.md` governs them, K2780)",
+      "description_verbatim": "the inquiry, the claim, the case",
+      "classification": "Construct designs (level 1)",
+      "index_line": 24
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Investigation_v0_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the project as an investigation (under construct 8): the objective and its condition, steps, saving steps and questions, the system's part, AI use, the first message, narrative and evidence, people, and what is new in publishing a case (K2417, K2419, K2420)",
+      "classification": "Construct designs (level 1)",
+      "index_line": 25
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Action_v0_2.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the Action layer (construct 16): standards, determinations, consequences and success records, action plans, actions, filings and communications, escalation (K2780; its design in `docs/development/actions-design/`; replaces `BIO_Action_v0_1.md`, kept as history, K608 (1))",
+      "classification": "Construct designs (level 1)",
+      "index_line": 26
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Declared_Bias_v0_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "bias as a declared, justified construct; hunch debt; masking safeguards",
+      "classification": "Construct designs (level 1)",
+      "index_line": 27
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Interaction_Constructs_v0_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "QUEUE and ACT, the rung ladder, UNDETERMINED as a display primitive",
+      "classification": "Construct designs (level 1)",
+      "index_line": 28
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Assistant_and_AI_Roles_v0_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the assistant and the AI roles",
+      "classification": "Construct designs (level 1)",
+      "index_line": 29
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Publication_v0_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "publication, audiences and communications",
+      "classification": "Construct designs (level 1)",
+      "index_line": 30
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Distribution_v0_1.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "installer, releases, fleet, multi-instance",
+      "classification": "Construct designs (level 1)",
+      "index_line": 31
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_State_Rules_Consistency_v1_5.md`",
+      "scope_verbatim": "\u00a73 onward",
+      "description_verbatim": "the record's shape and rules: ids, schemas, state machines, relationships, invariants I-1\u2026I-20",
+      "classification": "Construct designs (level 1)",
+      "index_line": 32
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Technical_Architecture_Decisions_v10.md`",
+      "scope_verbatim": "the general rules, not the mechanisms",
+      "description_verbatim": "the technology decisions that remain live",
+      "classification": "Construct designs (level 1)",
+      "index_line": 33
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Bundle_Skill_Composite_Design_v1_7.md`",
+      "scope_verbatim": "the bundle format, promotion semantics and C-series checks",
+      "description_verbatim": "the format the plane must still satisfy",
+      "classification": "Construct designs (level 1)",
+      "index_line": 34
+    },
+    {
+      "document_cell": "`docs/architecture/BIO_Capability_Ladders_v0_1.md`",
+      "scope_verbatim": "whole; a rung not yet built is a planned design, re-verified when its stage is planned (K1432)",
+      "description_verbatim": "the capability ladders of time, organisations and obligations, people, events, money, law, courts, analysis, questions and actions (\u00a79A, K2780): every need found, every rung L0\u2013L5 with its design, what must exist first, realism and performance, and the decisions it raises (all ruled, K1494; the backward question deferred by Bob, D-165); every construct to L5 (B1 (c))",
+      "classification": "Construct designs (level 1)",
+      "index_line": 35
+    },
+    {
+      "document_cell": "`docs/development/CONTENT-EXTENT-DESIGN-SPACE.md`",
+      "scope_verbatim": "\u00a76 and the doctrine it records",
+      "description_verbatim": "the content-extent primitive, as built",
+      "classification": "Construct detail (level 2)",
+      "index_line": 41
+    },
+    {
+      "document_cell": "`docs/development/CONTENT-SEARCH-DESIGN.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "searching content",
+      "classification": "Construct detail (level 2)",
+      "index_line": 42
+    },
+    {
+      "document_cell": "`docs/development/OBSERVATION-LOG-DESIGN.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the observation log",
+      "classification": "Construct detail (level 2)",
+      "index_line": 43
+    },
+    {
+      "document_cell": "`docs/development/EXTRACTION-BREADTH-DESIGN.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "what extraction produces, by document kind",
+      "classification": "Construct detail (level 2)",
+      "index_line": 44
+    },
+    {
+      "document_cell": "`docs/development/MEMBER-KNOWLEDGE-DESIGN.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "what members know, and how it enters the record",
+      "classification": "Construct detail (level 2)",
+      "index_line": 45
+    },
+    {
+      "document_cell": "`docs/development/CONTRADICTION-IDENTIFY-DESIGN.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "identifying contradictions",
+      "classification": "Construct detail (level 2)",
+      "index_line": 46
+    },
+    {
+      "document_cell": "`docs/development/INVESTIGATIVE-SESSION.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the AI run that searches evidence and suggests basis versions",
+      "classification": "Construct detail (level 2)",
+      "index_line": 47
+    },
+    {
+      "document_cell": "`docs/development/ASSISTANT-PILOT.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the assistant workflow",
+      "classification": "Construct detail (level 2)",
+      "index_line": 48
+    },
+    {
+      "document_cell": "`docs/development/RETRIEVAL-SUBSTRATE.md`",
+      "scope_verbatim": "the five settled design questions",
+      "description_verbatim": "the retrieval surface's specification",
+      "classification": "Construct detail (level 2)",
+      "index_line": 49
+    },
+    {
+      "document_cell": "`docs/development/DOCUMENT-PROFILES.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "document profiling",
+      "classification": "Construct detail (level 2)",
+      "index_line": 50
+    },
+    {
+      "document_cell": "`docs/development/OFFICE-FORMATS.md`",
+      "scope_verbatim": "the format axis as ruled",
+      "description_verbatim": "the format registry",
+      "classification": "Construct detail (level 2)",
+      "index_line": 51
+    },
+    {
+      "document_cell": "`docs/development/AUTHORITY-AND-TRUST.md`",
+      "scope_verbatim": "the RULED sections",
+      "description_verbatim": "authority and delegated trust in capture and publication",
+      "classification": "Construct detail (level 2)",
+      "index_line": 52
+    },
+    {
+      "document_cell": "`docs/development/LINK-FIDELITY.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "contemporaneity of captured links",
+      "classification": "Construct detail (level 2)",
+      "index_line": 53
+    },
+    {
+      "document_cell": "`docs/development/ARCHIVE-FALLBACK.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "what a web archive can and cannot attest",
+      "classification": "Construct detail (level 2)",
+      "index_line": 54
+    },
+    {
+      "document_cell": "`docs/development/SOURCE-ACCESS.md`",
+      "scope_verbatim": "the rulings",
+      "description_verbatim": "access parity and the allowlist",
+      "classification": "Construct detail (level 2)",
+      "index_line": 55
+    },
+    {
+      "document_cell": "`docs/development/CAPTURE-FIDELITY.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "subresource capture",
+      "classification": "Construct detail (level 2)",
+      "index_line": 56
+    },
+    {
+      "document_cell": "`docs/development/CLIENT-RENDERED.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "capturing client-rendered pages",
+      "classification": "Construct detail (level 2)",
+      "index_line": 57
+    },
+    {
+      "document_cell": "`docs/development/INBOX-GRAMMAR.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the inbox contract",
+      "classification": "Construct detail (level 2)",
+      "index_line": 58
+    },
+    {
+      "document_cell": "`docs/development/NOTIFICATIONS.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the notification catalogue, classes and item contract",
+      "classification": "Construct detail (level 2)",
+      "index_line": 59
+    },
+    {
+      "document_cell": "`docs/development/UI-KICKOFF.md`",
+      "scope_verbatim": "the principles, not the phase description",
+      "description_verbatim": "Bob's UX principles, verbatim",
+      "classification": "Construct detail (level 2)",
+      "index_line": 60
+    },
+    {
+      "document_cell": "`docs/development/SCHEDULER.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "the plane's periodic work",
+      "classification": "Construct detail (level 2)",
+      "index_line": 61
+    },
+    {
+      "document_cell": "`docs/development/MULTI-INSTANCE-ISOLATION.md`",
+      "scope_verbatim": "whole",
+      "description_verbatim": "what must not collide between instances in one account",
+      "classification": "Construct detail (level 2)",
+      "index_line": 62
+    }
+  ]
+}

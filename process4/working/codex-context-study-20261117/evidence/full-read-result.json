@@ -1,0 +1,139 @@
+[
+  {
+    "id": "q01",
+    "answer": "NO",
+    "sources": [
+      "01-principles.md:2",
+      "02-owner-amendment.md:2"
+    ],
+    "explanation": "Personal addresses remain prohibited under the approved owner amendment."
+  },
+  {
+    "id": "q02",
+    "answer": "YES",
+    "sources": [
+      "02-owner-amendment.md:2"
+    ],
+    "explanation": "The approved owner amendment explicitly permits public civic office addresses without expiry."
+  },
+  {
+    "id": "q03",
+    "answer": "30",
+    "sources": [
+      "01-principles.md:3",
+      "02-owner-amendment.md:3",
+      "00-authority.md:3"
+    ],
+    "explanation": "The 90-day amendment is proposed, not approved; the 30-day policy controls."
+  },
+  {
+    "id": "q04",
+    "answer": "JSON",
+    "sources": [
+      "03-area.md:3"
+    ],
+    "explanation": "The scoped beta exception permits JSON through 2026-11-20 inclusive."
+  },
+  {
+    "id": "q05",
+    "answer": "CSV",
+    "sources": [
+      "03-area.md:2",
+      "03-area.md:3"
+    ],
+    "explanation": "After the beta exception expires, the CSV area default applies."
+  },
+  {
+    "id": "q06",
+    "answer": "NO",
+    "sources": [
+      "01-principles.md:4"
+    ],
+    "explanation": "Only ARCH may merge; workers read and report."
+  },
+  {
+    "id": "q07",
+    "answer": "NO",
+    "sources": [
+      "01-principles.md:5",
+      "03-area.md:4"
+    ],
+    "explanation": "Every published result requires its source identifier; format exceptions do not waive it."
+  },
+  {
+    "id": "q08",
+    "answer": "YES",
+    "sources": [
+      "04-module.md:2"
+    ],
+    "explanation": "Tide adds a checksum."
+  },
+  {
+    "id": "q09",
+    "answer": "NO",
+    "sources": [
+      "01-principles.md:7",
+      "06-plan.md:3"
+    ],
+    "explanation": "Completion requires a durable receipt, and receipt writing failed."
+  },
+  {
+    "id": "q10",
+    "answer": "NO",
+    "sources": [
+      "07-state.json:6"
+    ],
+    "explanation": "The current state records stop=true; the predecessor handoff does not clear it."
+  },
+  {
+    "id": "q11",
+    "answer": "12",
+    "sources": [
+      "07-state.json:2",
+      "07-state.json:3"
+    ],
+    "explanation": "The current state identifies role ARCH and generation 12."
+  },
+  {
+    "id": "q12",
+    "answer": "ORCHID-47",
+    "sources": [
+      "03-area.md:5",
+      "05-history.md:3"
+    ],
+    "explanation": "The current area rule specifies ORCHID-47; the historical code is superseded."
+  },
+  {
+    "id": "q13",
+    "answer": "AMBER",
+    "sources": [
+      "09-long-annex.md:2"
+    ],
+    "explanation": "Binding global addendum L1 specifies AMBER."
+  },
+  {
+    "id": "q14",
+    "answer": "3",
+    "sources": [
+      "09-long-annex.md:903"
+    ],
+    "explanation": "Binding global addendum L2 sets the retry limit to 3."
+  },
+  {
+    "id": "q15",
+    "answer": "YES",
+    "sources": [
+      "09-long-annex.md:1804",
+      "01-principles.md:7"
+    ],
+    "explanation": "Binding global addendum L3 requires a durable receipt even offline."
+  },
+  {
+    "id": "q16",
+    "answer": "UNKNOWN",
+    "sources": [
+      "01-principles.md:6"
+    ],
+    "explanation": "No controlling publication license number appears in the supplied sources; unknown controlling sources must be reported UNKNOWN."
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "logical_role": "DECIDER",
+  "generation": 2,
+  "native_instance": "/root/role_successor",
+  "stop": false,
+  "source_revision": "role-lab-v1",
+  "pending_question": "Q-17",
+  "question_answered": false,
+  "decisions": [],
+  "predecessor": "/root/role_predecessor",
+  "predecessor_retired": true
+}

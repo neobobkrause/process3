@@ -1,0 +1,68 @@
+[
+  {
+    "path": "00-authority.md",
+    "bytes": 488,
+    "lines": 5,
+    "sha256": "f140d56ce5799f497d879dd16893ba00a5940c908ad6a95391af6790d8c1962b"
+  },
+  {
+    "path": "01-principles.md",
+    "bytes": 429,
+    "lines": 7,
+    "sha256": "b10c85e668802d01a500aeb3069ce7b8bd638b90b2c58b8dde2578d293f37ee5"
+  },
+  {
+    "path": "02-owner-amendment.md",
+    "bytes": 265,
+    "lines": 3,
+    "sha256": "3a299323fd305e32c5a7691f4f6bf9dda2b17b01df91c19811d19b1f093b3389"
+  },
+  {
+    "path": "03-area.md",
+    "bytes": 352,
+    "lines": 5,
+    "sha256": "f909af39990f3bd655b9c997148fd3b7f759a091368fbf34097706a347dda96a"
+  },
+  {
+    "path": "04-module.md",
+    "bytes": 293,
+    "lines": 4,
+    "sha256": "9ec5b13aec33f99c1c0448234f40631e1c0158f5aeb0f962f6a74b8281faa7ca"
+  },
+  {
+    "path": "05-history.md",
+    "bytes": 193,
+    "lines": 3,
+    "sha256": "1080be6f0f634deae9206454d81bbc43f38d9d35df1f9c6a7fdd2c6c1b15d199"
+  },
+  {
+    "path": "06-plan.md",
+    "bytes": 252,
+    "lines": 3,
+    "sha256": "65d19facc4880b6a0fb16bb0d2c66d315378d254615108ebc41ad04190a52786"
+  },
+  {
+    "path": "07-state.json",
+    "bytes": 237,
+    "lines": 13,
+    "sha256": "01cbbcb4f88867e705237bad3626db8be3370deb2b1282a05b6ad43266836fe0"
+  },
+  {
+    "path": "08-lossy-handoff.md",
+    "bytes": 152,
+    "lines": 2,
+    "sha256": "07f1f1bdf6ab82448a6275cc47cb87ff0161de809969fa3748b2db74fb8fe40d"
+  },
+  {
+    "path": "09-long-annex.md",
+    "bytes": 173124,
+    "lines": 1804,
+    "sha256": "1a3f2479ab7a5b3854fd8076dc092ae157568e568b12aef3a55714034cff62b5"
+  },
+  {
+    "path": "questions.json",
+    "bytes": 1317,
+    "lines": 66,
+    "sha256": "f70450c854932b6872f1fef6d3deecc1da55778418564ceb04d575a29a1c4a47"
+  }
+]

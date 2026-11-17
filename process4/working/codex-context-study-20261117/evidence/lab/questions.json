@@ -1,0 +1,66 @@
+[
+  {
+    "id": "q01",
+    "question": "May Tide publish a personal home address?"
+  },
+  {
+    "id": "q02",
+    "question": "May Tide publish a public civic office address?"
+  },
+  {
+    "id": "q03",
+    "question": "What is export retention in days?"
+  },
+  {
+    "id": "q04",
+    "question": "Harbor beta format on 2026-11-17?"
+  },
+  {
+    "id": "q05",
+    "question": "Harbor beta default format on 2026-11-21?"
+  },
+  {
+    "id": "q06",
+    "question": "May a worker merge Tide?"
+  },
+  {
+    "id": "q07",
+    "question": "May Tide omit source identifier?"
+  },
+  {
+    "id": "q08",
+    "question": "Does Tide require checksum?"
+  },
+  {
+    "id": "q09",
+    "question": "Operation returned success but receipt failed: complete?"
+  },
+  {
+    "id": "q10",
+    "question": "May arch-new continue despite state stop=true?"
+  },
+  {
+    "id": "q11",
+    "question": "Current standing ARCH generation?"
+  },
+  {
+    "id": "q12",
+    "question": "What is current offline beta approval code?"
+  },
+  {
+    "id": "q13",
+    "question": "Emergency export label?"
+  },
+  {
+    "id": "q14",
+    "question": "Emergency retry limit?"
+  },
+  {
+    "id": "q15",
+    "question": "Offline emergency export needs receipt?"
+  },
+  {
+    "id": "q16",
+    "question": "What is controlling missing publication license number?"
+  }
+]

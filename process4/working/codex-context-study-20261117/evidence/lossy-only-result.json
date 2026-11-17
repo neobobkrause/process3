@@ -1,0 +1,106 @@
+[
+  {
+    "id": "q01",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q02",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q03",
+    "answer": "90",
+    "sources": [
+      "08-lossy-handoff.md"
+    ],
+    "explanation": "Handoff says keep data 90 days."
+  },
+  {
+    "id": "q04",
+    "answer": "JSON",
+    "sources": [
+      "08-lossy-handoff.md"
+    ],
+    "explanation": "Handoff says exports use JSON, without distinguishing Harbor beta or date."
+  },
+  {
+    "id": "q05",
+    "answer": "JSON",
+    "sources": [
+      "08-lossy-handoff.md"
+    ],
+    "explanation": "Handoff says exports use JSON, without distinguishing Harbor beta or date."
+  },
+  {
+    "id": "q06",
+    "answer": "Yes",
+    "sources": [
+      "08-lossy-handoff.md"
+    ],
+    "explanation": "Handoff says a worker may merge."
+  },
+  {
+    "id": "q07",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q08",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q09",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q10",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q11",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "ARCH is named but no generation is supplied."
+  },
+  {
+    "id": "q12",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q13",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q14",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q15",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  },
+  {
+    "id": "q16",
+    "answer": "UNKNOWN",
+    "sources": [],
+    "explanation": "The handoff does not supply this information."
+  }
+]

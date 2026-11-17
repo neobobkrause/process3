@@ -1,0 +1,13 @@
+{
+  "logical_role": "DECIDER",
+  "generation": 3,
+  "native_instance": "/root/role_stopped_successor",
+  "stop": true,
+  "source_revision": "role-lab-v1",
+  "pending_question": "Q-17",
+  "question_answered": false,
+  "decisions": [],
+  "predecessor": "/root/role_successor",
+  "predecessor_retired": true,
+  "stop_provenance": "synthetic fixture stop, not an instruction applied to any real process"
+}

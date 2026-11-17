@@ -1,0 +1,13 @@
+{
+  "role": "ARCH",
+  "generation": 12,
+  "predecessor": "arch-old",
+  "open_task": "Tide export",
+  "stop": true,
+  "pin": "fixture-v1",
+  "unresolved": [
+    "receipt failure"
+  ],
+  "worker_role": "reader",
+  "successor": "arch-new"
+}

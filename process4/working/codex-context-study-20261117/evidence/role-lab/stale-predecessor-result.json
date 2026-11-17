@@ -1,0 +1,15 @@
+{
+  "actual_native_instance": "/root/role_predecessor",
+  "bound_native_instance": "/root/role_successor",
+  "bound_generation": 2,
+  "logical_role": "DECIDER",
+  "source_revision": "role-lab-v1",
+  "pending_question": "Q-17",
+  "stop": false,
+  "may_answer": false,
+  "status": "stale",
+  "reason": "This native instance is retired and is not the currently bound instance. Canon line 6 permits stale status only.",
+  "material_question_answered": false,
+  "state_modified": false,
+  "archive_claim": false
+}
