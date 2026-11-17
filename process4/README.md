@@ -15,3 +15,11 @@ This folder holds the work of defining Process4, the successor to Process3. Noth
 - [Context-fidelity research handoff](working/codex_context_fidelity_research_handoff.md): exact source links and independent study mandate.
 
 The Codex executable experiments remain in `neobobkrause/process3-probes`, on isolated draft branches. None of these files replaces the Claude Code implementation or puts draft Process4 in force. Read primary canon and owner words; do not treat summaries as full reading.
+
+## Context avoidance: revised owner criterion and experimental protocol (17 November 2026)
+
+- [Verbatim owner correction: prevent compaction and find sufficient useful context](owner_words/bob_words_17nov_compaction_avoidance.md) — supersedes the earlier absolute one-million-token requirement as an acceptance condition.
+- [Bounded context-capacity, full-read and refresh experiment](working/codex-context-avoidance-experiment-20261117.md) — proposed experiment, not executed or certified; separates CLI, native hosted child and documented-model evidence.
+- [GPT-6 model/Codex context discrepancy research](working/codex-gpt6-context-window-investigation-20261117.md) and [subscription pricing/override research](working/codex-subscription-context-pricing-20261117.md) — external evidence, not native Process4 model telemetry.
+
+Do not certify zero-compaction operation without an actual supported runtime signal or rigorously bounded avoidance mechanism. A production role must not silently continue authoritative work after compaction; unresolved native telemetry remains an acceptance limitation.
