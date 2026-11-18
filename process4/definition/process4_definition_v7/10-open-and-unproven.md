@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 89 lines. Last section: "6. Risks with no trial".
+Length: 90 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -15,13 +15,14 @@ Each of these is to be put to him in full, with its options, before the design c
 5. **An urgent fix while a tranche is open** (part 3, section 7).
 6. **A told job's tests** (part 2, section 7): that its own edits count among the changed parts; that tests are chosen by whole file; and that a module the tool cannot follow runs its whole tests.
 7. **The other readings:** how an architecture bug is corrected (part 1, section 6); that exercising a doubtful workflow in a walk adds no test (part 3, section 3); the lane rules he has not confirmed one by one, and that questions to a lane and its answers are not kept as a running record (part 4, section 3); that a role lasts while its sessions are refreshed often (part 4, section 5); that every stop nothing called for is reported to PROCESS during the trial (part 4, section 10); that PROCESS brings him a role's principles that cannot be kept short (part 5, section 3); the order of the ranking page (part 5, section 6); that PROCESS starts its own lanes (part 6, section 8).
-8. **Codex:** everything part 8 marks not known, from his OpenAI account; and which Codex model the process is to use, which no part states.
+8. **His approvals and forbidden commands for Process4** (part 6, section 2): the wording, which only he can write. A proposal is ready for him.
+9. **Codex:** everything part 8 marks not known, from his OpenAI account; and which Codex model the process is to use, which no part states.
 
 ## 2. Open design work
 
 For a session to do, and to report.
 
-1. The ordered list of the owner's acts to start a product, and the wording his approvals and forbidden commands need (part 6, section 2).
+1. How the owner's approval of a release reaches the session that publishes it (part 3, section 6).
 2. The written procedures for promoting, rolling back and support, for each product. The rule is in part 3, section 8; no procedure is written yet.
 3. Each product's conversion plan. It is not part of this document.
 

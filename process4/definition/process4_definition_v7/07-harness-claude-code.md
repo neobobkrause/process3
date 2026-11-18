@@ -1,6 +1,6 @@
 # Part 7. The harness table for Claude Code
 
-Length: 52 lines. Last section: "3. Not proven on Claude Code".
+Length: 70 lines. Last section: "4. The owner's acts to start a product".
 
 Everything in this part is specific to Claude Code.
 
@@ -50,3 +50,20 @@ From the first measurement of 18 Nov, on one model with a 1,000,000-token window
 - Whether approvals that reach a session after its start count the same as approvals read at the start.
 - Whether a session's browser can reach the development site.
 - How many live sessions the account bears. New starts once failed silently at about fifty.
+
+## 4. The owner's acts to start a product
+
+**Claude decided** the order. **Unproven:** none of it has been carried out for Process4. The steps in full, and why each cannot be a session's act, are in `process4/working/design_work_18nov/owner_acts_and_approvals.md`.
+
+1. Have a second GitHub account for the sessions.
+2. Give that account write access to the product's repository and the process's, and accept as that account.
+3. Set each repository's settings: merges by merge commit, no automatic merging, no automatic deleting of branches, a read-only token for GitHub's machines, no repository secrets.
+4. Make the rule for every branch: no deleting and no overwriting, with no one excepted.
+5. Connect Claude to GitHub as the second account, and install Claude's GitHub App on both repositories.
+6. Make the deploy token and enter the secret values in Claude's cloud environment.
+7. Commit his approvals and forbidden commands on the process repository's main branch, on GitHub's website.
+8. Commit the same two files on the product's main branch, and make the tranche branch from it.
+9. Start ROOT: the product's repository alone, the tranche branch, Auto mode, a plain prompt.
+10. Once the required test run has reported for the first time, make the rule for the main and tranche branches: change by pull request only, with that run passing.
+
+Not known: whether act 10 can be done before act 9.

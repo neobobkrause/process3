@@ -1,6 +1,6 @@
 # Part 6. What holds a rule, the tool, and changing the process
 
-Length: 69 lines. Last section: "8. Process4 develops itself".
+Length: 71 lines. Last section: "8. Process4 develops itself".
 
 ## 1. What holds a rule
 
@@ -15,7 +15,9 @@ Length: 69 lines. Last section: "8. Process4 develops itself".
 - The approvals and the list of forbidden commands are protected by the permission checker alone.
 - In the process's repository the approvals say that a process change is merged only on the owner's word given at PROCESS. Nothing enforced by GitHub is added for this.
 - **Claude decided** where they live: in the product's repository on the tranche branch, carried to the main branch by each tranche's merge, so that every session starts from a commit that holds them; and in the process's repository on its main branch.
-- **Open (a session, by design work, then the owner's acts):** the ordered list of the owner's acts to start a product under Process4, and the exact wording changes his approvals and forbidden commands need.
+- **Claude decided:** his two files are first committed on the main branch, and the tranche branch is made from it. A later edit is a pull request on the tranche branch that he opens and merges himself, after telling the coordinator to stop (part 4, section 7).
+- The ordered list of his acts to start a product is in each harness's part (part 7, section 4).
+- **Open (the owner):** the wording of his approvals and forbidden commands for Process4. A proposal for him to adopt or change, with each change from the present wording, is in `process4/working/design_work_18nov/owner_acts_and_approvals.md`. Until he commits his own wording, no session can run under Process4.
 
 ## 3. Forbidden commands and GitHub's rules
 
@@ -31,7 +33,7 @@ Length: 69 lines. Last section: "8. Process4 develops itself".
 
 ## 5. The tool
 
-- The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; count failed runs on a job's pull request; read and write the shared state, removing a standing note when what ends it comes true and refusing a second live session for a lane; and, inside a module's own tests, check declared uses and make the two refusals the owner approved (part 2, section 6).
+- The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; read a pull request's test results, and count failed runs on a job's pull request; read and write the shared state, removing a standing note when what ends it comes true and refusing a second live session for a lane; and, inside a module's own tests, check declared uses and make the two refusals the owner approved (part 2, section 6).
 - It refuses nothing for size, and holds none of the checks the process before this one had that could stop work.
 - The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work. **Claude decided:** the changes recorded when the notice's method was proven become tests of the tool.
 - The AI builds the tool, before anything is in force.
