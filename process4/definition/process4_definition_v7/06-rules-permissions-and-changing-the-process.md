@@ -11,7 +11,7 @@ Length: 67 lines. Last section: "8. Process4 develops itself".
 ## 2. The owner's standing approvals
 
 - They are a block of text in the owner's own words, saying what sessions may do without asking him and what they may never do. He commits it himself. No session writes, edits or relays it.
-- A session loads the approvals only when it starts. An edit therefore goes with a restart of ROOT (part 4, section 7).
+- A session loads the approvals only when it starts. **Claude decided:** an edit therefore goes with a restart of ROOT (part 4, section 7), and no session compares the approvals it loaded with the newest.
 - The approvals and the list of forbidden commands are protected by the permission checker alone.
 - In the process's repository the approvals say that a process change is merged only on the owner's word given at PROCESS. Nothing enforced by GitHub is added for this.
 - **Claude decided** where they live: in the product's repository on the tranche branch, carried to the main branch by each tranche's merge, so that every session starts from a commit that holds them; and in the process's repository on its main branch.
@@ -20,7 +20,7 @@ Length: 67 lines. Last section: "8. Process4 develops itself".
 ## 3. Forbidden commands and GitHub's rules
 
 - The list of forbidden commands takes these away from every session outright: every direct push, every GitHub command, the ordinary merge commands, overwriting a branch's history, deleting branches, and writing files through GitHub's web interface. So the tool is each session's only door to GitHub.
-- Sessions act as a second GitHub account that can push and merge but cannot change settings. No branch can be deleted or overwritten. The tranche branch takes a change only by pull request with its required test run passing.
+- Sessions act as a second GitHub account that can push and merge but cannot change settings. No branch can be deleted or overwritten. The tranche branch takes a session's change only by pull request with its required test run passing. The owner commits his approvals and forbidden commands himself.
 - GitHub's published limits are kept to: sessions stay within them with a margin and obey GitHub's own rate-limit responses.
 
 ## 4. Working rules that exist because of the permission checker
@@ -34,7 +34,7 @@ Length: 67 lines. Last section: "8. Process4 develops itself".
 - The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; count failed runs on a job's pull request; and read and write the shared state.
 - It refuses nothing for size, and holds none of the checks the process before this one had that could stop work.
 - The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work.
-- A product names one fixed version of the process in its process config. Each session fetches a read-only copy of that version.
+- A product names one fixed version of the process in its process config, and a tranche runs on that one version from open to close. Each session fetches a read-only copy of it.
 - PROCESS answers a finding against the tool that needs a deliberate attack with "no change" unless the owner says otherwise.
 - **Unproven:** the tool is not built. Whether merges made by it pass the permission checker at a real rate is unmeasured.
 

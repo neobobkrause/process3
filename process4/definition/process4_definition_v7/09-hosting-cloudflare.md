@@ -12,7 +12,7 @@ Everything in this part is specific to Cloudflare, the first hosting provider. S
 | The development site and a development deployment | The product deployed into that account, under names kept apart from any installed site, reaching no one else. It holds no secrets and keeps no permanent record. Sessions may deploy, configure, seed, reset and remove it |
 | The deploy token | A Cloudflare API token for the development account only, held among the harness's secret values |
 | The hosting account's limits | The limits of that Cloudflare account. The owner's caution: "be careful that there aren't too many external walkers to cause the Cloudflare system to exceed limits of the account" |
-| Install and update | The product's installer placing a release into an empty Cloudflare account, and its updater moving an installed release to a newer one. Both are run on a development account before a release is offered |
+| Install and update | The product's installer placing a release into an empty Cloudflare account, and its updater moving an installed release to a newer one. Both are run on a development account before a release is offered (a reading; part 3, section 6) |
 | Installed sites | Cloudflare accounts where a release runs for real users. No session holds a key to one |
 
 ## 2. Not known

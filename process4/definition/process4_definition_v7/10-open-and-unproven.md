@@ -2,7 +2,7 @@
 
 Length: 87 lines. Last section: "6. Risks with no trial".
 
-Each item is also marked where it belongs in parts 1 to 9. This part gathers them.
+Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
 ## 1. Open with the owner
 
@@ -52,7 +52,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 
 ## 4. The trial
 
-- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. It needs the owner for one sitting: session starts, one edit to his approvals, and one stop.
+- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. It needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
 
 What the trial rehearses, each once unless a number is given:
@@ -83,5 +83,5 @@ What the trial rehearses, each once unless a number is given:
 - A job's tests judge its own work. Most requirements are looked at only by the job's own tests.
 - Sessions write and count the walks' steps. A step that was loosened cannot be seen. A walk starts from a fresh copy and cannot see an update breaking a user's existing data; only the confirmed update before a release looks at that.
 - A module's tests run only on its own job. A failure caused by another module's merge can sit unseen until a walk meets it.
-- Most rules in this design are held by text alone.
+- Most rules in this design are held by text alone. Nothing physical stops a session building a product from changing the process's files, or from moving to a changed process.
 - Why GitHub once suspended the sessions' account was never learned.

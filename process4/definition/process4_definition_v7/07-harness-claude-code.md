@@ -1,6 +1,6 @@
 # Part 7. The harness table for Claude Code
 
-Length: 41 lines. Last section: "3. Not proven on Claude Code".
+Length: 43 lines. Last section: "3. Not proven on Claude Code".
 
 Everything in this part is specific to Claude Code.
 
@@ -19,6 +19,8 @@ Everything in this part is specific to Claude Code.
 | Instruction files loaded at start | `CLAUDE.md` and `settings.json`. The product's `CLAUDE.md` stays under thirty lines |
 | Worker | A helper the session starts inside itself. A worker cannot start workers (seen once) |
 | Fill level | The session can read how full its context is |
+| Compaction | A full context is shrunk automatically, which loses what was read |
+| The time a session can run one thing | About thirty minutes for one command, as recorded in the process before this one |
 | Archiving | A session can be archived and unarchived |
 | A notification to the owner | A push notification to his phone |
 | The owner's standing page; a lane's design pages | Pages on claude.ai |

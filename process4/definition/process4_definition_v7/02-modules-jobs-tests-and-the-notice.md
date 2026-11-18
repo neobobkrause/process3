@@ -6,7 +6,7 @@ Length: 100 lines. Last section: "9. Changes that are not a job's".
 
 - The product is one ordered list of modules. A module may use only modules before it. A use of a later module is a design error, corrected by reshaping the code without changing what it does.
 - Every code file has exactly one owner module. ARCH edits the module list until this is so.
-- **Claude decided:** every file in the product's repository belongs to exactly one of these: a module; a lane's folder; or the process's own named files (the standing approvals, the forbidden commands, the process config, the module list, the product's decision record and its ranking page). A file that fits none is given to a module by ARCH before any job touches it.
+- **Claude decided:** every file in the product's repository belongs to exactly one of these: a module; a lane's folder; or the process's own named files (the standing approvals, the forbidden commands, the process config, the module list, the product's two decision records and its ranking page). A file that fits none is given to a module by ARCH before any job touches it.
 - A module that holds requirements and no code is a list error. **Claude decided:** ARCH decides which module's code meets each such requirement, and the move is made as a mechanical edit.
 
 ## 2. Requirements
@@ -69,7 +69,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **Who is told.** Only the users of the entry that changed. The tool sends the notice and decides to whom.
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
-- **Open (a session, by design work):** how a told job picks the tests that relate to a changed entry, and which tests then run on its pull request. Two answers are possible: the job names them and only those run, or the whole module's tests run as for any job.
+- **Open (a session, by design work):** how a told job picks the tests that relate to a changed entry, and whether the required run on its pull request can be held to those tests. If it cannot, the whole module's tests run there as for any job, which the ruling above does not allow for.
 - **Open (ARCH):** who is told when the module list itself changes; and what becomes of a module that declares a use no code of it makes.
 
 **Claude decided,** for the tool that finds the change:
@@ -95,6 +95,6 @@ Which language reader the tool uses is a fact of the product and is named in its
 ## 9. Changes that are not a job's
 
 - **The mechanical edit.** A worker in ARCH's session makes it as one change covering every affected module, and it is merged once. **Claude decided** the moment: when no job is open, between a round's last merge and its internal walk. A module where the change needs judgment gets its own job. **Unproven:** which test run GitHub requires on that one change.
-- **A lane's folder.** A change that touches only files in a lane's own folder merges without a test run. Design documents do not need testing.
+- **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing.
 - **Requirement text, the module list, and the process's named files.** **Claude decided:** these change no code and no tests, so their pull requests merge through the tool with no module tests run. The required test run reports on every pull request, and passes at once when no module's code or tests changed.
 - **The owner's approvals and forbidden commands** are committed by the owner alone (part 6).

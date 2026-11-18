@@ -1,6 +1,6 @@
 # Part 8. The harness table for Codex
 
-Length: 44 lines. Last section: "3. What the owner fills".
+Length: 46 lines. Last section: "3. What the owner fills".
 
 Everything in this part is specific to Codex. Where the Codex side is not known or not built, this part says so plainly and leaves it for the owner's work on his OpenAI account. "Not known" means no record shows it; it does not mean Codex cannot do it.
 
@@ -20,6 +20,8 @@ Everything in this part is specific to Codex. Where the Codex side is not known 
 | Instruction files loaded at start | `AGENTS.md`, one for each folder from the repository's root to the working folder, sharing one budget of 32 KiB by default; bytes past it are cut off; an edit is not picked up by a running session | Documented. The hosted limit was not measured |
 | Worker | A child started with a fresh history | Measured |
 | Fill level | None in a hosted session. No sign of a compaction either | Measured as absent |
+| Compaction | Automatic at 90 percent of the window. A hosted session gives no sign of one | Documented |
+| The time a session can run one thing | Not known | |
 | Planned replacement | A fresh child with a record of its role. Replacing a top-level chat was not tried | Measured for a child |
 | Archiving | Not available to a hosted session | Measured as absent |
 | A notification to the owner | Not known | |

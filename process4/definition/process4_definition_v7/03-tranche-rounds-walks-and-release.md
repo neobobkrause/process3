@@ -24,7 +24,7 @@ Length: 72 lines. Last section: "8. Support beyond the process".
 - **Claude decided** what an area is. For the internal walk, a screen or a named group of screens in the Screens document. For the external walk, a journey. ARCH works out a round's areas from the modules the round changed and the notices it sent.
 - **A flaw is one of three things:** the workflow as built does not match the Screens document; a journey cannot be completed; a journey completes with a wrong result. Anything else a walker notes goes to ARCH as an observation and does not hold the tranche.
 - Where ARCH judges the document wrong and the product right, the UX lane corrects the document.
-- Where it is in doubt how a change will affect the product, and inspecting or testing the code cannot settle it, the walks exercise the running workflow concerned; if it does what is expected, there is no problem. **Reading:** this adds no test; it is part of what ARCH names for a round's walks.
+- Where it is in doubt how a change will affect the product, and inspecting or testing the code cannot settle it, the walks exercise the running workflow concerned; if it does what is expected, there is no problem. **Reading:** this adds no test; it is part of what ARCH names for a round's walks. It is not stated as a habit in any role's principles.
 - **A full external walk is opt-in.** By default it is not made. If the owner asks the coordinator for one before a round's partial walks come clean, it is made, and the tranche ends only if it is clean. A full walk is without flaws when it lists no flaw and leaves out no step that the walk before it made.
 - There is no walk outside a tranche. The only walk made on the owner's word is the opt-in full external walk. There are no triage lanes.
 
