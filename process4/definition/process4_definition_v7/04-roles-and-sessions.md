@@ -1,6 +1,6 @@
 # Part 4. Roles and sessions
 
-Length: 140 lines. Last section: "10. When something goes wrong".
+Length: 158 lines. Last section: "11. Smaller rules a session needs".
 
 ## 1. The roles, and the sessions that hold no standing role
 
@@ -138,3 +138,21 @@ The owner's rulings:
 - **The process itself has a fault.** No session building a product fixes it or works round it (part 6, section 6).
 - **The process is completely blocked.** The owner gets one plain message with a numbered list of what is his to do.
 - **A stop on the owner's word.** He tells the coordinator, which writes the stop record and tells ARCH, which interrupts each job. **Claude decided:** it is lifted the same way: he tells the coordinator, which clears the record and tells ARCH, which wakes or replaces each job from its pull request. A stop takes effect in the turn in which a session receives it. ROOT reads the stop record at every wake, so that the hourly wake does not undo it.
+
+## 11. Smaller rules a session needs
+
+**Claude decided** all of these. Each answers something a starting text needed and the design did not say.
+
+- **Starting texts** are kept in the process's repository beside the tool, one for each role, at the product's fixed version. PROCESS writes and changes them, as a process change. The tool fills in a job's and a walking session's. This design is kept there too, and a session reads it from its read-only copy.
+- **Who directs whom.** The session that started a session directs it. The owner directs every session he speaks to. The coordinator's message carrying the owner's marked words is an instruction to ARCH.
+- **ROOT's start.** The owner's plain prompt tells ROOT to fetch the process's copy and read ROOT's starting text. ROOT then reads the roles record. If it names sessions, this is a restart, and ROOT archives them first (section 7). ROOT makes its own scheduled wake; the watcher makes its own.
+- **A stopped session** is first woken by a message from ROOT. If it has not answered by ROOT's next wake, ROOT replaces it, or asks ARCH to where ARCH started it.
+- **Pull requests that are not a job's.** The role that writes one opens it and merges it by the tool: ARCH for requirement text, the module list and its decision record; the coordinator for the owner's decision record; PROCESS in the process's repository, on the owner's word. Each recorded decision is one pull request.
+- **For a job,** ARCH's session makes the branch and opens the pull request, so the job's kind and the uses its notice carries are not written by the job. A job may run its module's tests on its own machine while it works; nothing requires it and nothing reads the result.
+- **A job or walking session that reaches the fill level** pushes, tells ARCH in one message, and stops. ARCH replaces it from the same branch. A walking session starts no workers.
+- **A natural pause** is a moment between two pieces of work, with nothing half done and everything saved.
+- **What ARCH learns from the coordinator** (a held or approved merge, a module put first, a new slot number, a request for a full external walk) comes by the standing notes and a message.
+- **The one message when the process is completely blocked** is sent by the coordinator, or by ROOT where the coordinator is what has stopped.
+- **The tool is first built** by a session on the owner's word, before anything is in force. After that only PROCESS changes it.
+- **"At most ten rules"** counts every rule in a starting text, the lines that say what the session never does among them.
+

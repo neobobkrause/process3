@@ -30,7 +30,7 @@ For a session to do, and to report.
 **What a session needs before it can build the tool, and this document does not yet say.** Each is design work, to be written as its own text beside this one and not into it:
 
 4. The tool itself. Written: build text `01-the-tool-and-the-required-run.md`. Not built. Unproven there: a session that holds one repository fetching the tool's copy; and it assumes the process's repository is public.
-5. Each role's starting text: the words, where they are kept, and who writes them.
+5. Each role's starting text. Drafted: eight texts in the build folder `starting_texts/`, each under 4,096 bytes. None has been put before the permission checker, and each is to be counted again against "at most ten rules" as part 4, section 11 now counts them.
 6. The form of a structured comment and of an interface listing.
 7. The form of the module list, a requirements file and the process config.
 8. The required test run. Written in the same build text. Not built.
