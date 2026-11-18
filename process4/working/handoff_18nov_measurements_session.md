@@ -1,6 +1,6 @@
 # Handoff from the measurements session of 18 Nov 2026
 
-Length: 41 lines. Last section: "Practical notes".
+Length: 42 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. Read `handoff_18nov_review_session.md` whole first, then `design_state_18nov.md` whole, then this. Where this file and the earlier handoff differ, this one is later.
 
@@ -13,7 +13,7 @@ It took over from the review session, read both files above in full (63 and 142 
 - `reading_measurements/RESULTS.md`: the results, 137 lines. Section 5 has the figures for the two blanks.
 - `reading_measurements/README.md`: the scripts, how a run is made, what was learned about running them, what is not done.
 - `reading_measurements/keys/`, `results/`: the question sets and every run's record.
-- Branch: `claude/process4-design-handoff-7w8nh8`. This session could push only to that branch. It starts from `process4` at `d3ae807` and adds five commits. `process4` itself is unchanged. Bob has not said whether to bring the work over.
+- Branch: `claude/process4-design-handoff-7w8nh8`. This session could push only to that branch. It starts from `process4` at `d3ae807` and adds seven commits. `process4` itself is unchanged. Bob has not said whether to bring the work over.
 
 ## Open with Bob
 
