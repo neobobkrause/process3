@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 105 lines. Last section: "6. Risks with no trial".
+Length: 107 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -34,9 +34,11 @@ For a session to do, and to report.
 5. Each role's starting text. Drafted: eight texts in the build folder `starting_texts/`, each under 4,096 bytes. None has been put before the permission checker, and each is to be counted again against "at most ten rules" as part 4, section 11 now counts them.
 6. The form of a structured comment and of an interface listing. Written: build text `02-the-forms.md`. The forms used when the notice's method was proven are in a repository this work could not open, and win where they differ.
 7. The form of the module list, a requirements file and the process config. Written in the same build text.
-8. The required test run. Written in the same build text. Not built.
-10. Left unsettled by the forms text: helpers under one module's tests that another module imports, which the interface listing does not cover; one written form for messages between two separately running parts of a product; how the tool says that it cannot follow a module; and how the owner's record of decisions is split when it outgrows the maximum.
+8. The required test run. Written in build text `01-the-tool-and-the-required-run.md`. Not built.
 9. The walks. Written: build text `03-the-walks.md`. Nothing in it has run.
+10. Left unsettled by the forms text: helpers under one module's tests that another module imports, which the interface listing does not cover; one written form for messages between two separately running parts of a product; how the tool says that it cannot follow a module; and how the owner's record of decisions is split when it outgrows the maximum.
+11. The steps of an account switch, and what is read to show that it lost no work.
+12. The forms of the shared state's records, and what the tool means by "cannot follow" and "reaches". Being written as a fifth build text.
 
 ## 3. Unproven
 
@@ -64,7 +66,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 
 ## 4. The trial
 
-- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. **Claude decided** that it needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions. The account switch, item 15, adds his acts in a second account.
+- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. What it asks of the owner, stage by stage, is in the build text `04-the-trial.md`, section 4: session starts, two edits to his approvals, one stop, three short marked instructions, one typed approval of a trial release, and for the account switch his acts in a second account.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
 
 The order in which these are built and tried, the most doubtful first, and what each stage asks of the owner, is the build text `04-the-trial.md`.

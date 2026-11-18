@@ -21,7 +21,7 @@ Length: 72 lines. Last section: "8. Process4 develops itself".
 
 ## 3. Forbidden commands and GitHub's rules
 
-- The list of forbidden commands takes these away from every session outright: every direct push, every GitHub command, the ordinary merge commands, overwriting a branch's history, deleting branches, and writing files through GitHub's web interface. So the tool is each session's only door to GitHub.
+- The list of forbidden commands takes these away from every session outright: every direct push, every GitHub command, the ordinary merge commands, overwriting a branch's history, deleting branches, and writing files through GitHub's web interface. So the tool is each session's only door to GitHub. **Claude decided** the one exception: a session's first command fetches its read-only copy of the process, the tool with it, and that fetch is not made by the tool.
 - Sessions act as a second GitHub account that can push and merge but cannot change settings. No branch can be deleted or overwritten. The tranche branch takes a session's change only by pull request with its required test run passing. The owner commits his approvals and forbidden commands himself.
 - GitHub's published limits are kept to: sessions stay within them with a margin and obey GitHub's own rate-limit responses.
 

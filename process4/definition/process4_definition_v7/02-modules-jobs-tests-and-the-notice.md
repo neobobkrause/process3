@@ -1,6 +1,6 @@
 # Part 2. Modules, jobs, module tests, and the notice
 
-Length: 108 lines. Last section: "9. Changes that are not a job's".
+Length: 109 lines. Last section: "9. Changes that are not a job's".
 
 ## 1. Modules and their order
 
@@ -44,7 +44,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 
 ## 5. Slots
 
-- Eight by default, counted across the account. The owner can change the number by a marked instruction.
+- Eight by default, counted across the account. The owner can change the number by a marked instruction. **Claude decided** the count: a product's slots in use are its open jobs that are not recorded blocked, and its live walking sessions.
 - The standing roles and workers use no slot. **Claude decided:** lane sessions use none either, and walking sessions use the slots, since a walk is made when no job is open.
 - **Claude decided:** when two products run at once, each product's process config names its share of the slots, and the shares add up to the account's number. The default is an equal split. The owner changes a share by a marked instruction. A product does not borrow another's unused share, because no record is shared between two products. **Unproven:** two products have never run at once.
 
@@ -73,6 +73,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
 - **Which tests relate. Claude decided:** the tool picks them, not the job. The notice carries the places in the told module's files that name the changed entry. The related tests are the module's test files that hold such a place, or reach code that holds one, or reach code the told job itself changed, together with any test file the job changed. They are chosen by whole test file.
+- **Claude decided:** a job is a told job only when notices are its module's only work. A module with other work as well has an ordinary job, which reads the notice's uses and whose whole module's tests run.
 - **The run on GitHub. Claude decided:** there is one required run with one name. The tool, at the tranche branch's version, sets its scope: nothing, the related tests, or the whole module. It works the list out itself, so the job supplies nothing. An ordinary job runs the whole module; a told job runs the related tests.
 - A told job that finds nothing to change records that in its pull request and closes it unmerged. No test runs, because nothing changed.
 - **Reading:** three points here bear on what the owner's rule means, and are his to confirm (part 10): that a told job's own edits count among "the changed parts"; that tests are chosen by whole file; and that where the tool cannot follow a told module's code, that module's whole tests run, since the tool cannot say which relate.

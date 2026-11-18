@@ -131,7 +131,7 @@ The owner's rulings:
 
 ## 10. When something goes wrong
 
-- **A job fails its tests.** The job fixes its module and the tests run again. **Claude decided:** the tool counts the failed runs on a job's pull request from GitHub's own record. After two failed corrections it tells ARCH, which replaces the session with a fresh one. The fresh session first works out why the corrections were made, so as to foresee the others. If the replacement also fails twice, the module is recorded as blocked with the reason, its slot is freed, and the matter goes to ARCH as a design question.
+- **A job fails its tests.** The job fixes its module and the tests run again. **Claude decided:** the tool counts the failed runs on a job's pull request from GitHub's own record. After two failed corrections (the third failed run on the pull request) it tells ARCH, which replaces the session with a fresh one. The fresh session first works out why the corrections were made, so as to foresee the others. If the replacement also fails twice (the fifth failed run), the module is recorded as blocked with the reason, its slot is freed, and the matter goes to ARCH as a design question.
 - **A loop that would not end. Claude decided** each end. A walk flaw that two modules' jobs have each handed back as needing no change there is not placed a third time; ARCH decides it as a design question. A job blocked twice by the same other module is the same: the boundary between the two is an architecture bug (part 2, section 8). A design that ARCH has sent back to a lane twice comes to the owner as a question, with both views. A chain of notices ends of itself, because a module is used only by modules after it. A tranche's rounds end on the owner's word (part 3, section 5), and takeovers by the watcher at the limit on depth (section 6). In each case other work goes on.
 - **A session dies or stops.** ROOT's hourly wake finds it, and it is woken or replaced as section 5 says.
 - **A stop nothing called for** is a process fault. Some need no change to Process4, for example a stop caused by a compaction; then the stopped session is woken or replaced. Each such case may be studied and reported to PROCESS. **Reading:** while Process4 is on trial every such stop is reported to PROCESS; the simpler handling applies once it is beyond trial.
@@ -143,7 +143,7 @@ The owner's rulings:
 
 **Claude decided** all of these. Each answers something a starting text needed and the design did not say.
 
-- **Starting texts** are kept in the process's repository beside the tool, one for each role, at the product's fixed version. PROCESS writes and changes them, as a process change. The tool fills in a job's and a walking session's. This design is kept there too, and a session reads it from its read-only copy.
+- **Starting texts** are kept in the process's repository beside the tool, one for each role, at the product's fixed version. PROCESS writes and changes them, as a process change. The tool fills in a job's and a walking session's. This design is kept there too, in a folder of its own beside the build texts, and a session reads it from its read-only copy.
 - **Who directs whom.** The session that started a session directs it. The owner directs every session he speaks to. The coordinator's message carrying the owner's marked words is an instruction to ARCH.
 - **ROOT's start.** The owner's plain prompt tells ROOT to fetch the process's copy and read ROOT's starting text. ROOT then reads the roles record. If it names sessions, this is a restart, and ROOT archives them first (section 7). ROOT makes its own scheduled wake; the watcher makes its own.
 - **A stopped session** is first woken by a message from ROOT. If it has not answered by ROOT's next wake, ROOT replaces it, or asks ARCH to where ARCH started it.
@@ -153,6 +153,6 @@ The owner's rulings:
 - **A natural pause** is a moment between two pieces of work, with nothing half done and everything saved.
 - **What ARCH learns from the coordinator** (a held or approved merge, a module put first, a new slot number, a request for a full external walk) comes by the standing notes and a message.
 - **The one message when the process is completely blocked** is sent by the coordinator, or by ROOT where the coordinator is what has stopped.
-- **The tool is first built** by a session on the owner's word, before anything is in force. After that only PROCESS changes it.
+- **The tool is first built** by a session on the owner's word, before anything is in force. That session holds the process's repository alone. Until the tool can merge, there is no door for it, so the owner merges each of its pull requests himself. After the first build only PROCESS changes the tool.
 - **"At most ten rules"** counts every rule in a starting text, the lines that say what the session never does among them. The size limit applies to the text as filled in for a session. What is filled in is names and addresses only. A list (the work placed, the uses a notice carries, a walk's areas) stays in the pull request or the round record, which the text names.
 
