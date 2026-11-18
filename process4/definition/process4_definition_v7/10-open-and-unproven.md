@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 91 lines. Last section: "6. Risks with no trial".
+Length: 90 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -23,9 +23,8 @@ For a session to do, and to report.
 1. How a told job picks the tests that relate to a changed entry, and which tests run on its pull request (part 2, section 7).
 2. What on GitHub carries the shared state (part 4, section 4).
 3. The ordered list of the owner's acts to start a product, and the wording his approvals and forbidden commands need (part 6, section 2).
-4. What groups a product's sessions on Claude Code (part 7).
-5. The written procedures for promoting, rolling back and support, for each product. The rule is in part 3, section 8; no procedure is written yet.
-6. Each product's conversion plan. It is not part of this document.
+4. The written procedures for promoting, rolling back and support, for each product. The rule is in part 3, section 8; no procedure is written yet.
+5. Each product's conversion plan. It is not part of this document.
 
 ## 3. Unproven
 

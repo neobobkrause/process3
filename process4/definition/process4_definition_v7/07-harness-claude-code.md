@@ -25,8 +25,8 @@ Everything in this part is specific to Claude Code.
 | A notification to the owner | A push notification to his phone |
 | The owner's standing page; a lane's design pages | Pages on claude.ai |
 | The owner speaking to a role | He opens that role's session and types |
-| Grouping sessions under a product | **Open (a session):** what carries it on Claude Code is not named anywhere read |
-| The owner seeing each open job | **Open (a session):** not named anywhere read. He can open any session; whether that meets the rule is not shown |
+| Grouping sessions under a product | **Claude decided:** a tag naming the product, set on each session when it is started. Sessions can be listed by tag. Workers are not sessions and so carry none. Read in the session tools' own descriptions; not measured |
+| The owner seeing each open job | **Claude decided:** each job's session is titled with its module's name, and the list of sessions shows each one's title and whether it is working, waiting or finished. Read in the session tools' own descriptions; whether the list he sees meets the rule is not measured |
 | Starting instructions | The prompt a session is started with |
 | Model and effort passed on | The starter names both when it starts a session. Read in the starting tool's own description; not measured |
 | Planned replacement | The parent starts a fresh session and archives the old one |
