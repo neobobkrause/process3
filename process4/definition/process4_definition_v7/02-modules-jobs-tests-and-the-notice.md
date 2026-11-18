@@ -12,7 +12,7 @@ Length: 108 lines. Last section: "9. Changes that are not a job's".
 ## 2. Requirements
 
 - Each module has one requirements file. Each requirement has a permanent number and is marked met or not yet met.
-- ARCH writes and rewords the requirement text, and touches no code and no tests, other than by the mechanical edit (section 9). The module's job marks a requirement met in its own pull request.
+- ARCH writes and rewords the requirement text, and touches no code and no tests, other than by the mechanical edit (section 9). The module's job marks a requirement met in its own pull request. **Claude decided:** ARCH writes "not yet met" on a new requirement, and puts it back on a met one when a rewording changes what the product does.
 - A rewording that changes what the product does comes to the owner first. One that only says the same thing more clearly is made, and told to him in the account after the round.
 - A requirements file is kept under the single-text maximum (part 5) as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge for size.
 
