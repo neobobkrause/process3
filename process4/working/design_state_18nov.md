@@ -1,6 +1,6 @@
 # Process4 design state, 18 Nov 2026
 
-Length: 117 lines. Last section: "13. Owed, not yet done".
+Length: 127 lines. Last section: "14. Owed, not yet done".
 
 Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
 
@@ -106,12 +106,22 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - Two kinds of refusal are kept apart. An act the permission checker refused is never retried elsewhere. An act a session declined only because its instructions did not name it may be given to a new session whose instructions do.
 - Development work continues as long as there is work that can still be done productively, efficiently and safely.
 
-## 13. Owed, not yet done
+## 13. Taken from Bob's own statements of 14 to 17 Nov
+
+- Process4 steps around the situations where a known weakness of AI sessions does harm, and does not rely on repairing the harm afterwards. For each such weakness the design names the sign that it is near and what the session then does.
+- Process4 develops itself. PROCESS may have lanes of its own for standing subjects, as needed. A hard open question gets a session of its own with a written brief and a bounded task, and ends with a written result once the result is usable. Reading: PROCESS starts its own lanes.
+- Workers are the standing way a long-lived role keeps heavy reading out of its own context: a narrow brief, a short answer in a set shape, and the worker ends when its work is done. A brief may hand the worker a decision to make, which it reports with its grounds.
+- No session assures Bob that something will work. Each claim put to him says what is proven and what is not, names its source, and calls anything unread or unmeasured unknown.
+- What sessions say to each other, and the process's running records, never build up as files or commits in a repository. Claude decided: the shared state is a small fixed set of records, each rewritten in place, and messages are not stored as files.
+- Bob can see each open job's progress and status without speaking to it. A product's ROOT, ARCH, coordinator, lanes and jobs are grouped under that product; workers are left out. A finished session is archived, not deleted. Claude decided: the session that started a session archives it.
+- The maximums and the fill level are chosen by one yardstick: after a session has read what it must, there is room for a worthwhile piece of correct work and a handover before the fill level.
+
+## 14. Owed, not yet done
 
 - The values of the maximums, to fill the design's named blanks: first what limits Process3's own rules set, and if those do not settle it, credible tests that measure the thresholds.
 - The level of support Process4 gives for promoting a release to installed sites, for rollback and for support.
 - A design for how a notified job picks the tests that relate to a changed entry.
 - The design of the watcher's takeover.
 - A worked proposal on branches and where Bob's approvals live, with each act asked of him.
-- Technical matters Claude settles and reports: when a round's jobs are done; who can read the deploy token; who decides an interface between two modules; files that no module owns; which copy a job's tests run against; what the shared state holds; loops with no end; who closes a finished session; what an edit to Bob's approvals does to a running round; why the sessions' account was suspended on 6 Nov (how Process3 kept to GitHub's limits is answered in the working Foundations: it used 80 to 90% of the published limits and obeyed GitHub's rate-limit responses); the notification's two smaller open parts.
+- Technical matters Claude settles and reports: when a round's jobs are done; who can read the deploy token; who decides an interface between two modules; files that no module owns; which copy a job's tests run against; what the shared state holds; loops with no end; what an edit to Bob's approvals does to a running round; why the sessions' account was suspended on 6 Nov (how Process3 kept to GitHub's limits is answered in the working Foundations: it used 80 to 90% of the published limits and obeyed GitHub's rate-limit responses); the notification's two smaller open parts.
 - For the Civicsmith conversion plan: which journey list counts.
