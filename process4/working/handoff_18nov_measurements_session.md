@@ -1,6 +1,6 @@
 # Handoff from the measurements session of 18 Nov 2026
 
-Length: 42 lines. Last section: "Practical notes".
+Length: 50 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. Read `handoff_18nov_review_session.md` whole first, then `design_state_18nov.md` whole, then this. Where this file and the earlier handoff differ, this one is later.
 
@@ -28,14 +28,22 @@ It took over from the review session, read both files above in full (63 and 142 
 - A set of files of at most 24,000 bytes each was read whole up to 400 KB in 27 files (15 of 15). At 700 KB in 45 files two readers of five searched instead of reading.
 - Every reader that skipped still answered every question right. Only the count of lines received shows a skip.
 
+## After the measurements, in the same session
+
+- Bob judged the first measurement too weak to rely on. A starting prompt for a second measurement, in the `process3-probes` repository, is `reading_measurements/RERUN_PROMPT.md`. It has not been started.
+- On his word "let's use these current values for now", the four values are in the design state, section 3, as provisional. That they are the four meant is a reading he has not confirmed.
+- He asked whether the design is ready to build the process from. The answer, **no, not yet**, is `readiness_18nov/DETERMINATION.md` (94 lines), with six workers' findings beside it. Its section 4 lists what only he can settle. None of it has been put to him in full yet.
+- His message that asked for this ended at the word "But". What followed is not known.
+
 ## Next, in order
 
-1. When Bob answers, fill the design's four blanks in `design_state_18nov.md`.
-2. Then the steps listed under "After the measurements" in the earlier handoff, starting with the design document.
+1. Put each matter in `readiness_18nov/DETERMINATION.md` section 4 to Bob in full: a title, the question, an explanation, options each with what it gives and costs, and a recommendation with reasons.
+2. Design work on the twelve open items in its section 3.
+3. Then the design document, and the steps listed under "After the measurements" in the earlier handoff.
 
 ## Practical notes
 
-- This session ended at about half of its 1,000,000-token window. Starting each reader costs the starting session about 1,000 tokens; 148 workers were started.
+- This session ended at about 55 percent of its 1,000,000-token window, past the provisional 40 percent. Starting each reader costs the starting session about 1,000 tokens; 148 workers were started.
 - A worker's record is under `~/.claude/projects/` on the session's own machine and is gone when the machine is. What matters from each is in `results/`.
 - A worker cannot start workers.
 - One check of the environment's settings was refused by the permission checker and was not retried.
