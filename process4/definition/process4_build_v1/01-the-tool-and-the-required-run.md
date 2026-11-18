@@ -1,8 +1,8 @@
-Length: 134 lines. Last section: "9. Not settled here".
+Length: 139 lines. Last section: "9. Not settled here".
 
 # Process4 build specification, part 1: the tool and the required test run
 
-Written by Claude (a design worker) on 18 Nov 2026. **Status: proposed. Nothing here is built and nothing here has run.** It answers items 4 and 8 of part 10, section 2 of the design (`process4/definition/process4_definition_v7/`, all eleven parts read in full, 868 lines). It adds no rule to the design. "The earlier tool" is the one in this repository at `tool/`, with `shims/process-gate.yml`.
+Written by Claude (a design worker) on 18 Nov 2026. **Status: proposed. Nothing here is built and nothing here has run.** It answers items 4 and 8 of part 10, section 2 of the design (`process4/definition/process4_definition_v7/`, all eleven parts read in full, 868 lines). It adds no rule to the design. Reconciled the same day with part 4, section 11 and build texts 2 and 3. "The earlier tool" is the one in this repository at `tool/`, with `shims/process-gate.yml`.
 
 Marks: **Decided here:** a choice of this text, with what it gives and costs; the owner or PROCESS can overrule any. **Unproven:** never shown to work. **Record:** stated in a named file of this repository; not seen to run by me.
 
@@ -20,17 +20,17 @@ Marks: **Decided here:** a choice of this text, with what it gives and costs; th
 
 **Dropped** (each could stop work, or built up records): the ledger and its checks; the receipt; the check that a job changed only its own files; the check that new tests fail with the change reverted; the "zero tests ran" finding; the record check (size, paths, approvals); `--reviewed` / `--no-review` on merge; merge bringing the branch up to date, writing a row and waiting for a second run; the run's comment on the pull request and the artifact that vouched for it; metrics; `status`; the state branch; the submodule entry.
 
-**New:** the shared state on one issue; choosing the next job; finished and round-done; counting failed runs; the interface listing and the notice; the three scopes; the checks inside module tests; release.
+**New:** the shared state on one issue; choosing the next job; finished and round-done; counting failed runs; the interface listing and the notice; the three scopes; the checks inside module tests; release; the walk issue.
 
 ## 2. Where the tool lives, its language, and how a session gets it
 
-- **Where.** In the process's repository, folder `tool/`, entry file `tool/p4.mjs`, libraries in `tool/lib/`, tests in `tool/test/`. The workflow a product copies is `shims/module-tests.yml`.
+- **Where.** In the process's repository, folder `tool/`, entry file `tool/p4.mjs`, libraries in `tool/lib/`, tests in `tool/test/`. The workflow a product copies is `shims/module-tests.yml`. The starting texts are beside it in `starting_texts/`, one for each role (part 4, section 11); the tool fills in a job's and a walking session's.
 - **Decided here:** the language is plain JavaScript modules on Node 22 or newer, no build step. Gives: the carried-over code is reused; the reader that proved the notice is TypeScript's, a Node program; Node is on GitHub's machines and in the sessions. Costs: a product in another language still needs Node on the machine.
 - **Decided here:** the tool has one dependency, the `typescript` package at one exact version (5.6.3 was the version studied), named in `tool/package.json` with a lock file and installed with `npm ci` when the copy is fetched. Gives: both listings of a comparison use one reader version. Costs: the fetch needs the public package registry. Commands that do not read code must work without it.
-- **How a product names its version. Decided here:** the process config holds two lines: the process repository's address and one full 40-character commit id of its main branch. No submodule entry and no branch name. Gives: one place names the version, and it reads the same on GitHub's machines and in a session. Costs: any pull request can change the line; the design already says nothing physical stops that (part 6, section 7).
-- **How a session fetches it. Decided here:** each session's first command, written in its starting instructions, is one line: `git clone` of the process repository into `$HOME/process4/<commit id>`, checkout of that commit, `npm ci` in `tool/`, then `chmod -R a-w` on the copy. Every later command is `node $HOME/process4/<commit id>/tool/p4.mjs ...`. Gives: the copy is outside the product's working tree, so no job commits or edits it. Costs: the fetch is the one GitHub act not made through the tool, and it is a judged act.
+- **How a product names its version. Decided here:** the process config names the process repository's address and one full 40-character commit id of its main branch, beside the version's name (build text 2, section 7). No submodule entry and no branch name. Gives: one place names the version, and it reads the same on GitHub's machines and in a session. Costs: any pull request can change the line; the design already says nothing physical stops that (part 6, section 7).
+- **How a session fetches it. Decided here:** each session's first command, written in its starting instructions (for ROOT, in the owner's plain prompt), is one line, the fetch line: `git clone` of the process repository into `$HOME/process4/<commit id>`, checkout of that commit, `npm ci` in `tool/`, then `chmod -R a-w` on the copy. Every later command is `node $HOME/process4/<commit id>/tool/p4.mjs ...`. Gives: the copy is outside the product's working tree, so no job commits or edits it. Costs: the fetch is the one GitHub act not made through the tool, and it is a judged act.
 - **Record:** in the earlier process every session held one repository and fetched the process as its first command, `git submodule update --init .process`, from the public process repository, with the deny list loaded (`process4/evidence/permissions_inventory.md`, probe row 17). **Unproven:** that a plain clone to a folder outside the repository works the same from a one-repository session and leaves the deny list loaded; that it works if the process repository is private; all of it on Codex. The reserve is the earlier route, a submodule entry.
-- **What the tool reads from the product:** the process config (process repository, commit id, tranche branch name, Node version, lock files to install, language reader, slot number) and the module list (each module's id, order, code folders, test folders, test command, requirements file). Their forms are not fixed here.
+- **What the tool reads from the product:** the process config (process repository, commit id, tranche branch, Node version, lock files, test command, language reader, slots and the product's share, the walk commands, the most external walkers) and the module list (each module's name, by which it is identified, its order, code paths, test paths and declared uses). Their forms are in build text 2 (`02-the-forms.md`), sections 3, 4 and 7.
 
 ## 3. Signing in, and what the permission checker sees
 
@@ -47,35 +47,40 @@ Marks: **Decided here:** a choice of this text, with what it gives and costs; th
 | `open`, `ready`, `close` | Opening a draft pull request; marking it ready; closing it unmerged |
 | `merge` | Merging a pull request into the tranche branch (or the tranche's into main) after the required run passed, with no person's review |
 | `release prepare`; `release publish` | Making an unpublished release; publishing it, with the owner's approval typed in that session |
-| `notify`, `state write`, `next-job` | Rewriting a comment on an issue or pull request |
-| `listing`, `finished`, `round-done`, `results`, `failed-runs`, `state read`, `check` | Reading only |
+| `notify`, `state write`, `next-job`, `walk write` | Rewriting a comment on an issue or pull request |
+| `walk open`, `walk close` | Opening an issue in the product's repository; closing it |
+| `listing`, `finished`, `round-done`, `results`, `failed-runs`, `state read`, `check`, `run scope`, `walk areas`, `walk text`, `walk read` | Reading only |
 
 **Unproven:** every row. No approvals wording for Process4 is committed, and no act of this tool has been judged. Trial item 2 measures `merge`.
 
 ## 4. The commands
 
-One for each act in part 6, section 5, and none beyond. Common to all: arguments are checked for form only; a command prints plain lines and ends with `ok` or one line `p4 <command>: <what failed>, in GitHub's own words where GitHub refused`; exit code 0 or 1. No command refuses for size, and none adds a check, gate, review or stop. A refusal by GitHub is printed and never retried by another route. The tool cannot message a session: where the design says "the tool tells ARCH", the tool prints the line and the session sends it.
+One for each act in part 6, section 5. The four walk commands, 19 to 22, are asked by build text 3 and are not in that list (section 9). Common to all: arguments are checked for form only; a command prints plain lines and ends with `ok` or one line `p4 <command>: <what failed>, in GitHub's own words where GitHub refused`; exit code 0 or 1. No command refuses for size, and none adds a check, gate, review or stop. A refusal by GitHub is printed and never retried by another route. The tool cannot message a session: where the design says "the tool tells ARCH", the tool prints the line and the session sends it.
 
 1. **`branch <name>`**. Makes branch `<name>` from the newest commit of the tranche branch, with one empty commit so that a pull request can open, and pushes it. Prints the branch and commit id. If the branch exists, says so and ends `ok`. **Decided here:** job branches are `job/<module>`, other work `work/<what>`. Gives: the run reads the module from the name. Costs: nothing known.
-2. **`push [--blocked "<why>"]`**. Pushes the current branch's commits to the same-named branch, never the tranche or main branch, never forced. Prints the commit id pushed. With `--blocked`, also writes the reason into the job block of its pull request (see `open`). On GitHub's refusal prints it and exits 1.
-3. **`open --module <id>`** or **`open --title "<t>"`**. Opens a draft pull request from the current branch into the tranche branch (`--into-main` for the tranche's own). For a job it writes the job block: a hidden mark `<!-- process4-job -->` and one JSON block holding the module, the kind (`ordinary` or `told`), and for a told job the uses, taken from the waiting-work record. Prints the number and address. If one is open already, prints it. **Decided here:** ARCH's session runs `branch` and `open` for a job before starting its session, as the earlier `job start` did. Gives: the kind and the uses are written by ARCH's tool run, not by the job the run judges. Costs: two more acts of ARCH for each job.
+2. **`push [--blocked <module> "<why>"]`**. Pushes the current branch's commits to the same-named branch, never the tranche or main branch, never forced. Prints the commit id pushed. With `--blocked`, also writes the blocking module and the reason into the job block of its pull request (see `open`); when that module merges the job is ready again. On GitHub's refusal prints it and exits 1.
+3. **`open --module <name>`** or **`open --title "<t>"`**. Opens a draft pull request from the current branch into the tranche branch (`--into-main` for the tranche's own). For a job it writes the job block: one comment on the pull request, a hidden mark `<!-- process4-job -->` and one JSON block holding the module, the kind (`ordinary` or `told`), and for a told job the uses, taken from the waiting-work record (fields: build text 2, section 8). Only the tool writes and reads it. Prints the number and address. If one is open already, prints it. ARCH's session runs `branch` and `open` for a job before starting its session (part 4, section 11), so the kind and the uses are not written by the job the run judges.
 4. **`ready <pr>`**. Marks the pull request ready, then reads it back. Prints its state and that the required run has been asked for.
 5. **`close <pr> [--nothing-to-change "<why>"]`**. With the flag, first writes the words into the job block; then closes unmerged. This is the job's record of part 2, section 4.
 6. **`merge <pr>`**. Reads the standing notes; if the owner holds this merge, prints that and exits 0 without merging (his hold, not a check). Otherwise asks GitHub to merge with a merge commit, guarded by the head commit id. GitHub's rule decides whether the required run has passed; the tool repeats none of it. Prints the merge commit, or GitHub's refusal.
 7. **`release prepare <version> --notes <file> [--file <built file>]...`**. Makes an unpublished release on GitHub at the main branch's newest commit, with the notes and files given. Prints its address.
 8. **`release publish <version> --approval "<the owner's words>"`**. Publishes that release and prints the address. The words are printed back and not judged by the tool. **Unproven:** both, and that the checker passes them (part 3, section 6).
-9. **`next-job`**. Reads the round, waiting-work and standing-notes records, the module list and GitHub's open pull requests. A module is ready when it has work and no open job. Picks the earliest in module order, after any module the owner put first, if a slot is free. Rewrites the round record, and prints the module and its starting instructions: the role text's address, the fetch line, the branch, the pull request, and every act named. Prints `none ready` or `no free slot` otherwise. **Decided here:** one job for each call. Gives: one judged act for each start. Costs: eight calls to fill eight slots.
+9. **`next-job`**. Reads the round, waiting-work and standing-notes records, the module list and GitHub's open pull requests. A module is ready when it has work and no open job. Picks the earliest in module order, after any module the owner put first, if a slot of the product's share is free. Rewrites the round record, and prints the module and its starting instructions: the job text of `starting_texts/` filled in with the fetch line, the module, its work, the branch, the pull request, the kind and the uses. Prints `none ready` or `no free slot` otherwise. **Decided here:** one job for each call. Gives: one judged act for each start. Costs: eight calls to fill eight slots.
 10. **`listing <module> [--at <commit>]`**. Writes out the module's interface, from code and structured comments, with the language reader. Prints it; writes nothing to GitHub.
 11. **`notify <pr>`**. Run by ARCH's session after a merge. Makes the module's listing just before and just after the merge, at the same moment. If they are the same, prints `no notice`. Otherwise, for each changed entry that is not "accepts more" as the type checker confirms, finds the users and the places in their files that name it; a user it cannot follow counts as using everything. For a user with an open job it adds the uses to that job's block; for the others it rewrites the waiting-work record. Prints who was told and why.
 12. **`finished <module>`**. Prints `finished` or `not finished` with the ground, worked out afresh from GitHub: its job's pull request merged, or closed with a nothing-to-change record where its only work was a notice.
 13. **`round-done`**. Prints `done` or `not done`, and each module finished, open or blocked with its reason (part 2, section 4).
 14. **`results <pr>`**. Prints the required run's state on the head commit (waiting, passed, failed), its address, and for a failed run the last lines of its output.
-15. **`failed-runs <pr>`**. Prints the count of failed required runs on the pull request, from GitHub's record. At two failures since the session's branch was last taken over it also prints the line for ARCH.
+15. **`failed-runs <pr>`**. Prints the count of failed required runs on the pull request, from GitHub's record. At two failed corrections, the third failed run since the branch was last taken over, it also prints the line for ARCH (part 4, section 10).
 16. **`state read [<record>]`**. Finds the issue by its label, lists its comments in one call, prints the record or all of them.
-17. **`state write <record> --from <file>`**. Rewrites that record's comment in place. While writing standing notes it removes each note whose ending has come true. Writing the lanes record, it refuses a second session for a lane recorded as live (the design's own refusal). On failure it follows `shared_state_carrier.md`, section 6. `state write --create` makes the issue and its empty records once, for ROOT.
+17. **`state write <record> --from <file>`**. Rewrites that record's comment in place. So ARCH's session writes waiting work (a walk flaw's number, module and link; a flaw a job reported) and, in the round record, a walk's areas and outcomes. While writing standing notes it removes each note whose ending has come true. Writing the lanes record, it refuses a second session for a lane recorded as live (the design's own refusal). On failure it follows `shared_state_carrier.md`, section 6. `state write --create` makes the issue and its empty records once, for ROOT.
 18. **`check <module> [--files <list>]`**. Inside module tests. Three parts, each printed with file and line: declared uses against the imports of the module's source and tests; each structured comment against its code; the module's code against each provider's stated interface. Exit 1 if any disagrees. Where the reader cannot tell, it says so and does not refuse (part 10 records false complaints as unsolved).
+19. **`walk open <internal|external>`**, **`walk close <issue>`**. Opens the walk issue, titled with the tranche, round and kind of walk, and writes its number in the round record; closes it when ARCH has placed every entry (build text 3, section 6).
+20. **`walk write <issue> --from <file>`**. A walking session's one comment in the walk issue, under its hidden mark, rewritten in place.
+21. **`walk read <issue> [<flaw>]`**. Prints the issue's comments, or one flaw, for ARCH and for the job given a flaw.
+22. **`walk areas`**, **`walk text <session>`**. The first prints the round's changed modules and the pages and journeys their step headers and requirement text name (build text 3, section 2). The second prints a walking session's starting instructions, its text filled in from the round record and the config.
 
-**The run's entry.** The workflow calls `p4.mjs run scope` and `p4.mjs run tests` (section 5). A told job also calls `run scope --pr <n>` in its session to learn its related tests. Part 2, section 7 requires this; the list in part 6, section 5 does not name it (section 9).
+**The run's entry.** The workflow calls `p4.mjs run scope` and `p4.mjs run tests` (section 5), as part 6, section 5 names. A told job also calls `run scope --pr <n>` in its session to learn its related tests (section 9).
 
 ## 5. The required test run
 
@@ -111,7 +116,7 @@ One for each act in part 6, section 5, and none beyond. Common to all: arguments
 Then, each piece usable on its own:
 
 2. `state read`, `state write` (trial items 4, 5, 6), with the trials of `shared_state_carrier.md`, section 7.
-3. `next-job`, `finished`, `round-done`, `failed-runs`, `close` (items 3, 13).
+3. `next-job`, `finished`, `round-done`, `failed-runs`, `close` (items 3, 13); the walk commands (item 8).
 4. `listing`, `notify`, `check`, with the proof's recorded changes as tests.
 5. Scope 3, related tests, and the told job's `run scope`.
 6. Scope 5 and the mechanical edit (item 9).
@@ -123,12 +128,12 @@ Everything here. Most at risk: the fetch from a one-repository session; the chec
 
 ## 9. Not settled here
 
-1. **The run's entry is not in the design's list** of what the tool does (part 6, section 5), though part 2, section 7 requires it. PROCESS should add it to the list or say where else it lives.
-2. **The list names no "comment" act,** yet a job must record "blocked" and "nothing needs changing" in its pull request. Here they ride on `push --blocked` and `close --nothing-to-change`.
-3. **Whether the process repository is public.** The fetch on GitHub's machines and in part two assumes it is, as the earlier one was. If private, part two needs a token and the two-part split fails as written.
-4. **The mechanical edit's scope** (step 5): the design marks it unproven, and only trial item 9 can choose.
-5. **Who opens a job's pull request.** Chosen here as ARCH's session; the design's step 5 says only that the job works in a draft pull request.
-6. **The forms** of the process config, module list, structured comment and listing (items 6 and 7 of part 10) are needed before pieces 3 and 4 can be built; this text only lists what the tool reads.
+1. **A told job's `run scope --pr` in its session** is not in the design's list (part 6, section 5), which names the run only on GitHub's machines.
+2. **The walk commands, 19 to 22,** are not in that list. Build text 3 asks for them; part 4, section 8 names the walk's issue, and section 11 the filling of a walking session's text. PROCESS should add them to the list or say where else they live.
+3. **The list names no "comment" act,** yet a job must record "blocked" and "nothing needs changing" in its pull request. Here they ride on `push --blocked` and `close --nothing-to-change`. The job block so has two writing sessions, ARCH's and the job's; the design's one-writer rule covers only the shared state.
+4. **Whether the process repository is public.** The fetch on GitHub's machines and in part two assumes it is, as the earlier one was. If private, part two needs a token and the two-part split fails as written.
+5. **The mechanical edit's scope** (step 5): the design marks it unproven, and only trial item 9 can choose.
+6. **`next-job` prints a text naming the pull request,** which `open` makes afterwards. How the number gets into the text is not chosen.
 7. **The owner's approvals** must name the fetch, each act of section 3, and the tool's path; the proposal in `owner_acts_and_approvals.md` was written before the path existed.
 8. **Codex:** how `gh` and `git` are signed in there, and whether a child can fetch, are not known (part 8).
 9. **The proof's data** and the earlier tool's `github push` (on another branch) were not read.

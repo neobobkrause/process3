@@ -1,8 +1,8 @@
 # Build text 3. How a walk is made
 
-Length: 198 lines. Last section: "9. The owner's to settle".
+Length: 200 lines. Last section: "9. The owner's to settle".
 
-Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here has run.** It stands beside the seventh draft of the design (`process4/definition/process4_definition_v7/`, "the design" below) and answers item 9 of its part 10, section 2. It changes no rule of the design and adds no test, check, gate, review or stop. Words in quotation marks are the owner's unless a line says otherwise.
+Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here has run.** It stands beside the seventh draft of the design (`process4/definition/process4_definition_v7/`, "the design" below) and answers item 9 of its part 10, section 2. It changes no rule of the design and adds no test, check, gate, review or stop. Words in quotation marks are the owner's unless a line says otherwise. Reconciled the same day with build texts 1 and 2 and with the design's part 4, section 11; the tool's commands named here are in build text 1, section 4.
 
 Marks: **Decided here:** a choice made in this text, with what it gives and costs. **Unproven:** never shown to work. **Owner's:** his to settle.
 
@@ -44,12 +44,12 @@ The design fixes what an area is: for the internal walk a screen or a named grou
 
 **Decided here:** how ARCH names a round's areas.
 
-1. The tool lists the round's changed modules: those whose pull request merged in the round, and those a notice was sent to, whether or not they then changed.
+1. The tool (`walk areas`) lists the round's changed modules: those whose pull request merged in the round, and those a notice was sent to, whether or not they then changed.
 2. For each, the tool lists the screen pages and journeys named in the headers of that module's steps (section 3) and in its requirement text.
 3. A changed module that names none takes the areas of its users, followed upward until modules that name some are reached.
 4. That is the candidate list. ARCH adds an area where it doubts how a change will show (the design, part 3, section 3), and may take one away. Each added or removed area carries one line of reason.
 5. In the round that would end the tranche, ARCH adds the journeys the design's reading of part 3, section 5 calls for.
-6. ARCH's session writes the list into the round record before any walking session starts: internal areas and external areas, each with its source and the number of the walking session given it.
+6. ARCH's session writes the list into the round record (`state write`) before any walking session starts: internal areas and external areas, each with its source and the number of the walking session given it.
 
 Gives: the list is made the same way every round, and the judgment in it is visible. Costs: a deep module can pull in most of the product, and only ARCH's judgment trims that. **Unproven:** that requirement text and step headers name enough for the list to be right.
 
@@ -75,14 +75,16 @@ Gives: a step changes with the code it proves, under the rule that a job writes 
 
 ## 4. The internal walk
 
-1. ARCH starts each walking session from the newest commit of the tranche branch. Its starting instructions name the walk, its areas, and the commands.
+1. ARCH starts each walking session from the newest commit of the tranche branch. Its starting instructions, which the tool fills in (`walk text`), name the walk, its areas, the walk issue and the commands.
 2. The session builds the product on its own machine. Built files are not committed.
 3. It serves the product there with the product's own local command, with the product's stand-in wherever a screen needs an AI answer, and with no secret.
 4. For each area it reads the Screens page in full, runs that page's steps, and walks by hand what no step covers.
 5. It compares what is on each screen, each state the page names, and where each action leads, with the page's words. A difference is a flaw of the first kind. Anything else it notes is an observation.
 6. It writes its record (section 6) and sends ARCH one message.
 
-**Decided here:** the process config gains two lines: the command that builds and serves the product on one machine, and the command that runs named steps against an address. The tool copies them into a walking session's starting instructions. Costs: two more entries than the design's list for the process config.
+A walking session starts no workers. At the fill level it finishes its record, tells ARCH in one message and stops, and ARCH gives the areas that remain to a fresh session (the design, part 4, section 11). It has made no commit, so there is nothing of its own to push.
+
+**Decided here:** the process config holds two commands (build text 2, section 7, `walk`): the one that builds and serves the product on one machine, and the one that runs named steps against an address. The tool copies them into a walking session's starting instructions. Costs: two more entries in the process config; the design's list for it now names them (part 0, section 6).
 
 **Decided here:** one area is one command, started in the background. Where an area's steps run longer than twenty minutes, ARCH makes it two areas. Gives: room inside the about thirty minutes a session can run one thing. **Unproven:** all of this section.
 
@@ -105,7 +107,7 @@ Gives: journeys that change data cannot disturb another session's journeys; fixe
 
 **How many sessions, and the account's limits. Decided here:**
 
-- The number of external walking sessions is the least of: the free slots, the number of external areas, and a figure in the process config for the most external walkers. That figure begins at one and is raised only after a walk at the lower number met no limit.
+- The number of external walking sessions is the least of: the free slots, the number of external areas, and a figure in the process config for the most external walkers (`walk.most_external_walkers`). That figure begins at one and is raised only after a walk at the lower number met no limit.
 - Each walking session drives one browser and follows one journey at a time.
 - A refusal by the hosting provider for a limit is not a flaw. The session stops, records the area as not walked with the provider's words, and tells ARCH, which lowers the figure.
 
@@ -113,9 +115,9 @@ Gives: the owner's caution is kept by starting low. Costs: early external walks 
 
 ## 6. The record, a flaw and an observation
 
-**Decided here: where.** For each walk ARCH's session, by the tool, opens one issue in the product's repository, the walk issue, titled with the tranche, the round and the kind of walk, and writes its number in the round record. Each walking session writes one comment there, its own, rewritten in place as it goes. It sends ARCH its message only after its last write.
+**Decided here: where.** For each walk ARCH's session, by the tool (`walk open`), opens one issue in the product's repository, the walk issue, titled with the tranche, the round and the kind of walk, and writes its number in the round record. Each walking session writes one comment there by the tool (`walk write`), its own, rewritten in place as it goes. It sends ARCH its message only after its last write.
 
-Gives: what ARCH needs is saved before the message; each comment has one writer; nothing is a file or a commit; the tranche report can count flaws from GitHub. Costs: one closed issue for each walk stays on GitHub, as a job's pull request does; this adds a place the design's rule on messages did not list. **Unproven:** the size a comment holds.
+Gives: what ARCH needs is saved before the message; each comment has one writer; nothing is a file or a commit; the tranche report can count flaws from GitHub. Costs: one closed issue for each walk stays on GitHub, as a job's pull request does. The design's rule on messages names the walk's own issue (part 4, section 8). **Unproven:** the size a comment holds.
 
 **The comment's form.**
 
@@ -155,13 +157,13 @@ Among observations: a part of a page that no step covers and that matched when w
 
 **Decided here:** a session that has written twenty flaws in one area stops that area and says so in its area line. Gives: the comment stays under the single-text maximum, and a badly broken area is not walked at length; the area is named again next round because its modules change. Costs: some flaws are met a round later.
 
-**How ARCH turns a flaw into work.** ARCH reads the whole walk issue. For each flaw it does one of three things.
+**How ARCH turns a flaw into work.** ARCH reads the whole walk issue (`walk read`). For each flaw it does one of three things.
 
-1. **Work for a named module.** It names the module: the one in the step's requirement line; for a part walked by hand, the module that owns the screen's code in the module list; where the step itself is wrong, the module that holds the step. Where no requirement covers what the document says, ARCH first writes one, marked not yet met. ARCH's session, by the tool, writes the flaw's number, the module and a link to the comment into the waiting-work record. The job's starting instructions carry them, and the job reads the flaw where it lies.
+1. **Work for a named module.** It names the module: the one in the step's requirement line; for a part walked by hand, the module that owns the screen's code in the module list; where the step itself is wrong, the module that holds the step. Where no requirement covers what the document says, ARCH first writes one, marked not yet met. ARCH's session, by the tool, writes the flaw's number, the module and a link to the comment into the waiting-work record (`state write`). The job's starting instructions carry them, and the job reads the flaw where it lies (`walk read`).
 2. **The document is wrong.** ARCH gives it to the UX lane, which corrects the page. It is named in the account after the round.
 3. **It is none of the three things.** ARCH sets it aside with one line of reason. **Decided here:** each flaw set aside is named in the account after the round with that reason. Costs: ARCH judges entries about a product it designed; the account is what lets the owner see it.
 
-Observations go into the same account. ARCH may write a requirement from one. When ARCH has placed every entry, its session closes the walk issue.
+Observations go into the same account. ARCH may write a requirement from one. When ARCH has placed every entry, its session closes the walk issue (`walk close`).
 
 ## 7. "Without flaws", and what the tool needs
 
@@ -172,7 +174,7 @@ Observations go into the same account. ARCH may write a requirement from one. Wh
 
 An area with no line, or marked not walked, means the walk is not finished. ARCH gives the area to a session again. That is the design's "the areas it was given", and no added stop. A flaw given to the UX lane still counts in that walk: the document was wrong, and the corrected page is walked in the next round.
 
-**The tool judges nothing.** ARCH writes the outcome, through the tool, into the round record: each area as clean, flawed or not walked, and one line for the walk, without flaws or not. From the walk the tool needs only fixed-form lines it can copy: the hidden mark, the area lines, and each flaw's number with the module ARCH named. It opens and closes the walk issue, copies placements into waiting work, and writes ARCH's lines. It never reads a flaw's words and never refuses a deployment or an end of tranche. ARCH's session deploys after ARCH has written that the internal walk is without flaws.
+**The tool judges nothing.** ARCH writes the outcome, through the tool, into the round record: each area as clean, flawed or not walked, and one line for the walk, without flaws or not. From the walk the tool needs only fixed-form lines it can copy: the hidden mark, the area lines, and each flaw's number with the module ARCH named. It opens and closes the walk issue (`walk open`, `walk close`), writes a walking session's comment (`walk write`), prints the issue (`walk read`), and writes ARCH's placements into waiting work and ARCH's lines into the round record (`state write`). The four walk commands are not in the design's list of what the tool does (part 6, section 5); build text 1, section 9 records that. It never judges a flaw's words and never refuses a deployment or an end of tranche. ARCH's session deploys after ARCH has written that the internal walk is without flaws.
 
 ## 8. To try first in the trial repository, smallest first
 

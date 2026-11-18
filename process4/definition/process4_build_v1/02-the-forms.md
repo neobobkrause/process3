@@ -1,8 +1,8 @@
-Length: 289 lines. Last section: "9. What could not be settled".
+Length: 303 lines. Last section: "9. What could not be settled".
 
 # Process4 build text 2: the forms of the files the design names
 
-Written by Claude on 18 Nov 2026, beside the seventh draft (`process4/definition/process4_definition_v7/`), not into it. **Status: proposed. Nothing here has run.** It answers part 10, section 2, items 6 and 7 of that draft. It adds no check, gate, review or stop.
+Written by Claude on 18 Nov 2026, beside the seventh draft (`process4/definition/process4_definition_v7/`), not into it. **Status: proposed. Nothing here has run.** It answers part 10, section 2, items 6 and 7 of that draft. It adds no check, gate, review or stop. Reconciled the same day with build texts 1 and 3 and with part 4, section 11.
 
 Marks: **Decided here:** a choice made in this text, with what it gives and what it costs. **Unproven:** never shown to work in this form. Every example is made up: a product in plain JavaScript with modules `dates`, `pricing` and `orders`.
 
@@ -37,7 +37,7 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full; `schema/`
 | The owner's decisions on the product | `process/decisions-owner.md` | The coordinator |
 | ARCH's technical decisions | `process/decisions-arch.md` | ARCH |
 | Procedures, release notes, tranche reports | `process/procedures/`, `process/releases/`, `process/reports/` | ARCH |
-| A job's record lines | Comments on the job's own pull request | The tool, in the session the table in section 8 names |
+| A job's record | One comment on the job's own pull request, the job block | The tool, in the session the table in section 8 names |
 
 ## 3. The module list
 
@@ -66,7 +66,8 @@ orders
 - `files`: the paths of the code the module owns. A path ending in `/` is a folder with everything under it. A file belongs to the module with the longest matching path, as in the process before this one.
 - `tests`: the paths of its tests, read the same way.
 - `uses`: its declared uses, by name.
-- The requirements file is not named: it is always the `.md` of the same name.
+- The requirements file is not named: it is always the `.md` of the same name. The test command is not here either: it is one line of the process config (section 7).
+- A module is identified everywhere by its `name`: in the tool's commands, in a job's branch `job/<name>`, and in the records.
 
 **How "a module may use only modules before it" reads:** every name in `uses` stands on an earlier line of the order file than the module's own. `orders` is on line 3, `dates` and `pricing` on lines 1 and 2, so it holds. Had `pricing` listed `orders`, that would be a design error, which ARCH corrects by reshaping code (part 2, section 1). Nothing refuses it.
 
@@ -203,25 +204,34 @@ Place: `process.json`. ARCH writes it; it changes as the process's named files d
 
 ```json
 {
-  "process": { "version": "4.0.0", "commit": "9f2c…(40 characters)" },
+  "process": { "repository": "https://github.com/<owner>/<process repository>", "version": "4.0.0", "commit": "9f2c…(40 characters)" },
+  "tranche_branch": "tranche",
+  "node": "22",
+  "lock_files": ["package-lock.json"],
+  "test_command": "node --test",
   "slots": { "default": 8, "share": 8 },
   "lanes": [ { "name": "ux", "folder": "lanes/ux/" } ],
   "hosting": { "provider": "cloudflare", "development_account": "<the account's id>" },
   "walks_folder": "lanes/ux/walks/",
+  "walk": { "build_and_serve": "npm run serve-local", "run_steps": "npm run walk --", "most_external_walkers": 1 },
   "process_folder": "process/",
   "language_reader": { "name": "typescript", "version": "5.6.3", "source": ["**/*.mjs"] }
 }
 ```
 
-- `process`: the one fixed version of the process the tranche runs on, by its version name and its commit in the process's repository. Each session fetches a read-only copy of exactly that commit.
-- `slots.default`: the account's slot number when the owner has given none. `slots.share`: this product's share of it; with one product the two are equal. A number the owner gives later is held in the standing notes, not here.
+- `process`: the one fixed version of the process the tranche runs on: the process repository's address, the version's name, and its full commit id on that repository's main branch. Each session, and the required run, fetches a read-only copy of exactly that commit (build text 1, section 2).
+- `tranche_branch`: the name of the one lasting tranche branch.
+- `node`, `lock_files`: the Node version, and the lock files the required run installs the product's dependencies from (build text 1, section 5).
+- `test_command`: the command the tool runs over a list of a module's test files. **Decided here:** one command for the product, kept here and not in each entry. Gives: an entry keeps four fields. Costs: a product whose modules need different commands must give one command that tells them apart.
+- `slots.default`: the account's slot number when the owner has given none. `slots.share`: this product's share of it (part 2, section 5); with one product the two are equal. A number the owner gives later is held in the standing notes, not here.
 - `lanes`: each lane's name and its folder. The UX lane is always there.
 - `hosting`: the provider's name and the development account. The account's id is not a secret. The deploy token is, and is never written here.
 - `walks_folder`: where the Screens document and the journeys are kept.
+- `walk`: the command that builds and serves the product on one machine; the command that runs named steps against an address; and the most external walkers, which begins at one (build text 3, sections 4 and 5). The tool copies the two commands into a walking session's starting instructions.
 - `process_folder`: where the files of sections 3, 4 and 8 are kept.
 - `language_reader`: the reader's name, its exact version, and which files are the product's code. **Decided here:** the version is fixed in the config. Gives: every session and GitHub's machines make the same listing. Costs: a new version is a change to this file.
 
-## 8. The ranking page, the two decision records, and a job's record lines
+## 8. The ranking page, the two decision records, and a job's record
 
 **The ranking page,** `process/ranking.md`. Five numbered lines, highest first, each naming a kind of governing text and where it is kept, then the rule.
 
@@ -243,7 +253,7 @@ Rule now: ten jobs may run at once on this product.
 Shown to the owner: 19 Nov 2026.
 ```
 
-`Rule now` is rewritten in place when a decision changes it. The dated lines are his exact words, never edited; a new one goes below the last. `Shown to the owner` is the date he saw the rewritten entry, or `not yet`.
+`Rule now` is rewritten in place when a decision changes it. The dated lines are his exact words, never edited; a new one goes below the last. `Shown to the owner` is the date he saw the rewritten entry, or `not yet`. Each recorded decision is one pull request, which the coordinator opens and merges by the tool (part 4, section 11).
 
 **ARCH's decisions,** `process/decisions-arch.md`, written only by ARCH. Same order by subject:
 
@@ -254,29 +264,34 @@ Why: two modules rounded differently.
 Decided: 19 Nov 2026.
 ```
 
-The `Decision` line is the one plain line the coordinator gives the owner. A changed decision rewrites the entry in place.
+The `Decision` line is the one plain line the coordinator gives the owner. A changed decision rewrites the entry in place. Each is one pull request, which ARCH opens and merges by the tool.
 
-**A job's record lines.** Each is one comment on the job's own pull request, written through the tool. Its first line is a hidden mark, as in the shared state; the rest is plain lines in a fixed order.
+**A job's record.** It is the job block of build text 1 (section 4, `open`): one comment on the job's own pull request, whose first line is the hidden mark `<!-- process4-job -->`, as in the shared state, and whose rest is one JSON block. Only the tool writes and reads it, and it is rewritten in place.
 
-| Mark | Lines after it | Written in |
+```json
+{
+  "module": "orders",
+  "kind": "told",
+  "uses": [ { "provider": "pricing", "old": "a1b2c3d", "new": "e4f5a6b",
+              "entry": "src/pricing/index.mjs PriceArgs", "change": "bound",
+              "was": "PriceArgs bound quantity: a whole number from 1 to 999",
+              "now": "PriceArgs bound quantity: a whole number from 1 to 99",
+              "places": ["src/orders/lines.mjs:41", "test/orders/lines.test.mjs:17"] } ],
+  "blocked": { "by": "pricing", "why": "<one plain sentence>" },
+  "nothing_to_change": "<one plain sentence>"
+}
+```
+
+| Field | Written by | In |
 |---|---|---|
-| `<!-- process4-job: blocked -->` | `Blocked by: <module>` then `Flaw: <one plain sentence>` | The job's session |
-| `<!-- process4-job: nothing-needs-changing -->` | `Notice from: <provider>` then `Read: <n> uses` then `Related tests run in this session: <n> files, passed` | The job's session |
-| `<!-- process4-notice: <provider> <old commit> <new commit> -->` | For each changed entry: `Entry: <file> <name>`, `Change: <removed, hands back, bound, newly required or newly refused>`, `Was: <old line>`, `Now: <new line or "gone">`, then one `Use: <path>:<line>` for each use, or `Use: everything; the tool could not follow this module` | ARCH's session, when the tool opens the draft |
+| `module`, `kind` (`ordinary` or `told`), `uses` | `open --module <name>`, from the waiting-work record; `notify` adds the uses of a later notice to an open job | ARCH's session |
+| `blocked` | `push --blocked <module> "<why>"` | The job's session |
+| `nothing_to_change` | `close <pr> --nothing-to-change "<why>"` | The job's session |
 
-```
-<!-- process4-notice: pricing a1b2c3d e4f5a6b -->
-Entry: src/pricing/index.mjs PriceArgs
-Change: bound
-Was: PriceArgs bound quantity: a whole number from 1 to 999
-Now: PriceArgs bound quantity: a whole number from 1 to 99
-Use: src/orders/lines.mjs:41
-Use: test/orders/lines.test.mjs:17
-```
-
-- A second notice to an open job is a second comment; the job works from all of them.
-- The tool reads `Blocked by` to make the job ready again when that module merges, and reads the nothing-needs-changing mark on a pull request closed unmerged to count the module finished (part 2, section 4).
-- **Decided here:** one comment for each record, never rewritten. Gives: no write can be lost to another. Costs: a job blocked twice carries two blocked comments; the tool takes the newest.
+- `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module.
+- An ordinary job's block holds `module` and `kind` only, until it is blocked.
+- The tool reads `blocked.by` to make the job ready again when that module merges, and reads `nothing_to_change` on a pull request closed unmerged to count the module finished (part 2, section 4). No test runs for that record (part 2, section 7).
+- **Decided here**, following build text 1: one block, rewritten in place, in place of a comment of plain lines for each record. Gives: the required run and every command read one place. Costs: two sessions write the one comment, ARCH's and the job's, and GitHub keeps no guard between two writes; a second block of the same kind replaces the first.
 
 ## 9. What could not be settled
 
@@ -286,4 +301,3 @@ Use: test/orders/lines.test.mjs:17
 4. **Messages between two separately running parts.** The study names the need for one written kind shared by both ends; no form is given here.
 5. **How the tool says it "cannot follow" a user.** The rule depends on it and nothing here defines it.
 6. **A decision record that outgrows the maximum.** The owner's dated words are never edited, so his record only grows. How it is split is the coordinator's and PROCESS's to settle.
-7. **Agreement with build text 1** (`01-the-tool-and-the-required-run.md`), written at the same time and not reconciled. It keeps a job's record as one comment marked `<!-- process4-job -->` holding one JSON block, where section 8 here has a comment of plain lines for each record. It calls a module's name its id. It reads from the config the process repository's address, the tranche branch's name, a Node version and lock files, which section 7 does not hold.
