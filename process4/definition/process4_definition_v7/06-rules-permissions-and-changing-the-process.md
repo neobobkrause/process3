@@ -55,7 +55,7 @@ The owner's words, in full:
 What follows from them:
 
 - A change must not add a new test, gate, review or stop. It may only correct or remove what is broken.
-- "No change" is always among the options: "caution is a cost, paid only against a measured failure or your word", and "the default answer to a finding with nothing measured behind it is no change".
+- "No change" is always among the options. His written instructions, as a field report quotes them: "caution is a cost, paid only against a measured failure or your word", and "the default answer to a finding with nothing measured behind it is no change".
 - Any change to Process4 is explained to the owner, who decides whether and how the process is updated.
 - No session building a product may change the process, add a test, check, gate or review to it, or adopt a changed process on its own. ARCH moves a product to a changed process only with the owner's prior approval, by the means PROCESS proposes.
 - ROOT starts PROCESS. PROCESS works in the process's own repository, with the owner directly. The coordinator can talk to it.

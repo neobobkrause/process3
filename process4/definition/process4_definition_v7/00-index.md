@@ -6,7 +6,7 @@ Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force a
 
 ## 1. What this is
 
-- This is the design of Process4, in eleven parts. It is "the Process4 requirements" and is what sessions follow.
+- This is the design of Process4, in eleven parts. It is "the process4 requirements" and is what sessions follow.
 - It states the design as it now stands. It carries no history of how the design came to be. The owner's decisions, in his exact dated words, are kept in the record of decisions (part 5). The reasons and the evidence are in the background document.
 - It names no product. A product's own facts and the steps to bring it under Process4 belong to that product's conversion plan.
 - Parts 1 to 6 name no hosting provider and use harness-neutral terms. A harness is named there only in part 5, where a figure comes from one. Part 7 says what carries each term on Claude Code, part 8 on Codex, part 9 on Cloudflare.
@@ -18,7 +18,7 @@ Process4 is **proposed** now. It is **on trial** from the owner's acceptance: us
 
 ## 3. Marks used in every part
 
-- Words in quotation marks are the owner's, exactly as typed.
+- Words in quotation marks are the owner's, exactly as typed, unless the marks only name a term, a mark or an option. Where a quotation is not among his typed words and comes through an earlier record, the line says which record.
 - **Claude decided:** a technical decision made by the AI and reported here. The owner can overrule any.
 - **Reading:** an interpretation of the owner's words that he has not confirmed.
 - **Open:** not settled. The line says who settles it.

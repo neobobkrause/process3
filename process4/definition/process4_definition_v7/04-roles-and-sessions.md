@@ -30,7 +30,7 @@ What the tool does and what ARCH keeps: whatever has one right answer is done by
 - No session starts its own replacement.
 - A session is started with one repository only; from the newest commit of the tranche branch; in the harness's unattended mode; and with starting instructions that name every act it may take. PROCESS works in the process's own repository.
 - **Claude decided:** ROOT's first act is to fetch the newest copy of its branch, and to stop if it cannot.
-- Every session passes the owner's suggestion of model and effort on to each session it starts: "always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand".
+- Every session passes the owner's suggestion of model and effort on to each session it starts. His ledger note, as the sixth draft quotes it: "always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand".
 - **Unproven:** that a ROOT started by a plain prompt, whose instructions name no acts, comes up on the owner's newest approvals and can act as ROOT.
 
 ## 3. Lanes

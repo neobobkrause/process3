@@ -13,7 +13,7 @@ Length: 61 lines. Last section: "7. Where things are kept now".
 
 ## 2. The four values
 
-All four are **provisional**. They stand, on the owner's word, until a second measurement reports. **Reading:** these four are the values he meant by "these current values".
+All four are **provisional**. They stand, on the owner's word, until a second measurement reports. **Reading:** these four are the values he meant by "these current values", his words of 18 Nov to the session he was working with.
 
 | Value | Provisional figure | What it rests on |
 |---|---|---|
