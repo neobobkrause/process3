@@ -1,0 +1,106 @@
+# Process4 design state, 18 Nov 2026
+
+Length: 106 lines. Last section: "12. Owed, not yet done".
+
+Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
+
+## 0. How to read this
+
+- The design is the sixth draft (`process4/definition/process4_definition_v6.md`) as amended by everything below. Where they differ, this file rules.
+- Bob's latest statement replaces any earlier one, without a question to him. Do not set his older words against his newer ones, and do not reopen anything settled here.
+- Plain words. No reference codes. Bob defines the product; the AI decides technical matters and reports them.
+- "Reading:" marks an interpretation by Claude that Bob has not yet confirmed.
+
+## 1. Testing (Bob's ruling, closed)
+
+- The tests are module tests, the internal walk and the external walk. Before a release, an install and an update are each confirmed to have succeeded. Nothing more: no further test phases, gates or reviews.
+- Module tests give appropriate coverage of the code, demonstrate correct results, show that error conditions are properly identified and communicated, and check bounds. A test does not fail because it got a different but still valid response. This is a duty of the job, held by its instructions; nothing measures it.
+- Every other check Process3 had that could stop work has ended. There is no full regression, on request or otherwise.
+- The process's own tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work.
+- The notice to user modules is a way of saving work, not a guarantee. A notified job checks only the changed parts and runs only the tests that relate to them.
+
+## 2. Documents
+
+- Two documents. A design document that defines the Process4 design, and a background document that gives the background and context.
+- The design document names no product. Civicsmith's own facts and conversion steps go to a separate Civicsmith conversion plan.
+- The design document is "the Process4 requirements" and is what sessions follow.
+- Bob's Foundations, brought up to date with the design, become the background document. Bob's ledger was a worksheet and is retired.
+- Bob's decisions about the Process4 design are kept in the repository. The design document is kept up to date so that it reflects them, in the same step, and carries none of the history of how the design got to its present state.
+- The record of decisions is ordered by subject. Each entry states the rule as it now stands, and a decision that changes an entry rewrites it in place. Bob's exact dated words are kept and never edited. A rewritten entry is shown to Bob once before it stands.
+- Harness-neutral terms in the body of the design, with a table for each harness (Claude Code, Codex) saying which construct carries each term. Anything specific to Claude Code, such as CLAUDE.md and settings.json, is marked as specific to Claude Code.
+- Process4 is proposed (now), then on trial (from Bob's acceptance, used for the trial repository and the first real tranche), then in force (after the first real tranche ends, on Bob's word).
+
+## 3. Reading in full
+
+- Every text a session must read in full, and every set of texts read together, is kept below a measured maximum size. Nothing can ensure a full reading; keeping below the maximum reliably results in one.
+- The Codex maximums are used, because they rest on real measurements and Codex context windows are in effect more constrained than Claude Code's.
+- Each role's principles are concise, sufficient for the role to be performed correctly, and unambiguously clear. Whenever they are changed, every effort is made to keep them short enough to be read in full and not scanned. Where that cannot be done, the matter comes to Bob to find a solution. Reading: PROCESS brings it to him.
+- A module's requirements file is kept under the maximum as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge.
+- Claude's addition: each governing text says at its top how long it is and what its last section is.
+
+## 4. How Bob's words become decisions
+
+- A message of Bob's that begins "Decision:" or "Instruction:" is copied exactly, with its date. Everything else is conversation. A session that thinks Bob has decided something without the mark asks once: "Shall I record that as a decision?"
+- A decision about a product being built is made through the coordinator. A change to Process4 itself, which is not a product, is made through PROCESS. Each keeps its own record and is its only writer.
+- The coordinator is Bob's front door. He may watch and sometimes speak to ARCH and to lanes. A marked message given to ARCH or a lane is followed, and passed to the coordinator exactly as typed for recording. He works with a lane through its design pages and with PROCESS directly.
+- A question is put to Bob inline, in one form: a title, the question, an explanation of the issue, options each with its own identity, the recommendation and its reasons, and the freedom to set the options aside.
+- One standing page always shows everything waiting for Bob. A notification goes to his phone when something arrives that only he can clear.
+
+## 5. Tranche, rounds and walks
+
+- Before a tranche opens, ARCH proposes in a few plain lines what it is for and which journeys are expected to complete at its end, naming any journey left out and why. Bob approves or changes it.
+- Every round's walks are partial, the first round included. ARCH names the areas a round's updates affect before each walk. A partial walk is without flaws when it lists no flaw in the areas it was given.
+- A full external walk is opt-in. By default it is not made. If Bob asks the coordinator for one before a round's partial walks come clean, it is made, and the tranche ends only if it is clean. "Lists no flaw and leaves out no step that the walk before it made" applies to full walks.
+- A flaw is one of three things: the workflow as built does not match the Screens document; a journey cannot be completed; a journey completes with a wrong result. Anything else a walker notes goes to ARCH as an observation and does not hold the tranche. Where ARCH judges the document wrong and the product right, the UX lane corrects the document.
+- The Screens document and the journeys are pages kept in the product repository's folder. During a tranche they change only to correct an error a walk has shown, and each such change is named in the account after the round.
+- Walking sessions make both walks, and they walk the product being developed, whatever product that is. ARCH's session makes the development deployment.
+- After each round the coordinator gives Bob a short account: jobs done, flaws found, flaws carried over, observations set aside, changes to the walks' documents, rewordings made, and cost where it can be read. Nothing waits on it.
+- A tranche that does not come clean goes on in rounds until Bob says. He then chooses between merging it with its flaws named, with no release from it, and dropping it.
+- There is no walk outside a tranche. There are no triage lanes.
+
+## 6. Release
+
+- Any tranche that has ended can be released, on Bob's approval, once an install and an update have each been run and confirmed successful. Neither is walked.
+- Reading: the install and update run on a development account; "successful" means the installer or updater finishes without error and the site it produced starts; on a failure no release is offered and the fault becomes work in the next tranche.
+- An urgent fix is a tranche whose content is that fix alone.
+- Built files are never committed. They are built at each walk, deployment and release.
+
+## 7. Work and requirements
+
+- ARCH writes and rewords the requirement text in a module's file, and touches no code and no tests. The module's job marks a requirement met in its own pull request.
+- A rewording that changes what the product does comes to Bob first. One that only says the same thing more clearly is made, and told to him in the account after the round.
+
+## 8. Sessions and roles
+
+- Each long-lived role is refreshed on purpose, at a natural pause in its work or at a stated fill level, whichever comes first. It asks its parent. Its successor starts only from the shared state and the repository.
+- ARCH is long-lived.
+- Whatever has one right answer is done by the process's tool: who takes a free slot, when a notice is sent and to whom, whether a round's jobs are done. ARCH's session keeps what needs judgment. The share of ARCH's work that is passing things on is measured on the first tranche.
+- The watcher is kept, and ROOT starts it. Its takeover is designed and rehearsed in the trial.
+- After any full stop there is one way back: Bob starts ROOT, and ROOT rebuilds everything from the shared state and the repository. A switch of account adds only Bob's own acts in the new account.
+- ARCH starts a product's design lanes. ROOT starts PROCESS. PROCESS works in the process's own repository.
+- A lane decides design in its area. ARCH decides whether and when a design is built and whether it can be built as given. A design ARCH cannot build goes back to the lane.
+
+## 9. What holds a rule
+
+- Bob rewords his approvals in the process's repository to say a process change is merged only on his word given at PROCESS. Nothing enforced by GitHub is added.
+- His approvals and the list of forbidden commands are protected by the permission checker alone.
+- A process fault goes from ARCH to the coordinator to PROCESS. Claude decided: its description is written once by the session that met it and passed on unchanged.
+
+## 10. Left out of Process4
+
+- The count of false "done" claims; a session with no memory between wakes; the line-by-line test of instruction files; the job's written receipt; the set-up check before a job starts; per-job records of reading and cost, the cost alarm and the fixed-format job record; the record check and the check for oversized or temporary files; the rule that every rule cites a measured failure; the reading audit.
+- In place of the two duties repeated at each new model version: when a new model version arrives, PROCESS puts one question to Bob about which parts of the process, and which working rules that exist because of the permission checker, may no longer be needed. Nothing is removed or tried unless he says so.
+
+## 11. Where things are
+
+- The Process4 work is kept in a folder named process4, on a branch named process4, of the process3 repository. The Codex work is on that same branch.
+- Bob's typed words are in `process4/owner_words/`. The working Foundations are `process4/evidence/foundations.md` and `process4/evidence/foundations_tranche_9nov.md`.
+
+## 12. Owed, not yet done
+
+- The values of the Codex maximums, to fill the design's named blanks.
+- A design for how a notified job picks the tests that relate to a changed entry.
+- The design of the watcher's takeover.
+- A worked proposal on branches and where Bob's approvals live, with each act asked of him.
+- Technical matters Claude settles and reports: when a round's jobs are done; who can read the deploy token; who decides an interface between two modules; files that no module owns; which copy a job's tests run against; what the shared state holds; loops with no end; who closes a finished session; what an edit to Bob's approvals does to a running round; how Process3 kept to GitHub's limits and why the sessions' account was suspended on 6 Nov; the notification's two smaller open parts.
+- For the Civicsmith conversion plan: which journey list counts.
