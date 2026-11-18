@@ -29,7 +29,7 @@ The process owns what can be proven in the repository and on the machines that r
 
 Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob. Production keys are never in the sessions' environment.
 
-Process4 provides the appropriate level of support for promoting to installed sites, for rollback and for support. What that level is has not yet been decided (part 10).
+Process4 provides the appropriate level of support for promoting to installed sites, for rollback and for support. That level is written procedures. For each product the process keeps a short written procedure for promoting a release to installed sites, for rolling one back, and for handling a problem reported from an installed site. With each release it writes what changed, what the update does to stored data, and how to go back (part 4). Bob, or whoever runs the product, carries the procedures out.
 
 ## The owner and the AI
 

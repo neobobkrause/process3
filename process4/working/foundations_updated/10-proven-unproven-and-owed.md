@@ -1,6 +1,6 @@
 # Process4 Foundations, part 10: Proven, unproven and owed
 
-Length: 86 lines. Last section: "Owed".
+Length: 85 lines. Last section: "Owed".
 
 ## Four words kept apart
 
@@ -53,7 +53,7 @@ Claude Code: ROOT is started by Bob's plain prompt, so its starting instructions
 
 - Whether a tranche ends by a clean walk.
 - Whether the permission checker goes on passing merges at a real rate.
-- How often a process fault stops work and so waits for Bob at PROCESS.
+- How often a process fault stops work and waits for Bob at PROCESS.
 - Whether cost can be read for the accounts and the report. In Process3 it often could not.
 - The share of ARCH's work that is passing things on.
 - How many notices the notice's method saves on a real product.
@@ -63,7 +63,6 @@ Claude Code: ROOT is started by Bob's plain prompt, so its starting instructions
 These are not yet done. The design names them.
 
 - The values of the maximums, to fill the design's named blanks (part 6). They are settled first from the limits that Process3's own rules set. If those do not settle them, credible tests measure the thresholds. Writer's reading: the fill level at which a long-lived role is refreshed (part 5) is one of those blanks.
-- The level of support Process4 gives for promoting a release to installed sites, for rollback and for support (part 1).
 - A design for how a notified job picks the tests that relate to a changed entry (part 3).
 - The design of the watcher's takeover (part 5).
 - A worked proposal on branches and on where Bob's approvals live, with each act asked of him (parts 1 and 9).

@@ -12,8 +12,8 @@ These parts are Bob's Foundations, brought up to date with the Process4 design a
 | `02-tests.md` | The tests, and why nothing is added to them | The process's own tool |
 | `03-modules-jobs-and-the-notice.md` | Modules, requirements, jobs and slots, the mechanical edit, the notice to user modules | What the notice cannot do |
 | `04-tranche-rounds-walks-release.md` | The tranche, rounds, partial walks, flaws, the walks' documents, release | Release |
-| `05-roles-and-sessions.md` | The roles, helpers, design lanes, refreshing sessions, shared state, the way back | The way back after a full stop |
-| `06-reading-in-full-and-documents.md` | Reading in full, the measured maximum, the two documents, the record of decisions, words that fit either harness and any hosting | Where the work is kept |
+| `05-roles-and-sessions.md` | The roles, helpers, design lanes, refreshing sessions, shared state and messages, the way back | The way back after a full stop |
+| `06-reading-in-full-and-documents.md` | Reading in full, the measured maximum, the ranking of a product's governing texts, the two documents, the record of decisions, words that fit either harness and any hosting | Where the work is kept |
 | `07-how-bobs-words-become-decisions.md` | Marked words, the front door, how a question is put, what Bob can see, what waits for Bob | What waits for Bob |
 | `08-changing-the-process.md` | PROCESS, the rule it works under, Process4 developing itself, what Process4 does not carry | What Process4 does not carry |
 | `09-permissions-and-platform.md` | What holds a rule, Bob's approvals, the permission checker, the two kinds of refusal, the platform | The terms and their Claude Code constructs |

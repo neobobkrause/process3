@@ -1,6 +1,6 @@
 # Process4 Foundations, part 8: Changing the process
 
-Length: 81 lines. Last section: "What Process4 does not carry".
+Length: 85 lines. Last section: "What Process4 does not carry".
 
 ## Only PROCESS changes the process
 
@@ -21,7 +21,7 @@ Development under the process is development of the product, not of the process.
 
 A change to the process may correct or remove what is broken. It may not add a test, a gate, a review or a stop. The tests are closed (part 2).
 
-Three more rules apply, all from part 1. Caution is a cost, paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change. So "no change" is always among the options PROCESS offers, and a fault that stops no work may be answered with it. And a workaround is not a fix. Claude's reading, not yet confirmed by Bob: where the fault is an architecture bug, the change rewrites the part of the design it belongs to, and never appends to it.
+Three more rules apply, all from part 1. Caution is a cost, paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change. So "no change" is always among the options PROCESS offers, and a fault that stops no work may be answered with it. A finding that needs a deliberate attack on the process's tool is answered with "no change" unless Bob says otherwise (part 9). And a workaround is not a fix. Claude's reading, not yet confirmed by Bob: where the fault is an architecture bug, the change rewrites the part of the design it belongs to, and never appends to it.
 
 PROCESS writes Bob's approving words into its record exactly as typed, with the date. Nothing else counts as his approval. Claude decided this.
 
@@ -31,7 +31,11 @@ A job that meets a fault in the process reports it to ARCH. The fault goes from 
 
 Claude decided: the description of the fault is written once, by the session that met it, and is passed on unchanged. Writer's reading: this is the same care taken with Bob's words in part 7. A description rewritten at each step drifts from what was seen.
 
-A process fault that stops work waits for Bob at PROCESS. How often that happens can be shown only by the first real tranche.
+A stop that nothing called for is a process fault. Some such stops need no change to the process. A stop caused by a compaction is an example. Then the stopped session is simply woken or replaced. Each such case may be studied and reported to PROCESS. Any change to the process is explained to Bob, who decides whether and how the process is updated.
+
+Claude's reading, not yet confirmed by Bob: while Process4 is on trial, every such stop is reported to PROCESS. The simpler handling applies once it is beyond trial.
+
+A process fault that stops work, and that only a change to the process can clear, waits for Bob at PROCESS. How often that happens can be shown only by the first real tranche.
 
 ## What holds the rule
 

@@ -1,6 +1,6 @@
 # Process4 Foundations, part 4: Tranche, rounds, walks and release
 
-Length: 95 lines. Last section: "Release".
+Length: 97 lines. Last section: "Release".
 
 ## The tranche
 
@@ -39,6 +39,8 @@ Every round's walks are partial, the first round's included. Before each walk, A
 A full external walk is something Bob opts into. By default it is not made. If Bob asks the coordinator for one before a round's partial walks come clean, it is made, and the tranche then ends only if that full walk is clean. A full walk is without flaws when it lists no flaw and leaves out no step that the walk before it made.
 
 Writer's reading: partial walks apply to the walks the rule that a test runs only when there is a fully informed reason to run it. The areas a round changed are the informed reason.
+
+Sometimes it is in doubt how a change will affect the product, and inspecting or testing the code cannot settle it. Then the walks exercise the running workflow concerned. If it does what is expected, there is no problem. Claude's reading, not yet confirmed by Bob: this adds no test. It is part of what ARCH names for a round's walks. It is not stated as a habit in any role's principles.
 
 There is no walk outside a tranche.
 
@@ -92,4 +94,4 @@ Built files are never committed. They are built at each walk, each deployment an
 
 ARCH prepares a release and waits for Bob's approval. Measured: no release of any kind was made in Process3. So the release path is unproven.
 
-Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob. The level of support Process4 gives for them is not yet decided (part 1).
+Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob. The process supports them with short written procedures, kept for each product (part 1). With each release it writes what changed, what the update does to stored data, and how to go back. Bob, or whoever runs the product, carries the procedures out.

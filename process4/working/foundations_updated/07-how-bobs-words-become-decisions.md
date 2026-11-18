@@ -1,6 +1,6 @@
 # Process4 Foundations, part 7: How Bob's words become decisions
 
-Length: 66 lines. Last section: "What waits for Bob".
+Length: 68 lines. Last section: "What waits for Bob".
 
 ## Why this needs a rule
 
@@ -57,10 +57,12 @@ Codex: how sessions are grouped and archived there is not yet known. See `proces
 
 ## What waits for Bob
 
-One standing page always shows everything that is waiting for Bob.
+One standing page always shows everything that is waiting for Bob. Each act of his with a known date appears on that page before the date, with the steps.
 
 A notification goes to his phone when something arrives that only he can clear. Codex: what carries the notification there is not yet known. See the same file.
 
 When the process is completely blocked, Bob gets one plain message with a numbered list of what is his to do.
 
 Writer's reading: the two serve different moments. The notification tells him that something needs him now. The page lets him see the whole list at any time he chooses, so nothing depends on his having caught a message. Bob may be away from his computer for long periods (`bob_words_14nov_b.md`).
+
+Every reasonable effort is made to renew a token before it expires, so that no full stop is needed. Sessions other than ROOT and the watcher are relatively short-lived. So once a new token is in place, fresh sessions start with it before the old one expires. A full stop happens only if the token is not replaced in time. Claude's reading, not yet confirmed by Bob: a role such as ARCH lasts, while its sessions are refreshed often (part 5).

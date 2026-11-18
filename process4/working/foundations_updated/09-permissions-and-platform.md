@@ -1,6 +1,6 @@
 # Process4 Foundations, part 9: Permissions and the platform
 
-Length: 96 lines. Last section: "The terms and their Claude Code constructs".
+Length: 100 lines. Last section: "The terms and their Claude Code constructs".
 
 Much of this part depends on the harness. Each such statement is marked "Claude Code:". Where what carries a term on Codex is not yet known, a line marked "Codex:" says so. The list of those shortcomings is `process4/working/codex_shortcomings_to_fill.md`.
 
@@ -16,6 +16,8 @@ Process4 holds its rules with four things.
 Bob's approvals and the list of forbidden commands are protected by the permission checker alone. Nothing enforced by GitHub is added for the process's own rules (part 8). Claude Code: the permission checker is that harness's own. Codex: what stands in for it is not yet known.
 
 Most rules in the design are held by instructions. The rule that a job writes only its own module's files is one. Bob's judgment is that this is enough for ordinary work: under Claude Code he saw jobs keep to their modules, and he counts enforcement by role as important and useful but not essential (`process4/owner_words/bob_words_16_17nov_codex_development.md`).
+
+The process's tool guards against mistakes. It does not guard against a session that sets out to defeat it. That is a known limit. PROCESS answers a finding that needs a deliberate attack with "no change", unless Bob says otherwise (part 8).
 
 Claude Code: permission management is kept as Process3 ran it. Measured: about 700 merges with no review went through Process3's tool with no recorded refusal. Process4's own tool is unmeasured.
 
@@ -72,6 +74,8 @@ The process stands only on platform behaviour that has been measured. The measur
 - Sessions are started only down to a limited depth. So sessions are at most three levels deep.
 
 Codex: whether like limits apply there is not yet known.
+
+A harness runs AI sessions only on what Bob's subscription covers. Anything that would cost more comes to him first.
 
 The process keeps to GitHub's published limits, in the way Process3 did. Process3 used 80 to 90% of the published limits and obeyed GitHub's rate-limit responses, as the working Foundations record. Why GitHub suspended the sessions' account on 6 Nov is owed (part 10).
 

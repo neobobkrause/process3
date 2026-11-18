@@ -1,6 +1,6 @@
 # Process4 Foundations, part 5: Roles and sessions
 
-Length: 89 lines. Last section: "The way back after a full stop".
+Length: 95 lines. Last section: "The way back after a full stop".
 
 ## The standing roles
 
@@ -70,13 +70,17 @@ Codex: a hosted session shows no reading of how full its context is, so what car
 
 ## Shared state
 
-Git and GitHub hold all state, with one writer for each file. Nothing that matters lives only in a session.
+Git and GitHub hold all state, with one writer for each file. Nothing that matters lives only in a session. A session saves its work to the repository before its turn ends.
 
 What belongs to one job stays in that job's pull request. What every session needs lives in one place on GitHub, in the product's repository. It needs no merge to write, and it is written only through the process's tool. Claude decided this.
 
 What sessions say to each other, and the process's running records, never build up as files or commits in a repository. Bob's reason is in `bob_words_16_17nov_codex_development.md`: an earlier tool of his kept its messages and bookkeeping on GitHub, and left thousands of useless files that could not be removed cleanly. Claude decided: the shared state is a small fixed set of records, each rewritten in place, and messages are not stored as files.
 
+Every kind of standing note in the shared state says what ends it. The process's tool removes the note when that comes true.
+
 Sessions name roles, not particular sessions. So a job obeys ARCH even after ARCH has been replaced.
+
+A message wakes its receiver at once. Whatever the receiver needs is saved before the message is sent. A message from the directing session is an instruction. A message from any other session is information. Where a harness has not been shown to wake a session at once, the design notes that as a shortcoming.
 
 Exactly what the shared state holds is owed (part 10). The shared state is unproven.
 
@@ -86,4 +90,6 @@ Codex: where the shared state lives there is not yet known. See `process4/workin
 
 After any full stop there is one way back. Bob starts ROOT, and ROOT rebuilds everything from the shared state and the repository. A switch to another account adds only Bob's own acts in the new account. Before a switch, Bob tells the coordinator, so that it can stop development in the old account.
 
-Bob stops work by telling the coordinator. The stop is recorded in the shared state, and ROOT reads it at every wake, so the hourly alarm does not undo it. Measured in Process3: after a stop, the alarm went on firing and had sent 94 notifications four days later. Measured in Process3: one account switch failed and one was cancelled. Both the stop and the switch are unproven in Process4.
+A token that expires need not bring a full stop. It is renewed before it expires wherever that can be done (part 7).
+
+Bob stops work by telling the coordinator. A stop on his word takes effect in the turn in which a session receives it. The stop is recorded in the shared state, and ROOT reads it at every wake, so the hourly alarm does not undo it. Measured in Process3: after a stop, the alarm went on firing and had sent 94 notifications four days later. Measured in Process3: one account switch failed and one was cancelled. Both the stop and the switch are unproven in Process4.

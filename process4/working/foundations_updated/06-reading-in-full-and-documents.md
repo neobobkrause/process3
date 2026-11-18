@@ -1,6 +1,6 @@
 # Process4 Foundations, part 6: Reading in full, and the documents
 
-Length: 85 lines. Last section: "Where the work is kept".
+Length: 91 lines. Last section: "Where the work is kept".
 
 ## Why reading in full is a design matter
 
@@ -38,6 +38,12 @@ Claude Code: the product's CLAUDE.md, the instruction file every session loads, 
 
 Codex: the limit on the instruction files a hosted session loads is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
 
+## The ranking of a product's governing texts
+
+Each product has one short page that ranks its kinds of governing text: mission, principles, standards, requirements, design decisions. ARCH keeps the page, and every role reads it.
+
+A lower kind never overrides a higher one. A session that finds two in conflict follows the higher and tells ARCH.
+
 ## The two documents
 
 Process4 has two documents.
@@ -66,7 +72,7 @@ Writer's reading: a reader who needs the rule reads one entry and gets the rule.
 
 The body of the design uses words that fit either harness. A table for each harness, Claude Code and Codex, says which construct of that harness carries each term. Anything specific to Claude Code, such as CLAUDE.md and settings.json, is marked as specific to Claude Code.
 
-Bob's direction is that Codex is to be studied as an environment of its own, not assumed to be the same as Claude's (`bob_words_17nov_codex_context.md`). He also asked for confirmation that the Codex work does not overwrite the support for Claude Code (`bob_words_16_17nov_codex_development.md`).
+Bob's direction is that Codex is to be studied as an environment of its own, not assumed to be the same as Claude's (`bob_words_17nov_codex_context.md`). He also asked for confirmation that the Codex work does not overwrite the support for Claude Code (`bob_words_16_17nov_codex_development.md`). Each harness's own files are kept apart in the process's repository, and a change for one harness never alters the other's.
 
 The terms these parts use, with their Claude Code constructs, are listed in part 9.
 
