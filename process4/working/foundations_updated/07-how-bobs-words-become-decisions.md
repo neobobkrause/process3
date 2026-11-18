@@ -1,6 +1,6 @@
 # Process4 Foundations, part 7: How Bob's words become decisions
 
-Length: 58 lines. Last section: "What waits for Bob".
+Length: 66 lines. Last section: "What waits for Bob".
 
 ## Why this needs a rule
 
@@ -45,13 +45,21 @@ A question is put to Bob inline, and always in the same form:
 
 The form answers Bob's working rule: bring him only what is his to decide, say what it is and why it matters to him, and give a recommendation (`bob_words_14nov_b.md`). It also answers his third message in `bob_words_15nov_main.md`. Bob does not follow what every session says in detail. He asks to be walked through what he needs to know, in an organised way, in plain words and with context.
 
-Sessions tell Bob what is proven and what is not. They do not assure him that something will work (`bob_words_14nov_b.md`).
+No session assures Bob that something will work. Each claim put to him says what is proven and what is not, names its source, and calls anything unread or unmeasured unknown. His rule is in `bob_words_14nov_b.md`.
+
+## What Bob can see of the work
+
+Bob can see each open job's progress and status without speaking to it. He seldom speaks to jobs, but he counts seeing their progress as important (`bob_words_16_17nov_codex_development.md`).
+
+A product's ROOT, ARCH, coordinator, lanes and jobs are grouped under that product. Helpers are left out. A finished session is archived, not deleted (part 5).
+
+Codex: how sessions are grouped and archived there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
 
 ## What waits for Bob
 
 One standing page always shows everything that is waiting for Bob.
 
-A notification goes to his phone when something arrives that only he can clear.
+A notification goes to his phone when something arrives that only he can clear. Codex: what carries the notification there is not yet known. See the same file.
 
 When the process is completely blocked, Bob gets one plain message with a numbered list of what is his to do.
 

@@ -1,6 +1,6 @@
 # Process4 Foundations, part 1: Purpose, the owner and the AI
 
-Length: 84 lines. Last section: "Words used".
+Length: 101 lines. Last section: "Words used".
 
 ## Status
 
@@ -23,6 +23,14 @@ A product starts as the description of a need. The need is described from the vi
 
 The process names no product. A product's own facts are kept with that product.
 
+## Where the process stops
+
+The process owns what can be proven in the repository and on the machines that run the tests.
+
+Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob. Production keys are never in the sessions' environment.
+
+Process4 provides the appropriate level of support for promoting to installed sites, for rollback and for support. What that level is has not yet been decided (part 10).
+
 ## The owner and the AI
 
 Bob is human and the sessions are AI. The process uses the strengths of each.
@@ -34,8 +42,8 @@ Bob's time is the scarcest resource. Five conclusions follow.
 - Only what is Bob's reaches him. A technical question is never brought to him.
 - A question that is his is put once, in one fixed form, with options and a recommendation (part 7).
 - An act only he can take is named and walked through in plain steps.
-- Work does not wait on him unless only he can clear the way. A stop is recorded as a named blocker and other work goes on. One that only he can clear is told to him at once. Measured in Process3: one question that sessions treated as his waited about nine hours.
-- No merge needs him. He may ask to hold or to approve one particular merge. That is unproven.
+- Work does not wait on him unless only he can clear the way. Development work continues as long as there is work that can still be done productively, efficiently and safely. A stop is recorded as a named blocker and other work goes on. One that only he can clear is told to him at once. Measured in Process3: one question that sessions treated as his waited about nine hours.
+- A job's work merges without him, and so does a tranche that has come clean. He may ask to hold or to approve one particular merge. That is unproven. A change to the process is different: it is merged only on his word given at PROCESS (part 8).
 
 A question that is Bob's becomes his decision, and then a design, before anything is built on it.
 
@@ -54,22 +62,30 @@ Bob enters no commands and edits no source files. His acts are few.
 - Very occasionally he changes a permission or rule setting in GitHub or in the product's hosting account.
 - Claude Code: he commits his standing approvals and the list of forbidden commands himself, on GitHub's website. He connects Claude to GitHub and enters secret values into the cloud environment, from a page the process writes (part 9).
 
-A worked list of each act asked of Bob at the start, in order and in one piece, is owed (part 10).
+Codex: what carries his approvals, the list of forbidden commands and the secret values there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+
+A worked proposal on branches and on where his approvals live, with each act asked of him, is owed (part 10).
 
 ## How problems are handled
+
+Every problem is either an architecture bug or an implementation error. Claude's reading, not yet confirmed by Bob: an architecture bug is corrected by rewriting the part of the design it belongs to, never by appending to it. An implementation error is corrected in the code or text that has it.
+
+A workaround is not a fix.
 
 Caution is a cost. It is paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change.
 
 A flaw in the product that a walk finds becomes work for a named module in the next round (part 4). A fault in the process is never fixed or worked round by a session that is building a product. It goes to PROCESS, where Bob chooses (part 8).
 
+Process4 steps around the situations where a known weakness of AI sessions does harm. It does not rely on repairing the harm afterwards. For each such weakness the design names the sign that it is near, and what the session then does. Bob's words on this are in `bob_words_17nov_compaction_avoidance.md`. Parts 5 and 6 apply it to a context that fills and to reading in full.
+
 ## The shape in one paragraph
 
-Git and GitHub hold all state. Bob starts ROOT, and ROOT starts the standing roles. The coordinator is Bob's front door. One architecture session for each product, ARCH, directs the work and keeps what needs judgment. The process's own tool does whatever has one right answer. Short job sessions each build one module as one pull request, up to eight at a time. The tests are the module tests, the internal walk and the external walk, and nothing is added to them. A tranche is built apart from the main branch and reaches it only as a whole. A release can follow a tranche that has ended. Only PROCESS changes the process, and only with Bob. Every text that must be read in full is kept below a measured maximum size. Long-lived sessions are refreshed on purpose before their context fills. Rules are held by each session's instructions and by the harness's permission checker.
+Git and GitHub hold all state. Bob starts ROOT, and ROOT starts the standing roles. The coordinator is Bob's front door. One architecture session for each product, ARCH, directs the work and keeps what needs judgment. The process's own tool does whatever has one right answer. Short job sessions each build one module as one pull request, up to eight at a time. The tests are the module tests, the internal walk and the external walk, and nothing is added to them. A tranche is built apart from the main branch and reaches it only as a whole. A release can follow a tranche that has ended. Only PROCESS changes the process, and only with Bob. Every text that must be read in full is kept below a measured maximum size. Long-lived sessions are refreshed on purpose before their context fills. Rules are held by each session's instructions, by Bob's standing approvals and by the list of forbidden commands (part 9).
 
 ## Words used
 
 - **Session:** one running AI conversation in the harness's cloud.
-- **Harness:** the AI coding product the sessions run in. Process4 is designed for two: Claude Code and Codex. A statement marked "Claude Code:" depends on that harness.
+- **Harness:** the AI coding product the sessions run in. Process4 is designed for two: Claude Code and Codex. A statement marked "Claude Code:" depends on that harness. A line marked "Codex:" says where the Codex side is not yet known.
 - **Pull request:** a proposed change to a repository, which GitHub can test and then merge. A draft pull request is one not yet offered for merging.
 - **Module:** one part of the product, with its own code files, tests and requirements file.
 - **Provider and user:** a module whose services another module uses is that module's provider. The module that uses it is its user.
@@ -78,7 +94,8 @@ Git and GitHub hold all state. Bob starts ROOT, and ROOT starts the standing rol
 - **Tranche:** one batch of product work, built on the tranche branch, apart from the main branch.
 - **Round:** one pass within a tranche: jobs, then the internal walk, then, if that finds no flaws, a deployment and the external walk.
 - **Internal walk:** a walk of the product as built, not deployed, against the Screens document.
-- **External walk:** a walk of the journeys on a development deployment, which reaches no one but the walkers.
+- **External walk:** a walk of the journeys on a development deployment.
+- **Development deployment:** the product put on a development site in the product's hosting account, where it reaches no one but the walkers. What carries this depends on where the product is hosted (part 6).
 - **Mechanical edit:** one change that touches many modules in the same trivial way and needs no judgment.
 - **The process's tool:** the small tool through which sessions reach GitHub.
 - **"Claude's reading:"** marks an interpretation in the design that Bob has not yet confirmed. **"Claude decided:"** marks a technical matter the AI settled and reported. **"Writer's reading:"** marks an interpretation made by the Claude worker that wrote these parts.

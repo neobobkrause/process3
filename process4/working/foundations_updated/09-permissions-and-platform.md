@@ -1,8 +1,8 @@
 # Process4 Foundations, part 9: Permissions and the platform
 
-Length: 88 lines. Last section: "The terms and their Claude Code constructs".
+Length: 96 lines. Last section: "The terms and their Claude Code constructs".
 
-Much of this part depends on the harness. Each such statement is marked "Claude Code:". How Codex carries the same terms is for the design document's table for Codex.
+Much of this part depends on the harness. Each such statement is marked "Claude Code:". Where what carries a term on Codex is not yet known, a line marked "Codex:" says so. The list of those shortcomings is `process4/working/codex_shortcomings_to_fill.md`.
 
 ## What holds a rule
 
@@ -13,11 +13,11 @@ Process4 holds its rules with four things.
 - **The list of forbidden commands.** It takes commands away from every session outright.
 - **GitHub's own rules.** These are Bob's settings.
 
-Bob's approvals and the list of forbidden commands are protected by the permission checker alone. Nothing enforced by GitHub is added for the process's own rules (part 8).
+Bob's approvals and the list of forbidden commands are protected by the permission checker alone. Nothing enforced by GitHub is added for the process's own rules (part 8). Claude Code: the permission checker is that harness's own. Codex: what stands in for it is not yet known.
 
 Most rules in the design are held by instructions. The rule that a job writes only its own module's files is one. Bob's judgment is that this is enough for ordinary work: under Claude Code he saw jobs keep to their modules, and he counts enforcement by role as important and useful but not essential (`process4/owner_words/bob_words_16_17nov_codex_development.md`).
 
-Permission management is Process3's, preserved. Measured: about 700 merges with no review went through Process3's tool with no recorded refusal. Process4's own tool is unmeasured.
+Claude Code: permission management is kept as Process3 ran it. Measured: about 700 merges with no review went through Process3's tool with no recorded refusal. Process4's own tool is unmeasured.
 
 ## Bob's standing approvals
 
@@ -39,11 +39,13 @@ Claude Code: the list of forbidden commands is the deny list in the repository's
 
 So the process's tool is each session's only door to GitHub. Merging stays with that tool, the route Process3 measured.
 
-Sessions act on GitHub as a second account, which can push and merge but cannot change settings. Bob acts as the owner. So GitHub itself keeps sessions out of settings and branch rules. No branch can be deleted or overwritten. The tranche branch takes a change only by pull request with its tests passing.
+Sessions act on GitHub as a second account, which can push and merge but cannot change settings. Bob acts as the owner. So GitHub itself keeps sessions out of settings and branch rules. No branch can be deleted or overwritten. The tranche branch takes a change only by pull request with its tests passing. Codex: which GitHub account a session acts as there is not yet known.
 
-Claude Code: a session loads the list of forbidden commands only when it holds one repository (measured). So every session is started with one repository, from the newest commit of the tranche branch.
+Claude Code: a session loads the list of forbidden commands only when it holds one repository (measured). So every session is started with one repository. A session building a product starts from the newest commit of that product's tranche branch. PROCESS starts on the process's own repository.
 
-The process must be able to deploy by itself, because an external walk needs a deployment and the work runs with nobody watching. Bob's word on this, of 2 Nov, is recorded in `process4/evidence/foundations.md`. Secret values are kept away from product code. Claude Code: deploy tokens are held as settings of the cloud environment, the only route measured to work. Module tests run in two parts, so that product code under test holds no access token.
+The process must be able to deploy by itself, because an external walk needs a deployment and the work runs with nobody watching. Bob's word on this, of 2 Nov, is recorded in `process4/evidence/foundations.md`. What deploys a product, and what its deploy token is, depend on where the product is hosted. The design gives them in a table for each hosting provider (part 6).
+
+Secret values are kept away from product code. Production keys are never in the sessions' environment (part 1). Claude Code: deploy tokens are held as settings of the cloud environment, the only route measured to work. Codex: where a deploy token is kept is not yet known. Module tests run in two parts, so that product code under test holds no access token. Who can read the deploy token is owed (part 10).
 
 ## Working with the permission checker
 
@@ -52,8 +54,10 @@ Claude Code: every session runs in Auto mode. It acts without asking a person, a
 Claude Code: the checker's judgment is not fully steady. Measured in Process3: it passed and refused the same act minutes apart. Three working rules exist because of it.
 
 - One judged act for each command. Measured: a judged act chained with another command was the one refused.
-- A refused act is never reworded and never handed to another session.
+- An act the permission checker refused is never reworded and never retried elsewhere.
 - Three refusals in a row stop a session (measured). Such a session is replaced.
+
+Two kinds of refusal are kept apart. An act the permission checker refused falls under the second rule above. An act a session declined only because its instructions did not name it is different. It may be given to a new session whose instructions do name it. Writer's reading: the second is a missing instruction and not a refusal of what Bob approved, so supplying the instruction is the correction.
 
 Estimated: twenty clean merges in the trial bound the refusal rate only below about 14%. Whether the checker goes on passing merges at a real rate can be shown only by the first real tranche.
 
@@ -64,10 +68,14 @@ The process stands only on platform behaviour that has been measured. The measur
 - A session can run one thing for about 30 minutes. Longer work runs on GitHub's machines or is shared among sessions.
 - An alarm set by a session fires into that session when it is idle and resumes it. This is ROOT's hourly wake.
 - A fresh session started by an alarm could not start sessions (0 of 3).
-- New session starts failed silently at about 50 live sessions (one event). So finished sessions must not use up the account's room. Who closes a finished session is owed (part 10).
+- New session starts failed silently at about 50 live sessions (one event). So finished sessions must not use up the account's room. The session that started a session archives it when it has finished (part 5).
 - Sessions are started only down to a limited depth. So sessions are at most three levels deep.
 
-The process keeps to GitHub's published limits, in the way Process3 did. What that way was, and why GitHub suspended the sessions' account on 6 Nov, are owed (part 10).
+Codex: whether like limits apply there is not yet known.
+
+The process keeps to GitHub's published limits, in the way Process3 did. Process3 used 80 to 90% of the published limits and obeyed GitHub's rate-limit responses, as the working Foundations record. Why GitHub suspended the sessions' account on 6 Nov is owed (part 10).
+
+The limits of the product's hosting account are given in the table for each hosting provider (part 6).
 
 Every account, setting and branch rule the process depends on is part of the design. The few steps that are Bob's are listed on one page the process writes, each with its reason.
 
@@ -85,4 +93,4 @@ Every account, setting and branch rule the process depends on is part of the des
 | Settings of the cloud environment | Values Bob enters into Claude's cloud environment |
 | Notification to Bob's phone | A push notification from a session |
 
-The Codex constructs are not given here. They belong to the design document's table for Codex.
+The Codex constructs are not given here. They belong to the design document's table for Codex. Where one is not yet known, the list is `process4/working/codex_shortcomings_to_fill.md`.

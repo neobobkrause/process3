@@ -1,6 +1,6 @@
 # Process4 Foundations, part 8: Changing the process
 
-Length: 74 lines. Last section: "What Process4 does not carry".
+Length: 81 lines. Last section: "What Process4 does not carry".
 
 ## Only PROCESS changes the process
 
@@ -21,7 +21,7 @@ Development under the process is development of the product, not of the process.
 
 A change to the process may correct or remove what is broken. It may not add a test, a gate, a review or a stop. The tests are closed (part 2).
 
-Two more rules apply, both from part 1. Caution is a cost, paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change. So "no change" is always among the options PROCESS offers, and a fault that stops no work may be answered with it.
+Three more rules apply, all from part 1. Caution is a cost, paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change. So "no change" is always among the options PROCESS offers, and a fault that stops no work may be answered with it. And a workaround is not a fix. Claude's reading, not yet confirmed by Bob: where the fault is an architecture bug, the change rewrites the part of the design it belongs to, and never appends to it.
 
 PROCESS writes Bob's approving words into its record exactly as typed, with the date. Nothing else counts as his approval. Claude decided this.
 
@@ -37,7 +37,7 @@ A process fault that stops work waits for Bob at PROCESS. How often that happens
 
 Bob rewords his approvals in the process's repository to say that a process change is merged only on his word given at PROCESS. Nothing enforced by GitHub is added.
 
-So the rule is held by words: Bob's approvals, each session's instructions, and the permission checker that reads those approvals (part 9).
+So the rule is held by words: Bob's approvals and each session's instructions. Claude Code: the permission checker reads those approvals and protects them (part 9). Codex: what stands in for the permission checker there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
 
 ## One fixed version for each tranche
 
@@ -47,9 +47,16 @@ The version a product names moves only with Bob's prior approval, by the means P
 
 PROCESS works in the process's own repository. The process's tool has tests of its own, which run only when PROCESS changes the process (part 2).
 
+## Process4 develops itself
+
+Process4 develops itself. Bob asks that its development reach the point where its own constructs can be used for its further development. He expects that to make better use of calendar time, of his time and of tokens. His words are in `bob_words_17nov_fresh_context_and_process_self_development.md`.
+
+- PROCESS may have lanes of its own for standing subjects, as needed. Claude's reading, not yet confirmed by Bob: PROCESS starts its own lanes.
+- A hard open question gets a session of its own, with a written brief and a bounded task. That session ends with a written result once the result is usable.
+
 ## When a new model version arrives
 
-When a new model version arrives, PROCESS puts one question to Bob. It asks which parts of the process may no longer be needed, and which of the working rules that exist because of the permission checker may no longer be needed.
+When a new model version arrives, PROCESS puts one question to Bob. It asks which parts of the process may no longer be needed, and which of the working rules that exist because of the permission checker may no longer be needed. Those working rules are in part 9, and the permission checker is a Claude Code construct.
 
 Nothing is removed or tried unless Bob says so.
 

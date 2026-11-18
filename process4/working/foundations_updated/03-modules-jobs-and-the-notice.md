@@ -4,7 +4,7 @@ Length: 86 lines. Last section: "What the notice cannot do".
 
 ## Modules
 
-A product is one ordered list of modules. A module may use only modules that come before it in the list. Every file has one owner module. The modules are not grouped into layers.
+A product is one ordered list of modules. A module may use only modules that come before it in the list. Every file has one owner module.
 
 A use that points to a later module is an error in the design of those modules. It is fixed by reshaping them, not by allowing the use.
 
@@ -36,7 +36,7 @@ A flaw a job finds in another module goes to ARCH, which passes it to that modul
 
 When a job completes, it marks its pull request ready and its module tests run. When they pass, ARCH merges the pull request into the tranche branch with the process's tool. There is no review and no act of Bob's. The slot is refilled in the same turn. Measured in Process3: with no event to prompt it, the directing session once noticed a finished job after 194 minutes.
 
-Done means merged. A job never merges, starts a session, deploys or changes the process.
+A module's work is finished when its job merges, or when its notified job tells ARCH that nothing needs changing. Claude decided this. A job never merges, starts a session, deploys or changes the process.
 
 A job that has failed two corrections is replaced by a fresh session. The fresh session's first task is to understand why the corrections were made, so that it can foresee the ones still needed. A job session that dies is replaced by one that carries on from the same branch and pull request.
 
@@ -72,7 +72,7 @@ How a notified job picks the tests that relate to a changed entry is owed (part 
 
 ## What the notice cannot do
 
-After the study of this question, Bob's conclusion is that there is no reliable way to tell a change to an interface from a change to something else. His words are in `bob_words_15nov_main.md`.
+Bob's conclusion is that there is no reliable way to tell a change to an interface from a change to something else. His words are in `bob_words_15nov_main.md`.
 
 So the notice is a way of saving work. It is not a guarantee. It will sometimes tell a user that needed no change. It will sometimes miss a user that did.
 

@@ -1,6 +1,6 @@
 # Process4 Foundations, part 5: Roles and sessions
 
-Length: 77 lines. Last section: "The way back after a full stop".
+Length: 89 lines. Last section: "The way back after a full stop".
 
 ## The standing roles
 
@@ -10,7 +10,7 @@ Length: 77 lines. Last section: "The way back after a full stop".
 | The watcher | ROOT | Stands by, and takes over if ROOT dies | Its takeover is not yet designed |
 | The coordinator | ROOT | Is Bob's front door for a product. Records his marked words. Tells him what ARCH decided, one plain line each. Puts his questions to him. Gives him the account after each round | Decides nothing about the product. Brings Bob no technical question |
 | ARCH | ROOT | One for each product, and long-lived. Directs the work: starts and merges jobs, writes requirement text, names the areas for each walk, makes the development deployment, turns flaws into work, starts the product's design lanes, prepares a release. Decides every technical matter of the product and records each decision in the product's repository | Touches no code and no tests. Never edits Bob's approvals, changes the process, or releases without him |
-| PROCESS | ROOT | Is the only place the process is changed (part 8). Works in the process's own repository. Bob works with it directly | Builds no product |
+| PROCESS | ROOT | Is the only place the process is changed (part 8). Works in the process's own repository. Bob works with it directly. May have lanes of its own | Builds no product |
 
 ROOT and the coordinator are different sessions. Bob may watch ARCH and the lanes, and sometimes speak to them. His reasons are in `process4/owner_words/bob_words_16_17nov_codex_development.md`: the lanes are where design decisions are made, he seldom speaks to jobs but wants to see their progress, and he needs PROCESS when a process matter arises.
 
@@ -26,13 +26,17 @@ Writer's reading: this keeps ARCH's context for the work only it can do. Measure
 
 A **job** is a session ARCH starts to do one module's work (part 3). It decides how to meet that module's requirements.
 
-A **helper** is a worker that ARCH or a job starts inside its own session. It does noisy bulk work and truly independent side tasks, and it ends when its task is done. Helpers are how a session reads a large set of documents without filling its own context. A helper may also be asked to decide something from what it gathers. Bob's words on both points are in `bob_words_17nov_codex_context.md`. No helper is briefed to review another session's work.
+A **helper**, also called a worker, is started by a session inside itself. Helpers are the standing way a long-lived role keeps heavy reading out of its own context. A helper gets a narrow brief and gives a short answer in a set shape. It ends when its work is done. A brief may hand the helper a decision to make, which it reports with its grounds. Bob's words on this are in `bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`. A helper also does noisy bulk work and truly independent side tasks. No helper is briefed to review another session's work.
 
 **Walking sessions** make both walks (part 4). ARCH starts them.
 
 Every session passes Bob's suggested model and effort on to each session it starts. The standard is a model and effort sufficient for quality.
 
 Sessions are at most three levels deep, and none starts its own replacement. Claude Code: the limit on depth is a measured behaviour of that harness.
+
+A finished session is archived, not deleted. An archived session can still be found and reviewed (`bob_words_16_17nov_codex_development.md`). Claude decided: the session that started a session archives it.
+
+Codex: how separate sessions, their depth, the passing on of model and effort, and archiving are carried there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
 
 ## Design lanes
 
@@ -60,15 +64,23 @@ The conclusions:
 - The successor starts only from the shared state and the repository. It takes nothing from the old session's memory.
 - Texts are kept small enough to be read in full (part 6), and helpers do the heavy reading.
 
+The fill level is chosen by the same yardstick as the maximum sizes of part 6. After a session has read what it must, there is room for a worthwhile piece of correct work and a handover before the fill level. Bob's words on what a session needs room for are in `bob_words_17nov_compaction_avoidance.md`. The level has no settled value yet (part 10).
+
+Codex: a hosted session shows no reading of how full its context is, so what carries the fill level there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+
 ## Shared state
 
 Git and GitHub hold all state, with one writer for each file. Nothing that matters lives only in a session.
 
 What belongs to one job stays in that job's pull request. What every session needs lives in one place on GitHub, in the product's repository. It needs no merge to write, and it is written only through the process's tool. Claude decided this.
 
+What sessions say to each other, and the process's running records, never build up as files or commits in a repository. Bob's reason is in `bob_words_16_17nov_codex_development.md`: an earlier tool of his kept its messages and bookkeeping on GitHub, and left thousands of useless files that could not be removed cleanly. Claude decided: the shared state is a small fixed set of records, each rewritten in place, and messages are not stored as files.
+
 Sessions name roles, not particular sessions. So a job obeys ARCH even after ARCH has been replaced.
 
 Exactly what the shared state holds is owed (part 10). The shared state is unproven.
+
+Codex: where the shared state lives there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
 
 ## The way back after a full stop
 

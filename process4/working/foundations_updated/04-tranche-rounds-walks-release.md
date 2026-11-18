@@ -1,6 +1,6 @@
 # Process4 Foundations, part 4: Tranche, rounds, walks and release
 
-Length: 87 lines. Last section: "Release".
+Length: 95 lines. Last section: "Release".
 
 ## The tranche
 
@@ -20,11 +20,15 @@ A tranche is worked in rounds. A round has three steps.
 
 Claude decided this order. Whether a round's jobs are done has one right answer, so the process's tool decides it.
 
-A flaw found by either walk becomes work for a named module in the next round, not the next tranche. Bob's words on this are in `process4/owner_words/bob_words_14nov_b.md`. The tranche ends when the external walk comes clean.
+A flaw found by either walk becomes work for a named module in the next round, not the next tranche. Bob's words on this are in `process4/owner_words/bob_words_14nov_b.md`. The tranche ends when a round's external walk comes clean.
 
 ARCH's session makes the development deployment. Walking sessions make both walks, and they walk whatever product is being developed. Claude decided that walking sessions use the job slots, because a walk happens when no job is open, and that a walk is shared out among them.
 
+How a development deployment is made, and on what, depends on where the product is hosted. The design gives that in a table for each hosting provider (part 6). How many walkers the product's hosting account can bear is unproven, and is measured in the trial.
+
 Claude Code: a session can run one thing for about 30 minutes (measured). Process3's two late runs of a deployment and walk took 60 and 64 minutes (measured). So one walk has to be shared among several sessions. A shared walk has never run and is unproven.
+
+Codex: whether a like limit applies there is not known. See `process4/working/codex_shortcomings_to_fill.md`.
 
 While a tranche runs, ARCH prepares what the next round or the next tranche needs.
 
@@ -76,6 +80,8 @@ Whether a tranche can end by a clean walk is unproven. Measured in Process3: no 
 
 Any tranche that has ended can be released, on Bob's approval. First an install and an update are each run and confirmed successful. Neither is walked.
 
+What installs and what updates a product depends on where it is hosted. The design gives that in the same table for each hosting provider (part 6).
+
 The motivation is in `bob_words_14nov_b.md`: a release may follow a completed tranche, so a release always rests on work that was tested and walked.
 
 Claude's reading, not yet confirmed by Bob: the install and the update run on a development account. "Successful" means the installer or updater finishes without error and the site it produced starts. On a failure no release is offered, and the fault becomes work in the next tranche.
@@ -85,3 +91,5 @@ An urgent fix is a tranche whose content is that fix alone.
 Built files are never committed. They are built at each walk, each deployment and each release.
 
 ARCH prepares a release and waits for Bob's approval. Measured: no release of any kind was made in Process3. So the release path is unproven.
+
+Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob. The level of support Process4 gives for them is not yet decided (part 1).

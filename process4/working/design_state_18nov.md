@@ -1,6 +1,6 @@
 # Process4 design state, 18 Nov 2026
 
-Length: 127 lines. Last section: "14. Owed, not yet done".
+Length: 129 lines. Last section: "14. Owed, not yet done".
 
 Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
 
@@ -16,6 +16,7 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - The tests are module tests, the internal walk and the external walk. Before a release, an install and an update are each confirmed to have succeeded. Nothing more: no further test phases, gates or reviews.
 - Module tests give appropriate coverage of the code, demonstrate correct results, show that error conditions are properly identified and communicated, and check bounds. A test does not fail because it got a different but still valid response. This is a duty of the job, held by its instructions; nothing measures it.
 - Every other check Process3 had that could stop work has ended. There is no full regression, on request or otherwise.
+- Claude decided, from that ruling: the start-up comparison of Bob's approvals is not kept as a check. An edit to his approvals goes with a restart of ROOT by the one way back (section 8). The size of a role's starting text is not a refusal among the tool's tests; it is kept short by the rule in section 3.
 - The process's own tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work.
 - The notice to user modules is a way of saving work, not a guarantee. A notified job checks only the changed parts and runs only the tests that relate to them.
 
@@ -58,7 +59,8 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - Walking sessions make both walks, and they walk the product being developed, whatever product that is. ARCH's session makes the development deployment.
 - After each round the coordinator gives Bob a short account: jobs done, flaws found, flaws carried over, observations set aside, changes to the walks' documents, rewordings made, and cost where it can be read. Nothing waits on it.
 - A tranche that does not come clean goes on in rounds until Bob says. He then chooses between merging it with its flaws named, with no release from it, and dropping it.
-- There is no walk outside a tranche. There are no triage lanes.
+- There is no walk outside a tranche. The only walk made on Bob's word is the opt-in full external walk; the sixth draft's internal walk "at any time on your word" is removed. There are no triage lanes.
+- The report written once at a tranche's end stands as the sixth draft has it, beside the account after each round.
 
 ## 6. Release
 
