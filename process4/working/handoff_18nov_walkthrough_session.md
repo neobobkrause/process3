@@ -1,6 +1,6 @@
 # Handoff from the walk-through session of 18 Nov 2026
 
-Length: 58 lines. Last section: "Practical notes".
+Length: 60 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff and rules over `handoff_18nov_design_session.md` where they differ. Read this whole, then that one, then the seventh draft and the five build texts whole.
 
