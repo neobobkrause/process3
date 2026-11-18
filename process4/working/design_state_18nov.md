@@ -1,6 +1,6 @@
 # Process4 design state, 18 Nov 2026
 
-Length: 142 lines. Last section: "15. Owed, not yet done".
+Length: 143 lines. Last section: "15. Owed, not yet done".
 
 Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
 
@@ -40,6 +40,7 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - Each role's principles are concise, sufficient for the role to be performed correctly, and unambiguously clear. Whenever they are changed, every effort is made to keep them short enough to be read in full and not scanned. Where that cannot be done, the matter comes to Bob to find a solution. Reading: PROCESS brings it to him.
 - A module's requirements file is kept under the maximum as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge.
 - Claude's addition: each governing text says at its top how long it is and what its last section is.
+- Provisional values, on Bob's word of 18 Nov after the first measurement: "let's use these current values for now so that we move forward with the next task". Reading: "these current values" are the four put to him: a single text, 24,000 bytes; a set, 175,000 bytes; a role's starting text, 4,096 bytes and at most ten rules; the fill level, 40 percent. They stand until a second measurement reports. Bob judged the first measurement too weak to rely on. Its results are in `process4/working/reading_measurements/RESULTS.md`; the second is briefed in `reading_measurements/RERUN_PROMPT.md`.
 
 ## 4. How Bob's words become decisions
 
@@ -134,7 +135,7 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 
 ## 15. Owed, not yet done
 
-- The values of the maximums, to fill the design's named blanks: first what limits Process3's own rules set, and if those do not settle it, credible tests that measure the thresholds.
+- The values of the maximums, to fill the design's named blanks. Provisional values are in section 3. Still owed: a second measurement that can be relied on, run by another session in the `process3-probes` repository.
 - A design for how a notified job picks the tests that relate to a changed entry.
 - The design of the watcher's takeover.
 - A worked proposal on branches and where Bob's approvals live, with each act asked of him.
