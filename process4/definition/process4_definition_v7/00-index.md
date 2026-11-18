@@ -1,6 +1,6 @@
 # Process4: the design, seventh draft
 
-Length: 89 lines. Last section: "5. Words used".
+Length: 93 lines. Last section: "6. Words used".
 
 Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force and nothing here has run.**
 
@@ -42,7 +42,11 @@ A rule with no mark is the owner's ruling, or follows from one directly, or is o
 | 9 | `09-hosting-cloudflare.md` | What carries each hosting term on Cloudflare |
 | 10 | `10-open-and-unproven.md` | What is open, with whom; what is unproven; the trial |
 
-## 5. Words used
+## 5. The build texts
+
+How the tool, the forms, the walks and each role's starting text are made is written in the build texts, in `process4/definition/process4_build_v1/`. They stand beside this design and change no rule of it. Where a build text and this design differ, this design rules.
+
+## 6. Words used
 
 - **The owner:** the person the product is built for. He defines the product. The AI decides everything technical and tells him in plain words what it decided.
 - **Harness:** the system that runs AI sessions. Two are covered: Claude Code and Codex.
@@ -86,4 +90,4 @@ A rule with no mark is the owner's ruling, or follows from one directly, or is o
 - **Deploy token:** the secret value that lets a session deploy to the development account. **Hosting provider:** where a product is hosted and released.
 - **Fill level:** how full a session's context window is. **Refresh:** the planned replacement of a role's session by a fresh one.
 - **Lane:** a standing design responsibility for one area of a product. **The UX lane** is the lane for the user's experience: the screens and the journeys. **Design pages:** the pages a lane keeps its designs on, where the owner works with it.
-- **Process config:** the product's short file of process settings. **Claude decided** what it holds: the process version it runs on, the default slot number, its lanes, its hosting provider and development account, the folder of the walks' documents, and the language reader the tool uses. **The language reader** is the program that reads the product's code for the tool.
+- **Process config:** the product's short file of process settings. **Claude decided** what it holds: the process version it runs on, the default slot number, its lanes, its hosting provider and development account, the folder of the walks' documents, the commands that build, serve and walk the product on one machine, the most external walkers, and the language reader the tool uses. **The language reader** is the program that reads the product's code for the tool.

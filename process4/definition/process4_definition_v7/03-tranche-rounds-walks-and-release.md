@@ -1,6 +1,6 @@
 # Part 3. The tranche, rounds, walks, and release
 
-Length: 73 lines. Last section: "8. Support beyond the process".
+Length: 74 lines. Last section: "8. Support beyond the process".
 
 ## 1. Opening a tranche
 
@@ -37,6 +37,7 @@ Length: 73 lines. Last section: "8. Support beyond the process".
 
 - Walking sessions make both walks, and they walk the product being developed, whatever product that is. ARCH starts them. ARCH's session makes the development deployment.
 - **Claude decided:** a walk is shared among walking sessions by area, with at most as many walking sessions as there are slots. Each walking session's single run, and each step of a deployment, is kept within the time a session can run one thing.
+- How a walk is made (its steps, its record, a flaw's form, and how ARCH turns a flaw into work) is in the build text `03-the-walks.md`.
 - **Unproven:** that a session's browser can reach the development site; that a walk shared among sessions works; that a deployment can be made from a session in steps that fit; how many external walkers the hosting account can bear. No walk of either kind has ever been made by a session.
 
 ## 4. After each round

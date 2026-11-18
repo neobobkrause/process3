@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 100 lines. Last section: "6. Risks with no trial".
+Length: 101 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -14,9 +14,10 @@ Each of these is to be put to him in full, with its options, before the design c
 4. **Publishing a release** (part 3, section 6): who carries out the act once he has approved; and what "successful" means for the install and the update.
 5. **An urgent fix while a tranche is open** (part 3, section 7).
 6. **A told job's tests** (part 2, section 7): that its own edits count among the changed parts; that tests are chosen by whole file; and that a module the tool cannot follow runs its whole tests.
-7. **The other readings:** that a role's starting text and its starting instructions are one thing, and what an architecture bug and an implementation error are (part 0, section 5); that a lane's folder needs no module tests (part 2, section 9); that the install and the update run on a development account, and what a failure leads to (part 3, section 6); how an architecture bug is corrected (part 1, section 6); that exercising a doubtful workflow in a walk adds no test (part 3, section 3); the lane rules he has not confirmed one by one, and that questions to a lane and its answers are not kept as a running record (part 4, section 3); that a role lasts while its sessions are refreshed often (part 4, section 5); that every stop nothing called for is reported to PROCESS during the trial (part 4, section 10); that PROCESS brings him a role's principles that cannot be kept short (part 5, section 3); the order of the ranking page (part 5, section 6); that PROCESS starts its own lanes (part 6, section 8).
+7. **The other readings:** that a role's starting text and its starting instructions are one thing, and what an architecture bug and an implementation error are (part 0, section 6); that a lane's folder needs no module tests (part 2, section 9); that the install and the update run on a development account, and what a failure leads to (part 3, section 6); how an architecture bug is corrected (part 1, section 6); that exercising a doubtful workflow in a walk adds no test (part 3, section 3); the lane rules he has not confirmed one by one, and that questions to a lane and its answers are not kept as a running record (part 4, section 3); that a role lasts while its sessions are refreshed often (part 4, section 5); that every stop nothing called for is reported to PROCESS during the trial (part 4, section 10); that PROCESS brings him a role's principles that cannot be kept short (part 5, section 3); the order of the ranking page (part 5, section 6); that PROCESS starts its own lanes (part 6, section 8).
 8. **His approvals and forbidden commands for Process4** (part 6, section 2): the wording, which only he can write. A proposal is ready for him.
-9. **Codex:** everything part 8 marks not known, from his OpenAI account; and which Codex model the process is to use, which no part states.
+9. **The walks:** five matters in the build text `03-the-walks.md`, section 9. Which list of journeys counts and the form of the two documents; what "proper results" means for a journey that uses AI; whether a tranche can end with such a journey unwalked; whether ARCH may set aside a walker's entry as no flaw; and whether a walking session walks by hand what no written step covers.
+10. **Codex:** everything part 8 marks not known, from his OpenAI account; and which Codex model the process is to use, which no part states.
 
 ## 2. Open design work
 
@@ -33,7 +34,7 @@ For a session to do, and to report.
 6. The form of a structured comment and of an interface listing.
 7. The form of the module list, a requirements file and the process config.
 8. The required test run: what defines it, its two parts, and how the tool sets its scope.
-9. The walks: who writes a walk's steps, where a flaw is saved, and how the internal walk runs on a product that is not deployed.
+9. The walks. Written: build text `03-the-walks.md`. Nothing in it has run.
 
 ## 3. Unproven
 

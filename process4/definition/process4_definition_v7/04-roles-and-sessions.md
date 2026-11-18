@@ -120,7 +120,7 @@ The owner's rulings:
 ## 8. Messages
 
 - A message wakes its receiver at once.
-- Whatever the receiver needs is saved before the message is sent. **Claude decided:** it is saved in the sender's pull request, in the repository, or in a record of the shared state; the message itself is not stored.
+- Whatever the receiver needs is saved before the message is sent. **Claude decided:** it is saved in the sender's pull request, in the repository, in a record of the shared state, or for a walk in that walk's own issue; the message itself is not stored.
 - A message from the directing session is an instruction; a message from any other session is information.
 - Where a harness has not been shown to wake a session at once, that is noted as a shortcoming (part 8).
 
