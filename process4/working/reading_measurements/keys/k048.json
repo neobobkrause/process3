@@ -1,0 +1,127 @@
+[
+ {
+  "id": "q01",
+  "zone": "first",
+  "question": "In the 22:31 entry about the injected stop (interrupt) on jurisdictions, the environment's stop hook drove the job to commit and push WIP. What commit id is given for that WIP?",
+  "answer": "b48585af",
+  "accept": [
+   "b48585af"
+  ],
+  "evidence": "drove it to commit and push WIP (b48585af)"
+ },
+ {
+  "id": "q02",
+  "zone": "first",
+  "question": "In the PLT-8 probe entry dated 3 Nov, the longest job limit of 6 h is set against the longest gate job. How long, in seconds, was the longest gate job?",
+  "answer": "270 s",
+  "accept": [
+   "270"
+  ],
+  "evidence": "longest job limit 6 h vs longest gate job 270 s"
+ },
+ {
+  "id": "q03",
+  "zone": "first",
+  "question": "In the 22:58 entry where PLT-8 4b signing passed (Ed25519 via Node crypto, secret masked, draft release), what run number is given for that signing pass?",
+  "answer": "41735339840",
+  "accept": [
+   "41735339840"
+  ],
+  "evidence": "secret masked, draft release; run 41735339840"
+ },
+ {
+  "id": "q04",
+  "zone": "first",
+  "question": "In the 23:03 entry, what commit id is given for process3 PR 49, the tranche report?",
+  "answer": "195b218",
+  "accept": [
+   "195b218"
+  ],
+  "evidence": "process3 PR 49 tranche report (195b218)"
+ },
+ {
+  "id": "q05",
+  "zone": "middle",
+  "question": "In the 01:29 entry on process3 PR 66 (ROOT/watcher route to the coordinator), how many bytes of its 4096-byte limit did the ROOT prompt take after the fix?",
+  "answer": "4087",
+  "accept": [
+   "4087"
+  ],
+  "evidence": "ROOT prompt 4087 of 4096 bytes"
+ },
+ {
+  "id": "q06",
+  "zone": "middle",
+  "question": "In the 02:01 entry listing BOB's measured process3 gaps, gap (5) names generated files over max_file_bytes. What size is given there for the agent-worker file?",
+  "answer": "8.9 MB",
+  "accept": [
+   "8.9"
+  ],
+  "evidence": "rows.mjs 5.2 MB, agent-worker 8.9 MB"
+ },
+ {
+  "id": "q07",
+  "zone": "middle",
+  "question": "In the 02:11 entry on process3 PR 72 (urgency wakes, rounds 3 by the coordinator's decision), what build cost in dollars is recorded?",
+  "answer": "$15.57",
+  "accept": [
+   "15.57",
+   "15.6"
+  ],
+  "evidence": "368 tests. Build cost $15.57"
+ },
+ {
+  "id": "q08",
+  "zone": "middle",
+  "question": "In the 02:24 entry on process3 PR 77 (marks anywhere on a requirement line), the copy recount gives three totals of unmet marks: before PR 74, after 74, and now. What is the 'now' total?",
+  "answer": "933",
+  "accept": [
+   "933"
+  ],
+  "evidence": "total 481/601/933. Status had read real work as done"
+ },
+ {
+  "id": "q09",
+  "zone": "last",
+  "question": "In the 04:49 entry on process3 PR 86 (record check scoping a taken-in job to commits not reachable from a validated take_in.tip), how many tests does that entry report?",
+  "answer": "445 tests",
+  "accept": [
+   "445"
+  ],
+  "evidence": "445 tests. Pin move 6b1aac8 started via a copy short session"
+ },
+ {
+  "id": "q10",
+  "zone": "last",
+  "question": "In the 05:08 entry where BOB explains the ready-to-start median, BOB withdrew notices 74 and 77. How many owed rows does the entry say that covered?",
+  "answer": "131 owed rows",
+  "accept": [
+   "131"
+  ],
+  "evidence": "BOB withdrew 74 and 77 (131 owed rows)"
+ },
+ {
+  "id": "q11",
+  "zone": "last",
+  "question": "In the 05:54 entry (measured on the copy, read-only) about a merged job PR's gate run listing no pull_requests, until what date are gate-row artifacts kept?",
+  "answer": "2 Feb 2027",
+  "accept": [
+   "2 Feb 2027",
+   "2 February 2027",
+   "Feb 2, 2027",
+   "February 2, 2027",
+   "2027-02-02"
+  ],
+  "evidence": "gate-row artifacts kept to 2 Feb 2027"
+ },
+ {
+  "id": "q12",
+  "zone": "last",
+  "question": "In the closing 05:58 entry about pin 10705a6 landing on the copy by PR 149, with BOB woken pin-16, what commit id is given for that PR?",
+  "answer": "08efddd",
+  "accept": [
+   "08efddd"
+  ],
+  "evidence": "PR 149 (08efddd), BOB woken pin-16"
+ }
+]

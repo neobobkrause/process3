@@ -1,0 +1,125 @@
+[
+ {
+  "id": "q01",
+  "zone": "first",
+  "question": "In the 22:31 entry on the injected stop (interrupt) on the jurisdictions job, what is the hash of the WIP commit that the environment's stop hook drove the job to commit and push?",
+  "answer": "b48585af",
+  "accept": [
+   "b48585af"
+  ],
+  "evidence": "commit and push WIP (b48585af), then it idled"
+ },
+ {
+  "id": "q02",
+  "zone": "first",
+  "question": "In the 01:06 STOPPED-JOB FAULT entry (the archived mail-door job), at what time, to the second, was that job's session created?",
+  "answer": "01:05:19",
+  "accept": [
+   "01:05:19",
+   "1:05:19"
+  ],
+  "evidence": "created 01:05:19, still reading its requirements"
+ },
+ {
+  "id": "q03",
+  "zone": "first",
+  "question": "In the 02:11 entry for process3 PR 72 (urgency wakes, round 3 by the coordinator's decision), what build cost in dollars is recorded?",
+  "answer": "$15.57",
+  "accept": [
+   "15.57",
+   "15.6"
+  ],
+  "evidence": "368 tests. Build cost $15.57."
+ },
+ {
+  "id": "q04",
+  "zone": "first",
+  "question": "In the 02:15 entry for process3 PR 74 (the gate race fix), how many copy lines were found to carry the mark at the end of the line, so that they read as met?",
+  "answer": "333",
+  "accept": [
+   "333"
+  ],
+  "evidence": "333 copy lines carry the mark at the end of the line"
+ },
+ {
+  "id": "q05",
+  "zone": "middle",
+  "question": "In the 20:20 BOB entry that reports a PROCESS3 BUG candidate on PR 291 ('receipt disagrees' while the printed lists match), what is the number of the gate run cited?",
+  "answer": "41899640593",
+  "accept": [
+   "41899640593"
+  ],
+  "evidence": "291 gate 41899640593 'receipt disagrees'"
+ },
+ {
+  "id": "q06",
+  "zone": "middle",
+  "question": "In the 02:05 entry for process3 PR 133 (basered-missing), what test tally (passed out of total) is recorded?",
+  "answer": "712/712",
+  "accept": [
+   "712"
+  ],
+  "evidence": "+91 net; 712/712; rounds 2. Residual A"
+ },
+ {
+  "id": "q07",
+  "zone": "middle",
+  "question": "In the 02:07 MERGE-TRAIN SIM entry (149 PRs over 48 h), how many PR-minutes did the actual, as-run merging total?",
+  "answer": "2427 PR-min",
+  "accept": [
+   "2427",
+   "2,427"
+  ],
+  "evidence": "actual 8.7/33.7/208.8 (2427 PR-min, 402 gates)"
+ },
+ {
+  "id": "q08",
+  "zone": "middle",
+  "question": "In the 04:19 entry recording that PR 388 (merge_train: true) merged and that BOB no longer merges job PRs, at what commit is PR 388 recorded as merged?",
+  "answer": "67409f8",
+  "accept": [
+   "67409f8"
+  ],
+  "evidence": "merge_train: true merged at 67409f8 (04:18:57)"
+ },
+ {
+  "id": "q09",
+  "zone": "last",
+  "question": "In the 14:40 BOB (the owner) entry that opens with \"option C then.\", at about what time does the FACTS passage say the study's recommendation was put to Bob?",
+  "answer": "about 05:40",
+  "accept": [
+   "05:40"
+  ],
+  "evidence": "was put to Bob ~05:40; four coordinators carried it"
+ },
+ {
+  "id": "q10",
+  "zone": "last",
+  "question": "In the 15:52 ROOT entry about Bob replacing CLAUDE.md line 11 with the design-lanes line through GitHub's website, what is the hash of that copy commit?",
+  "answer": "7c7e7c9a",
+  "accept": [
+   "7c7e7c9a"
+  ],
+  "evidence": "copy commit 7c7e7c9a (15:47:14Z) by Bob"
+ },
+ {
+  "id": "q11",
+  "zone": "last",
+  "question": "In the 16:38 BOB'S WORD (verbatim) entry about starting development of parallel merging support, what session id is recorded for the resumed build/train-spec?",
+  "answer": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "accept": [
+   "018Bhcegu7gjj5C8n51W8Eoo"
+  ],
+  "evidence": "resumed from 493d872: session_018Bhcegu7gjj5C8n51W8Eoo"
+ },
+ {
+  "id": "q12",
+  "zone": "last",
+  "question": "In the 16:58 HOURLY FLOW entry (job sessions 4/20), what green-to-merged median, in minutes, is recorded?",
+  "answer": "285 min",
+  "accept": [
+   "285"
+  ],
+  "evidence": "green-to-merged median 285 min"
+ }
+]

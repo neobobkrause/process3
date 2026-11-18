@@ -1,0 +1,133 @@
+[
+ {
+  "id": "q01",
+  "zone": "first",
+  "question": "In the 22:31 entry about the injected stop (interrupt) on the jurisdictions job, the environment's stop hook drove the job to commit and push WIP. What is the commit id of that WIP push?",
+  "answer": "b48585af",
+  "accept": [
+   "b48585af"
+  ],
+  "evidence": "drove it to commit and push WIP (b48585af), then it idled awaiting an answer"
+ },
+ {
+  "id": "q02",
+  "zone": "first",
+  "question": "In the PLT-8 probe entry of 3 Nov (GITHUB_TOKEN push starts no workflow), the longest job limit of 6 h is compared with the longest gate job. How many seconds did the longest gate job take?",
+  "answer": "270 s",
+  "accept": [
+   "270"
+  ],
+  "evidence": "longest job limit 6 h vs longest gate job 270 s"
+ },
+ {
+  "id": "q03",
+  "zone": "first",
+  "question": "In the 22:58 entry reporting that PLT-8 4b signing passed (Ed25519 via Node crypto, secret masked, draft release), what is the workflow run number given for that signing pass?",
+  "answer": "run 41735339840",
+  "accept": [
+   "41735339840"
+  ],
+  "evidence": "secret masked, draft release; run 41735339840"
+ },
+ {
+  "id": "q04",
+  "zone": "first",
+  "question": "In the 23:35 entry about process3 PR 53 (requirements cap) and PR 54 (provider route), the size note gives the line count of tool/lib plus p3.mjs at the PR 54 commit. How many lines?",
+  "answer": "4,543 lines",
+  "accept": [
+   "4,543",
+   "4543",
+   "4 543"
+  ],
+  "evidence": "Size: tool/lib + p3.mjs 4,543 lines at fba322a"
+ },
+ {
+  "id": "q05",
+  "zone": "middle",
+  "question": "In the 02:33 entry about process3 PR 75 (the `found` tool, 3 rounds), the day's builds are costed and the largest are named. What dollar cost is given for the urgency-wakes build?",
+  "answer": "$15.6",
+  "accept": [
+   "15.57",
+   "15.6",
+   "15.60"
+  ],
+  "evidence": "(largest: urgency-wakes $15.6, found $11.2)"
+ },
+ {
+  "id": "q06",
+  "zone": "middle",
+  "question": "In the 03:16 STOPPED-JOB FAULT RESULT entry (P2-G6, job mail-door), at what exact time, to the second, did the old BOB start the session \"job mail-door (restart)\"?",
+  "answer": "01:43:46",
+  "accept": [
+   "01:43:46",
+   "1:43:46"
+  ],
+  "evidence": "session_01RAN5ekh4R7FzVTgfJNfvHt at 01:43:46, on the wake of the 01:37 pin move"
+ },
+ {
+  "id": "q07",
+  "zone": "middle",
+  "question": "In the 04:11 SILENT-ROOT FAULT RESULT entry (P2-G7), when `watch` ran at 04:11 and said take over, how old, in hours, did it find the old ROOT session's heartbeat to be?",
+  "answer": "4.2 h",
+  "accept": [
+   "4.2"
+  ],
+  "evidence": "heartbeat 4.2 h old and said take over"
+ },
+ {
+  "id": "q08",
+  "zone": "middle",
+  "question": "In the 04:47 MEASURED LEAD TIMES entry (copy tranche 7a5a8eb, pin d45822c), what was the median ready-to-start time in minutes?",
+  "answer": "105.7 min",
+  "accept": [
+   "105.7",
+   "106"
+  ],
+  "evidence": "ready to start median 105.7 min, worst 255.5 (signatures)"
+ },
+ {
+  "id": "q09",
+  "zone": "last",
+  "question": "In the 09:28 entry recording pin 03d38a1 on the copy (PR 205, BOB woken and told to run job start --ready first on every wake), for about what clock time was the re-measure scheduled?",
+  "answer": "about 10:28",
+  "accept": [
+   "10:28",
+   "10.28",
+   "1028"
+  ],
+  "evidence": "Re-measure scheduled for about 10:28."
+ },
+ {
+  "id": "q10",
+  "zone": "last",
+  "question": "In the 10:18 entry (ROOT's sweep failing on GitHub push 500s), BOB reported at 10:19 that interface-assets was refused by the size check on its first commit. What size in bytes is given for it?",
+  "answer": "1,164,695 B",
+  "accept": [
+   "1,164,695",
+   "1164695",
+   "1 164 695",
+   "1.164.695"
+  ],
+  "evidence": "refused by the size check on its first commit (1,164,695 B, split under cap at tip)"
+ },
+ {
+  "id": "q11",
+  "zone": "last",
+  "question": "In the 11:30 entry about PR 105 merging (job complete refuses a missing or zero --cost-usd), the cause of the $0 cost rows was an input of 0. What real cost figure is given in its place?",
+  "answer": "3.16",
+  "accept": [
+   "3.16"
+  ],
+  "evidence": "(the cause was input 0; real 3.16)"
+ },
+ {
+  "id": "q12",
+  "zone": "last",
+  "question": "In the final 12:37 entry, the re-measure since 11:37 (pin c790f06), what was the median ready-to-start time for the n=4 jobs measured since 11:37?",
+  "answer": "3.25 (minutes)",
+  "accept": [
+   "3.25"
+  ],
+  "evidence": "ready-to-start n=4, median 3.25 (target 10 met)"
+ }
+]

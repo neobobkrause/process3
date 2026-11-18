@@ -1,0 +1,84 @@
+{
+ "run": "p-100-t2",
+ "size": "100",
+ "arm": "t",
+ "agent": "aa1843d6962d69d5b",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 105313,
+ "text_lines": 223,
+ "prompt_exact": null,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 100678,
+   "returned_lines": [
+    [
+     1,
+     223
+    ]
+   ]
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "questions.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 1287
+  }
+ ],
+ "lines_received": 223,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 2,
+ "first_text_call": 1,
+ "text_calls_after_questions": [],
+ "calls_after_questions": [],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 18.7 minutes\n2. [q09] 20\n3. [q01] 270 s\n4. [q06] 445 tests\n5. [q10] 19 (63%)\n6. [q02] 109\n7. [q07] 2 Feb 2027\n8. [q11] 35.97 min\n9. [q03] 4248 bytes\n10. [q08] 40\n11. [q12] 660\n12. [q04] A path traversal (a job-owned start row could make merge write outside notices/)",
+ "answers": {
+  "q05": "18.7 minutes",
+  "q09": "20",
+  "q01": "270 s",
+  "q06": "445 tests",
+  "q10": "19 (63%)",
+  "q02": "109",
+  "q07": "2 Feb 2027",
+  "q11": "35.97 min",
+  "q03": "4248 bytes",
+  "q08": "40",
+  "q12": "660",
+  "q04": "A path traversal (a job-owned start row could make merge write outside notices/)"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "set_aside": false,
+ "pass": true
+}

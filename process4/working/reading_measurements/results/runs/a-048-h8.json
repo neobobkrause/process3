@@ -1,0 +1,87 @@
+{
+ "run": "a-048-h8",
+ "size": "048",
+ "arm": "h",
+ "agent": "ac87f437cfc8be88d",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 83779,
+ "text_lines": 107,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2185
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 48305,
+   "returned_lines": [
+    [
+     1,
+     107
+    ]
+   ]
+  }
+ ],
+ "lines_received": 107,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2
+ ],
+ "calls_after_questions": [
+  2
+ ],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 4087 bytes (of 4096)\n2. [q09] 445 tests\n3. [q01] b48585af\n4. [q06] 8.9 MB\n5. [q10] 131 owed rows\n6. [q02] 270 s\n7. [q07] $15.57\n8. [q11] 2 Feb 2027\n9. [q03] run 41735339840\n10. [q08] 933\n11. [q12] 08efddd\n12. [q04] 195b218",
+ "answers": {
+  "q05": "4087 bytes (of 4096)",
+  "q09": "445 tests",
+  "q01": "b48585af",
+  "q06": "8.9 MB",
+  "q10": "131 owed rows",
+  "q02": "270 s",
+  "q07": "$15.57",
+  "q11": "2 Feb 2027",
+  "q03": "run 41735339840",
+  "q08": "933",
+  "q12": "08efddd",
+  "q04": "195b218"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

@@ -1,0 +1,84 @@
+{
+ "run": "p-024-t1",
+ "size": "024",
+ "arm": "t",
+ "agent": "a9d6f8a60e481f3d9",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 73215,
+ "text_lines": 65,
+ "prompt_exact": null,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 23707,
+   "returned_lines": [
+    [
+     1,
+     65
+    ]
+   ]
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "questions.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 1294
+  }
+ ],
+ "lines_received": 65,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 2,
+ "first_text_call": 1,
+ "text_calls_after_questions": [],
+ "calls_after_questions": [],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 00:34 (4 Nov)\n2. [q09] $15.57\n3. [q01] 4 seconds\n4. [q06] process3 PR 65 (ad9d2b6)\n5. [q10] 933\n6. [q02] process3 PR 45 (9cdd351)\n7. [q07] 5.2 MB (over the 1 MB limit)\n8. [q11] 384 tests\n9. [q03] 25 s\n10. [q08] 56 user modules\n11. [q12] 333\n12. [q04] PR 37",
+ "answers": {
+  "q05": "00:34 (4 Nov)",
+  "q09": "$15.57",
+  "q01": "4 seconds",
+  "q06": "process3 PR 65 (ad9d2b6)",
+  "q10": "933",
+  "q02": "process3 PR 45 (9cdd351)",
+  "q07": "5.2 MB (over the 1 MB limit)",
+  "q11": "384 tests",
+  "q03": "25 s",
+  "q08": "56 user modules",
+  "q12": "333",
+  "q04": "PR 37"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "set_aside": false,
+ "pass": true
+}

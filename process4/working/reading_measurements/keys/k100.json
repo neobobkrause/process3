@@ -1,0 +1,128 @@
+[
+ {
+  "id": "q01",
+  "zone": "first",
+  "question": "In the PLT-8 probe of 3 Nov, how long was the longest gate job?",
+  "answer": "270 s",
+  "accept": [
+   "270"
+  ],
+  "evidence": "longest job limit 6 h vs longest gate job 270 s"
+ },
+ {
+  "id": "q02",
+  "zone": "first",
+  "question": "The requirements cap of 70000 bytes was the p90 of how many copy files?",
+  "answer": "109",
+  "accept": [
+   "109"
+  ],
+  "evidence": "70000 bytes = p90 of 109 copy files; 11 over"
+ },
+ {
+  "id": "q03",
+  "zone": "first",
+  "question": "At 00:06 on 4 Nov, how many bytes was the ROOT prompt, which was over the one-screen cap?",
+  "answer": "4248",
+  "accept": [
+   "4248",
+   "4,248"
+  ],
+  "evidence": "ROOT prompt 4248 bytes, over the 4096 one-screen cap"
+ },
+ {
+  "id": "q04",
+  "zone": "first",
+  "question": "What kind of security flaw did the confirming review of PR 54 (process3 PR 57) find in the merge tool?",
+  "answer": "a path traversal",
+  "accept": [
+   "traversal"
+  ],
+  "evidence": "found a path traversal (a job-owned start row could make merge write outside notices/)"
+ },
+ {
+  "id": "q05",
+  "zone": "middle",
+  "question": "In the measured lead times at 04:47, what was the worst \"green to merge\" time, in minutes?",
+  "answer": "18.7",
+  "accept": [
+   "18.7"
+  ],
+  "evidence": "Green to merge median 10.5, worst 18.7, target 15"
+ },
+ {
+  "id": "q06",
+  "zone": "middle",
+  "question": "How many tests does the entry for process3 PR 86 (record check scopes a taken-in job) report?",
+  "answer": "445",
+  "accept": [
+   "445"
+  ],
+  "evidence": "445 tests. Pin move 6b1aac8 started via a copy short session"
+ },
+ {
+  "id": "q07",
+  "zone": "middle",
+  "question": "As measured at 05:54, until what date are gate-row artifacts kept?",
+  "answer": "2 Feb 2027",
+  "accept": [
+   "Feb 2027",
+   "February 2027",
+   "2027-02-02",
+   "02/2027"
+  ],
+  "evidence": "gate-row artifacts kept to 2 Feb 2027"
+ },
+ {
+  "id": "q08",
+  "zone": "middle",
+  "question": "After a real bug was fixed at 06:21, store-assembly's reds fell from 63 to how many?",
+  "answer": "40",
+  "accept": [
+   "40"
+  ],
+  "evidence": "store-assembly 63 -> 40 reds (real bug fixed"
+ },
+ {
+  "id": "q09",
+  "zone": "last",
+  "question": "In the measurement of false done at 17:12, how many of the 151 claims were refuted?",
+  "answer": "20",
+  "accept": [
+   "20"
+  ],
+  "evidence": "MEASURED, false done (20 of 151 claims refuted)"
+ },
+ {
+  "id": "q10",
+  "zone": "last",
+  "question": "In the quality audit of 10 PRs merged on 4 Nov, how many of the 30 claimed requirements were met and tested?",
+  "answer": "19 (63%)",
+  "accept": [
+   "19",
+   "63%",
+   "63 percent"
+  ],
+  "evidence": "30 claimed requirements): 19 met and tested (63%)"
+ },
+ {
+  "id": "q11",
+  "zone": "last",
+  "question": "What was the gate time of PR 173, given as the live cost of PR 112?",
+  "answer": "35.97 min",
+  "accept": [
+   "35.97"
+  ],
+  "evidence": "live cost of PR 112: PR 173 gate 35.97 min"
+ },
+ {
+  "id": "q12",
+  "zone": "last",
+  "question": "When the revert, smoke and base-red build was done at 17:55, what was the suite count at a607cb6?",
+  "answer": "660",
+  "accept": [
+   "660"
+  ],
+  "evidence": "revert/smoke/base-red build done, suite 660 at a607cb6"
+ }
+]

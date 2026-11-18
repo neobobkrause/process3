@@ -1,0 +1,126 @@
+[
+ {
+  "id": "q01",
+  "zone": "first",
+  "question": "At 22:18 on 3 Nov, within how many seconds did all five layer-1 jobs start?",
+  "answer": "4 s",
+  "accept": [
+   "4 s",
+   "four s"
+  ],
+  "evidence": "all five layer-1 jobs started within 4 s (copy)"
+ },
+ {
+  "id": "q02",
+  "zone": "first",
+  "question": "Which process3 pull request fixed the sweep not being able to see a pushed-then-stopped job?",
+  "answer": "process3 PR 45 (9cdd351)",
+  "accept": [
+   "45",
+   "9cdd351"
+  ],
+  "evidence": "Sweep could not see a pushed-then-stopped job -> process3 PR 45 (9cdd351)"
+ },
+ {
+  "id": "q03",
+  "zone": "first",
+  "question": "In the line listing the copy's pin changes, how long did setup check take?",
+  "answer": "25 s",
+  "accept": [
+   "25 s",
+   "25s"
+  ],
+  "evidence": "setup check 25 s, status --offline 0.5 s"
+ },
+ {
+  "id": "q04",
+  "zone": "first",
+  "question": "Which pull request, green on 92feca3d, showed that the gate accepts a receipt followed only by a tranche merge?",
+  "answer": "PR 37",
+  "accept": [
+   "37"
+  ],
+  "evidence": "Gate accepts a receipt followed only by a tranche merge (PR 37 green on 92feca3d)"
+ },
+ {
+  "id": "q05",
+  "zone": "middle",
+  "question": "At what time did the coordinator, via ROOT, answer the A/B choice on PR 40?",
+  "answer": "00:34",
+  "accept": [
+   "00:34"
+  ],
+  "evidence": "Answered A by the coordinator via ROOT 00:34"
+ },
+ {
+  "id": "q06",
+  "zone": "middle",
+  "question": "Which process3 pull request made processRepo unshallow a shallow tool clone?",
+  "answer": "process3 PR 65 (ad9d2b6)",
+  "accept": [
+   "65",
+   "ad9d2b6"
+  ],
+  "evidence": "Tool fix process3 PR 65 (ad9d2b6): processRepo unshallows a shallow tool clone"
+ },
+ {
+  "id": "q07",
+  "zone": "middle",
+  "question": "When layer 1 closed, how large was the regenerated rows.mjs file that differed from the tranche?",
+  "answer": "5.2 MB",
+  "accept": [
+   "5.2"
+  ],
+  "evidence": "rows.mjs 5.2 MB over the 1 MB limit"
+ },
+ {
+  "id": "q08",
+  "zone": "middle",
+  "question": "To how many user modules did the provider notice jurisdictions:40 (R119) go?",
+  "answer": "56",
+  "accept": [
+   "56"
+  ],
+  "evidence": "Provider notice jurisdictions:40 (R119) went to 56 user modules"
+ },
+ {
+  "id": "q09",
+  "zone": "last",
+  "question": "What did the build of process3 PR 72 (urgency wakes) cost?",
+  "answer": "$15.57",
+  "accept": [
+   "15.57"
+  ],
+  "evidence": "368 tests. Build cost $15.57."
+ },
+ {
+  "id": "q10",
+  "zone": "last",
+  "question": "After process3 PR 77 (marks anywhere on a requirement line), what was the copy's total count of unmet marks \"now\"?",
+  "answer": "933",
+  "accept": [
+   "933"
+  ],
+  "evidence": "L11 94/130/440; total 481/601/933"
+ },
+ {
+  "id": "q11",
+  "zone": "last",
+  "question": "How many tests does the entry for process3 PR 76 (lead times right) report?",
+  "answer": "384",
+  "accept": [
+   "384"
+  ],
+  "evidence": "mean median of two, first ok grant as opening. 384 tests."
+ },
+ {
+  "id": "q12",
+  "zone": "last",
+  "question": "How many copy lines were found to carry the mark at the end of the line, so that they read as met?",
+  "answer": "333",
+  "accept": [
+   "333"
+  ],
+  "evidence": "333 copy lines carry the mark at the end of the line"
+ }
+]
