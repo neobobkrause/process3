@@ -1,0 +1,87 @@
+# Part 10. What is open, what is unproven, and the trial
+
+Length: 87 lines. Last section: "6. Risks with no trial".
+
+Each item is also marked where it belongs in parts 1 to 9. This part gathers them.
+
+## 1. Open with the owner
+
+Each of these is to be put to him in full, with its options, before the design can be called settled.
+
+1. **The four values** (part 5, section 2): whether the four provisional figures are the ones he meant, and what they become when the second measurement reports.
+2. **How a tranche ends** (part 3, section 5): that clean partial walks end it, and what shows that the journeys named for the tranche complete.
+3. **A tranche merged with its flaws named** (part 3, section 5): that no release follows until a later tranche ends clean.
+4. **Publishing a release** (part 3, section 6): who carries out the act once he has approved; and what "successful" means for the install and the update.
+5. **An urgent fix while a tranche is open** (part 3, section 7).
+6. **The other readings:** how an architecture bug is corrected (part 1, section 6); that exercising a doubtful workflow in a walk adds no test (part 3, section 3); the lane rules he has not confirmed one by one (part 4, section 3); that a role lasts while its sessions are refreshed often (part 4, section 5); that every stop nothing called for is reported to PROCESS during the trial (part 4, section 10); that PROCESS brings him a role's principles that cannot be kept short (part 5, section 3); the order of the ranking page (part 5, section 6); that PROCESS starts its own lanes (part 6, section 8).
+7. **Codex** (part 8): everything marked not known, from his OpenAI account; and which Codex model the process is to use.
+
+## 2. Open design work
+
+For a session to do. None needs the owner unless the answer changes what the product does or asks an act of him.
+
+1. How a told job picks the tests that relate to a changed entry, and which tests run on its pull request (part 2, section 7).
+2. What on GitHub carries the shared state (part 4, section 4).
+3. The ordered list of the owner's acts to start a product, and the wording his approvals and forbidden commands need (part 6, section 2).
+4. Who is told when the module list changes; a declared use that no code makes (part 2, section 7).
+5. How two products share the slots (part 2, section 5).
+6. What groups a product's sessions on Claude Code (part 7).
+7. The written procedures for promoting, rolling back and support, for each product (part 3, section 8).
+8. Each product's conversion plan. It is not part of this document.
+
+## 3. Unproven
+
+Process4 has never run and its tool is not built. Nothing below has been shown to work as this design uses it.
+
+- **The tool,** and merges made by it passing the permission checker at a real rate.
+- **The shared state,** and a successor starting only from it.
+- **A ROOT started by a plain prompt** coming up on the owner's newest approvals and acting as ROOT.
+- **Replacing ARCH while jobs are open.**
+- **The watcher's takeover,** and ROOT's refresh by it.
+- **Walks made by sessions:** a session's browser reaching the development site; a walk shared among sessions; the hosting account bearing the walkers.
+- **A walk ending without flaws.** None did in the process before this one.
+- **A deployment made from a session** inside a round.
+- **The mechanical edit's one merge,** and the test run it needs.
+- **The tranche branch merging into the main branch.**
+- **The release path:** an install, an update, and a release prepared as far as the owner's approval.
+- **A stop on the owner's word** that the hourly wake does not undo; a held merge; a module put first; a new slot number.
+- **An account switch that loses no work.** It failed once.
+- **An edit to the approvals with a restart** that carries a round on.
+- **The notice as part of a running process.** It was proven only on made-up modules.
+- **Everything on Codex not marked measured in part 8.**
+
+## 4. The trial
+
+- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. It needs the owner for one sitting: session starts, one edit to his approvals, and one stop.
+- A trial can break a claim. It cannot prove one. Proof is the first real tranche.
+
+What the trial rehearses, each once unless a number is given:
+
+1. A plain-started ROOT fetches the newest copy, comes up on the newest approvals, also straight after an approvals commit, and starts the watcher, ARCH and the coordinator.
+2. Twenty or more merges by the tool pass the permission checker.
+3. A freed slot is refilled within minutes, and jobs obey a replaced ARCH.
+4. The shared state takes writes without a merge and is read by a successor; the hourly wake rouses ROOT.
+5. The watcher takes over from a ROOT that has died, and from one that asks.
+6. A stop, a held merge, a module put first and a new slot number each work on the owner's word.
+7. Finished sessions, once archived, do not use up the account's room.
+8. Several walking sessions share one walk by area; a session makes a deployment and an external walk within a round; the tranche branch merges into the main branch.
+9. A mechanical edit across several modules merges once.
+10. A process fault travels from a job to PROCESS, and ROOT starts PROCESS in the process's repository.
+11. An edit to the approvals with a restart carries a round on.
+12. An install and an update are run and confirmed on a development account.
+
+## 5. Only the first real tranche can show
+
+- Whether a tranche can end.
+- Whether the permission checker goes on passing merges at a real rate.
+- How often a process fault stops work and so waits for the owner.
+- Whether cost can be read for the account after each round and for the tranche report.
+- The share of ARCH's work that is passing things on.
+
+## 6. Risks with no trial
+
+- A job's tests judge its own work. Most requirements are looked at only by the job's own tests.
+- Sessions write and count the walks' steps. A step that was loosened cannot be seen. A walk starts from a fresh copy and cannot see an update breaking a user's existing data; only the confirmed update before a release looks at that.
+- A module's tests run only on its own job. A failure caused by another module's merge can sit unseen until a walk meets it.
+- Most rules in this design are held by text alone.
+- Why GitHub once suspended the sessions' account was never learned.

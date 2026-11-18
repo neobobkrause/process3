@@ -1,0 +1,73 @@
+# Process4: the design, seventh draft
+
+Length: 73 lines. Last section: "5. Words used".
+
+Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force and nothing here has run.**
+
+## 1. What this is
+
+- This is the design of Process4, in eleven parts. Once in force it is "the Process4 requirements": what every session follows.
+- It states the design as it now stands. It carries no history of how the design came to be. The owner's decisions, in his exact dated words, are kept in the record of decisions (part 5). The reasons and the evidence are in the background document.
+- It names no product. A product's own facts and the steps to bring it under Process4 belong to that product's conversion plan.
+- Parts 1 to 6 name no hosting provider and use harness-neutral terms. A harness is named there only in part 5, where a figure comes from one. Part 7 says what carries each term on Claude Code, part 8 on Codex, part 9 on Cloudflare.
+- Each part is kept under the single-text maximum, and the eleven together under the set maximum (part 5).
+
+## 2. Status
+
+Process4 is **proposed** now. It is **on trial** from the owner's acceptance: used for the trial repository and the first real tranche. It is **in force** after the first real tranche ends, on the owner's word.
+
+## 3. Marks used in every part
+
+- Words in quotation marks are the owner's, exactly as typed.
+- **Claude decided:** a technical decision made by the AI and reported here. The owner can overrule any.
+- **Reading:** an interpretation of the owner's words that he has not confirmed.
+- **Open:** not settled. The line says who settles it.
+- **Unproven:** the rule depends on something never shown to work. Part 10 gathers these.
+
+A rule with no mark is the owner's ruling, or follows from one directly.
+
+## 4. The parts
+
+| Part | File | Subject |
+|---|---|---|
+| 0 | `00-index.md` | This page, and the words used |
+| 1 | `01-purpose-owner-and-decisions.md` | What Process4 is for; the owner and the AI; how his words become decisions; working principles |
+| 2 | `02-modules-jobs-tests-and-the-notice.md` | Modules, requirements, jobs, slots, module tests, the notice to user modules, changes that are not a job's |
+| 3 | `03-tranche-rounds-walks-and-release.md` | The tranche, rounds, the two walks, deployment, release, support beyond the process |
+| 4 | `04-roles-and-sessions.md` | Each role; starting, refreshing and replacing sessions; messages; the shared state; when something goes wrong |
+| 5 | `05-reading-and-documents.md` | Reading in full; the maximums; the documents and records |
+| 6 | `06-rules-permissions-and-changing-the-process.md` | What holds a rule; the tool; how the process is changed |
+| 7 | `07-harness-claude-code.md` | What carries each term on Claude Code |
+| 8 | `08-harness-codex.md` | What carries each term on Codex, and what is not known |
+| 9 | `09-hosting-cloudflare.md` | What carries each hosting term on Cloudflare |
+| 10 | `10-open-and-unproven.md` | What is open, with whom; what is unproven; the trial |
+
+## 5. Words used
+
+- **The owner:** the person the product is built for. He defines the product. The AI decides everything technical and tells him in plain words what it decided.
+- **Harness:** the system that runs AI sessions. Two are covered: Claude Code and Codex.
+- **Session:** one running AI conversation on a harness.
+- **Role:** a standing responsibility that one session holds at a time: ROOT, the watcher, the coordinator, ARCH, a lane, PROCESS. A role lasts; its sessions are replaced.
+- **Worker:** a helper a session starts inside itself for one bounded piece of work.
+- **Module:** one part of the product, with its own code files, tests and requirements file. The product is one ordered list of modules, and a module may use only modules before it.
+- **Provider and user:** a module that uses another is that module's user; the one used is the provider.
+- **Interface:** what a module accepts and what it hands back.
+- **Job:** one session's work on one module, delivered as one pull request.
+- **Slot:** room for one job to run. Eight by default, counted across the account.
+- **Tranche:** one batch of product work, built on the tranche branch and reaching the main branch only as a whole.
+- **Round:** one pass within a tranche: jobs, then the internal walk, then a deployment and the external walk.
+- **Internal walk:** in the owner's words, it "uses the UX Screens document to confirm that the workflow matches the definition". It is made on the product as built, without deploying it.
+- **External walk:** in the owner's words, it "follows the UX journeys to confirm that all journeys can be completed successfully to produce proper results". It is made on a development deployment.
+- **Area:** a named part of what a walk covers (part 3).
+- **Flaw:** one of three things a walk can find (part 3). Anything else a walker notes is an **observation**.
+- **Mechanical edit:** one change that touches many modules in the same trivial way and needs no judgment. The owner's example: "a word table change".
+- **Development site and development deployment:** the product put on a site in its own development account, reaching no one else. It holds no secrets and keeps no permanent record.
+- **Release:** a version of the product offered for installing. **Installed sites** are where releases run for real users.
+- **The tool:** the process's own small program, each session's only door to GitHub (part 6).
+- **Shared state:** the small fixed set of records every role works from (part 4).
+- **Standing approvals:** the owner's own text saying what sessions may do without asking him and what they may never do.
+- **Forbidden commands:** the list of commands taken away from every session outright.
+- **Permission checker:** the harness's automatic judge of each risky act, which may refuse it.
+- **Fill level:** how full a session's context window is. **Refresh:** the planned replacement of a role's session by a fresh one.
+- **Lane:** a standing design responsibility for one area of a product. **Design pages:** the pages a lane keeps its designs on, where the owner works with it.
+- **Process config:** the product's short file of process settings: the process version it runs on, the slot number, its lanes, its hosting provider and development account, and the folder of the walks' documents.

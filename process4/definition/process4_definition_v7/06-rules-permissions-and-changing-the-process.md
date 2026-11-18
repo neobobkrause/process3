@@ -1,0 +1,67 @@
+# Part 6. What holds a rule, the tool, and changing the process
+
+Length: 67 lines. Last section: "8. Process4 develops itself".
+
+## 1. What holds a rule
+
+- Three things hold a rule whatever a session intends: the owner's standing approvals, judged by the permission checker; the list of forbidden commands; and GitHub's own rules, which are the owner's settings.
+- Every other rule in this design is held by text: by a session's instructions and by this document. That is a known limit. Rules held by text alone drifted in the process before this one.
+- The tool guards against mistakes, and not against a session that sets out to defeat it. That too is a known limit.
+
+## 2. The owner's standing approvals
+
+- They are a block of text in the owner's own words, saying what sessions may do without asking him and what they may never do. He commits it himself. No session writes, edits or relays it.
+- A session loads the approvals only when it starts. An edit therefore goes with a restart of ROOT (part 4, section 7).
+- The approvals and the list of forbidden commands are protected by the permission checker alone.
+- In the process's repository the approvals say that a process change is merged only on the owner's word given at PROCESS. Nothing enforced by GitHub is added for this.
+- **Claude decided** where they live: in the product's repository on the tranche branch, carried to the main branch by each tranche's merge, so that every session starts from a commit that holds them; and in the process's repository on its main branch.
+- **Open (a session, by design work, then the owner's acts):** the ordered list of the owner's acts to start a product under Process4, and the exact wording changes his approvals and forbidden commands need.
+
+## 3. Forbidden commands and GitHub's rules
+
+- The list of forbidden commands takes these away from every session outright: every direct push, every GitHub command, the ordinary merge commands, overwriting a branch's history, deleting branches, and writing files through GitHub's web interface. So the tool is each session's only door to GitHub.
+- Sessions act as a second GitHub account that can push and merge but cannot change settings. No branch can be deleted or overwritten. The tranche branch takes a change only by pull request with its required test run passing.
+- GitHub's published limits are kept to: sessions stay within them with a margin and obey GitHub's own rate-limit responses.
+
+## 4. Working rules that exist because of the permission checker
+
+- One judged act for each command.
+- A refused act is never reworded or handed to another session.
+- Three refusals in a row stop a session, which is replaced.
+
+## 5. The tool
+
+- The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; count failed runs on a job's pull request; and read and write the shared state.
+- It refuses nothing for size, and holds none of the checks the process before this one had that could stop work.
+- The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work.
+- A product names one fixed version of the process in its process config. Each session fetches a read-only copy of that version.
+- PROCESS answers a finding against the tool that needs a deliberate attack with "no change" unless the owner says otherwise.
+- **Unproven:** the tool is not built. Whether merges made by it pass the permission checker at a real rate is unmeasured.
+
+## 6. A process fault
+
+- No session building a product fixes a process fault or works round it.
+- A fault goes from the session that met it to ARCH, from ARCH to the coordinator, and from the coordinator to PROCESS. ARCH asks ROOT to start PROCESS if it is not running.
+- **Claude decided:** the fault's description is written once by the session that met it and passed on unchanged.
+- A process fault that stops work waits for the owner at PROCESS. Other work goes on.
+
+## 7. How the process is changed
+
+The owner's words, in full:
+
+"Lets be clear about how the process is changed (and how it's not changed). Process changes only happen in a separate process lane call PROCESS that I interact with. Though process changes are often technical and detailed, the PROCESS session will explain the nature of the problem and suggestion options for fixing it for me to explore and ultimately choose. Because updates require my involvement and I might be away from my computer for extended periods, there could end up being more than one change being proposed in the PROCESS session at a time. When that happens, the set of changes are considered together as a group that could potentially have interactions and implications between. The process after a proposed change is made must continue to meet the process4 requirements (or the requirements changed with my explicit approval). The transition from the process a product is being built using to the updated process will be done only with my prior approval, with PROCESS proposing the best and least disruptive means of making the update."
+
+What follows from them:
+
+- A change must not add a new test, gate, review or stop. It may only correct or remove what is broken.
+- "No change" is always among the options: "caution is a cost, paid only against a measured failure or your word", and "the default answer to a finding with nothing measured behind it is no change".
+- Any change to Process4 is explained to the owner, who decides whether and how the process is updated.
+- No session building a product may change the process, add a test, check, gate or review to it, or adopt a changed process on its own. ARCH moves a product to a changed process only with the owner's prior approval, by the means PROCESS proposes.
+- ROOT starts PROCESS. PROCESS works in the process's own repository, with the owner directly. The coordinator can talk to it.
+- **Claude decided:** PROCESS writes the owner's approving words into the record of the change, exactly as typed, with the date. Nothing else counts as approval.
+- **Unproven:** nothing physical stops a session building a product from changing the process's files, or from moving to a changed process.
+
+## 8. Process4 develops itself
+
+- PROCESS may have lanes of its own for standing subjects, as needed. **Reading:** PROCESS starts its own lanes.
+- When a new model version arrives, PROCESS puts one question to the owner: which parts of the process, and which working rules that exist because of the permission checker, may no longer be needed. Nothing is removed or tried unless he says so.
