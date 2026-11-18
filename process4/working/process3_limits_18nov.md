@@ -1,6 +1,6 @@
 # Process3's limits on size, length and context fill
 
-Length: 96 lines. Last section: "8. What was read, and what could not be done". The answers to Bob's two questions are in the second file, `process3_limits_18nov_part2.md`.
+Length: 86 lines. Last section: "9. What was read, and what could not be done". Section 8 says whether the figures settle the four blanks. The measurements proposed for what they do not settle are in a second file, `process3_limits_18nov_measurements.md`.
 
 Written by a Claude worker on 18 Nov 2026. These are a worker's findings, not Bob's words. The Codex figures are in `harness_separation/03_codex_maximums_figures.md` and are not repeated here.
 
@@ -60,7 +60,16 @@ Four words are kept apart. **Measured**: an experiment or a count produced it. *
 - "Text is kept short by splitting and consolidating ... Nothing is ever refused for size" (T `governing/foundations.md`, line 176). Ruled.
 - **How much one read may return.** Process3 set no limit and recorded none. For Claude Code the one figure in hand is the text of this worker's own Read tool: "Reads up to 2000 lines by default". That is documented, not measured. It bounds lines, not bytes, and Process3's lines are long: its Foundations are 306 lines and 69,452 bytes.
 
-## 8. What was read, and what could not be done
+## 8. Do these figures settle the four blanks?
+
+1. **A single text read in full: not settled.** Process3's 70,000 bytes was ruled from how large files were. It was overridden every time and never replaced by a measured number. Value I would use: 24,000 bytes, the Codex figure, labelled measured as a size that worked, not as a limit. Process3 adds a warning, and this is my reading: its median requirements file was 32,829 bytes, so at 24,000 more than half of such files would be over, and its record shows what splitting by a byte figure cost.
+2. **A set of texts read together: not settled.** The one Process3 figure is 250,000 bytes or 25 modules for a helper, ruled after one failure whose size in bytes was not recorded. Value I would use: 175,000 bytes, the Codex figure, labelled measured as a size that worked, on a set that was almost all filler. It is under Process3's 250,000, so the two do not conflict.
+3. **A role's starting text: settled as a ruling, and the ruling held.** Value I would use: 4,096 bytes for a role's principles or rulebook, and at most ten rules. Labelled ruled, and held by a test for the whole week. It was not measured as the size where reading fails. A prompt and a rulebook of 4,096 bytes each make 8,192 bytes, which is the documented Codex figure, so the value fits both harnesses. That sum is my arithmetic.
+4. **The fill level: not settled by Process3. Bob's ruling stands.** Process3 ran at 60 percent and the process before it at 40. Both were ruled, and the reason given was cost. Value: 40 percent, labelled ruled (Bob, 17 Nov). Process3 adds one observation, and the conclusion from it is mine: sessions passed a printed level by 5 to 23 points, and compaction was put at about 75 to 78 percent, so a level of 40 leaves room for that overshoot and a level of 60 left little.
+
+So the first, second and fourth blanks hold no measured threshold. How each could be measured is in the second file.
+
+## 9. What was read, and what could not be done
 
 **Read whole.** `design_state_18nov.md` and files 03 and 04 in `harness_separation/`. On T: `tool/lib/cap.mjs`, `tool/lib/size.mjs`, `tool/test/prompt-caps.test.mjs`, `tool/test/rulebooks.test.mjs`, `rulebooks/job.md`, `rulebooks/worker.md`, `shims/CLAUDE.process.md`, `ranges.json`, `.claude/settings.json`.
 
