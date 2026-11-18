@@ -2,7 +2,7 @@ Length: 138 lines. Last section: "8. Not settled here".
 
 # Process4 build specification, part 1: the tool and the required test run
 
-Written by Claude (a design worker) on 18 Nov 2026. **Status: proposed. Nothing here is built and nothing here has run.** It answers items 4 and 8 of part 10, section 2 of the design (`process4/definition/process4_definition_v7/`, all eleven parts read in full, 901 lines). It adds no rule to the design. Reconciled the same day with the design and build texts 2 to 5. "The earlier tool" is the one in this repository at `tool/`, with `shims/process-gate.yml`.
+Written by Claude (a design worker) on 18 Nov 2026. **Status: proposed. Nothing here is built and nothing here has run.** It answers items 4 and 8 of part 10, section 2 of the design (`process4/definition/process4_definition_v7/`, all eleven parts read in full, 902 lines). It adds no rule to the design. Reconciled the same day with the design and build texts 2 to 5. "The earlier tool" is the one in this repository at `tool/`, with `shims/process-gate.yml`.
 
 Marks: **Decided here:** a choice of this text, with what it gives and costs; the owner or PROCESS can overrule any. **Unproven:** never shown to work. **Record:** stated in a named file of this repository; not seen to run by me.
 
@@ -24,7 +24,7 @@ Marks: **Decided here:** a choice of this text, with what it gives and costs; th
 
 ## 2. Where the tool lives, its language, and how a session gets it
 
-- **Where.** The process's repository has five folders: `tool/` (entry file `tool/p4.mjs`, libraries in `tool/lib/`, tests in `tool/test/`); `shims/`, with the workflow a product copies, `shims/module-tests.yml`; `starting_texts/`, one text for each role (part 4, section 11), of which the tool fills in a job's and a walking session's; `design/`, the design's eleven parts; and `build/`, the build texts.
+- **Where.** The process's repository has five folders: `tool/` (entry file `tool/p4.mjs`, libraries in `tool/lib/`, tests in `tool/test/`); `shims/`, with the workflow a product copies, `shims/module-tests.yml`; `starting_texts/`, one text for each role (part 4, section 11), of which the tool fills in a job's and a walking session's; `design/`, the design's eleven parts; and `build/`, the build texts. PROCESS's own folder is a sixth.
 - **Decided here:** the language is plain JavaScript modules on Node 22 or newer, no build step. Gives: the carried-over code is reused; the reader that proved the notice is TypeScript's, a Node program; Node is on GitHub's machines and in the sessions. Costs: a product in another language still needs Node on the machine.
 - **Decided here:** the tool has one dependency, the `typescript` package at one exact version (5.6.3 was the version studied), named in `tool/package.json` with a lock file and installed with `npm ci` when the copy is fetched. Gives: both listings of a comparison use one reader version. Costs: the fetch needs the public package registry. Commands that do not read code must work without it.
 - **How a product names its version. Decided here:** the process config names the process repository's address and one full 40-character commit id of its main branch, beside the version's name (build text 2, section 7). No submodule entry and no branch name. Gives: one place names the version, and it reads the same on GitHub's machines and in a session. Costs: any pull request can change the line; the design already says nothing physical stops that (part 6, section 7).
@@ -44,7 +44,7 @@ Marks: **Decided here:** a choice of this text, with what it gives and costs; th
 |---|---|
 | `branch` | Making a new branch in the product's repository |
 | `push` | A push to the session's own working branch |
-| `open`, `ready`, `close` | Opening a draft pull request; marking it ready; closing it unmerged. `open`, `close` and `push` may also write a comment on it |
+| `open`, `ready`, `close` | Opening a draft pull request; marking it ready; closing it unmerged. `open`, `close` and `push` may also write a comment on it; `open --module` and `walk open` also rewrite a shared-state comment |
 | `merge` | Merging a pull request into the tranche branch (or the tranche's into main) after the required run passed, with no person's review |
 | `release prepare`; `release publish` | Making an unpublished release, or with `--development` a pre-release with its tag; publishing a release, with the owner's approval typed in that session |
 | `notify`, `state write`, `next-job`, `walk write` | Rewriting a comment on an issue |
@@ -125,7 +125,7 @@ The order is build text 4's (`04-the-trial.md`, section 3), which rules. What ea
 5. The walk commands.
 6. Scope 5; `release prepare`, `release publish`.
 
-**Who builds it** (part 4, section 11): a building session that holds the process's repository alone. Until the tool can merge, the owner merges each of its pull requests himself; after the first build only PROCESS changes the tool. Stage 1 needs the owner's acts 1 to 8 and a plain-started session. ROOT, his act 9, is first started at stage 2.
+**Who builds it** (part 4, section 11): a building session that holds the process's repository alone. The owner merges each of its pull requests himself; after the first build only PROCESS changes the tool. Stage 1 needs the owner's acts 1 to 8 and a plain-started session.
 
 ## 8. Not settled here
 

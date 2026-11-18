@@ -18,14 +18,14 @@ Everything is tried in the trial repository, on made-up modules. No product is t
 
 Before stage 0:
 
-1. His acts 1 to 8 of the design's part 7, section 4, done for the trial repository and the process's repository. Acts 7 and 8 need his own wording of his approvals and forbidden commands for Process4; a proposal for him is in `process4/working/design_work_18nov/owner_acts_and_approvals.md`. Act 9, starting ROOT, comes at stage 2: stages 0 and 1 start a plain session. Act 10 comes at stage 1.
+1. His acts 1 to 8 of the design's part 7, section 4, done for the trial repository and the process's repository. Acts 7 and 8 need his own wording of his approvals and forbidden commands for Process4; a proposal for him is in `process4/working/design_work_18nov/owner_acts_and_approvals.md`. Act 9, starting ROOT, comes at stage 2: stages 0 and 1 start a plain session. Act 10 comes at stage 1, before act 9. Whether it can be done before act 9 is not known (the design, part 7, section 4); stage 1 is where that is tried.
 2. His trial wording of his forbidden commands must allow the one path stage 0 takes: a script of a few lines, run with `node`, that starts `gh` and `git` as the tool will.
 3. His word on where the process's repository is, and whether it is public. Build text 1 assumes it is public.
 4. His word that a session may build the tool (the design's part 4, section 11).
 
 Nothing below can start until these are done. They are his alone.
 
-**Who builds.** The tool is first built by a building session that holds the process's repository alone. It puts there the tool in `tool/`, the workflow in `shims/`, the starting texts in `starting_texts/`, the design's eleven parts in `design/` and the build texts in `build/` (build text 1, section 2). Until the tool can merge, the owner merges each of that session's pull requests himself (the design, part 4, section 11). Until the tool exists it pushes to its own working branch and opens its pull requests by the harness's ordinary means, as the owner's present approvals allow (the design, part 4, section 11).
+**Who builds.** The tool is first built by a building session that holds the process's repository alone. It puts there the tool in `tool/`, the workflow in `shims/`, the starting texts in `starting_texts/`, the design's eleven parts in `design/` and the build texts in `build/` (build text 1, section 2). The owner merges each of that session's pull requests himself (the design, part 4, section 11). Until the tool exists it pushes to its own working branch and opens its pull requests by the harness's ordinary means, as the owner's present approvals allow (the design, part 4, section 11).
 
 **Stage 4** cannot start until the owner has given a session the repository that holds the notice's proof.
 
@@ -47,7 +47,7 @@ Breaks, if it fails: the tool as each session's only door to GitHub (the design'
 
 Built, by the building session in the process's repository: the fetch line; `branch`, `push`, `open`, `ready`, `results`, `merge`; `state read`, and `state write` with `--create`; the required run with three of its five scopes (the tranche's pull request, no module code, whole module); the job's text; the tool's own tests for these.
 
-In the trial repository, a plain session started there writes the repository's first content as its first act, by the tool's `branch`, `push`, `open`, `ready` and `merge`: `process.json`, the module list, the workflow, and two made-up modules' entries with their requirements files. The base then has no process config, which build text 1, section 5 allows for. That one session then plays ARCH: it makes the shared state (`state write --create`) and writes the records that `open --module` and, later, `next-job` need (build text 5, section 2).
+In the trial repository, a plain session started there writes the repository's first content as its first act, by the tool's `branch`, `push`, `open`, `ready` and `merge`: `process.json`, the module list, the workflow, and two made-up modules' entries with their requirements files. The base then has no process config, which build text 1, section 5 allows for. That one session then plays ARCH: it makes the shared state (`state write --create`, in ROOT's place, since no ROOT is started before stage 2) and writes the records that `open --module` and, later, `next-job` need (build text 5, section 2).
 
 Tried:
 1. The required run reports under its one name and can be made required (his act 10). Whether it can be required before it has first run.
@@ -111,7 +111,7 @@ Tried:
 1. A mechanical edit across several modules merges once, with the touched modules' tests run and with none run (item 9). The second form is asked for by the one trial-only line of the process config (build text 2, section 7).
 2. The tranche branch merges into the main branch as a whole (item 8).
 3. A first trial release is made with `release prepare --development`: a pre-release with its tag, in the trial repository. The installer places it under fresh names in the development account, which is the "empty account" here. The updater then moves that copy to a newer release. Each is confirmed, and a release is prepared as far as his approval (item 12).
-4. His approval, typed in ARCH's own session, is accepted by the permission checker for publishing a release named as the trial's. It is made with `--development`, so it is a pre-release; his present approvals already speak of development releases as pre-releases.
+4. His approval, typed in ARCH's own session, is accepted by the permission checker for publishing a release named as the trial's. **Decided here:** that release is prepared unpublished with `release prepare`, without `--development`, because a development release is published when it is made and needs no approval (the design, part 3, section 6). Gives: the typed approval has something to publish. Costs: one release that is public in form stands in the throwaway trial repository, and his trial wording of his approvals must allow it.
 
 ### Stage 7. The account switch
 
@@ -124,7 +124,7 @@ The steps of an account switch, on the sessions' side and on his, are not writte
 | Stage | His part |
 |---|---|
 | Before stage 0 | His acts 1 to 8; his wording of the approvals and of the forbidden commands, allowing stage 0's script; where the process's repository is; his word that a session may build the tool |
-| While the tool is first built | Start the building session on the process's repository; merge each of its pull requests, until the tool can merge |
+| While the tool is first built | Start the building session on the process's repository; merge each of its pull requests |
 | 0 | Start one plain session |
 | 1 | Start one plain session; act 10, once the run has reported |
 | 2 | Act 9, start ROOT; one edit to his approvals |

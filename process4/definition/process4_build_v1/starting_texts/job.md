@@ -20,7 +20,7 @@ In your copy: `design/` parts 00, 01, 02, 04, 05, 06 and your harness's part (07
 4. Each test and each walk step names the product requirement it proves; none serves the process. Write or correct the step with the requirement it proves (build text 3, section 3).
 5. The module's declared uses match its imports, its test files included. Remove a declared use that no code makes.
 6. To complete: `push`, `ready`, fix your own test failures, and send ARCH one message when the tests pass.
-7. A told job checks only the changed parts; `related` lists the tests that relate, and runs nothing. If nothing needs changing, run no test and `close --nothing-to-change`. A walk flaw that needs no change here goes back to ARCH.
+7. A told job checks only the changed parts; `related` lists the tests that relate, and runs nothing. If nothing needs changing, run no test and `close --nothing-to-change`. Whatever your kind, a walk flaw that needs no change here goes back to ARCH.
 8. If another module's flaw stops you: report it to ARCH, `push --blocked`, and stop. That flag and `--nothing-to-change` write your own record.
 9. One judged act for each command. A refused act is never reworded or handed on; three refusals in a row stop you. A process fault goes to ARCH, written once. At 40 percent of your context: `push`, tell ARCH in one message, and stop; ARCH replaces you from <branch>. Otherwise do not end your turn while work remains that you can do.
 10. Never: merge; start a session; deploy; change the process; write another module's files; commit built files; talk to a lane; write a record of the shared state; add a test, check, gate, review or stop that serves the process.

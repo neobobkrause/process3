@@ -17,8 +17,8 @@ How the rules stand against "at most ten". Each text has ten numbered lines or f
 | `coordinator.md` | The coordinator | 3,679 | 10 | 31 | Rules |
 | `arch.md` | ARCH | 3,843 | 10 | 26 | Rules |
 | `process.md` | PROCESS | 3,886 | 10 | 29 | Rules |
-| `lane.md` | A lane (template: area, folder, design pages) | 3,240 | 8 | 26 | Rules |
-| `job.md` | A job (template the tool fills when ARCH's session opens the pull request: module, branch, pull request; the work, the kind and the uses stay in the job block there) | 3,374 | 10 | 29 | Rules |
+| `lane.md` | A lane (template: area, folder, design pages) | 3,286 | 8 | 26 | Rules |
+| `job.md` | A job (template the tool fills when ARCH's session opens the pull request: module, branch, pull request; the work, the kind and the uses stay in the job block there) | 3,394 | 10 | 29 | Rules |
 | `walking-session.md` | A walking session (template the tool fills with `walk text`: number, internal or external, tranche, round, the walk issue, the walks' folder, the copy's name and address; its areas stay in the round record and its two commands in the process config) | 3,577 | 10 | 27 | Rules |
 
 The commands named are those of build text 1, section 4. Every text but PROCESS's and ROOT's carries the fetch line as a blank.
@@ -28,27 +28,27 @@ The commands named are those of build text 1, section 4. Every text but PROCESS'
 | Text | Filled with | Bytes filled |
 |---|---|---|
 | `arch.md` | Product name, fetch line | 4,060 |
-| `job.md` | The same; a 13-character module; branch `job/<module>/<n>`; the pull request's address | 3,667 |
+| `job.md` | The same; a 13-character module; branch `job/<module>/<n>`; the pull request's address | 3,687 |
 | `walking-session.md` | The same; number, tranche, round; the walk issue's address; the folder; the copy's name and address | 3,805 |
 
 Each passes. `arch.md` has 36 bytes to spare, so a longer product name or fetch line would pass the limit. `root.md` is read unfilled from the copy; with the same product name and a full commit id written in, it is about 4,080 bytes.
 
 ## 2. What each text tells its session to read in full
 
-Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,260; 03 8,610; 04 19,268; 05 5,647; 06 9,068; 07 6,189; 08 4,111; 09 2,340; 10 10,452. All eleven: 99,925. Build texts: 02 22,918; 03 20,072; 05 14,838. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
+Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,260; 03 8,790; 04 19,360; 05 5,647; 06 9,068; 07 6,189; 08 4,111; 09 2,340; 10 10,820. All eleven: 100,565. Build texts: 02 22,918; 03 20,072; 05 14,838. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
 
 Each role reads one harness part, 07 or 08. The combined figure is given with 07, the larger; with 08 it is 2,078 less.
 
 | Text | Design parts | Build texts | Combined bytes | Also told to read (sizes not known) |
 |---|---|---|---|---|
-| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 73,990 | The shared state |
-| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 73,990 | The roles, wakes and handover records; after a takeover, `root.md` |
-| The coordinator | 00 to 06, 07 or 08 | 05 | 97,860 | The ranking page, the product's record of the owner's decisions, the shared state |
-| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 120,272 | The process config, ranking page, module list, both decision records, the shared state |
-| PROCESS | All eleven | 05; each other one before changing it | 114,763 | The record of the owner's decisions about the design, its own folder, its handover record |
-| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 03, for the UX lane only | 67,762; the UX lane 87,834 | The ranking page, the research in its folder, its design pages' links, its handover record |
-| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 03 and 05 | 132,240 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
-| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 62,919 internal; 65,259 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
+| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 74,082 | The shared state |
+| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 74,082 | The roles, wakes and handover records; after a takeover, `root.md` |
+| The coordinator | 00 to 06, 07 or 08 | 05 | 98,132 | The ranking page, the product's record of the owner's decisions, the shared state |
+| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 120,544 | The process config, ranking page, module list, both decision records, the shared state |
+| PROCESS | All eleven | 05; each other one before changing it | 115,403 | The record of the owner's decisions about the design, its own folder, its handover record |
+| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 82,872; the UX lane 102,944 | The ranking page, the research in its folder, its design pages' links, its handover record |
+| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 03 and 05 | 132,332 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
+| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 63,099 internal; 65,439 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
 
 Every set is under 175,000 bytes. Whether a set stays under it once the product's own documents are added cannot be said: their sizes are not known, and the design sets no size for a record of decisions or a lane's research. Build text 3 keeps each page of the walks' documents under the single-text maximum.
 
@@ -72,7 +72,7 @@ Read for these drafts; nothing here is a rule of Process4 unless the design also
 Things a role must know that neither the design nor a build text says. Of the first list's 24 items, most are answered by part 4, section 11 or by a build text. What is left:
 
 1. **Whether a text ROOT reads after its start counts with the permission checker** as instructions it was started with. The design marks the plain start unproven (part 4, section 2).
-2. **How a told job hands back a walk flaw that needs no change:** "the flaw goes back to ARCH" names no act, and nothing says what becomes of the job's pull request, since such a module "is finished only by a merge". `job.md` says only that the flaw goes back to ARCH.
+2. **How a job hands back a walk flaw that needs no change:** "the flaw goes back to ARCH" names no act, and nothing says what becomes of the job's pull request, since such a module "is finished only by a merge". `job.md` says only that the flaw goes back to ARCH.
 3. **To which product's coordinator PROCESS passes what is the owner's to see,** when two products run.
 4. **A lane's acts on its design pages,** and how the owner's marked message typed on a design page reaches the coordinator "exactly as typed".
 5. **How a session tags or titles the sessions it starts** is given for Claude Code only (part 7).

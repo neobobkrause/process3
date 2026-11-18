@@ -67,7 +67,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 
 ## 4. The trial
 
-- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. What it asks of the owner, stage by stage, is in the build text `04-the-trial.md`, section 4: session starts, two edits to his approvals, one stop, three short marked instructions, one typed approval of a trial release, and for the account switch his acts in a second account.
+- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. What it asks of the owner, stage by stage, is in the build text `04-the-trial.md`, section 4: session starts; merging the building session's pull requests; the branch rule once the required run has reported; two edits to his approvals; one stop; three short marked instructions; giving a session the repository that holds the notice's proof; entering the development copies' hosts among the allowed hosts, and connecting an AI account only if a journey that uses AI is tried; one typed approval of a trial release; and for the account switch his acts in a second account.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
 
 The order in which these are built and tried, the most doubtful first, and what each stage asks of the owner, is the build text `04-the-trial.md`.
