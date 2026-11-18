@@ -281,7 +281,6 @@ Decision: the coordinator's, 9 Nov, at Bob's ask quoted above. When a notice cha
 Anything unread fails closed: exports unread (TypeScript export forms the surface does not read, interface, type, enum, namespace, declare, abstract class, count as unread), an export read that found no entry file, no export read recorded (a notice raised before this rule, or by layer land), and under rule 3 an open job branch that changes the user's paths. The merge's imports check (`merge: imports check`) stands for every case. The merge's "notice triage <key> at the merge" line names which rule cleared how many, and each user left owed is named with why. `notice triage <key>` applies the same rules to a notice raised before them, reading its exports over its merged range, records what they clear (worker `notice triage: ...`), and briefs only the rest, each with why the rule left it.
 Consequences: an internal change that keeps names and requirements unchanged is trusted to the provider's own requirement tests, the user modules' gates and the walk; a user relying on unstated behaviour is caught there, not at triage. Most bug-fix merges of a widely imported provider owe no worker. Notices that change a requirement id still owe a worker for each importing user, as before. C54 builds it.
 
-## PD-21: Subtraction after the velocity audit: four cuts (Bob, 9 Nov)
 
 == Your first job ==
 
@@ -289,5 +288,6 @@ Consequences: an internal change that keeps names and requirements unchanged is 
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/hsdnk7: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/hsdnk7/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

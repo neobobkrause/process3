@@ -5,8 +5,8 @@
   "members": [
    {
     "doc": "principles/process4__working__foundations_updated__02-tests.md",
-    "e": 27,
-    "s": 6
+    "e": 37,
+    "s": 12
    }
   ]
  },
@@ -16,8 +16,8 @@
   "members": [
    {
     "doc": "principles/process4__working__audit_foundations.md",
-    "e": 67,
-    "s": 52
+    "e": 199,
+    "s": 188
    }
   ]
  },
@@ -27,8 +27,8 @@
   "members": [
    {
     "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
-    "e": 51,
-    "s": 30
+    "e": 33,
+    "s": 14
    }
   ]
  },
@@ -38,7 +38,7 @@
   "members": [
    {
     "doc": "principles/rulebooks__root.md",
-    "e": 20,
+    "e": 18,
     "s": 11
    }
   ]
@@ -49,7 +49,7 @@
   "members": [
    {
     "doc": "principles/rulebooks__bob.md",
-    "e": 18,
+    "e": 17,
     "s": 9
    }
   ]
@@ -59,9 +59,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/notes__lane-charters.md",
-    "e": 86,
-    "s": 62
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "e": 81,
+    "s": 60
    }
   ]
  },
@@ -70,9 +70,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__evidence__roles_root_coordinator.md",
-    "e": 191,
-    "s": 178
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 88,
+    "s": 72
    }
   ]
  },
@@ -81,9 +81,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__foundations_updated__00-index.md",
-    "e": 25,
-    "s": 2
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 270,
+    "s": 259
    }
   ]
  },
@@ -92,9 +92,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
-    "e": 83,
-    "s": 60
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 34,
+    "s": 17
    }
   ]
  },
@@ -103,9 +103,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/README.md",
-    "e": 164,
-    "s": 148
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "e": 57,
+    "s": 34
    }
   ]
  }

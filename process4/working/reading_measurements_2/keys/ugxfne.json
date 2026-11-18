@@ -9,12 +9,12 @@
   {
    "doc": "principles/governing__foundations-proposed-changes.md",
    "s": 2,
-   "e": 75
+   "e": 71
   }
  ],
  "files": [],
- "bytes": 8224,
- "lines": 110,
+ "bytes": 8236,
+ "lines": 107,
  "task": "rle",
  "values": {
   "code1": "D9S-9128",
@@ -49,7 +49,7 @@
    "frac": 0.09875140238227172,
    "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: ostler`.",
    "probe": "desk: ostler",
-   "frac_actual": 0.0064,
+   "frac_actual": 0.0066,
    "line": 4,
    "hits": 1,
    "file": "(starting text)"
@@ -64,7 +64,7 @@
    "frac": 0.5437160217223606,
    "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed P9H-6696`.",
    "probe": "run closed P9H-6696",
-   "frac_actual": 0.5089,
+   "frac_actual": 0.5248,
    "line": 57,
    "hits": 1,
    "file": "(starting text)"
@@ -79,8 +79,8 @@
    "frac": 0.9326905032941204,
    "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
    "probe": "-- filed under larkspur",
-   "frac_actual": 0.918,
-   "line": 91,
+   "frac_actual": 0.9382,
+   "line": 89,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,7 +90,7 @@
    "value": "reviewer: Hamish Colquhoun",
    "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
    "probe": "`reviewer: Hamish Colquhoun`",
-   "frac_actual": 0.1661,
+   "frac_actual": 0.1713,
    "line": 14,
    "hits": 1,
    "file": "(starting text)"
@@ -101,7 +101,7 @@
    "value": "reviewer: Priya Venkataram",
    "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Priya Venkataram`",
-   "frac_actual": 0.4431,
+   "frac_actual": 0.4569,
    "line": 47,
    "hits": 1,
    "file": "(starting text)"
@@ -113,7 +113,7 @@
    "frac": 0.0880853139459572,
    "body": "Eyre sent word of 5 finches on hand.",
    "probe": "Eyre sent word of 5 finches on hand.",
-   "frac_actual": 0.114,
+   "frac_actual": 0.1176,
    "line": 9,
    "hits": 1,
    "file": "(starting text)"
@@ -125,7 +125,7 @@
    "frac": 0.5078369686400389,
    "body": "Dunn desk entered 4 swifts on the sheet.",
    "probe": "Dunn desk entered 4 swifts on the sheet.",
-   "frac_actual": 0.5031,
+   "frac_actual": 0.5189,
    "line": 52,
    "hits": 1,
    "file": "(starting text)"
@@ -137,8 +137,8 @@
    "frac": 0.8437748624809015,
    "body": "10 plovers were logged at the Osk gate.",
    "probe": "10 plovers were logged at the Osk gate.",
-   "frac_actual": 0.8393,
-   "line": 80,
+   "frac_actual": 0.8554,
+   "line": 78,
    "hits": 1,
    "file": "(starting text)"
   }

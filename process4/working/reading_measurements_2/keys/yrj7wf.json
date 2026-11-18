@@ -8,13 +8,13 @@
  "members": [
   {
    "doc": "requirements/process4__evidence__ledger_lines.md",
-   "s": 146,
-   "e": 1699
+   "s": 22,
+   "e": 1516
   }
  ],
  "files": [],
- "bytes": 129276,
- "lines": 1590,
+ "bytes": 129542,
+ "lines": 1532,
  "task": "dates",
  "values": {
   "code1": "L8H-2764",
@@ -49,8 +49,8 @@
    "frac": 0.043390767203310435,
    "body": "Every job must note: every file the job writes begins with this exact first line: `# ref L8H-2764`.",
    "probe": "# ref L8H-2764",
-   "frac_actual": 0.043,
-   "line": 60,
+   "frac_actual": 0.0443,
+   "line": 44,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -64,8 +64,8 @@
    "frac": 0.5197957225979598,
    "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
    "probe": "desk: thistledown",
-   "frac_actual": 0.5195,
-   "line": 805,
+   "frac_actual": 0.5176,
+   "line": 780,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9379901279879469,
    "body": "Kept by every job without exception: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.",
    "probe": "kestrel-relay.md",
-   "frac_actual": 0.9348,
-   "line": 1452,
+   "frac_actual": 0.939,
+   "line": 1424,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Odette Fairweather",
    "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
    "probe": "`reviewer: Odette Fairweather`",
-   "frac_actual": 0.1555,
-   "line": 220,
+   "frac_actual": 0.1612,
+   "line": 196,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Emeka Nwosuagwu",
    "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Emeka Nwosuagwu`",
-   "frac_actual": 0.7254,
-   "line": 1113,
+   "frac_actual": 0.7235,
+   "line": 1067,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.24309571378515438,
    "body": "A box of 17 birches came through Osk.",
    "probe": "A box of 17 birches came through Osk.",
-   "frac_actual": 0.2444,
-   "line": 359,
+   "frac_actual": 0.2415,
+   "line": 311,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.6510696219245528,
    "body": "Tally for Dunn: 6 pines.",
    "probe": "Tally for Dunn: 6 pines.",
-   "frac_actual": 0.6484,
-   "line": 976,
+   "frac_actual": 0.6511,
+   "line": 974,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.7440509656456779,
    "body": "Received at Yarm, 2 oaks.",
    "probe": "Received at Yarm, 2 oaks.",
-   "frac_actual": 0.7432,
-   "line": 1142,
+   "frac_actual": 0.745,
+   "line": 1093,
    "hits": 1,
    "file": "(starting text)"
   }

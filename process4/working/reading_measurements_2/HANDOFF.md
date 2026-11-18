@@ -1,6 +1,6 @@
 # Second reading measurement: handoff
 
-Length: see the end. Last section: "9. What is not proven yet". Written by the first research session (Claude) on 18 Nov 2026 for its successor. Bob's brief is `BRIEF.md` beside this file; read it whole first, then this, then the protocol.
+Length: about 90 lines. Last section: "9. What is not proven yet". Written by the first research session (Claude) on 18 Nov 2026 for its successor. Bob's brief is `BRIEF.md` beside this file; read it whole first, then this, then the protocol.
 
 ## 1. Where everything is
 
@@ -32,6 +32,11 @@ Nothing that scores or keys a trial may ever be put on a `process3-probes` branc
 - `get_session` gives a session's window, tokens held, served model, and its tokens and list-price cost.
 - Any session's record has `rate_limit_event` entries (ask for that kind) giving the week's use: `unifiedWindows.seven_day.utilization`. It was 0.26 at 19:33 UTC on 18 Nov. The week resets at 1795464000 (23 Nov, about 20:00 UTC). Use beyond the allowance is switched off for the organisation.
 - A worker cannot start workers. A session can.
+- A message sent with `send_message` reaches a running session as a notice from another session, which it reads with a tool call named `ReadNotifications`. It is not shown to it as an instruction. In the machinery check two of nine readers declined to act on it. So the first message now announces the follow-up (see the departures file). `score.py` takes the first `ReadNotifications` call as the moment the second message arrived.
+- A reader may read through the shell (`cat`) and may write its files through the shell. Coverage for shell reads is matched by line content against what the command returned to the reader.
+- Cost at list price of one Fable run, from the nine check runs: $1.14 to $1.85 for texts up to 96,000 bytes. About $1.15 of that is fixed. The nine cost $13.04.
+- The week's use went from 26 to 30 percent between 19:33 and 19:58 UTC while this study spent roughly $55 to $60 at list price (this session, its workers, 15 small sessions). A second gauge, `seven_day_overage_included`, went from 52 to 61 percent. What the second gauge measures is not known. Whether other sessions of Bob's were also spending in those minutes is not known.
+- The runner worker (Haiku, steps in `scripts/RUNNER.md`) started nine sessions, sent nine follow-ups and collected nine records in about 13 minutes, using 205,000 tokens of its own. Its plain `sleep` was refused; it waited with background sleeps. The starting texts it passed on were not yet compared byte for byte with the files, because the files were rewritten afterwards; do that comparison on the first real batch before trusting a Haiku runner, above all for the long starting texts.
 
 ## 4. The design in one page (the protocol rules; this is a reminder)
 
@@ -44,7 +49,8 @@ Nothing that scores or keys a trial may ever be put on a `process3-probes` branc
 ## 5. What is built
 
 - 210 trials: the single-text ladder (seven sizes from 12,000 to 768,000 bytes, ten each), the set ladder (four totals by two shapes, ten each), the starting-text ladder (six sizes from 4,096 to 131,072 bytes, ten each). Their index numbers are 0 to 9 in each `alloc/` file.
-- Nine more trials for the machinery check only (index 90 and up, and set index 28). They are never used for a result.
+- Nine more trials for the machinery check only (index 90 and up, and set index 28). They are never used for a result. Their runs are scored in `reading2_study/records/machinery/` on the study branch: all nine were read whole; the five whose files were printed kept all four rules, had correct work and answered the count.
+- After the check the task wording changed (departures file, entry 1). All starting texts were rewritten with `build.py restart`, and the starting-text ladder was rebuilt, so its trial ids are new.
 - `scripts/tasks.py` (work bank and hidden cases), `build.py`, `makebatch.py`, `RUNNER.md` (steps for the worker that starts and collects a batch), `score.py`, `fetch_corpus.py`.
 
 ## 6. What is not built yet, in the order to do it
@@ -59,12 +65,24 @@ Nothing that scores or keys a trial may ever be put on a `process3-probes` branc
 
 ## 7. Cost and the allowance
 
-- The estimate in the protocol's section 17 is about 2,800 runs and about $4,600 at list price for everything. That is very likely more than what is left of this week's allowance. See section 8 for what was put to Bob.
-- The rule in force: read the week's use before each batch; start no batch that would take it past the ceiling. The ceiling is 50 percent of the week until Bob says otherwise.
+- Revised estimate for the whole protocol: about 3,000 runs and about $5,300 at list price. By the one calibration in hand, a whole week's allowance is worth very roughly $1,400 at list price by the first gauge and less by the second. So the protocol is several weeks of allowance.
+- **No measuring run may start until Bob has answered the question in section 8.** Until then spend as little as possible. Do not start the fact-question workers or the checks either: which trials are needed depends on his answer.
+- The rule once runs start: read the week's use (both gauges) from a session's record before each batch; start no batch that would take either past the ceiling Bob sets.
 
-## 8. Put to Bob and not yet answered
+## 8. Put to Bob on 18 Nov, about 20:15 UTC, and not yet answered
 
-(Filled in below when this handoff was finished.)
+Title: how much this measurement may spend, and how much of it to run. The options put to him:
+
+1. Everything in the protocol, with paid extra use switched on and a cap of about $5,500.
+2. The core only, with paid extra use and a cap of about $3,000.
+3. The core only, inside the subscription, paced under a share of each week that he names.
+4. The smallest slice: the single-text and starting-text figures only, inside the subscription.
+
+"The core" is: the main arm only (separate sessions, Fable 5.2, 1,000,000-token window); all four figures; ten texts a size run once on the rising and fine steps; thirty texts, run twice, at the size put forward and the next size up; ten sessions at each fill level; every trial checked both ways before use. Left out of the core: the small-window arm, the Opus, Sonnet and Haiku arms, the worker arm, and the second run of each text on the rising steps. My recommendation was option 3 at 40 percent of each week.
+
+He was also asked whether Process4 will run sessions on any model other than Fable 5.2, or with a small window. If not, those arms need never run.
+
+When he answers: write his words exactly at the top of `DEPARTURES.md` with the date, record any change of scope there as a departure with its reason, and go on from section 6.
 
 ## 9. What is not proven yet
 

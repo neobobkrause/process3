@@ -2,146 +2,128 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-Written 14 Nov 2026 by the session that produced drafts two to five. Read this file in full before anything else. Nothing in Process4 is in force.
+### 5. Claude ends Bob's judge of the process, quotes his rule with half of it cut off, and puts a new record in its place
 
-## Who you are working for, and how
+**Counter-argument.** The Foundations make two numbers "the standing judge of every other line" and say nothing is in force until a tranche has run with them measured. Claude retires both as a technical matter. Section J then cites "your own rule" without the half Claude ended. In their place the tranche report gets a new count, with a watch on walk steps added or removed, which no document of Bob's asks for. The report's own list is also shorter than Bob's.
 
-Bob is the owner. He is defining Process4, the successor to Process3, in which Claude Code sessions build his product Civicsmith unattended. In this role he is not a programmer. His rules, in his own typed words (all of his messages of 14 Nov are in `owner_words/`, exactly as typed; read both files in full):
-
-- "Talk to me in plain words. No codes, no shorthand, no references to things I have not seen. I have not read your working files."
-- "Decide technical matters yourself and tell me what you decided. Bring me only what is mine to decide, with what it is, why it matters to me, and your recommendation."
-- "Only words I wrote count as my word. Never record your decision or your summary as mine."
-- "Do not assure me that something will work. Say what is proven and what is not."
-- "Do not add tests, gates, reviews or checks. Process4 has three tests, ever."
-- "Keep your context under 70%. Do the heavy reading with workers."
-- "When you change something I defined you need to describe the PROPOSED change in words I understand so that I know what you're proposing and whether to approve the change or not."
+**Sentences attacked.** Section K, point 5: "*Claude decided:* the two numbers ... are retired." Section J: "By your own rule, nothing here is in force until it has run on a real tranche." Section G: "Claude decided that it also carries the walk result at the end of each round: steps passing out of steps in all, with any steps added or removed since the last round shown beside it". Section G: "A tranche report: time, work done, cost, overhead, and the minutes it took of yours."
 
 
-Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: rosehip`.
+Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under quarrystone`.
 
-Lessons the previous session learned the hard way; do not repeat them:
+**Sources.**
+- Foundations: "Nothing here is in force until it has run on a real tranche with the two health metrics measured." "The two health metrics ... are the standing judge of every other line." "the tranche report states elapsed time, work done, deferrals, cost, the overhead share, BOB's idle time while work was ready, and the minutes it took of yours".
+- Disposition table, on the judge: "the owner should see any change to his judge".
+- `k_evidence.md`: "Not found: any line of Bob's that names walk steps passing ... as a measure." Also: survival of merged work "98.8%" was read from git, so half of the second number can still be read at no cost.
+- Bob, 14 Nov: "Bring me only what is mine to decide"; "start from my documents".
 
-1. It brought him twenty-four questions of which twenty-three were technical. Decide technical matters and report them.
-2. It then went too far the other way and changed or ended things he had defined as "Claude decided". Anything he defined (in his typed words, the record of 13-14 Nov, his ledger or his Foundations) changes only by a proposal he answers.
-3. It wrote his short answers out as longer statements ("I think it has to check tests too" became "So it does"). Quote him exactly or not at all.
-4. It wrote "checked by Claude" about something it had not checked. Say only what you have verified yourself or name the worker who did.
-5. It re-proposed, as if new, the centre of a proposal already withdrawn, understated its cost and attached an assurance.
-6. It filled its context by reading workers' long reports. Have workers write files and return short summaries; read files only in part.
+**Kind.** (c) by Claude of something that is a purpose (how Bob judges the process), not a way; (f) the walk-step record; (e) the truncated rule; (d) "deferrals" and "idle time while work was ready" dropped from the report.
 
-## Where everything is
+**How bad.** Misleads Bob; costs him his measure of "quickly, cheaply, and still there later".
 
-
-Received at Yarm, 8 plums.
-
-Repository `neobobkrause/process3`, branch `process4`, folder `process4/`. Bob approved keeping all Process4 material here ("You have my approval to add any and all information related to the process4 update to the repo"). Push each change as it is made. Never push to `main`. The other two repositories (`neobobkrause/civicsmith-copy`, the product; `neobobkrause/process3-probes`, which Bob named as the throwaway repository for trials) are read-only unless he says otherwise.
-
-- `owner_words/`: Bob's messages of 14 Nov, verbatim. These outrank everything.
-- `definition/process4_definition_v5.md`: the current draft. Its section B lists his typed words and the session's record of his decisions of 13-14 Nov.
-- `definition/process4_audit2.md`: the second audit of the fifth draft: verdict, map of each area, fourteen questions that are his, Claude's corrections owed, what needs a trial or the build, what has no answer.
-- `definition/process4_definition_appendix_v5.md`: where each of his 288 requirement lines stands (codes allowed there).
-- `definition/process4_counterarguments.md`: the first audit's 87 counter-arguments with their answers.
-- `evidence/`: the Process3 post-mortem and his requirement documents (`foundations.md`, `ledger_lines.md`, `DECISIONS.md`, `process4_disposition.tsv`, and others).
-- `working/`: workers' reports. The three second-audit reports are `audit2_feasibility.md`, `audit2_corruption.md`, `audit2_requirements.md`; `audit2_notes.md` maps the combined document to them. `trial_plan_facts.md` is the trial plan's groundwork. `replay/` and `notice_study/` hold the measurements on notifications.
-- His live documents (read with the Artifact tool, never web-fetch): the assessment https://claude.ai/artifact/WLa8nNmD7AWtkgNswvnRTF, the Keep and Drop Ledger https://claude.ai/artifact/W8TboyMGCLXCvrRkRWGQG8, the field report https://claude.ai/artifact/SPmVhKHEhCvLD2LusiSEDb.
-
-## What is settled, in his typed words of 14 Nov
+**Proposed correction.**
+- Section K, point 5: "Your Foundations call these two numbers 'the standing judge of every other line'. Ending them changes what you asked for, so you may want this back as your decision. Claude's reasons: the first is defined by two checks you ended; the cost half of the second could not be read for most of Process3. What can still be read from git at no cost is whether merged work is still there later."
+- Section J, first line: "Your rule is that nothing is in force until it has run on a real tranche 'with the two health metrics measured'. Claude has retired those two numbers (section K), so that half of your rule is not met."
+- Section G: restore the report's list as the Foundations give it, and either remove "with any steps added or removed since the last round shown beside it" or mark it plainly as an addition of Claude's that no document of yours asks for.
 
 
-Corrie desk entered 9 figs on the sheet.
+Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.
 
-- Three tests and no others: module tests, the internal walk, the external walk. The notification to a module that uses a changed module is not a test.
-- A tranche ends only when an external walk of a development deployment completes without flaws; flaws go to the next round. A tranche can end without an AI-enabled run. Installer and website are outside the tranche and wait for a clean development release walk. A release can optionally be started after a tranche completes.
-- The internal walk uses the UX Screens document; the external walk follows the UX journeys.
-- A job writes its own tests. A job for one module is not allowed to change another; the only other way is a mechanical edit.
-- The process is changed only in a separate lane, PROCESS, that he interacts with. ROOT starts it. A product moves to a changed process only with his prior approval.
-- Eight job slots across the account. The watcher beside ROOT stays (the previous session withdrew its proposal to drop it).
-- Answers "agreed" to the fourth draft's proposals 5, 6, 9, 10, 11, 12 (the proposals are in `definition/process4_definition_v4.md`, section O).
+### 6. "Replacing ROOT is not an act of yours" is contradicted by Process3's own record
 
+**Counter-argument.** The standby is in Bob's Foundations, so it is not a new design. But in Process3 each takeover left ROOT one level lower and left no standby, and the decision record says Bob then restarts ROOT himself. The text promises the opposite, does not list it as unproven, and does not list the standby among the sessions in section B.
 
-To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
+**Sentence attacked.** Section K, technical point 4: "For ROOT, keep Process3's standby session, woken once a day, which takes over, so that replacing ROOT is not an act of yours." Section B: "Sessions are at most three levels deep".
 
-## What Bob asked for next (his sixth message, verbatim in `owner_words/`)
+**Sources.**
+- `DECISIONS.md`: "A takeover moves ROOT one level down, so it is a bridge: Bob restarts ROOT from his app at depth 0 at his next opportunity".
+- `roles_root_coordinator.md`: "It took over twice (4 Nov 04:11Z, 7 Nov 19:07Z)"; "Each left no watcher and put ROOT one level down"; and, of the roles suited to Process4, "Not in the set ... the watcher".
+- Foundations: "If the watcher's session declines, replacing ROOT stays yours".
 
-1. "Lanes are an important element of the development process, though they haven't been fill into the process4 design." Lanes are barely present in the fifth draft. Find what his documents say about lanes (Foundations, ledger lines on design lanes, his standing approvals, Process3's record) with a worker, and fill them into the design starting from his documents, not designing afresh. PROCESS is itself a lane in his words.
-2. "Let's begin the next session by going into greater detail on each of the points you make in the 'What most stands in the way' section of your last response." Those five points, as the previous session gave them to him:
-   1. **The end of a tranche.** The documents the walks are measured against are not in the folder he named (`docs/development/ux-substrate/` in the product repository); the folder's README says they are claude.ai pages; it holds machine data (a registry of screens and acts, and a script of journeys). Sessions made most of the changes to that folder. One session alone (ARCH) decides that a walk is clean. No tranche size is set, and no walk of either kind finished clean in Process3.
-   2. **The rule that only PROCESS changes the process is held by words only.** The process repository's own CLAUDE.md still lets sessions merge without him, and it has no deny list. His words of 14 Nov accept both the acts and the waiting that a setting only he can change would cost; the question of such a setting has not been put to him again since he defined PROCESS.
-   3. **The first hour.** The fifth draft's fix for ROOT's start (make the tranche branch the default branch) was aimed at the wrong fault: the record shows his ROOT of 5 Nov came up on an old copy of the right branch. Also: no order or actor for converting the product or the trial repository; no stated way for the process's tool and role texts to reach a session that holds one repository.
-   4. **The release reads two ways**, and none of it is built. His statements of 9 Nov (in Process3's decision record) and 14 Nov differ on whether a release has a walk of its own.
-   5. **His 288 lines.** 112 are stated in the draft; 53 he kept are stated nowhere; 33 were ended by Claude without a proposal; his ledger and Foundations still say the opposite of the definition for 75 lines and nothing says which governs.
-   Begin by having workers pull the detail for each of the five from the three second-audit reports, then go through them with him one at a time, in plain words.
+**Kind.** (g) assurance; proven and unproven blurred.
+
+**How bad.** Stops a tranche if it fails; misleads Bob.
+
+**Proposed correction.** "For ROOT, your Foundations name a standby session, woken once a day, that takes over. In Process3 it took over twice. Each time ROOT ended one level lower and no standby was left, and the Process3 decision record has you restart ROOT yourself afterwards. So a takeover is a bridge, and starting a fresh ROOT after one is the act already on your list. Not proven: that jobs can still be started after a takeover." Add the standby to section B, with who starts it.
+
+### 7. The slot number: the default and "for each product" both settle conflicts in Bob's own words without naming them
 
 
-A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed C8Z-2942`.
+A box of 15 opals came through Dunn.
 
-## Still owed by Claude
+**Counter-argument.** Bob's words give four different numbers on four dates, and his words of 6 Nov tie the number to GitHub traffic for the whole account. The text states "eight by default" and "for each product" as settled and mentions only the Foundations' 24.
 
-- Correct the wrong and stale statements in the fifth draft listed in section 4 of the second audit (including the false "checked by Claude", the four short answers written long, sections that still call his answered readings open, his fifth and sixth messages missing from section B).
-- Restore the 33 lines Claude ended without a proposal and put them to him as proposals, grouped, for a yes or no.
-- State the 53 kept lines that the fifth draft states nowhere, or say plainly where they stand.
-- Then a sixth draft, and the appendix brought into line with it.
+**Sentences attacked.** Section A: "Eight by default." Section H: "A default of 24 live sessions ... *Why:* eight job slots, and only you change the number." Section K, point 7: "*Claude decided:* for each product. A session holds one repository, so nothing can count jobs across two products without a new mechanism."
 
-## Still open with Bob
+**Sources.**
+- Foundations: "at most 24 live sessions by default ... (your word, 1 Nov)".
+- Bob, 6 Nov (quoted): "I think that github limits can handle the traffic from as many as 8 jobs at a time. Set the job slot limit to 8 and monitor github usage for an hour or so to see if there's any real need or opportunity to low or raise the slot count." And: "confirm that the github usage limits we agreed to abide by are written into process3 and used properly account wide."
+- `DECISIONS.md`: "Bob set the number of slots (20, 7 Nov)". The field report, typed by its editor (taken to be Bob): "(default: 20)".
+- Session's record of 13 Nov: "Job slots default to eight". Its question 5, "is eight per product or across the account?", has no recorded answer.
+- `k_evidence.md`: an account-wide count "has to come from the platform's list of sessions, which is account-wide, or from Bob. Judgment (mine)." Process3 did count across the account.
 
-- The fourteen questions in section 3 of the second audit. He has not answered them.
-- What the walks read: the claude.ai pages, files in the folder, or the machine data; and how a session reaches the pages.
-- Whether "a clean development release walk" is the tranche's external walk or a further walk.
+**Kind.** (e), and (g): a judgment written as a fact.
 
-## The notification study
+**How bad.** Costs Bob time; two products at sixteen jobs repeat the GitHub load his number was set against.
 
+**Proposed correction.**
+- Section H: "Eight comes from a session's record of 13 Nov and matches your words of 6 Nov. On 7 Nov you set 20, and the field report says 20 of Process3. This document uses eight. Say if that is wrong."
+- Section K, point 7: "Your words of 6 Nov tied the number to GitHub traffic for the whole account. Counting for each product follows from one repository per session; two products on one account then run sixteen jobs unless you lower each number. Process3 counted across the account from the platform's list of sessions; whether Process4 could do the same was not measured. This is Claude's judgment, and it touches a question that was put to you on 13 Nov and not answered."
 
-Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
-
-Bob is starting a separate session for the question of when a changed module's users must be updated. Its brief is `working/notice_study/session_brief.md`; the groundwork is `working/notice_study/study.md`. Do not duplicate that work here. Until it reports, the definition keeps his rule (a job that changes a module's interface notifies every user of that module) and marks what counts as an interface change, who is told and what a told module does as under study.
-
-## Trials
-
-Only one has run: the offline replay of Process3's recorded notifications (`working/replay/results.md`). No session has been started on his account and no setting of his has been changed. Ask before either. The combined trial needs things built first; see `working/trial_plan_facts.md` and section 5 of the second audit. The second audit found the trial plan weak and its cost to him understated.
-
-## Added by the second main session, 14 Nov 2026
-
-What this session did. Nothing of Bob's was changed, no session was started on his account, and no setting was touched. The product repository was cloned for reading only.
+### 8. "Your word is enough" is an assurance, and three of the four uses are not on the unproven list
 
 
-Dunn sent word of 10 limes on hand.
+Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed G5W-9613`.
 
-- `definition/process4_five_points.md`: the five points of "What most stands in the way" in detail, in plain words, with what is Bob's to decide and a recommendation for each. Given to him in chat. He has not answered yet.
-- `definition/process4_lanes.md`: lanes filled in from his documents, as a proposed section for the sixth draft. Section 3 holds five questions that are his; section 4 holds wording of his that Process4 cannot keep as written. He has not answered yet.
-- `working/session2/`: the workers' reports behind both (one for each of the five points, two on lanes, one on requirements missing from the 288). Each begins with a plain-words section. `point5_288_lines.md` holds the 33 lines grouped as seven yes-or-no proposals, ready to be put to him.
-- `evidence/foundations_tranche_9nov.md`: the later copy of his Foundations, taken from the process repository's `tranche` branch. The 288 lines were made from the earlier copy and from the first Keep and Drop page only.
-
-Corrections to this handoff and to the audits, found by checking primary sources:
-
-1. His standing approvals in the process repository's `CLAUDE.md` say nothing about lanes. The lanes paragraph is in the product repository's `CLAUDE.md` on its `tranche` branch.
-2. All the lane machinery of Process3 is on the process repository's `tranche` branch. The `process4` branch and `main` carry the tool of 2 Nov, with no lane code.
-3. "The documents are not in the folder" is only partly right: the folder differs between the product's main branch and its tranche branch, and the Screens page is built from the folder. There are three journey lists (27, 27 and 32 journeys).
-4. All 63 November changes to that folder were by sessions, not 61.
-5. The fifth draft's sentence on ROOT's start of 5 Nov is wrong in three ways; the third and fourth drafts had it right.
-6. The process repository's `tranche` branch has a list of forbidden commands; `main` and `process4` have none.
-7. The audits' "33 lanes" is 33 branches; Civicsmith had three lanes.
-8. The set-up check was not ended on Bob's instruction of 9 Nov: Process3's decision record kept it, run less often. Ending it was Claude's.
-9. GitHub's settings for the process repository can be read from a session (a worker did). The product repository's cannot without attaching it.
-
-Withdrawn by Claude in this session, and to be removed from the sixth draft: the request that Bob make the tranche branch the default branch; the sentence "Only your word ends a tranche that will not come clean" (it was Claude's, unmarked).
-
-Still owed: everything under "Still owed by Claude" above, plus bringing the requirements found in `working/session2/later_requirements.md` into the appendix, comparing the 27-journey and 32-journey lists for him, and a written order for converting the three repositories that lists Bob's own acts.
-
-### The notification study has reported (15 Nov 2026)
+**Counter-argument.** Nothing has been built or tried for holding a merge, putting a module first, skipping the external walk or changing the slot number. For a module put first the fixed rule has to read Bob's word from somewhere, so "nothing is built" cannot be right. Only the stop on his word is listed as unproven.
 
 
-A box of 18 cherries came through Stane.
+The Hale End store took in 5 pearls.
 
-The separate session Bob set up on the notification sent word, at his request, that it has a result. Checked here against the files: both exist, and the table of his settled points in the result matches his messages as recorded.
+**Sentences attacked.** Section B: "Nothing special is built for any of these; your word is enough." Section K, points 4 and 8: "Nothing is built for it: you tell the coordinator". Section C: "Only your own word, passed on exactly by the coordinator, puts a module ahead."
 
-- `owner_words/bob_words_14nov_notice_session.md`: every message he typed to that session, verbatim. Only this file is his word. Read it in full.
-- `working/notice_study/result.md`: that session's account. Its section A lists what he settled, section B what Claude decided there, section E what is not proven, section F what it asks of the main session.
+**Sources.** Bob, 14 Nov: "Do not assure me that something will work. Say what is proven and what is not." `k_evidence.md`, on reordering: "It needs a place in the record for his list and a way to clear it; in Process3 the list was two modules and was never cleared." On holding a merge: "Used: not found ... no mechanism of its own." Section J, item 12, itself: "After your stop of 9 Nov the process ran on for over two hours."
+
+**Kind.** (g).
+
+**Proposed correction.** Replace the sentence in B with: "Nothing has been built or tried for any of these. A module put first has to be read by the fixed rule from the same place in the record as the slot number. Whether a hold reaches ARCH before it merges is not proven." Widen section J, item 12, to: "a stop, a held merge, a module put first, a skipped external walk and a new slot number, each on your word".
 
 
-Kept by every job without exception: the job's handover note is saved under the file name `vetiver-relay.md`, and under no other name.
+To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Maren Oduya is no longer written anywhere in a handover note.
 
-What it changes here. Of the three things the fifth draft's section on the notification marks "under study", two now have his typed words: what counts as an interface change, and which event sends the notice and to whom. The third, what a told job does, was not studied and is still open. So are two groundwork questions: who is told when the product's list of modules itself changes, and what becomes of a declared use that no code backs. Nothing in the result has run as a process. That session is now running a proof on made-up modules in the trial repository, separate from the trial of the whole chain of sessions.
+### 9. On interface notices the text says "safely" where section J says "unproven", and two sentences give a rule that is not the one in force
 
-Owed: rewrite the definition's section on the notification from his words in that file, with the study's technical decisions marked as Claude's, in the sixth draft. His rule there on how module tests are written ("The tests are supposed to confirm bounds, confirm the accuracy of results under valid conditions, and confirm the recognition of an error when out of bounds.") belongs in the definition's section on module tests.
+**Counter-argument.** Section D says naming the changed parts "can safely narrow" what a notified job reads and tests. Section J, item 5, lists exactly that as not proven, and D itself says the tests cannot yet be picked. Separately, step 8 and test two say a notice goes out when the interface changed, while D says that today every declared user is told on any change. Nobody is named as having decided the wider rule.
+
+**Sentences attacked.** Section D: "Naming the changed parts can safely narrow what a notified job reads and tests." Section C, step 8: "If the change altered the module's interface ..., every module that uses it is notified." Section D, test two: "*Trigger:* a merged job changed its module's interface." Against section D: "So today every declared user is told, on any change in the provider." Also "241 were truly affected".
+
+**Sources.** Session's record of 13 Nov: "When a job changes a module's interface, every user of that module is notified"; "Recognising that an interface changed must be proved rigorous and correct." Assessment document: "Naming the parts that changed narrows what a notified job has to read. It does not safely narrow who is told." (no "safely" on the first); "65 of 178 past notices had no changed requirement id and no export difference, and still held 63 affected users"; "It used the code as it stands now, so the figures are indicative." The definition: the 241 are "the judgment of AI workers, not ground truth".
+
+**Kind.** (g) proven and unproven blurred; (b) with no decider named.
+
+**Proposed correction.** D, last two sentences: "Naming the changed parts is meant to narrow what a notified job reads and tests. That is not proven (section J, item 5), and in 65 of 178 past notices no part could be named. It cannot yet safely narrow who is told." Step 8 and test two: "Trigger today: any merged change to a module's source. Claude decided this, because recognising an interface change is not yet proved; on Process3's record about nine notices in ten were needless." Change "truly affected" to "judged affected".
+
+### 10. Questions that are Bob's are decided as technical or buried, against "one question is still yours"
+
+**Counter-argument.** The opening says one question is Bob's. Section F hands him a second in half a sentence, with no reason and no recommendation. Technical point 8 decides the repair of the module order and says nothing a user sees changes, while the study it rests on says the order is built into the product and lists questions it calls the owner's.
+
+**Sentences attacked.** Opening: "One question is still yours, in section K." Section F: "one clause lets a design lane's pull request merge with no tests run, which is yours to keep or drop." Section K, technical point 8: "*Decided:* correct the module list where the code already runs one way, and turn one registration between two modules around. Nothing a user sees changes."
+
+**Sources.** Bob, 14 Nov: "Bring me only what is mine to decide, with what it is, why it matters to me, and your recommendation." `interface_and_cycle.md`: "Three things need the owner"; "Whether a member's own Claude sign-in through the runner still exists ... its requirement file states both positions"; "Whether a module may own requirements and no code. 29 of the 220 modules do"; "Moving a module that registers something can change what a member sees." Assessment document: the repair "depends on two things that are yours". Session's record of 13 Nov: such a use is "to be fixed by refactoring them"; the text's own section E says "fixed by refactoring them in their own jobs", which is not the same as correcting the list.
+
+**Kind.** (g) assurance; a fault against the instruction on what is brought to Bob; (e) minor, list correction against "refactoring".
+
+
+At Pell the clerk wrote down 10 amethysts.
+
+**Proposed correction.** Opening: "Two questions are still yours." Move the design-lane clause into section K with what it is, why it matters and a recommendation. Technical point 8: replace "Nothing a user sees changes" with "Not measured. The order of modules is built into the product, and the study of these modules says moving one that registers something can change what a member sees." Add: "That study left two questions it called yours: whether a member's own Claude sign-in through the runner still exists, and whether a module may hold requirements and no code (29 of 220 do, which bears on 'a job writes only its own module's files'). They are put to you here", each with a recommendation.
+
+
+Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: kestrel`.
+
+### 11. Section B does not list four kinds of session the document relies on, and does not say who tells Bob anything
+
+**Counter-argument.** "Who does what" names five kinds of session. The text elsewhere relies on four more: the standby, design lanes, the session that fixes the process, and the sessions that walk. Who starts each, on which repository, and whether they take slots is not said. Technical point 2 asks which repository the coordinator holds and does not answer. And nothing says which session reports ARCH's decisions to Bob "as done" or brings him the questions that are his.
 
 == Your first job ==
 
@@ -149,5 +131,6 @@ Owed: rewrite the definition's section on the notification from his words in tha
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/ra5tbq: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/ra5tbq/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

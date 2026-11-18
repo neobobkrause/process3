@@ -9,11 +9,11 @@
   {
    "doc": "requirements/process4__evidence__process4_disposition.md",
    "s": 16,
-   "e": 319
+   "e": 318
   }
  ],
  "files": [],
- "bytes": 64768,
+ "bytes": 64486,
  "lines": 343,
  "task": "dedupe",
  "values": {
@@ -49,7 +49,7 @@
    "frac": 0.022471057767960812,
    "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref U3N-3344`.",
    "probe": "# ref U3N-3344",
-   "frac_actual": 0.0125,
+   "frac_actual": 0.0126,
    "line": 9,
    "hits": 1,
    "file": "(starting text)"
@@ -64,8 +64,8 @@
    "frac": 0.4541160382872935,
    "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
    "probe": "desk: saltmarsh",
-   "frac_actual": 0.4522,
-   "line": 158,
+   "frac_actual": 0.455,
+   "line": 156,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,7 +79,7 @@
    "frac": 0.9493888094952736,
    "body": "Every job must note: the job's handover note is saved under the file name `alderney-relay.md`, and under no other name.",
    "probe": "alderney-relay.md",
-   "frac_actual": 0.9793,
+   "frac_actual": 0.9869,
    "line": 323,
    "hits": 1,
    "file": "(starting text)"
@@ -90,7 +90,7 @@
    "value": "reviewer: Priya Venkataram",
    "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
    "probe": "`reviewer: Priya Venkataram`",
-   "frac_actual": 0.2636,
+   "frac_actual": 0.2657,
    "line": 88,
    "hits": 1,
    "file": "(starting text)"
@@ -101,7 +101,7 @@
    "value": "reviewer: Saoirse Kinsella",
    "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Saoirse Kinsella`",
-   "frac_actual": 0.8664,
+   "frac_actual": 0.8732,
    "line": 290,
    "hits": 1,
    "file": "(starting text)"
@@ -113,7 +113,7 @@
    "frac": 0.2338025476108009,
    "body": "Wick sent word of 4 violins on hand.",
    "probe": "Wick sent word of 4 violins on hand.",
-   "frac_actual": 0.2245,
+   "frac_actual": 0.2263,
    "line": 75,
    "hits": 1,
    "file": "(starting text)"
@@ -125,8 +125,8 @@
    "frac": 0.48256876830731155,
    "body": "Hale End desk entered 2 oboes on the sheet.",
    "probe": "Hale End desk entered 2 oboes on the sheet.",
-   "frac_actual": 0.5067,
-   "line": 177,
+   "frac_actual": 0.4557,
+   "line": 161,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,7 +137,7 @@
    "frac": 0.717717235135168,
    "body": "Received at Eyre, 15 flutes.",
    "probe": "Received at Eyre, 15 flutes.",
-   "frac_actual": 0.7577,
+   "frac_actual": 0.7636,
    "line": 246,
    "hits": 1,
    "file": "(starting text)"
@@ -149,7 +149,7 @@
    "frac": 0.7450784404165249,
    "body": "Tally for Stane: 11 bassoons.",
    "probe": "Tally for Stane: 11 bassoons.",
-   "frac_actual": 0.7579,
+   "frac_actual": 0.7638,
    "line": 251,
    "hits": 1,
    "file": "(starting text)"

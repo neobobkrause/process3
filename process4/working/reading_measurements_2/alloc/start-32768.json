@@ -4,9 +4,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__evidence__foundations.md",
-    "e": 231,
-    "s": 107
+    "doc": "principles/README.md",
+    "e": 53,
+    "s": 23
    }
   ]
  },
@@ -15,9 +15,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/README.md",
-    "e": 53,
-    "s": 27
+    "doc": "principles/governing__foundations.md",
+    "e": 196,
+    "s": 90
    }
   ]
  },
@@ -26,9 +26,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/governing__foundations.md",
-    "e": 170,
-    "s": 43
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 351,
+    "s": 123
    }
   ]
  },
@@ -37,9 +37,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__audit_foundations.md",
-    "e": 225,
-    "s": 10
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 248,
+    "s": 126
    }
   ]
  },
@@ -49,8 +49,8 @@
   "members": [
    {
     "doc": "principles/process4__evidence__roles_root_coordinator.md",
-    "e": 292,
-    "s": 51
+    "e": 278,
+    "s": 35
    }
   ]
  },
@@ -68,7 +68,7 @@
    },
    {
     "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
-    "lines": "1-31"
+    "lines": "1-29"
    }
   ]
  },
@@ -120,7 +120,7 @@
    },
    {
     "doc": "principles/process4__HANDOFF.md",
-    "lines": "1-68"
+    "lines": "1-63"
    }
   ]
  },
@@ -129,29 +129,11 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
-    "lines": "all"
-   },
-   {
-    "doc": "principles/setup__DEVELOPER.md",
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
     "lines": "all"
    },
    {
     "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
-    "lines": "1-6"
-   }
-  ]
- },
- "9": {
-  "id": "atspvg",
-  "kind": "principles",
-  "members": [
-   {
-    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
-    "lines": "all"
-   },
-   {
-    "doc": "principles/notes__probes-pin-for-bob.md",
     "lines": "all"
    },
    {
@@ -159,12 +141,19 @@
     "lines": "all"
    },
    {
-    "doc": "principles/rulebooks__account-switch.md",
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
     "lines": "all"
-   },
+   }
+  ]
+ },
+ "9": {
+  "id": "atspvg",
+  "kind": "requirements",
+  "members": [
    {
-    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
-    "lines": "1-21"
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 411,
+    "s": 285
    }
   ]
  }

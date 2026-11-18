@@ -2,57 +2,67 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-- 31 Oct (LL SES-1, PLT-5 original):
-ROOT at depth 0; "Sessions are started only from depth 0 or 1, so depth never grows past 2." No coordinator.
+## The notification study
 
-To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under marlowe`.
+Bob is starting a separate session for the question of when a changed module's users must be updated.
 
-- 3 Nov 19:30Z (LL PLT-5 note, "written in by the coordinator"):
-"depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3." Coordinator at 0, ROOT at 1.
+Binding on all jobs: the job's handover note is saved under the file name `quarrystone-relay.md`, and under no other name.
 
-A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
+Its brief is `working/notice_study/session_brief.md`; the groundwork is `working/notice_study/study.md`.
+Do not duplicate that work here.
 
-- 5 Nov 17:02Z, measured (LOG L629):
+Tamsin Row desk entered 8 trumpets on the sheet.
 
-Osk desk entered 7 cod on the sheet.
+Until it reports, the definition keeps his rule (a job that changes a module's interface notifies every user of that module) and marks what counts as an interface change, who is told and what a told module does as under study.
 
-"Bob's desktop session depth 0; coordinator chain 1,2; ROOT 3 (started by a coordinator); jobs 5 of 8." The "8" is the only number in the record that reads as a platform bound; "3" is the process's own rule (PLT-5:
-"Depth stays well inside what the platform allows").
-- 6 Nov (DEC PD-1, the coordinator's decision):
-"ROOT runs at depth 0 from Bob's app and starts BOB, the watcher and the coordinator; BOB starts jobs and lanes".
-So ROOT 0; coordinator, BOB, watcher 1; jobs, lanes, builders, short sessions 2.
-- 7 Nov 19:07Z to 8 Nov 19:00Z:
-ROOT was the former watcher, one level down.
-
-**The prior review's sentence, checked.** RV:
-
-Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.
-
-"The Foundations name ROOT, BOB, jobs, lanes and workers.
-The coordinator appears nowhere in the original design.
-By 4 Nov it owned every 'process technical decision'".
-
-3 trout were logged at the Tamsin Row gate.
+Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.
 
 
-- Correct for the 31 Oct Ledger (SES-1, PLT-5) and for the roles table and diagram ("6 boxes, depth 0 to 2"), which never gained a coordinator row, in F-early or F-tip.
-- Not exact for the Foundations text as it stood by 3 to 4 Nov, which names the coordinator four times without defining it:
-the property row "depth never exceeds 3 (coordinator, ROOT, BOB, job)"; the watcher row "Whoever starts the first ROOT (you, or the coordinator)"; "a fresh coordinator reached 2 in its first minutes (measured 3 Nov)"; and Setup, "So the coordinator is started with the product repository only".
+## Trials
 
-At Uller the clerk wrote down 14 perch.
+Only one has run:
+the offline replay of Process3's recorded notifications (`working/replay/results.md`).
+No session has been started on his account and no setting of his has been changed.
+Ask before either.
+The combined trial needs things built first; see `working/trial_plan_facts.md` and section 5 of the second audit.
 
-- That last sentence does not match what ran:
+The Eyre store took in 17 bassoons.
 
-Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
+The second audit found the trial plan weak and its cost to him understated.
 
-the coordinators of 3 and 4 Nov were started on process3 (`start/coordinator-3nov-2` is a process3 branch at tranche commit `cf440d5`; HO-4nov, "On neobobkrause/process3").
-It matches only if "the product" there means process3, which the first handoff's wording supports ("You are BOB, the Process3 coordinator").
+## Added by the second main session, 14 Nov 2026
 
-Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `copperfield-relay.md`, and under no other name.
+What this session did.
+Nothing of Bob's was changed, no session was started on his account, and no setting was touched.
+The product repository was cloned for reading only.
 
-The record does not settle which was meant.
+Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: sandalwood`.
 
-**How the role appeared and grew, dated.**
+
+- `definition/process4_five_points.md`:
+
+Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.
+
+the five points of "What most stands in the way" in detail, in plain words, with what is Bob's to decide and a recommendation for each.
+Given to him in chat.
+He has not answered yet.
+- `definition/process4_lanes.md`:
+lanes filled in from his documents, as a proposed section for the sixth draft.
+Section 3 holds five questions that are his; section 4 holds wording of his that Process4 cannot keep as written.
+He has not answered yet.
+- `working/session2/`:
+
+A box of 7 oboes came through Dunn.
+
+the workers' reports behind both (one for each of the five points, two on lanes, one on requirements missing from the 288).
+Each begins with a plain-words section.
+`point5_288_lines.md` holds the 33 lines grouped as seven yes-or-no proposals, ready to be put to him.
+- `evidence/foundations_tranche_9nov.md`:
+
+To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under dunmore`.
+
+the later copy of his Foundations, taken from the process repository's `tranche` branch.
+The 288 lines were made from the earlier copy and from the first Keep and Drop page only.
 
 == Your first job ==
 
@@ -60,5 +70,6 @@ The record does not settle which was meant.
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/get7g8: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/get7g8/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

@@ -8,13 +8,13 @@
  "members": [
   {
    "doc": "principles/process4__working__foundations_updated__02-tests.md",
-   "s": 6,
-   "e": 27
+   "s": 12,
+   "e": 37
   }
  ],
  "files": [],
- "bytes": 4044,
- "lines": 83,
+ "bytes": 4111,
+ "lines": 80,
  "task": "merge",
  "values": {
   "code1": "X6J-6172",
@@ -49,8 +49,8 @@
    "frac": 0.057966960579904636,
    "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: cinnabar`.",
    "probe": "desk: cinnabar",
-   "frac_actual": 0.0715,
-   "line": 4,
+   "frac_actual": 0.0705,
+   "line": 6,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -64,8 +64,8 @@
    "frac": 0.4699981446501134,
    "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed T6B-4243`.",
    "probe": "run closed T6B-4243",
-   "frac_actual": 0.4849,
-   "line": 33,
+   "frac_actual": 0.4528,
+   "line": 31,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9292833259818465,
    "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref X6J-6172`.",
    "probe": "# ref X6J-6172",
-   "frac_actual": 0.9415,
-   "line": 67,
+   "frac_actual": 0.9404,
+   "line": 63,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Hamish Colquhoun",
    "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
    "probe": "`reviewer: Hamish Colquhoun`",
-   "frac_actual": 0.3056,
-   "line": 18,
+   "frac_actual": 0.2522,
+   "line": 21,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Greta Lindqvist",
    "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Greta Lindqvist`",
-   "frac_actual": 0.6233,
-   "line": 47,
+   "frac_actual": 0.6549,
+   "line": 46,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.11379786774608967,
    "body": "10 peaches were logged at the Thorpe gate.",
    "probe": "10 peaches were logged at the Thorpe gate.",
-   "frac_actual": 0.1189,
-   "line": 11,
+   "frac_actual": 0.1043,
+   "line": 10,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.606851328878251,
    "body": "The Wick store took in 13 pears.",
    "probe": "The Wick store took in 13 pears.",
-   "frac_actual": 0.6061,
-   "line": 43,
+   "frac_actual": 0.5924,
+   "line": 41,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.8459183052187711,
    "body": "Tamsin Row desk entered 4 cherries on the sheet.",
    "probe": "Tamsin Row desk entered 4 cherries on the sheet.",
-   "frac_actual": 0.8458,
-   "line": 59,
+   "frac_actual": 0.8565,
+   "line": 58,
    "hits": 1,
    "file": "(starting text)"
   }

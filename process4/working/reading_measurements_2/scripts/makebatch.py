@@ -14,13 +14,11 @@ ARMS = {"m": ("claude-fable-5-2", "claude/reading2-ground"),
 
 
 def followup_text(key):
-    out = f"/home/user/out/{key['id']}"
     qs = [("Q1", key["count_question"])] + [(q["id"], q["question"]) for q in key.get("facts", [])]
     src = "your starting text" if key["ladder"] == "start" else "the reading set"
-    return ("Two more steps for the job you have just finished.\n\n"
-            f"1. Run exactly this one command, and no other: tail -n +1 {out}/*\n"
-            f"2. After that, use no tool at all. From your memory of {src}, answer each question below "
-            "in one line, numbered as here. Write \"unknown\" for any you do not know.\n\n"
+    return ("Follow-up for the job you have just finished, from the session that started you.\n\n"
+            f"Use no tool at all. From your memory of {src}, answer each question below in one line, "
+            "numbered as here. Write \"unknown\" for any you do not know.\n\n"
             + "\n".join(f"{i}. {q}" for i, q in qs) + "\n")
 
 

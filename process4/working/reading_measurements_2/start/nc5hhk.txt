@@ -2,93 +2,117 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-**Walking sessions** make both walks (part 4). ARCH starts them.
+# Process4 Foundations, part 4: Tranche, rounds, walks and release
 
-Every session passes Bob's suggested model and effort on to each session it starts. The standard is a model and effort sufficient for quality.
+Length: 97 lines. Last section: "Release".
 
-Sessions are at most three levels deep, and none starts its own replacement. Claude Code: the limit on depth is a measured behaviour of that harness.
-
-A finished session is archived, not deleted. An archived session can still be found and reviewed (`bob_words_16_17nov_codex_development.md`). Claude decided: the session that started a session archives it.
+## The tranche
 
 
-Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under copperfield`.
+Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed J9H-9773`.
 
-Codex: how separate sessions, their depth, the passing on of model and effort, and archiving are carried there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+A tranche is one batch of product work. It is built on the tranche branch, apart from the main branch. It reaches the main branch only as a whole, by one pull request. The main branch never moves while a tranche runs.
 
+Before a tranche opens, ARCH proposes in a few plain lines what it is for and which journeys are expected to complete at its end. ARCH names any journey left out, and why. Bob approves or changes the proposal.
 
-Tally for Stane: 18 mangoes.
+Claude's reasoning in the design: a tranche with a named purpose brings its walks sooner, and a journey named as left out is neither counted as a flaw nor hidden.
 
-## Design lanes
+## A round
 
-A lane is a standing design responsibility for one area of a product. Bob calls lanes an important element of the process (`bob_words_14nov_c.md`, sixth message).
+A tranche is worked in rounds. A round has three steps.
 
+1. Jobs. Every module that has work gets its job.
+2. The internal walk, made when the round's jobs are done.
+3. A development deployment and the external walk. These happen only when the internal walk finds no flaws.
 
-Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.
+Claude decided this order. Whether a round's jobs are done has one right answer, so the process's tool decides it.
 
-- A lane owns a folder of design knowledge in the product's repository. It delivers designs, never product code.
-- Bob identifies the need for a lane, and ARCH starts it. The UX lane is always there. It keeps the Screens document and the journeys.
-- A lane is the source of truth in its area, so it is qualified before it decides anything. The first time it runs, it uses helpers to research the product's founding documents, the existing code and the best practice of its area. It answers no question until that research is recorded in its folder. Every later session of the lane reads the research first and adds to it. Bob's words on this, of 6 Nov, are quoted in `process4/evidence/foundations_tranche_9nov.md`.
-- A lane decides design in its area. ARCH decides whether and when a design is built, and whether it can be built as given. A design ARCH cannot build goes back to the lane.
-- Bob keeps the product's direction, audiences and principles. A decision that would change one of those comes to him, with options and the lane's recommendation.
-- Questions reach a lane through ARCH. A job never talks to a lane, and lanes do not talk to each other. Bob works with a lane through its design pages.
-- A lane runs as one session at a time. Whether that session is kept running or is started when a question arrives is ARCH's call, judged by cost.
-- A change that touches only files in the lane's own folder merges without a test run. The reason recorded from Bob is that the modules using a lane's designs have their own tests, and design documents need no testing.
+A flaw found by either walk becomes work for a named module in the next round, not the next tranche. Bob's words on this are in `process4/owner_words/bob_words_14nov_b.md`. The tranche ends when a round's external walk comes clean.
 
 
-7 cherries were logged at the Osk gate.
+Dunn sent word of 16 hammers on hand.
 
-Claude decided that a lane session uses none of the job slots.
+ARCH's session makes the development deployment. Walking sessions make both walks, and they walk whatever product is being developed. Claude decided that walking sessions use the job slots, because a walk happens when no job is open, and that a walk is shared out among them.
 
-## How sessions are kept sound
+How a development deployment is made, and on what, depends on where the product is hosted. The design gives that in a table for each hosting provider (part 6). How many walkers the product's hosting account can bear is unproven, and is measured in the trial.
 
-Bob's finding, from his work with Claude, is that nothing reliably controls the conditions that degrade what a session holds in its context. Work done after a compaction that went unnoticed can do silent damage that is hard or impossible to undo. His approach is to avoid the situation, not to recover from it. These words are in `bob_words_17nov_compaction_avoidance.md`, `bob_words_17nov_codex_context.md` and `bob_words_17nov_fresh_context_and_process_self_development.md`.
-
-The conclusions:
+Claude Code: a session can run one thing for about 30 minutes (measured). Process3's two late runs of a deployment and walk took 60 and 64 minutes (measured). So one walk has to be shared among several sessions. A shared walk has never run and is unproven.
 
 
-Binding on all jobs: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.
+Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
 
-- Each long-lived role is refreshed on purpose. This happens at a natural pause in its work or at a stated fill level of its context, whichever comes first.
-- The role asks its parent to refresh it. No session starts its own replacement.
-- The successor starts only from the shared state and the repository. It takes nothing from the old session's memory.
-- Texts are kept small enough to be read in full (part 6), and helpers do the heavy reading.
+Codex: whether a like limit applies there is not known. See `process4/working/codex_shortcomings_to_fill.md`.
 
-The fill level is chosen by the same yardstick as the maximum sizes of part 6. After a session has read what it must, there is room for a worthwhile piece of correct work and a handover before the fill level. Bob's words on what a session needs room for are in `bob_words_17nov_compaction_avoidance.md`. The level has no settled value yet (part 10).
+While a tranche runs, ARCH prepares what the next round or the next tranche needs.
 
-Codex: a hosted session shows no reading of how full its context is, so what carries the fill level there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+## Partial walks
 
-## Shared state
+Every round's walks are partial, the first round's included. Before each walk, ARCH names the areas that the round's updates affect. A partial walk is without flaws when it lists no flaw in the areas it was given.
 
+A full external walk is something Bob opts into. By default it is not made. If Bob asks the coordinator for one before a round's partial walks come clean, it is made, and the tranche then ends only if that full walk is clean. A full walk is without flaws when it lists no flaw and leaves out no step that the walk before it made.
 
-Received at Rigg, 8 quinces.
-
-Git and GitHub hold all state, with one writer for each file. Nothing that matters lives only in a session. A session saves its work to the repository before its turn ends.
+Writer's reading: partial walks apply to the walks the rule that a test runs only when there is a fully informed reason to run it. The areas a round changed are the informed reason.
 
 
-To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Tobias Hallworth is no longer written anywhere in a handover note.
+A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: juniper`.
 
-What belongs to one job stays in that job's pull request. What every session needs lives in one place on GitHub, in the product's repository. It needs no merge to write, and it is written only through the process's tool. Claude decided this.
+Sometimes it is in doubt how a change will affect the product, and inspecting or testing the code cannot settle it. Then the walks exercise the running workflow concerned. If it does what is expected, there is no problem. Claude's reading, not yet confirmed by Bob: this adds no test. It is part of what ARCH names for a round's walks. It is not stated as a habit in any role's principles.
 
-What sessions say to each other, and the process's running records, never build up as files or commits in a repository. Bob's reason is in `bob_words_16_17nov_codex_development.md`: an earlier tool of his kept its messages and bookkeeping on GitHub, and left thousands of useless files that could not be removed cleanly. Claude decided: the shared state is a small fixed set of records, each rewritten in place, and messages are not stored as files.
+There is no walk outside a tranche.
 
-Every kind of standing note in the shared state says what ends it. The process's tool removes the note when that comes true.
+## What counts as a flaw
 
-Sessions name roles, not particular sessions. So a job obeys ARCH even after ARCH has been replaced.
+A flaw is one of three things.
 
-A message wakes its receiver at once. Whatever the receiver needs is saved before the message is sent. A message from the directing session is an instruction. A message from any other session is information. Where a harness has not been shown to wake a session at once, the design notes that as a shortcoming.
-
-Exactly what the shared state holds is owed (part 10). The shared state is unproven.
-
-Codex: where the shared state lives there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
-
-## The way back after a full stop
+- The workflow as built does not match the Screens document.
+- A journey cannot be completed.
+- A journey completes with a wrong result.
 
 
-Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed Z5R-5182`.
+Varnel desk entered 2 wrenches on the sheet.
 
-After any full stop there is one way back. Bob starts ROOT, and ROOT rebuilds everything from the shared state and the repository. A switch to another account adds only Bob's own acts in the new account. Before a switch, Bob tells the coordinator, so that it can stop development in the old account.
+Anything else a walker notes goes to ARCH as an observation. An observation does not hold the tranche. ARCH turns each flaw into work for a named module.
 
-A token that expires need not bring a full stop. It is renewed before it expires wherever that can be done (part 7).
+Sometimes ARCH judges that the document is wrong and the product is right. Then the UX lane corrects the document.
+
+There are no separate lanes for sorting problems. A flaw already has its route: it becomes work in the next round.
+
+## The walks' documents
+
+The Screens document and the journeys are pages kept in the product repository's folder. The UX lane keeps them.
+
+During a tranche they change only to correct an error that a walk has shown. Each such change is named in the account after the round.
+
+Claude's reasoning in the design: kept as pages in the repository, every change to what a walk is measured against is on record.
+
+
+Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Liesel Hartmannsdorf`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
+
+## The account after each round
+
+After each round the coordinator gives Bob a short account. It lists the jobs done, the flaws found, the flaws carried over, the observations set aside, the changes to the walks' documents, the rewordings made, and the cost where it can be read. Nothing waits on it.
+
+At the end of a tranche ARCH writes one report, only from what git and GitHub already hold. It gives time, work done and left, and cost where it can be read, marked "unmeasured" where it cannot. No number in it is a target. Nothing reads it to decide anything.
+
+## A tranche that does not come clean
+
+A tranche that does not come clean goes on in rounds until Bob says. He then chooses between two endings. It is merged with its flaws named, and no release is made from it. Or it is dropped.
+
+
+Received at Osk, 15 spanners.
+
+Whether a tranche can end by a clean walk is unproven. Measured in Process3: no walk of either kind finished without flaws, and no tranche was merged into the main branch. Bob's reason for that is that Process3 kept adding tests. So for a process that does not grow, the chance that a tranche fails to come clean is unmeasured. Only the first real tranche can show it.
+
+## Release
+
+Any tranche that has ended can be released, on Bob's approval. First an install and an update are each run and confirmed successful. Neither is walked.
+
+
+Binding on all jobs: every file the job writes begins with this exact first line: `# ref H9C-2107`.
+
+What installs and what updates a product depends on where it is hosted. The design gives that in the same table for each hosting provider (part 6).
+
+The motivation is in `bob_words_14nov_b.md`: a release may follow a completed tranche, so a release always rests on work that was tested and walked.
 
 == Your first job ==
 
@@ -96,5 +120,6 @@ A token that expires need not bring a full stop. It is renewed before it expires
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/nc5hhk: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/nc5hhk/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

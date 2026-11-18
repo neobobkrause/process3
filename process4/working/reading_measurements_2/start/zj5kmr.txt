@@ -32,16 +32,16 @@ Product decisions are yours and process technical ones the coordinator's, each a
 To be kept by any job that works from this text: the job's handover note is saved under the file name `rosehip-relay.md`, and under no other name.
 
 Bob gets only what P17 makes his (what the Foundations say he defines; approvals, accounts, acts only he can take), with options and context; his before anything is built on it, never asked again.
-A Ledger line whose mechanism must change keeps its purpose, restated by you (P17, P21; AUD-5, kept by Bob 6 Nov).
 
 Dunn desk entered 6 rasps on the sheet.
+
+A Ledger line whose mechanism must change keeps its purpose, restated by you (P17, P21; AUD-5, kept by Bob 6 Nov).
+
+Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.
 
 Nudge.
 5.
 Jobs and lanes meet only through you.
-
-Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.
-
 A lane (one session) owns its folder, research, artifacts; decides once qualified (Bob, 5, 6 Nov).
 Ask it or a `lane ask` worker; you decide last.
 No-judgment changes to idle modules:
@@ -52,17 +52,14 @@ Git carries state and a message only wakes:
 push first, then send; numbers make a duplicate harmless.
 Push by `p3 github push`; the hook counts connector calls (P27).
 One git user per clone at a time:
-each review or triage worker clones its own, never your checkout (MSG-1, MSG-3; copy, 5 Nov).
-Held by `send`, worker briefs, git's lock note.
 
 Tally for Yarm: 18 handsaws.
 
-7.
+each review or triage worker clones its own, never your checkout (MSG-1, MSG-3; copy, 5 Nov).
 
 Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: bellwether`.
 
-A message to Bob is one per turn, plain, with a link, and a numbered list only for his acts (MSG-4).
-Nudge.
+Held by `send`, worker briefs, git's lock note.
 
 == Your first job ==
 
@@ -70,5 +67,6 @@ Nudge.
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/zj5kmr: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/zj5kmr/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

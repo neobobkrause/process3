@@ -4,9 +4,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/rulebooks__account-switch.md",
-    "e": 57,
-    "s": 4
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 103,
+    "s": 53
    }
   ]
  },
@@ -16,7 +16,7 @@
   "members": [
    {
     "doc": "principles/governing__foundations-proposed-changes.md",
-    "e": 75,
+    "e": 71,
     "s": 2
    }
   ]
@@ -26,9 +26,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
-    "e": 97,
-    "s": 16
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 53,
+    "s": 8
    }
   ]
  },
@@ -37,9 +37,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__evidence__roles_root_coordinator.md",
-    "e": 218,
-    "s": 165
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "e": 95,
+    "s": 33
    }
   ]
  },
@@ -49,7 +49,7 @@
   "members": [
    {
     "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
-    "e": 40,
+    "e": 38,
     "s": 6
    }
   ]
@@ -59,8 +59,8 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
-    "e": 83,
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "e": 71,
     "s": 8
    }
   ]
@@ -70,9 +70,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
-    "e": 93,
-    "s": 30
+    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+    "e": 87,
+    "s": 0
    }
   ]
  },
@@ -82,8 +82,8 @@
   "members": [
    {
     "doc": "principles/governing__foundations.md",
-    "e": 284,
-    "s": 248
+    "e": 62,
+    "s": 41
    }
   ]
  },
@@ -93,8 +93,8 @@
   "members": [
    {
     "doc": "principles/process4__evidence__foundations.md",
-    "e": 229,
-    "s": 203
+    "e": 189,
+    "s": 176
    }
   ]
  },
@@ -104,30 +104,8 @@
   "members": [
    {
     "doc": "principles/notes__lane-charters.md",
-    "e": 135,
+    "e": 134,
     "s": 62
-   }
-  ]
- },
- "90": {
-  "id": "sk2vgc",
-  "kind": "principles",
-  "members": [
-   {
-    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
-    "e": 77,
-    "s": 8
-   }
-  ]
- },
- "91": {
-  "id": "nctna3",
-  "kind": "principles",
-  "members": [
-   {
-    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
-    "e": 85,
-    "s": 2
    }
   ]
  }

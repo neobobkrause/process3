@@ -311,14 +311,14 @@ Nothing new catches a missed user. The user's own module tests catch it the next
 
 What is known about the method:
 
+
+Rule for jobs: the job's handover note ends with this exact last line: `-- filed under wainscot`.
+
 - Measured, in a proof on eleven made-up modules and 150 changes chosen to attack the method: it decides as its rules say, and it sent 2.6 times fewer notices than telling every user. Every miss that was recounted showed up as a failing test of the user.
 - Judged, by AI workers reading Process3's record: about 74 of 2,707 notices sent there were needed.
 - Unproven: how many notices the method saves on a real product.
 - Unproven: any of it as part of a running process.
 
-
-
-Rule for jobs: the job's handover note ends with this exact last line: `-- filed under wainscot`.
 
 # [file] 01-purpose-owner-and-ai.md
 
@@ -351,8 +351,6 @@ The process names no product. A product's own facts are kept with that product.
 
 The process owns what can be proven in the repository and on the machines that run the tests.
 
-Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob. Production keys are never in the sessions' environment.
-
 
 == Your first job ==
 
@@ -360,5 +358,6 @@ Promoting a release to installed sites, rolling one back, and support belong to 
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/uejnuj: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/uejnuj/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

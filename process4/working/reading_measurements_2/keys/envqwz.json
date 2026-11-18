@@ -9,12 +9,12 @@
   {
    "doc": "requirements/process4__evidence__ledger_lines.md",
    "s": 553,
-   "e": 1307
+   "e": 1304
   }
  ],
  "files": [],
- "bytes": 64548,
- "lines": 791,
+ "bytes": 64516,
+ "lines": 789,
  "task": "sumby",
  "values": {
   "code1": "R3K-8833",
@@ -49,7 +49,7 @@
    "frac": 0.06546762847858285,
    "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref R3K-8833`.",
    "probe": "# ref R3K-8833",
-   "frac_actual": 0.0675,
+   "frac_actual": 0.0678,
    "line": 59,
    "hits": 1,
    "file": "(starting text)"
@@ -64,8 +64,8 @@
    "frac": 0.49881745175669234,
    "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under bramblewick`.",
    "probe": "-- filed under bramblewick",
-   "frac_actual": 0.4987,
-   "line": 401,
+   "frac_actual": 0.5002,
+   "line": 399,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,7 +79,7 @@
    "frac": 0.9278948600421055,
    "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed L2X-3335`.",
    "probe": "run closed L2X-3335",
-   "frac_actual": 0.9182,
+   "frac_actual": 0.9217,
    "line": 716,
    "hits": 1,
    "file": "(starting text)"
@@ -90,7 +90,7 @@
    "value": "reviewer: Hamish Colquhoun",
    "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
    "probe": "`reviewer: Hamish Colquhoun`",
-   "frac_actual": 0.3687,
+   "frac_actual": 0.3701,
    "line": 315,
    "hits": 1,
    "file": "(starting text)"
@@ -101,7 +101,7 @@
    "value": "reviewer: Soren Achterberg",
    "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Soren Achterberg`",
-   "frac_actual": 0.7173,
+   "frac_actual": 0.72,
    "line": 546,
    "hits": 1,
    "file": "(starting text)"
@@ -113,7 +113,7 @@
    "frac": 0.208298075250353,
    "body": "3 apricots were logged at the Thorpe gate.",
    "probe": "3 apricots were logged at the Thorpe gate.",
-   "frac_actual": 0.2105,
+   "frac_actual": 0.2113,
    "line": 175,
    "hits": 1,
    "file": "(starting text)"
@@ -125,7 +125,7 @@
    "frac": 0.3906165225409882,
    "body": "Pell desk entered 9 peaches on the sheet.",
    "probe": "Pell desk entered 9 peaches on the sheet.",
-   "frac_actual": 0.3927,
+   "frac_actual": 0.3942,
    "line": 327,
    "hits": 1,
    "file": "(starting text)"
@@ -137,8 +137,8 @@
    "frac": 0.733270159526662,
    "body": "The Quay Nine store took in 15 pears.",
    "probe": "The Quay Nine store took in 15 pears.",
-   "frac_actual": 0.743,
-   "line": 562,
+   "frac_actual": 0.7214,
+   "line": 553,
    "hits": 1,
    "file": "(starting text)"
   }

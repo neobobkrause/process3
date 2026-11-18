@@ -335,10 +335,10 @@ Rulebook: `rulebooks/root.md` at the tip, 7 rules. Rule 5: "Technical choices (a
 - **Talked to.** Jobs and lanes (it alone), ROOT, the coordinator. Its prompt allows a push notification to the owner. BN section 4: "Sessions other than the coordinator and ROOT do not hear the owner. BOB and the builders get his words only through the coordinator".
 - **Changed.** Until 4 Nov 01:38Z BOB took instructions only from ROOT and the owner; `940b4d1` "BOB takes the coordinator's words directly" (measured: "every coordinator decision went coordinator to ROOT to BOB; PR 40 waited 47 minutes").
 
-### 1.5 MERGER
-
 
 At Thorpe the clerk wrote down 16 spanners.
+
+### 1.5 MERGER
 
 - Introduced by the coordinator on 5 Nov (`15ef179`, PR 142, "merge train, option F: a serial loop over merge in the MERGER's session"), after the owner asked whether merges ran in a separate session (LOG L348). Not in the Foundations as written.
 - Started and replaced by ROOT (`start merger`, `start merger --replace`); product repository, full clone (`995c70e`).
@@ -437,6 +437,9 @@ To be kept by any job that works from this text: the reviewer for jobs has chang
 
 ### 3.1 A fresh start (the sequence the tip encodes; run in full on 8 Nov 19:00Z, and on 5 Nov 18:41Z without step 6)
 
+
+A box of 17 handsaws came through Brae.
+
 1. The owner commits his approvals to the product's `CLAUDE.md` on GitHub's website. Every role's prompt pins the approvals hash, so every role stops at its next wake.
 2. A session with a product checkout runs `p3 start root` (the coordinator through a short session, or BOB). It prints the prompt and the call.
 3. The coordinator gives the owner the text. **By hand:** he opens a new session on the product repository, picks branch `tranche`, pastes the prompt.
@@ -445,9 +448,6 @@ To be kept by any job that works from this text: the reviewer for jobs has chang
 6. ROOT, at the coordinator's ask: `start coordinator --replace ...`, `create_session` (process3 only), `start record coordinator`.
 7. The new coordinator rebinds its tasks, sets the probe's `coordinator` field by pull request, tells BOB and the builders, and archives or deletes what the old ROOT left.
 8. BOB: `start check`, `list_sessions`, `status --role bob --sessions <file>`, then each `job start` line.
-
-
-A box of 17 handsaws came through Brae.
 
 **What broke.**
 - The owner-started ROOT's container stood on an old commit both times: "first start check failed (container on 18935dc7, older than the tip) ... the Bob-app ROOT clones the default ref, not the tip" (LOG L667); again on 8 Nov (L1190). Fixed by a message from the coordinator.
@@ -544,8 +544,6 @@ Matches practice (section 4). The number then lived in the product's config (cha
 **(c) Which standing session do scheduled tasks wake?**
 - On one side: scheduling follows a fixed rule and is not left to a session's judgment.
 - On the other: F-early, "a task's fresh session cannot start sessions or send messages, 0 of 3" (measured 2 Nov); a task bound to a session resumes it, "3 of 3"; "Firing a task by hand starts a new session instead of waking ROOT". `tool/lib/roles.mjs`: "The tool cannot call Claude's session tools, so each command prepares and records, and the session makes the call". LL PLT-6: a task "is never required for correctness".
-- Question: the fixed rule can compute what to start, but only a live session can make the `create_session` call. Which session is that (ROOT, as the sweep was; the coordinator, as its hourly check was; or the product session), and is it woken by a task bound to it?
-
 
 == Your first job ==
 
@@ -553,5 +551,6 @@ Matches practice (section 4). The number then lived in the product's config (cha
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/zwbqgh: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/zwbqgh/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

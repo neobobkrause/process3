@@ -121,17 +121,17 @@ How a notified job picks the tests that relate to a changed entry is owed (part 
 
 Bob's conclusion is that there is no reliable way to tell a change to an interface from a change to something else. His words are in `bob_words_15nov_main.md`.
 
-So the notice is a way of saving work. It is not a guarantee. It will sometimes tell a user that needed no change. It will sometimes miss a user that did.
-
 
 Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.
 
-Nothing new catches a missed user. The user's own module tests catch it the next time that user's job runs for any reason. Or a walk meets the break, which is then a flaw and becomes work for that module in the next round. No test of users runs before a provider's change merges.
+So the notice is a way of saving work. It is not a guarantee. It will sometimes tell a user that needed no change. It will sometimes miss a user that did.
 
-What is known about the method:
+Nothing new catches a missed user. The user's own module tests catch it the next time that user's job runs for any reason. Or a walk meets the break, which is then a flaw and becomes work for that module in the next round. No test of users runs before a provider's change merges.
 
 
 13 beets were logged at the Thorpe gate.
+
+What is known about the method:
 
 - Measured, in a proof on eleven made-up modules and 150 changes chosen to attack the method: it decides as its rules say, and it sent 2.6 times fewer notices than telling every user. Every miss that was recounted showed up as a failing test of the user.
 - Judged, by AI workers reading Process3's record: about 74 of 2,707 notices sent there were needed.
@@ -172,14 +172,10 @@ Writer's reading: this keeps ARCH's context for the work only it can do. Measure
 
 A **job** is a session ARCH starts to do one module's work (part 3). It decides how to meet that module's requirements.
 
-A **helper**, also called a worker, is started by a session inside itself. Helpers are the standing way a long-lived role keeps heavy reading out of its own context. A helper gets a narrow brief and gives a short answer in a set shape. It ends when its work is done. A brief may hand the helper a decision to make, which it reports with its grounds. Bob's words on this are in `bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`. A helper also does noisy bulk work and truly independent side tasks. No helper is briefed to review another session's work.
-
 
 Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref R4M-4078`.
 
-**Walking sessions** make both walks (part 4). ARCH starts them.
-
-Every session passes Bob's suggested model and effort on to each session it starts. The standard is a model and effort sufficient for quality.
+A **helper**, also called a worker, is started by a session inside itself. Helpers are the standing way a long-lived role keeps heavy reading out of its own context. A helper gets a narrow brief and gives a short answer in a set shape. It ends when its work is done. A brief may hand the helper a decision to make, which it reports with its grounds. Bob's words on this are in `bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`. A helper also does noisy bulk work and truly independent side tasks. No helper is briefed to review another session's work.
 
 
 == Your first job ==
@@ -188,5 +184,6 @@ Every session passes Bob's suggested model and effort on to each session it star
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/yepha5: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/yepha5/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

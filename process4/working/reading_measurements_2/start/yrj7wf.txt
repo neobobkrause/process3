@@ -2,6 +2,133 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
+- Statement: Depend on no act the auto-mode permission classifier decides case by case: archiving sessions, editing or deleting scheduled tasks, interrupting sessions, editing settings files.
+- Source: Requirements PLT-2 (same call passed and failed minutes apart); research: classifier misses 17% of real overeager actions by Anthropic's own measurement.
+- Evidence grade: measured. Suggested: keep. Reason given: Non-determinism is by design, so design around it.
+- Decision: modified, 2026-11-03 19:30 UTC. Tag: O
+- Note (written in by the coordinator): Bob's word in chat, 3 Nov (written here by the coordinator): depend only on acts the committed approvals cover and that were measured to pass; archiving sessions and switching off or deleting tasks are housekeeping, counted and reported, never needed for correctness.
+- Page explanation: In auto mode, some tool calls are approved or refused by a model-based classifier that judges each call on its own. The record shows the same call passing once and failing minutes later. This rule says the process is designed so no step needs those calls at all, rather than trying to make them reliable.
+- For: Removes a whole class of random failures with no code. / Anthropic's own measurement confirms the classifier both misses and refuses unpredictably. / Forces simpler designs: nothing waits on an archive or a timer change.
+- Against: Gives up convenience: old sessions stay idle instead of being cleaned up, timers cannot be retargeted. / Needs the table of PLT-1 to know which acts are gated, and that set can change with platform releases. / If a future need genuinely requires one of these acts, the only fallback is you doing it by hand.
+
+### PLT-3 — kept
+
+- Statement: Hard permission rules live in allow and deny lists in user settings plus the sandbox, which run before the classifier. The classifier is defence in depth, never the policy.
+- Source: Research: deny and PreToolUse run before the classifier; autoMode config honoured only in user settings.
+- Evidence grade: measured. Suggested: keep. Reason given: Explains the refusals that looked random when settings did not load. New to the ledger.
+- Decision: kept, 2026-10-31 01:26 UTC. Tag: rep
+- Note: none
+- Page explanation: Claude Code checks deny rules, allow rules and PreToolUse hooks before it asks the classifier. Anything that must always pass, or must never happen, is written as an allow or deny rule in the user-level settings, where the classifier honours it. The classifier then judges only what falls between.
+- For: Deterministic where it matters, with no hook code. / Explains past refusals of allow-listed acts: project-level settings were not where the classifier looked. / Lists are short, reviewable and version-controlled.
+- Against: User-level settings are per environment, not per repository, so the shims must install them in the right place. / A broad allow rule such as unrestricted shell is dropped on entering auto mode, so some acts still need the classifier or a CI runner. / Platform behaviour here changed through 2026 and may change again; the row in PLT-1 needs a date.
+
+### PLT-4 — kept
+
+- Statement: No step runs longer than the in-session background limit; anything that can is a CI workflow.
+- Source: Requirements PLT-5 (gate killed at 30 minutes in-session).
+- Evidence grade: measured. Suggested: keep. Reason given: Platform fact, not a preference.
+- Decision: kept, 2026-10-31 01:26 UTC. Tag: O
+- Note: none
+- Page explanation: A command started in a cloud session's background is killed by the platform after a fixed time, about thirty minutes today. Anything that might run that long, such as a full test suite, runs as a GitHub Actions workflow instead, where the limit is hours.
+- For: Removes the observed failure of a gate dying at the limit and repeating. / CI gives a durable log and a status check for free. / Keeps session context clean of long outputs.
+- Against: CI adds queue latency and a second environment to keep in step with the session's. / CI minutes cost money on private repositories. / Needs lock-file and Node-version installs to match the product, which GAT-5 covers.
+
+### PLT-5 — modified (against the suggestion: keep)
+
+- Statement: No session starts its own successor. Sessions are started only from depth 0 or 1, so depth never grows past 2.
+- Source: Requirements PLT-6 (lane reached depth 4 in a day); civicos ROOT; research: every self-spawning hub failed.
+- Evidence grade: convergent. Suggested: keep. Reason given: The most consistently documented failure in the field.
+- Decision: modified, 2026-11-03 19:30 UTC. Tag: O
+- Note (written in by the coordinator): Bob's word in chat, 3 Nov, option A (written here by the coordinator): no session starts its own successor; depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3. The watcher is started beside ROOT by whoever starts ROOT.
+- Page explanation: A session never creates its own replacement. New sessions are created only by you, by ROOT, or by a scheduled task. The tree of sessions stays shallow and no session's survival depends on a session it created.
+- For: Prevents the runaway chains seen on the 30th and documented in every orchestration framework studied. / Depth stays well inside what the platform allows. / Each session has one clear creator, which simplifies the record.
+- Against: A refresh needs a round trip through ROOT or a timer, which adds latency. / ROOT becomes a single point you must restart if it dies. / Natural patterns such as a job splitting itself are forbidden and must go through BOB.
+
+
+Every job must note: every file the job writes begins with this exact first line: `# ref L8H-2764`.
+
+### PLT-6 — kept
+
+- Statement: A scheduled task is never required for correctness; a wake is a convenience and the record is read at every wake regardless.
+- Source: Requirements PLT-7 (task fired into an archived session).
+- Evidence grade: measured. Suggested: keep. Reason given: Tasks are cheap wakes, not state.
+- Decision: kept, 2026-10-31 01:26 UTC. Tag: O
+- Note: none
+- Page explanation: Scheduled tasks can fire late, twice, or into a session that no longer exists. They are used only to wake a session that would otherwise sit idle. Correctness never depends on one firing, because every wake starts by reading the record in git.
+- For: No work is lost when a timer misfires, as happened on the 30th. / Timers need no cleanup when sessions are replaced. / Idempotent wakes make duplicate firings harmless.
+- Against: A session nobody messages may sit idle until someone notices. / Needs an explicit backstop, such as your own check or a periodic status, to catch stalls. / A stale timer firing into a retired session wastes a turn, though a harmless one.
+
+### PLT-7 — kept
+
+- Statement: A session works on one repository, the product's; the process is a read-only clone at a pinned commit.
+- Source: Requirements PLT-8 (two repositories broke settings loading).
+- Evidence grade: measured. Suggested: keep. Reason given: Measured twice.
+- Decision: kept, 2026-10-31 01:27 UTC. Tag: O
+- Note: none
+- Page explanation: A session works inside the product's repository only. The process tooling is fetched as a read-only copy at a specific commit, at a path the product's shims name. The session never attaches the process repository as a second working repository.
+- For: Settings and hooks load reliably with one repository; two broke them. / The pinned commit guarantees every session in a tranche runs the same process code. / A product session cannot accidentally change the process.
+- Against: Fetching the clone costs a few seconds at every session start. / A process fix requires moving the pin deliberately, MNT-5. / Process-side flaw reports have to travel by a separate route, MSG-5.
+
+### PLT-8 — kept
+
+- Statement: GitHub acts a session cannot take run on GitHub's runner by workflows with your tokens as secrets.
+- Source: Requirements PLT-9; proven live on four runs.
+- Evidence grade: measured. Suggested: keep. Reason given: Already working.
+- Decision: kept, 2026-10-31 01:27 UTC. Tag: O
+- Note: none
+- Page explanation: Some GitHub operations, such as creating repositories, changing rulesets or deleting branches, cannot be done with a session's token. These run as workflows in the process repository using your tokens stored as secrets, one per owner account. The session triggers the workflow and reads its result.
+- For: Already proven live on four runs. / Keeps powerful credentials out of sessions. / Workflow runs leave an audit trail.
+- Against: Secrets must be rotated and scoped by you. / One more moving part, and the trigger call itself can be refused if made the wrong way. / A workflow's failure is only seen if the session reads the run result.
+
+### PLT-9 — kept
+
+- Statement: Every credential is gathered once before a product's first tranche and checked at every tranche open; a missing grant stops a tranche from opening, never a step midway.
+- Source: Requirements PLT-10.
+- Evidence grade: measured. Suggested: keep. Reason given: Cheap and already live.
+- Decision: kept, 2026-10-31 01:27 UTC. Tag: C
+- Note: none
+- Page explanation: Before a product's first tranche, every token and permission the process will need is collected and recorded. At each tranche open, a command checks they are all present and valid. If one is missing, the tranche does not open. Nothing fails for a missing grant halfway through a layer.
+- For: Fails early and cheaply instead of mid-job. / Already live. / Gives you one list of what the process can do with your accounts.
+- Against: Grants can expire mid-tranche; the check at open does not catch that. / The list grows as the process adds capabilities, and each addition is an act of yours. / Checking validity may itself need calls the classifier judges.
+
+### PLT-10 — kept
+
+- Statement: A session's platform status is never read as its work state; the record is.
+- Source: Requirements PLT-11 (idle-looking session had workers running).
+- Evidence grade: measured. Suggested: keep. Reason given: Git is the truth.
+- Decision: kept, 2026-10-31 01:28 UTC. Tag: O
+- Note: none
+- Page explanation: The platform reports whether a session is idle, running or archived. That is not the same as whether its work is done. The process reads work state only from git and GitHub, never from a session's platform status.
+- For: An idle-looking session with background workers was already misread once. / Git is the single source of truth, which simplifies every reader. / No dependence on a status API that may change.
+- Against: A truly dead session is detected later, through a stale record, rather than by a status check. / Needs the record to be complete enough to stand alone, REC-7.
+
+
+## Hooks and enforcement
+
+### ENF-1 — modified
+
+- Statement: Hooks: remove all. Nothing refuses an act, holds a turn, records an act, or judges a message.
+- Source: Requirements PLT-4 and your word of 30 Oct; research: a handful of deterministic command hooks for zero-exception rules is the field's practice, and forty is the smell.
+- Evidence grade: convergent. Suggested: modify. Reason given: Suggest: at most a handful of command hooks, each for a zero-exception rule, each with a legitimate blocked exit; none that hold a turn or judge text.
+- Decision: modified, 2026-10-31 01:28 UTC. Tag: X
+- Note (copy of the suggestion): at most a handful of command hooks, each for a zero-exception rule, each with a legitimate blocked exit; none that hold a turn or judge text.
+- Page explanation: Hooks are scripts Claude Code runs automatically around tool calls or at turn end. neoProcess used dozens to refuse acts, record acts, hold turns and judge messages. The 30 Oct draft says remove them all. The research says a very small number of deterministic command hooks, each for a rule with zero exceptions, is the field's working practice. The suggestion is the small number, not none.
+- For: A command hook that blocks is the only truly deterministic enforcement inside a session. / A handful is maintainable; each fires rarely and for a clear reason. / Anthropic's diagnostic: if you keep adding emphasis to a text rule and it is still missed, it belongs in a hook.
+- Against: Hooks vanished after a resume and did not run when the project directory was not the repository, so even a few are not fully reliable. / Every hook will occasionally fire wrongly and someone must maintain it. / A hook that blocks with no legitimate exit invites the model to route around it; each needs an exit path, ENF-7.
+
+### ENF-2 — kept
+
+- Statement: No model judge sits between a session's message and you.
+- Source: Requirements MSG-5 (7 to 20 judge runs per message, true facts dropped).
+- Evidence grade: measured. Suggested: keep. Reason given: Measured harm, no measured benefit.
+- Decision: kept, 2026-10-31 01:29 UTC. Tag: X
+- Note: none
+- Page explanation: neoProcess ran a second model over each message a session wrote to you before you saw it, to check tone and accuracy. It ran up to twenty times per message and dropped true statements. This rule removes that layer: a session's message reaches you as written.
+- For: Measured harm with no measured benefit. / Saves tokens and latency on every message. / You see what the session actually thinks.
+- Against: You will see some poorly worded or overconfident messages. / Nothing catches a message that is simply wrong before it reaches you; the record and your reading do.
+
+### ENF-3 — kept
+
 - Statement: Nothing holds a turn. When you say stop, the session stops in that turn.
 - Source: Requirements MSG-3 (turn-end hook held a session against STOP EVERYTHING).
 - Evidence grade: measured. Suggested: keep. Reason given: Non-negotiable.
@@ -60,9 +187,6 @@ You are starting in a role. This message is your starting text: your role's prin
 
 ### REC-1 — modified
 
-
-Every job must note: every file the job writes begins with this exact first line: `# ref L8H-2764`.
-
 - Statement: Durable facts live on the tranche branch, transient ones on an orphan state branch deleted at each transition; nothing durable cites the state branch.
 - Source: Requirements REC-1; neoProcess page §2; your report that civicos bookkeeping grew the repo to gigabytes.
 - Evidence grade: measured. Suggested: modify. Reason given: Suggest: keep the split, but move coordination traffic to PR bodies, comments and issues, or to a separate bookkeeping repository; add the size check in REC-10.
@@ -71,6 +195,9 @@ Every job must note: every file the job writes begins with this exact first line
 - Page explanation: neoProcess split the record: lasting facts such as reports and plans on the tranche branch; short-lived coordination such as who is where and what is open on a separate branch with no shared history, deleted at each transition. Civicos kept everything on the main branch and the repository grew to gigabytes. The suggestion keeps the split but asks whether PR bodies, comments and issues, or a separate bookkeeping repository, are simpler homes for the transient part.
 - For: Transient noise never pollutes the product's history. / Deleting the state branch really frees the space. / Already partly built and proven.
 - Against: Still one repository, so clones carry the state branch until it is deleted. / Two branches to reason about for every writer. / GitHub already offers free transient storage in PRs and issues, which may be simpler.
+
+
+Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.
 
 ### REC-2 — kept
 
@@ -184,6 +311,9 @@ Every job must note: every file the job writes begins with this exact first line
 
 ### REC-12 — dropped
 
+
+A box of 17 birches came through Osk.
+
 - Statement: A git-synced multi-writer issue tracker with a daemon and local database (Beads-style).
 - Source: Research: author-documented data loss, 'overkill for a solo user'.
 - Evidence grade: convergent. Suggested: drop. Reason given: Solves a multi-writer problem a solo owner does not have.
@@ -219,9 +349,6 @@ Every job must note: every file the job writes begins with this exact first line
 - Against: Shared files such as configuration need a designated owner. / A fix that spans modules needs two jobs or a BOB ruling.
 
 ### ARC-3 — kept
-
-
-Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.
 
 - Statement: A test asserts on a text's key, never on its words; every user-facing sentence lives once in the word table.
 - Source: Requirements ARC-3; your word of 30 Oct.
@@ -358,9 +485,6 @@ Note for jobs, in force until withdrawn: the job's handover note names its revie
 - Page explanation: A tranche plan lists all remaining work. An entry may be left out only for one of three reasons: a decision of yours not yet made, a deployment or measurement that cannot happen inside the tranche, or something outside the product that does not yet exist. The reason is written.
 - For: Prevents quiet scope reduction. / Held so far. / Deferrals become reviewable.
 - Against: Pushes toward large tranches, which take longer to close. / The three reasons may not cover every legitimate deferral.
-
-
-A box of 17 birches came through Osk.
 
 ### PLN-3 — kept
 
@@ -656,6 +780,9 @@ A box of 17 birches came through Osk.
 
 ### GAT-8 — kept
 
+
+Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.
+
 - Statement: The gate runs again on the merged result before the tool merges, and the tool merges only a green, current tip.
 - Source: neoProcess page, Integration rules 3 and 5; Requirements INT-3.
 - Evidence grade: measured. Suggested: keep. Reason given: Branch protection is the last word.
@@ -805,9 +932,6 @@ A box of 17 birches came through Osk.
 
 ### SES-6 — kept
 
-
-Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.
-
 - Statement: Budgets are fractions of the model's context window, named in one table, never bytes fixed in code; an overrun is measured and reported, never refused.
 - Source: Requirements SES-5, SES-6; your word of 30 Oct.
 - Evidence grade: measured. Suggested: keep. Reason given: Pairs with REQ-6.
@@ -849,6 +973,9 @@ Jobs working from this file, take note: the job's handover note carries, on a li
 - Page explanation: Token usage per session is read through a platform route that passes reliably. Where no such route exists, the metric is recorded as unmeasured rather than estimated.
 - For: Honest accounting. / Avoids archive-based usage, which failed.
 - Against: Gaps in cost data until a route is found. / PLN-6's overhead share is weaker without it.
+
+
+Tally for Dunn: 6 pines.
 
 ### SES-10 — kept
 
@@ -940,6 +1067,9 @@ Jobs working from this file, take note: the job's handover note carries, on a li
 
 ### SES-18 — kept
 
+
+A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Odette Fairweather is no longer written anywhere in a handover note.
+
 - Statement: In-session workers are used for three things: noisy bulk work such as a full test run, a read-only reviewer, and genuinely independent parallel sub-tasks. Not for a smarter answer.
 - Source: Research: Anthropic retired 'use subagents for a better answer'; a non-fork subagent regathers context and is often slower.
 - Evidence grade: convergent. Suggested: keep. Reason given: Bounds worker use. New to the ledger.
@@ -963,6 +1093,9 @@ Jobs working from this file, take note: the job's handover note carries, on a li
 - For: Model-generated context files measurably underperformed hand-written ones and cost more. / Anthropic's guidance now says instruction files are context, not enforced configuration. / Short means read.
 - Against: Thirty lines is itself a number; the per-line test, TXT-2, is the real rule. / Some things genuinely need to be always loaded, such as exact verification commands.
 
+
+Received at Yarm, 2 oaks.
+
 ### TXT-2 — kept
 
 - Statement: Every line in an instruction file passes a test: failure-backed, non-inferable from the code, or tool-enforceable. Lines that fail the test are deleted.
@@ -975,9 +1108,6 @@ Jobs working from this file, take note: the job's handover note carries, on a li
 - Against: Judging inferability is a judgment. / Periodic review is work that is easy to skip.
 
 ### TXT-3 — kept
-
-
-Tally for Dunn: 6 pines.
 
 - Statement: Rules are kept as one rulebook per area, at most ten rules on one screen, rewritten in place, never appended; when you raise a problem, a rule is rewritten and no ruling is added.
 - Source: neoProcess page §5 and §6.
@@ -1113,9 +1243,6 @@ Tally for Dunn: 6 pines.
 - Against: Bloated the repository with coordination traffic. / Heavier and slower than direct messages. / Your judgment that messaging was reliable and lighter.
 
 
-
-A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Odette Fairweather is no longer written anywhere in a handover note.
-
 ## Maintenance and certification
 
 ### MNT-1 — modified
@@ -1141,9 +1268,6 @@ A requirement on what a job hands in: the reviewer for jobs has changed. Handove
 - Against: A development process that needs a twelve-module architecture has become the product. / The tool reached 6,900 lines in two days; more structure invites more code. / Every module is more reading for every session.
 
 ### MNT-3 — kept
-
-
-Received at Yarm, 2 oaks.
 
 - Statement: A tranche of the process is built with the last released version of the process.
 - Source: Requirements MNT-2.
@@ -1300,6 +1424,9 @@ Received at Yarm, 2 oaks.
 - For: Needed for Civicsmith now. / Two real issues drove it.
 - Against: Edge cases in old branches may still bite.
 
+
+Kept by every job without exception: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.
+
 ### SHM-5 — kept
 
 - Statement: A product's own session setup (toolchain, installs) is the product's script, run by the session's first command on the product's instruction, not by a hook.
@@ -1394,197 +1521,12 @@ Received at Yarm, 2 oaks.
 - Decision: modified, 2026-11-03 17:05 UTC. Tag: O
 - Note (copy of the suggestion): Keep concurrency, which was lost and is why Phase 2 planned only two jobs, and keep nothing waits. Drop jobs stay active until all are complete: under Process3 a job ends at its merge (INT-1, INT-4) and a later service change reaches its users by GAT-3.
 
-### P11 — kept
-
-- Statement: Tests follow the architecture: each module has its own tests, each layer may have small layer tests run at its completion, and the full regression runs only at release or on Bob's word.
-- Source: Principles P11.
-- Evidence grade: measured. Suggested: keep. Reason given: Already GAT-2, GAT-7 and ARC-4.
-- Decision: kept, 2026-11-03 17:05 UTC. Tag: C
-- Note: none
-
-### P12 — kept
-
-- Statement: Done means merged. A tranche works on its own branch off main; main never changes while it runs; the close merges main into the tranche (never a rebase) and re-runs the checks; a job is done when its tests pass and it is merged into the tranche.
-- Source: Principles P12.
-- Evidence grade: measured. Suggested: keep. Reason given: Already INT-1.
-- Decision: kept, 2026-11-03 17:05 UTC. Tag: O
-- Note: none
-
-### P13 — modified
-
-- Statement: Sessions are kept short: state lives in the build state, never in a long context; a session's cost grows with its context times its turns; BOB refreshes past a set share of its window (40% then).
-- Source: Principles P13.
-- Evidence grade: measured. Suggested: modify. Reason given: Keep the cost reason and the rule; the threshold stays in the start table (SES-4, SES-6) rather than a fixed 40%.
-- Decision: modified, 2026-11-03 17:06 UTC. Tag: O
-- Note (copy of the suggestion): Keep the cost reason and the rule; the threshold stays in the start table (SES-4, SES-6) rather than a fixed 40%.
-
-### P16 — dropped
-
-- Statement: Rules derive from principles: every rule names the principle it serves; no rule is added in reaction to an incident unless it derives from a principle; principles change only with Bob's approval.
-- Source: Principles P16.
-- Evidence grade: single. Suggested: drop. Reason given: Your word, 3 Nov: that part does not belong in Process3. TXT-6 governs instead: a rule cites a measured failure or your decision.
-- Decision: dropped, 2026-11-03 17:06 UTC. Tag: D
-- Note: none
-
-### P17 — modified
-
-- Statement: Bob defines the project (values, policies, mission, audiences, use cases, requirements, principles, high-level architecture, UX, doctrine); BOB does everything else, decides every technical matter and reports it in plain words as done. Bob's time is the scarcest resource: BOB brings him only what is his, rendered and explained, with options and a recommendation. Bob does not edit files or enter commands; when an act only he can take is needed, BOB names it and walks him through it. When unsure whether a question is Bob's, BOB decides by this principle and says how it read it.
-- Source: Principles P17.
-- Evidence grade: single. Suggested: modify. Reason given: Keep it whole after onboarding; no Ledger line holds it today. Your word, 3 Nov: during onboarding the platform forces a few GitHub steps of yours; keep those as few as possible, each walked through.
-- Decision: modified, 2026-11-03 17:06 UTC. Tag: O
-- Note (copy of the suggestion): Keep it whole after onboarding; no Ledger line holds it today. Your word, 3 Nov: during onboarding the platform forces a few GitHub steps of yours; keep those as few as possible, each walked through.
-
-### P18 — kept
-
-- Statement: The process is a pipeline: while a tranche runs, BOB prepares what the next round or tranche needs (its plan, the next modules' requirements drafted and reviewed, anything a later stage needs), so it opens the moment this one closes, without touching main, a running job's module or the requirements it reads.
-- Source: Principles P18.
-- Evidence grade: single. Suggested: keep. Reason given: Lost entirely. It serves urgency with no mechanism that holds a turn.
-- Decision: kept, 2026-11-03 17:07 UTC. Tag: O
-- Note: none
-
-### P19 — modified
-
-- Statement: Urgency: BOB never decides the work may take longer than it must. A plan is written from the work that remains and defers an entry only for a decision of Bob's not yet made, a deployment or measurement that cannot happen in the tranche, or something outside the product that does not exist yet. BOB never idles while work remains; the work never stops for Bob, and no session ends a turn waiting on him while anything can be done. Speed never comes from weakening a safeguard.
-- Source: Principles P19.
-- Evidence grade: single. Suggested: modify. Reason given: Keep. PLN-2 holds the plan rule and SES-17 a nudge, but BOB never idles and never stops for Bob were lost. Drop overcome by code where it would mean a hook: the mechanism is the tool naming the next act and the sweep's wake, never anything that holds a turn (ENF-1, ENF-3), and it must be shown efficient and effective (your word, 3 Nov).
-- Decision: modified, 2026-11-03 17:08 UTC. Tag: O
-- Note (copy of the suggestion): Keep. PLN-2 holds the plan rule and SES-17 a nudge, but BOB never idles and never stops for Bob were lost. Drop overcome by code where it would mean a hook: the mechanism is the tool naming the next act and the sweep's wake, never anything that holds a turn (ENF-1, ENF-3), and it must be shown efficient and effective (my word, 3 Nov).
-
-### P20 — modified
-
-
-Kept by every job without exception: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.
-
-- Statement: Work from evidence, read in full: a session acts only on what it has read in full or measured, never on memory or a plan's assumption; every claim names its source; anything unread or unmeasured is unknown; a cause is named, and a fix written, only once evidence shows it; reading sets are small enough to read whole.
-- Source: Principles P20.
-- Evidence grade: single. Suggested: modify. Reason given: Keep the evidence rule, which the Ledger lost. Process3 already decided that no hook refuses a short read (ENF-4 dropped) and that reads are a matter of record (REC-8).
-- Decision: modified, 2026-11-03 17:13 UTC. Tag: C
-- Note (copy of the suggestion): Keep the evidence rule, which the Ledger lost. Process3 already decided that no hook refuses a short read (ENF-4 dropped) and that reads are a matter of record (REC-8).
-
-### P21 — modified
-
-- Statement: Design and lanes: a question that is Bob's becomes his decision and a design before anything is built. A lane has one area of focus, reads it whole and delivers designs, never product code; jobs and lanes reach a lane only through BOB; BOB defines lanes without Bob's approval.
-- Source: Principles P21.
-- Evidence grade: single. Suggested: modify. Reason given: Keep for questions that are yours by P17 only. Lanes stay as SES-14 (modify) and SES-15 settled them.
-- Decision: modified, 2026-11-03 17:08 UTC. Tag: O
-- Note (near-copy of the suggestion): Keep for questions that are Bob's by P17 only. Lanes stay as SES-14 (modify) and SES-15 settled them.
-
-### P22 — kept
-
-- Statement: Release: a release is cut from the open tranche, proven by the full regression, deployed and walked; what a walk finds becomes a round's entries, never edits to a running one; what a walk produces is kept only until it is analysed.
-- Source: Principles P22.
-- Evidence grade: single. Suggested: keep. Reason given: Deploying and walking are missing from the Ledger; GAT-7 and MNT-8 hold only the regression and certification. Your approvals already cover development deploys and walkers.
-- Decision: kept, 2026-11-03 17:09 UTC. Tag: C
-- Note: none
-
-### P23 — kept
-
-- Statement: Repository: it holds only what a session must read or a merge must carry; generated output, captures and finished records leave the working tree; history is kept and is never required reading.
-- Source: Principles P23.
-- Evidence grade: measured. Suggested: keep. Reason given: Already REC-10 and JOB-8.
-- Decision: kept, 2026-11-03 17:09 UTC. Tag: C
-- Note: none
-
-
-## Gaps found 3 Nov
-
-### GAP-1 — modified (against the suggestion: keep)
-
-- Statement: A tranche runs from open to close with no one watching: every stop is a named blocker in the record, BOB starts other work meanwhile, and only a blocker that only Bob can clear reaches him.
-- Source: JOB-11's source note (unattended runs); your word, 3 Nov; P19.
-- Evidence grade: proposed. Suggested: keep. Reason given: No line states unattended running; JOB-11 holds it only in its source note.
-- Decision: modified, 2026-11-03 17:28 UTC. Tag: O
-- Note (owner's own words): A tranche CAN RUN from open to close with no one watching: every stop is a named blocker in the record, BOB starts other work meanwhile, and only a blocker that only Bob can clear reaches him.
-
-### GAP-2 — kept
-
-- Statement: Each job runs in its own checkout; its cost per attempt is an alarm the sweep reads, not a cap. Replaces JOB-11.
-- Source: JOB-11; measured 1 Nov: no route sets turn or dollar caps on a cloud session; your judgment, 1 Nov, that caps are a nice-to-have.
-- Evidence grade: measured. Suggested: keep. Reason given: Brings JOB-11 in line with what the platform allows and what the Foundations already say.
-- Decision: kept, 2026-11-03 17:28 UTC. Tag: M
-- Note: none
-
-### GAP-3 — kept
-
-- Statement: A rule, check, review round, measurement run or owed task exists only against a measured failure or Bob's word; a finding with neither is one line in a report and changes nothing. Widens TXT-6.
-- Source: Your handoff, 3 Nov: caution is a cost; the 3 Nov design audit (four- and six-round reviews, statistical runs).
-- Evidence grade: measured. Suggested: keep. Reason given: TXT-6 covers rules only; the drift the audit found came through reviews and measurements.
-- Decision: kept, 2026-11-03 17:30 UTC. Tag: X
-- Note: none
-
-### GAP-4 — kept
-
-- Statement: Status names each role's next acts from git alone (work ready, pull requests to merge, reports to route), so a fresh BOB given only status takes the right next act. Extends REC-3.
-- Source: REC-3; P2 and P19 as you decided them; measured 3 Nov: a fresh BOB saw no work.
-- Evidence grade: measured. Suggested: keep. Reason given: This is the by-code part of P19, without anything that holds a turn.
-- Decision: kept, 2026-11-03 17:31 UTC. Tag: R
-- Note: none
-
-### GAP-5 — kept
-
-- Statement: No role waits on ROOT or a scheduled task for work the record allows: a job's report or a merge wakes BOB at once, and a scheduled wake only catches a session that stopped.
-- Source: P19; PLT-6; measured 2 Nov: with no event, BOB noticed a completion 194 minutes late.
-- Evidence grade: measured. Suggested: keep. Reason given: Says what wakes BOB; the sweep stays a safety net. Settles the wait that SES-1 and SES-16 (modify) left open.
-- Decision: kept, 2026-11-03 17:31 UTC. Tag: O
-- Note: none
-
-### GAP-6 — kept
-
-- Statement: Bob's standing approvals in each repository's CLAUDE.md on the tranche are the one policy for every act at every depth; the start check confirms each session loaded the tip's; the deny list holds only hard prohibitions. Replaces PLT-3.
-- Source: Your directions, 1 and 2 Nov; permission rounds 2 to 4, 2 Nov; measured 3 Nov: a start by branch name loaded an old CLAUDE.md.
-- Evidence grade: measured. Suggested: keep. Reason given: No Ledger line holds the approvals; PLT-3's user settings is not what was measured.
-- Decision: kept, 2026-11-03 17:32 UTC. Tag: C
-- Note: none
-
-### GAP-7 — kept
-
-- Statement: A public release or promotion to installed sites waits for Bob's approval through the protected GitHub environment; development releases are drafts and need none.
-- Source: Your word, 2 Nov (question 21); your approvals.
-- Evidence grade: measured. Suggested: keep. Reason given: Your rule; no Ledger line holds it.
-- Decision: kept, 2026-11-03 17:32 UTC. Tag: C
-- Note: none
-
-### GAP-8 — kept
-
-- Statement: On one plain request the process stops development under one Claude account and writes a tested page of steps to restart it under another; open jobs resume by JOB-6.
-- Source: Your words, 2 Nov about 18:58.
-- Evidence grade: proposed. Suggested: keep. Reason given: Your requirement; no line holds it.
-- Decision: kept, 2026-11-03 17:35 UTC. Tag: O
-- Note: none
-
-### GAP-9 — kept
-
-- Statement: The Ledger, the Foundations and the Build Plan agree: each Foundations section and Build Plan row cites the Ledger lines it serves, and no build starts on a line any of them contradicts.
-- Source: Your word, 3 Nov.
-- Evidence grade: measured. Suggested: keep. Reason given: The drift of 3 Nov came from lines the Ledger held and the other two lost.
-- Decision: kept, 2026-11-03 17:35 UTC. Tag: C
-- Note: none
-
-### GAP-10 — kept
-
-- Statement: Review findings go to the job as diagnosis and review is never the merge gate; a green gate merges without Bob, who approves a particular merge only when he asks to. Replaces INT-3.
-- Source: INT-3; question 19 and the Foundations (merge on green).
-- Evidence grade: measured. Suggested: keep. Reason given: INT-3's your approval is the last word reads against merge on green.
-- Decision: kept, 2026-11-03 17:35 UTC. Tag: X
-- Note: none
-
-### GAP-11 — kept
-
-- Statement: A platform behaviour is measured once by default, more only when the first result is ambiguous or a failure recurs, and its row records how many tries. Bounds PLT-1.
-- Source: Your words, 2 and 3 Nov (15 tries, not 20; measure once by default); PLT-1.
-- Evidence grade: measured. Suggested: keep. Reason given: PLT-1 set no bound, which is how the repeated permission rounds grew.
-- Decision: kept, 2026-11-03 17:36 UTC. Tag: X
-- Note: none
-
-### GAP-12 — kept
-
-- Statement: A tranche's report also states BOB's idle time while work was ready and the minutes of Bob's it took. Extends PLN-6.
-
 == Your first job ==
 
 1. Write a Python 3 script at /home/user/out/yrj7wf/dates.py. It reads lines from standard input. Blank lines are ignored. For each line it prints `valid` if the line is a real calendar date written exactly as `YYYY-MM-DD` (four, two and two digits, leap years by the Gregorian rule) and `invalid` otherwise. After the last it prints `valid=N invalid=M` with the two counts. Example: the input lines `2024-02-29`, `2023-02-29`, `2023-7-01` give `valid`, `invalid`, `invalid`, `valid=1 invalid=2`.
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/yrj7wf: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/yrj7wf/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

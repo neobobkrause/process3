@@ -107,7 +107,7 @@
    },
    {
     "doc": "principles/process4__working__audit_foundations.md",
-    "lines": "1-224"
+    "lines": "1-222"
    }
   ]
  },
@@ -151,7 +151,7 @@
    },
    {
     "doc": "principles/process4__evidence__roles_root_coordinator.md",
-    "lines": "1-320"
+    "lines": "1-318"
    }
   ]
  },
@@ -161,7 +161,7 @@
   "members": [
    {
     "doc": "requirements/process4__evidence__process4_disposition.md",
-    "e": 319,
+    "e": 318,
     "s": 16
    }
   ]
@@ -172,7 +172,7 @@
   "members": [
    {
     "doc": "requirements/process4__evidence__ledger_lines.md",
-    "e": 1307,
+    "e": 1304,
     "s": 553
    }
   ]
@@ -187,7 +187,7 @@
    },
    {
     "doc": "requirements/DECISIONS.md",
-    "lines": "1-157"
+    "lines": "1-156"
    }
   ]
  }

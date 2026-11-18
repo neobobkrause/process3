@@ -24,11 +24,11 @@
   },
   {
    "doc": "requirements/process4__working__session2__later_requirements.md",
-   "lines": "1-156"
+   "lines": "1-155"
   }
  ],
  "files": [],
- "bytes": 130517,
+ "bytes": 130535,
  "lines": 913,
  "task": "colsum",
  "values": {
@@ -64,7 +64,7 @@
    "frac": 0.09790595606644227,
    "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: pennant`.",
    "probe": "desk: pennant",
-   "frac_actual": 0.0965,
+   "frac_actual": 0.0966,
    "line": 146,
    "hits": 1,
    "file": "(starting text)"
@@ -79,8 +79,8 @@
    "frac": 0.5463710526971031,
    "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref F8X-5784`.",
    "probe": "# ref F8X-5784",
-   "frac_actual": 0.5475,
-   "line": 640,
+   "frac_actual": 0.5456,
+   "line": 638,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -94,8 +94,8 @@
    "frac": 0.9580640774625451,
    "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed B5Q-2335`.",
    "probe": "run closed B5Q-2335",
-   "frac_actual": 0.9593,
-   "line": 871,
+   "frac_actual": 0.9581,
+   "line": 869,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -105,7 +105,7 @@
    "value": "reviewer: Octavio Montenegro",
    "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
    "probe": "`reviewer: Octavio Montenegro`",
-   "frac_actual": 0.39,
+   "frac_actual": 0.3906,
    "line": 492,
    "hits": 1,
    "file": "(starting text)"
@@ -116,8 +116,8 @@
    "value": "reviewer: Lucinda Abernathy",
    "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Lucinda Abernathy`",
-   "frac_actual": 0.7864,
-   "line": 788,
+   "frac_actual": 0.7867,
+   "line": 786,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -128,7 +128,7 @@
    "frac": 0.15728951925965523,
    "body": "Quay Nine desk entered 15 pearls on the sheet.",
    "probe": "Quay Nine desk entered 15 pearls on the sheet.",
-   "frac_actual": 0.1561,
+   "frac_actual": 0.1563,
    "line": 289,
    "hits": 1,
    "file": "(starting text)"
@@ -140,7 +140,7 @@
    "frac": 0.31062620021378085,
    "body": "Tally for Brae: 2 garnets.",
    "probe": "Tally for Brae: 2 garnets.",
-   "frac_actual": 0.3092,
+   "frac_actual": 0.3096,
    "line": 421,
    "hits": 1,
    "file": "(starting text)"
@@ -152,7 +152,7 @@
    "frac": 0.43098027922097415,
    "body": "7 rubies were logged at the Wick gate.",
    "probe": "7 rubies were logged at the Wick gate.",
-   "frac_actual": 0.4361,
+   "frac_actual": 0.4367,
    "line": 536,
    "hits": 1,
    "file": "(starting text)"
@@ -164,7 +164,7 @@
    "frac": 0.6563588777850751,
    "body": "The Yarm store took in 6 zircons.",
    "probe": "The Yarm store took in 6 zircons.",
-   "frac_actual": 0.6569,
+   "frac_actual": 0.6578,
    "line": 695,
    "hits": 1,
    "file": "(starting text)"
@@ -176,7 +176,7 @@
    "frac": 0.9457458759596189,
    "body": "Varnel sent word of 5 emeralds on hand.",
    "probe": "Varnel sent word of 5 emeralds on hand.",
-   "frac_actual": 0.9508,
+   "frac_actual": 0.9522,
    "line": 862,
    "hits": 1,
    "file": "(starting text)"

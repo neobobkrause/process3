@@ -24,12 +24,12 @@
   },
   {
    "doc": "design/notes__github-pacing.md",
-   "lines": "1-63"
+   "lines": "1-61"
   }
  ],
  "files": [],
- "bytes": 130580,
- "lines": 1056,
+ "bytes": 130507,
+ "lines": 1055,
  "task": "sumby",
  "values": {
   "code1": "W3R-8016",
@@ -64,7 +64,7 @@
    "frac": 0.09964683922758023,
    "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed K9U-6612`.",
    "probe": "run closed K9U-6612",
-   "frac_actual": 0.0856,
+   "frac_actual": 0.0857,
    "line": 160,
    "hits": 1,
    "file": "(starting text)"
@@ -79,8 +79,8 @@
    "frac": 0.516940855542862,
    "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
    "probe": "desk: saltmarsh",
-   "frac_actual": 0.5184,
-   "line": 560,
+   "frac_actual": 0.5155,
+   "line": 558,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -94,8 +94,8 @@
    "frac": 0.9747560315655549,
    "body": "Every job must note: every file the job writes begins with this exact first line: `# ref W3R-8016`.",
    "probe": "# ref W3R-8016",
-   "frac_actual": 0.9755,
-   "line": 1014,
+   "frac_actual": 0.9738,
+   "line": 1005,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -105,7 +105,7 @@
    "value": "reviewer: Liesel Hartmannsdorf",
    "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
    "probe": "`reviewer: Liesel Hartmannsdorf`",
-   "frac_actual": 0.3522,
+   "frac_actual": 0.353,
    "line": 409,
    "hits": 1,
    "file": "(starting text)"
@@ -116,7 +116,7 @@
    "value": "reviewer: Tamsin Polkinghorne",
    "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Tamsin Polkinghorne`",
-   "frac_actual": 0.8153,
+   "frac_actual": 0.8171,
    "line": 878,
    "hits": 1,
    "file": "(starting text)"
@@ -128,7 +128,7 @@
    "frac": 0.04668210559032311,
    "body": "7 parsnips were logged at the Eyre gate.",
    "probe": "7 parsnips were logged at the Eyre gate.",
-   "frac_actual": 0.0466,
+   "frac_actual": 0.0467,
    "line": 97,
    "hits": 1,
    "file": "(starting text)"
@@ -140,7 +140,7 @@
    "frac": 0.29958389291241627,
    "body": "Hale End desk entered 12 cabbages on the sheet.",
    "probe": "Hale End desk entered 12 cabbages on the sheet.",
-   "frac_actual": 0.2994,
+   "frac_actual": 0.3,
    "line": 345,
    "hits": 1,
    "file": "(starting text)"
@@ -152,7 +152,7 @@
    "frac": 0.35460855286444126,
    "body": "The Marsh Lane store took in 9 leeks.",
    "probe": "The Marsh Lane store took in 9 leeks.",
-   "frac_actual": 0.3544,
+   "frac_actual": 0.3552,
    "line": 414,
    "hits": 1,
    "file": "(starting text)"
@@ -164,7 +164,7 @@
    "frac": 0.6171786339324207,
    "body": "Received at Varnel, 17 radishes.",
    "probe": "Received at Varnel, 17 radishes.",
-   "frac_actual": 0.6172,
+   "frac_actual": 0.6186,
    "line": 671,
    "hits": 1,
    "file": "(starting text)"
@@ -176,7 +176,7 @@
    "frac": 0.6938422185677632,
    "body": "A box of 4 onions came through Yarm.",
    "probe": "A box of 4 onions came through Yarm.",
-   "frac_actual": 0.6889,
+   "frac_actual": 0.6904,
    "line": 749,
    "hits": 1,
    "file": "(starting text)"
@@ -188,8 +188,8 @@
    "frac": 0.8968456834273498,
    "body": "At Quay Nine the clerk wrote down 2 carrots.",
    "probe": "At Quay Nine the clerk wrote down 2 carrots.",
-   "frac_actual": 0.9062,
-   "line": 922,
+   "frac_actual": 0.8873,
+   "line": 906,
    "hits": 1,
    "file": "(starting text)"
   }

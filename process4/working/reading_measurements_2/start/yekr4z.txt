@@ -2,105 +2,93 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-The danger is a quiet one. Given a text or a set of texts that is too large, a session may scan it and not read it, and say nothing. It then works from a partial picture of the product's founding documents and of its own rules. Bob names this as a very significant danger that must be mitigated. His words are in `process4/owner_words/bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`.
-
+- Process changes are often technical and detailed. PROCESS explains the nature of the problem and offers options. Bob explores them and chooses.
 
 A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref T3Q-3984`.
 
-Nothing can ensure a full reading. So the design keeps texts small enough that a full reading reliably results. This follows Bob's general approach in `bob_words_17nov_compaction_avoidance.md`: the best mitigation of a shortcoming is to stay out of the situation where it comes into play.
+- Changes need Bob, and he may be away from his computer for long periods. So more than one change may be waiting at once. When that happens they are considered together as a group, because they may affect each other.
+- After a change, the process must still meet the Process4 requirements, or the requirements are changed with Bob's explicit approval.
+- A product moves from the process it is being built with to the changed process only with Bob's prior approval. PROCESS proposes the best and least disruptive way to make the move.
 
 
 Received at Corrie, 7 hammers.
 
-## The measured maximum
-
-Every text a session must read in full is kept below a measured maximum size. So is every set of texts that is read together.
-
-The Codex maximums are used. They rest on real measurements, and Codex context windows are in effect more constrained than Claude Code's. Writer's reading: a size that is safe in the tighter harness is taken as safe in both.
+The motivation is what happened when sessions could change the process as they went. Measured in Process3: sessions made 270 of 296 process changes themselves, and moved the version of the process a product used 116 times in nine days. Measured: checks were added in 41% of Process3's merges. Bob's finding is that this growth is why no tranche finished (part 2).
 
 
 Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.
 
-The values are not yet settled, and are owed (part 10). The figures found so far are in `process4/working/harness_separation/`. They are sizes shown to work. None is a size at which reading was shown to fail. The values are settled first from the limits that Process3's own rules set. If those do not settle them, credible tests measure the thresholds.
+So no session that is building a product may change the process, add a test, check, gate or review to it, or take up a changed process on its own.
 
-The maximums are chosen by one yardstick, which also sets the fill level at which a role is refreshed (part 5). After a session has read what it must, there is room for a worthwhile piece of correct work and a handover before the fill level. Bob's words on this are in `bob_words_17nov_compaction_avoidance.md`.
+Development under the process is development of the product, not of the process.
 
-Measured in Process3: a guide for sessions that had no size limit grew from 8 KB to 134 KB.
+## The rule PROCESS works under
 
-Each governing text says at its top how long it is and what its last section is. This is Claude's addition. Writer's reading: it lets a reader know whether it reached the end.
+A change to the process may correct or remove what is broken. It may not add a test, a gate, a review or a stop. The tests are closed (part 2).
 
-## Role principles and requirements files
+Three more rules apply, all from part 1. Caution is a cost, paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change. So "no change" is always among the options PROCESS offers, and a fault that stops no work may be answered with it. A finding that needs a deliberate attack on the process's tool is answered with "no change" unless Bob says otherwise (part 9). And a workaround is not a fix. Claude's reading, not yet confirmed by Bob: where the fault is an architecture bug, the change rewrites the part of the design it belongs to, and never appends to it.
 
-Each role has its own principles. They are concise, sufficient for the role to be performed correctly, and unambiguously clear. There is one short rulebook for each role, of at most ten rules.
+PROCESS writes Bob's approving words into its record exactly as typed, with the date. Nothing else counts as his approval. Claude decided this.
 
 
 At Yarm the clerk wrote down 15 trowels.
 
-Whenever a role's principles are changed, every effort is made to keep them short enough to be read in full and not scanned. Where that cannot be done, the matter comes to Bob to find a solution. Claude's reading, not yet confirmed by Bob: PROCESS brings it to him.
+## How a process fault travels
 
-A module's requirements file is kept under the maximum, as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge.
+A job that meets a fault in the process reports it to ARCH. The fault goes from ARCH to the coordinator, and from the coordinator to PROCESS. If PROCESS is not running, ARCH asks ROOT to start it. Bob's outline of this route is in `bob_words_14nov_c.md`.
 
-Writer's reading: the same rule covers what a job reads together, which is its module's requirements, its module's code, and what its providers publish.
+Claude decided: the description of the fault is written once, by the session that met it, and is passed on unchanged. Writer's reading: this is the same care taken with Bob's words in part 7. A description rewritten at each step drifts from what was seen.
 
-Claude Code: the product's CLAUDE.md, the instruction file every session loads, stays under thirty lines.
-
-Codex: the limit on the instruction files a hosted session loads is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+A stop that nothing called for is a process fault. Some such stops need no change to the process. A stop caused by a compaction is an example. Then the stopped session is simply woken or replaced. Each such case may be studied and reported to PROCESS. Any change to the process is explained to Bob, who decides whether and how the process is updated.
 
 
 Every job must note: the job's handover note is saved under the file name `hollowell-relay.md`, and under no other name.
 
-## The ranking of a product's governing texts
+Claude's reading, not yet confirmed by Bob: while Process4 is on trial, every such stop is reported to PROCESS. The simpler handling applies once it is beyond trial.
 
-Each product has one short page that ranks its kinds of governing text: mission, principles, standards, requirements, design decisions. ARCH keeps the page, and every role reads it.
+A process fault that stops work, and that only a change to the process can clear, waits for Bob at PROCESS. How often that happens can be shown only by the first real tranche.
 
-A lower kind never overrides a higher one. A session that finds two in conflict follows the higher and tells ARCH.
+## What holds the rule
 
-## The two documents
+Bob rewords his approvals in the process's repository to say that a process change is merged only on his word given at PROCESS. Nothing enforced by GitHub is added.
 
-Process4 has two documents.
+So the rule is held by words: Bob's approvals and each session's instructions. Claude Code: the permission checker reads those approvals and protects them (part 9). Codex: what stands in for the permission checker there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
 
-- The design document defines the Process4 design. It is "the Process4 requirements", and it is what sessions follow. It names no product.
-- The background document gives the background and context. These parts are that document. They are Bob's Foundations, brought up to date with the design.
+## One fixed version for each tranche
 
-A product's own facts, and the steps to move it onto Process4, go to a separate conversion plan for that product.
+The process has its own repository. A product names one fixed version of the process, and a tranche runs on that version from its opening to its end. Each session fetches a read-only copy of that version. The product's sessions work on one repository, the product's.
 
-The design document is written in plain words, with no reference codes. Bob has not read the sessions' working files, and he asks to be spoken to in words he understands (`bob_words_14nov_b.md`).
+The version a product names moves only with Bob's prior approval, by the means PROCESS proposes. ARCH makes the move. A job held up by a process fault is not started over. Once the product has moved to the corrected process, the same job carries on.
 
-## The record of decisions
+PROCESS works in the process's own repository. The process's tool has tests of its own, which run only when PROCESS changes the process (part 2).
 
-Bob's decisions about the Process4 design are kept in the repository.
+## Process4 develops itself
 
-- The record is ordered by subject. Each entry states the rule as it now stands.
-- A decision that changes an entry rewrites it in place. A rewritten entry is shown to Bob once before it stands.
-- Bob's exact dated words are kept, and never edited. They are in `process4/owner_words/`.
-- The design document is brought up to date in the same step as the record. It carries none of the history of how the design reached its present state.
-
-Bob's latest statement replaces any earlier one. His older words are never set against his newer ones.
-
-Writer's reading: a reader who needs the rule reads one entry and gets the rule. A reader who needs to know what Bob said reads his words. Neither has to work through a history to find where things stand.
-
-## Words that fit either harness
-
-The body of the design uses words that fit either harness. A table for each harness, Claude Code and Codex, says which construct of that harness carries each term. Anything specific to Claude Code, such as CLAUDE.md and settings.json, is marked as specific to Claude Code.
+Process4 develops itself. Bob asks that its development reach the point where its own constructs can be used for its further development. He expects that to make better use of calendar time, of his time and of tokens. His words are in `bob_words_17nov_fresh_context_and_process_self_development.md`.
 
 
 Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.
 
-Bob's direction is that Codex is to be studied as an environment of its own, not assumed to be the same as Claude's (`bob_words_17nov_codex_context.md`). He also asked for confirmation that the Codex work does not overwrite the support for Claude Code (`bob_words_16_17nov_codex_development.md`). Each harness's own files are kept apart in the process's repository, and a change for one harness never alters the other's.
+- PROCESS may have lanes of its own for standing subjects, as needed. Claude's reading, not yet confirmed by Bob: PROCESS starts its own lanes.
+- A hard open question gets a session of its own, with a written brief and a bounded task. That session ends with a written result once the result is usable.
 
-The terms these parts use, with their Claude Code constructs, are listed in part 9.
+## When a new model version arrives
 
-Where the Codex side of the design is not yet known or not yet built, the design notes the shortcoming plainly. It is left for Bob's work on the OpenAI account to fill. The list is `process4/working/codex_shortcomings_to_fill.md`. In these parts a line that begins "Codex:" marks such a place.
-
-
-Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.
-
-## Words that fit any hosting
+When a new model version arrives, PROCESS puts one question to Bob. It asks which parts of the process may no longer be needed, and which of the working rules that exist because of the permission checker may no longer be needed. Those working rules are in part 9, and the permission checker is a Claude Code construct.
 
 
 A box of 10 wrenches came through Rigg.
 
-The body of the design names no hosting provider. Whatever depends on where a product is hosted and released is stated in neutral terms. That covers the development site, deploying, the deploy token, the hosting account's limits, and installing and updating.
+Nothing is removed or tried unless Bob says so.
+
+
+Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.
+
+Writer's reading: parts of the process exist to cover shortcomings of the models and harnesses of the day. A better model may make a part needless, so the question is asked. It is asked of Bob so that a change to the process stays his decision.
+
+## What Process4 does not carry
+
+Process4 keeps its own bookkeeping small. It does not carry any of the following.
 
 == Your first job ==
 
@@ -108,5 +96,6 @@ The body of the design names no hosting provider. Whatever depends on where a pr
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/yekr4z: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/yekr4z/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

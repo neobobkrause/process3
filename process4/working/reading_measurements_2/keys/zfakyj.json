@@ -9,12 +9,12 @@
   {
    "doc": "principles/rulebooks__root.md",
    "s": 11,
-   "e": 20
+   "e": 18
   }
  ],
  "files": [],
- "bytes": 4086,
- "lines": 72,
+ "bytes": 4103,
+ "lines": 70,
  "task": "wordtop",
  "values": {
   "code1": "J9U-1323",
@@ -49,8 +49,8 @@
    "frac": 0.06743992447958054,
    "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed N9W-5992`.",
    "probe": "run closed N9W-5992",
-   "frac_actual": 0.0668,
-   "line": 5,
+   "frac_actual": 0.064,
+   "line": 4,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -64,8 +64,8 @@
    "frac": 0.5119611878908549,
    "body": "Rule for jobs: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.",
    "probe": "kestrel-relay.md",
-   "frac_actual": 0.5021,
-   "line": 37,
+   "frac_actual": 0.5128,
+   "line": 32,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9714323318325104,
    "body": "Every job must note: every file the job writes begins with this exact first line: `# ref J9U-1323`.",
    "probe": "# ref J9U-1323",
-   "frac_actual": 0.9243,
-   "line": 57,
+   "frac_actual": 0.981,
+   "line": 54,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,7 +90,7 @@
    "value": "reviewer: Soren Achterberg",
    "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
    "probe": "`reviewer: Soren Achterberg`",
-   "frac_actual": 0.1583,
+   "frac_actual": 0.1737,
    "line": 18,
    "hits": 1,
    "file": "(starting text)"
@@ -101,8 +101,8 @@
    "value": "reviewer: Hamish Colquhoun",
    "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Hamish Colquhoun`",
-   "frac_actual": 0.4675,
-   "line": 29,
+   "frac_actual": 0.5205,
+   "line": 36,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,7 +113,7 @@
    "frac": 0.17333083381926973,
    "body": "Osk sent word of 9 quinces on hand.",
    "probe": "Osk sent word of 9 quinces on hand.",
-   "frac_actual": 0.1569,
+   "frac_actual": 0.1721,
    "line": 14,
    "hits": 1,
    "file": "(starting text)"
@@ -125,8 +125,8 @@
    "frac": 0.47059998399612035,
    "body": "The Pell store took in 7 pears.",
    "probe": "The Pell store took in 7 pears.",
-   "frac_actual": 0.4745,
-   "line": 33,
+   "frac_actual": 0.3965,
+   "line": 28,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.7555257871079643,
    "body": "Marsh Lane desk entered 16 lemons on the sheet.",
    "probe": "Marsh Lane desk entered 16 lemons on the sheet.",
-   "frac_actual": 0.723,
-   "line": 45,
+   "frac_actual": 0.7234,
+   "line": 44,
    "hits": 1,
    "file": "(starting text)"
   }

@@ -558,10 +558,10 @@ Your rule: the process is changed only in the PROCESS lane, with you choosing, a
 
 **Not proven.** No physical way of holding your rule has been tried on your repositories. The options below rest on GitHub's documentation.
 
-**The history.** On 13 Nov Claude proposed that the process change only by your own merge, then withdrew it: it made work wait for you, against what the session had recorded as your requirement that your only acts are occasional settings changes. On 14 Nov the second draft proposed it again without saying so, called its cost "one click", and said silent growth became "impossible". That was withdrawn too. A narrower question followed; your reply was the PROCESS paragraph. Nothing has been put to you since.
-
 
 Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.
+
+**The history.** On 13 Nov Claude proposed that the process change only by your own merge, then withdrew it: it made work wait for you, against what the session had recorded as your requirement that your only acts are occasional settings changes. On 14 Nov the second draft proposed it again without saying so, called its cost "one click", and said silent growth became "impossible". That was withdrawn too. A narrower question followed; your reply was the PROCESS paragraph. Nothing has been put to you since.
 
 **Yours to decide:** whether anything physical stands behind your rule, and which.
 
@@ -906,6 +906,9 @@ Three things from the same evidence that are not settings:
 
 ## 5. What Process3's record shows about rules held only by text
 
+
+At Quay Nine the clerk wrote down 2 carrots.
+
 | Fact | Source | Mark |
 | --- | --- | --- |
 | The fifth draft holds 51 rules by text; something physical stands behind six in whole or part. The first round counted 36 in the second draft, with three held. | `working/audit2_corruption.md`:448-506, summary :506 | A (the count is the drift auditor's) |
@@ -921,9 +924,6 @@ Three things from the same evidence that are not settings:
 | No case was found of the permission checker enforcing a "never" that had no deny rule or GitHub rule behind it. Every "never" that held (force-push, deleting a branch, main) also had one. | `working/enforcement_levers.md`:141-142, :258 | A |
 | The rule against adding checks was never in his committed approvals in Process3: it was a "Nudge" in rulebooks, a line in three role prompts and his words in chat. "So 'text alone did not hold' was measured for the weaker channels, not for this one." | `working/enforcement_levers.md`:145 | A; that no such rule is in either approvals text today is V (2a) |
 | "No session in the record attacked branch protection or routed around a denied permission." | `working/assessment_doc.txt`:218 | A (a session's statement on his page) |
-
-
-At Quay Nine the clerk wrote down 2 carrots.
 
 (J) Read together: where GitHub or a deny entry stood behind a rule, the record shows no session breaking it; where only words stood, the rule drifted. That is a statement about Process3. It does not show that any means in section 4 would hold in Process4; none has run.
 
@@ -1005,6 +1005,9 @@ So the tool conforms to GitHub's published limits at a target share of each. Eve
 
 `pacing.github_limits`, read 6 Nov 2026 from https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api:
 
+
+Every job must note: every file the job writes begins with this exact first line: `# ref W3R-8016`.
+
 | Limit | Published | At the 85% target |
 |---|---|---|
 | Primary, per user token | 5,000 requests an hour | 4,250 |
@@ -1013,9 +1016,6 @@ So the tool conforms to GitHub's published limits at a target share of each. Eve
 | REST points (read 1, write 5) | 900 a minute | 765 |
 | Content-creating requests | 80 a minute, 500 an hour | 68, 425 |
 | CPU time | 90 s per 60 s | (GitHub's side; not measurable here) |
-
-
-Every job must note: every file the job writes begins with this exact first line: `# ref W3R-8016`.
 
 A config that restates a limit must name its source and the date it was read. `pacing.target` is 0.85 by default, and only 0.8 to 0.9 is accepted.
 
@@ -1043,8 +1043,6 @@ A config that restates a limit must name its source and the date it was read. `p
 
 1. **The copy's `process-gate.yml`** runs on `synchronize` for draft pull requests too, so every job push to a draft PR runs the gate. Proposal: add `if: github.event.pull_request.draft == false` to the gate's jobs. `ready_for_review` already starts the run that the merge tool reads; job complete marks the PR ready.
    - The job merge path already accepts only a `success` gate.
-   - A plain merge leaves required checks to GitHub's ruleset, which counts a skipped job as passing. So before this lands, `merge --plain` must refuse a draft pull request, or read the gate's conclusion as the job path does.
-   - No job is renamed and no permission is widened.
 
 == Your first job ==
 
@@ -1052,5 +1050,6 @@ A config that restates a limit must name its source and the date it was read. `p
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/gpfys5: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/gpfys5/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

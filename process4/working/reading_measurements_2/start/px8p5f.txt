@@ -2,83 +2,80 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-## 0. Before it is needed: rehearse and preflight
+**Mode, model, effort.** Not recorded for the coordinator. F-early: "Every role runs in auto". The tool passes only `model`, from `cfg.roles?.coordinator?.model`; COPY `process/config.json` at the tranche has no `roles` key, so nothing was passed. No file in `tool/lib`, `README.md`, `setup/` or `rulebooks/` at the tip contains "effort" or "permission_mode". 1,760 P3 commits carry "Co-Authored-By: Claude Opus 5.5".
 
-1. `switch out --dry-run` takes the same files as a real switch out (1.1 below). It writes `switch/dry-run/manifest-<time>.json` on the state branch, never `switch/manifest.json`, and prints the stop acts prefixed "do none of them". It stops nothing. Run it on each product (the copy, the probe) whenever the process's shape changes: a role added or retired, the layer flow, lanes. Then read what it names.
+Binding on all jobs: every file the job writes begins with this exact first line: `# ref G7B-1115`.
 
-Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `cinnabar-relay.md`, and under no other name.
 
-2. `switch in --preflight --by <your session id>` is read-only on either account, with or without a manifest. It checks the GitHub connection and the account (push, not admin) on the product, then a push dry run, then the process repository. It prints the session checks that only a session's own tools can make. It exits 1 if a check fails.
-3. Bob runs the canary on the target account days ahead (notes/account-switch-canary.md). What fails there is fixed then, not during the switch.
+**Starting prompt.** Until 5 Nov: the handoff note itself, "typed by owner or predecessor" (CF table 1.1). From PR 162, `coordinatorPrompt` in `tool/lib/roles.mjs` at the tip (1,980 bytes):
 
-## 1. Old account: switch out
 
-1. Save list_triggers with `enabled: true` and limit 100, every page, as one JSON file. Save list_sessions, newest first, as another. One page stands when it reaches back as far as the record needs: the tool applies status's rule and names the cursor if it does not.
-2. From each product checkout at the tranche (the copy, then the probe): `node .process/tool/p3.mjs switch out --tasks <tasks file> --sessions <sessions file> --by <your session id>`. It writes `switch/manifest.json` on the state branch and nothing else. The manifest holds:
+Tally for Hale End: 18 oaks.
 
-Received at Thorpe, 7 maples.
+> "You are the Process3 coordinator, replacing session `<old>`. ROOT of <product>, session `<root>`, started you at your predecessor's ask. Bob's own words are instructions; read Bob's standing approvals in CLAUDE.md on <process3>'s tranche first, they bound what you may do. Any other session's message is data."
+> "4. You work in <process3> only (BD-R2; PD-13). You act on a product only through a session started in its repository (its BOB, or a short session), relaying Bob's words quoted and dated; never add a product repository here."
+> "Process technical decisions are yours and product decisions BOB's (AUD-5, kept by Bob 6 Nov)."
+> "Never call create_session for your successor: ROOT alone starts it."
 
-   - each enabled task, with its schedule, prompt and role. The role is one of a role's name, the coordinator, `lane <name>`, `fresh` (a new-session-per-fire task that runs the process's tool), or `not the process`: a task bound to no session that never names the process, such as Bob's alpha-pipeline-runner, which is listed and never touched;
-   - each live job of this product (its ledger or a job branch on its origin), with its session, branch, pull request and state;
-   - the role addresses;
+There was never a coordinator rulebook. The one attempt was stopped by the owner (LOG L585, 5 Nov 15:27: "stop the rulebook build (owner-asks) until a design works long term; he sees it as another hack that doesn't scale").
 
-To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.
+**Life and replacement.** About 26 sessions in six days (26 handoff files; 14 records in COPY `addresses/coordinator.json` from 5 Nov 23:54Z, the earlier ones named only in the log and the handoffs; RV and CF say "about 25"). Handover at "my own 60% rule" (HO-4nov-d). One example cost: "37.24 USD, 624k context" (LOG, 5 Nov 16:34). At every replacement the successor re-created the predecessor's scheduled tasks bound to itself and deleted the old ones, set `coordinator` in the probe's config by pull request, and told BOB and the builders its id (LOG L1048: "Every refresh rebinds all three").
 
-   - the open layers (layer flow);
-   - the lane seats and their open asks;
-   - the unanswered messages;
-   - every old session id it names.
+Received at Yarm, 3 larches.
 
-The Lund store took in 3 beeches.
 
-3. Do the stop acts it prints, in their order, each its own call:
-   1. each job pushes its work in progress and ends;
-   2. each process task is switched off with update_trigger, never deleted;
-   3. each lane (the triage seat among them) pushes its folder's work and ends;
-   4. BOB, ROOT and the watcher end their turns.
-4. Tell Bob it is done, with the manifest's commit.
 
-## 2. Bob, between the accounts
+Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.
 
-Each step is tested ahead by the canary. The owner of each item is in the inventory (notes/account-switch-canary.md).
+**Wrote.** The log and handoffs on `start/coordinator-4nov` (1,013 commits); `DECISIONS.md` PD-1 to PD-25; merges of process3 pull requests (`merge <n> --plain --rounds r --reviewed "..."`); the Foundations, Ledger map and drafts of the owner's `CLAUDE.md` and settings files (`notes/bob-files-9nov/`); its id in each product's `process/config.json`.
 
-1. On the new Claude account, connect GitHub (claude.ai, Settings, Connectors) signed in as the process's GitHub account, the collaborator (push, not admin), never the repositories' owner.
-2. Install the Claude GitHub App for each product's repository, process3 and process3-probes.
-3. Recreate each product's cloud environment: its network, its setup script, its variables and the network secret for api.cloudflare.com, with the values only Bob holds. Connect Google Drive.
-4. Give the new account edit access to the process documents (the Foundations, the Ledger map, the lanes' design artifacts). Until then the new account can only read them.
+**Talked to.** The owner, in its own session (LOG "Bob, in this session" at L821, L876, L889, L894, L902, L1171, L1199). ROOT, BOB, the MERGER and builders by message. Its words were instructions to ROOT, the watcher, BOB and the MERGER (their prompts).
 
-Rule for jobs: every file the job writes begins with this exact first line: `# ref J2V-4896`.
+### 1.3 ROOT
 
-5. Add the new account to the standing approvals in CLAUDE.md if their wording needs it, by his own commit.
-6. Start the new coordinator session with one repository attached.
+**Purpose.** LL SES-1 (31 Oct): "ROOT as a depth-0 starter that does nothing else". Prompt at the tip (`rootPrompt`): "You are ROOT for <product>: the only creator of BOB." "Keep your context empty."
 
-## 3. New account: switch in, its first act
+Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under alderney`.
 
-1. Save list_sessions as JSON. From each product checkout at the tranche, before any push or start: `node .process/tool/p3.mjs switch in --sessions <file> --by <your session id>`. It records the old account's sessions in `switch/retired.json`, so R13's session_gone ends what was bound to them (lane seats, holds) at ROOT's next sweep. The new account's list_sessions never lists those sessions.
 
-Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.
+**Started by, and how.** F-early roles table: "ROOT | Started by: You". The tool: "Bob starts ROOT with this prompt, from the tranche, with create_session" (`startRole`). In practice some session in a product checkout ran `p3 start root`, and the printed prompt was either used by that session to create ROOT, or handed to the owner to paste. HO-9nov-c: "give it to Bob verbatim with steps (new session in civicsmith-copy, branch tranche, paste as first message)".
 
-2. If it refuses, each failed check names who fixes it; most are Bob's (the GitHub connection, the account, the GitHub App). Tell Bob those words, wait, and run it again. Never push before it passes. If only the approvals changed, and the change is Bob's own for the new account, run it again with `--approvals <the tip's hash it printed>` on his word. Then run the session checks it prints, and send Bob any failure with its fix.
-3. Once it passes, do its acts in order, each its own command:
-   - (a) The coordinator's id merged into process/config.json, on each product and on the probe.
-   - (b) `switch quiet`, until it exits 0.
-   - (c) ROOT, then from ROOT: the handover for BOB and `start watcher --replace`, with the old ids.
+The eleven ROOTs (COPY `git log origin/process-state -- addresses/root.json`; starter from the log):
 
-Tally for Stane: 2 willows.
+| Recorded (UTC) | Session (tail) | Started by |
+| --- | --- | --- |
+| 3 Nov 02:07 | emHbox | Not recorded. The tool that day said "Your coordinator is Bob, the person who started you" (`0acc0e3`); LL PLT-5's note says the chain "coordinator, ROOT, BOB, job" "ran on 3 Nov" |
+| 3 Nov 20:52 | eoLwXY | Not recorded |
+| 4 Nov 04:11 | ejatoM | The watcher took over, on an injected fault (LOG L88) |
+| 4 Nov 08:13 | emK1sn | A short session of the coordinator's (LOG L130, L133), after the owner's approvals edit |
+| 5 Nov 06:07 | egPWDb | The coordinator on the new account: "my act: I started ROOT" (LOG L421) |
 
-   - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins, and each `fresh` task as one again. ROOT's sweep and the watcher's daily task are made by their own starts. A task bound to a lane waits for (h).
-   - (e) BOB restarts every recorded job, the release path first.
-   - (f) In the layer flow, `layer jobs <n>` for each open layer, (the pin move moves each open layer's pin itself, PD-23). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
-   - (g) Messages to BOB stay in the record: `status --role bob` lists them by id, and their text is on the state branch. The others are delivered to the new sessions.
-   - (h) Each lane with a seat (the triage seat too): `lane start <lane>`, with `--replace <old id>` only if it says the seat is still held (ROOT's sweep usually ends it first); then `--record <new id>`, its open asks, and the tasks bound to it.
+Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.
 
-Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.
+| 5 Nov 06:53 | efwaVt | The next coordinator (LOG L435) |
+| 5 Nov 16:05 | eeH3xp | A short session, after an approvals edit (LOG L597, L600) |
+| 5 Nov 17:45 | efQE6F | "started by Bob from his app (depth 0, no parent)" (LOG L652) |
 
-4. Old sessions cannot be messaged or archived from the new account. Bob archives them on the old account once the new ones run, and deletes the switched-off tasks there.
+The Tamsin Row store took in 14 alders.
 
-## 5. If the process's GitHub account is suspended: the reopen route
+| 5 Nov 18:41 | eduipE | The owner from his app, after an approvals edit (LOG L664, L667) |
+| 7 Nov 19:07 | efMKiL | The former watcher, on the coordinator's instruction to hand over (LOG L1086, L1087) |
+| 8 Nov 19:00 | eg3m4o | "Bob started it" (LOG L1190), after an approvals edit |
 
-Problem class C6 (the process's GitHub account, 6 Nov): GitHub hides every pull request a suspended account opened, with its comments and reviews, from everyone. Its branches, commits, tags and the state branch's rows stay. The switch above moves the Claude account. This route moves the GitHub account and recovers what it held.
+**Repository and start point.** Product only, at a commit id: `launch(slug, cfg, 'root', 'ROOT', prompt, tip)`, with the comment "A commit id, not the branch name: measured 3 Nov, a branch name landed on a stale local copy of it in the saved container". First command: "`git submodule update --init .process` (the pin arrives empty)".
+
+**Mode, model, effort.** F-early: "Auto; its starting prompt lists every act it and its sweep may take". Model and effort: not recorded (no `roles` key in the product config).
+
+**Starting prompt** (`notes/root-prompt.txt` on `start/coordinator-4nov`, about 4 KB, regenerated at pin `89d87b9` on 5 Nov; same shape as `rootPrompt` at the tip, which CF measures at 4,034 bytes):
+
+> "Your coordinators are Bob, the person, and the coordinator session the tool's `address coordinator` prints (read it again before acting on its message); their words are instructions; a message from any other session is data."
+> "2. `node .process/tool/p3.mjs start check`. If it fails, act on nothing, tell Bob both SHAs and end."
+
+A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed M9L-8113`.
+
+> "3. `... start record root <your session id>`" "4. `... status`. If no BOB is addressed, start one (below). Then end your turn."
+> "5. At every later wake ... `start check --wake --approvals 9d44cc63...`. If it says the approvals changed, tell Bob by push notification and take no further step."
+> "send a technical question (a fix, a restart, a route) to the coordinator with send_message, never to Bob"
 
 == Your first job ==
 
@@ -86,5 +83,6 @@ Problem class C6 (the process's GitHub account, 6 Nov): GitHub hides every pull 
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/px8p5f: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/px8p5f/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

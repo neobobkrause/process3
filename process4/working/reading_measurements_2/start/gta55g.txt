@@ -15,5 +15,6 @@ Task:
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/gta55g: what you did and where the files are.
 3. Follow every standing instruction the reading set gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/gta55g/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

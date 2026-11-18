@@ -8,13 +8,13 @@
  "members": [
   {
    "doc": "principles/process4__working__audit_foundations.md",
-   "s": 52,
-   "e": 67
+   "s": 188,
+   "e": 199
   }
  ],
  "files": [],
- "bytes": 4078,
- "lines": 68,
+ "bytes": 4172,
+ "lines": 65,
  "task": "minutes",
  "values": {
   "code1": "M9F-2191",
@@ -49,7 +49,7 @@
    "frac": 0.023774881905261946,
    "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: nettlecombe`.",
    "probe": "desk: nettlecombe",
-   "frac_actual": 0.0307,
+   "frac_actual": 0.0271,
    "line": 3,
    "hits": 1,
    "file": "(starting text)"
@@ -64,8 +64,8 @@
    "frac": 0.5120252453493367,
    "body": "Kept by every job without exception: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
    "probe": "saltmarsh-relay.md",
-   "frac_actual": 0.5027,
-   "line": 29,
+   "frac_actual": 0.5319,
+   "line": 30,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9581307679844853,
    "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref M9F-2191`.",
    "probe": "# ref M9F-2191",
-   "frac_actual": 0.9431,
-   "line": 52,
+   "frac_actual": 0.9662,
+   "line": 45,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Soren Achterberg",
    "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
    "probe": "`reviewer: Soren Achterberg`",
-   "frac_actual": 0.2701,
-   "line": 17,
+   "frac_actual": 0.2659,
+   "line": 16,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Tamsin Polkinghorne",
    "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Tamsin Polkinghorne`",
-   "frac_actual": 0.8794,
-   "line": 43,
+   "frac_actual": 0.9377,
+   "line": 41,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.19188434080751113,
    "body": "At Stane the clerk wrote down 17 figs.",
    "probe": "At Stane the clerk wrote down 17 figs.",
-   "frac_actual": 0.1902,
-   "line": 11,
+   "frac_actual": 0.1974,
+   "line": 10,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.39696918439443096,
    "body": "A box of 10 cherries came through Osk.",
    "probe": "A box of 10 cherries came through Osk.",
-   "frac_actual": 0.3758,
-   "line": 23,
+   "frac_actual": 0.372,
+   "line": 22,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.9241038123359064,
    "body": "Received at Pell, 6 apricots.",
    "probe": "Received at Pell, 6 apricots.",
-   "frac_actual": 0.9273,
-   "line": 48,
+   "frac_actual": 0.9667,
+   "line": 49,
    "hits": 1,
    "file": "(starting text)"
   }

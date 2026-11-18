@@ -9,11 +9,11 @@
   {
    "doc": "principles/notes__lane-charters.md",
    "s": 62,
-   "e": 135
+   "e": 134
   }
  ],
  "files": [],
- "bytes": 8227,
+ "bytes": 8228,
  "lines": 110,
  "task": "rle",
  "values": {
@@ -49,7 +49,7 @@
    "frac": 0.031861881166627457,
    "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref L8C-8319`.",
    "probe": "# ref L8C-8319",
-   "frac_actual": 0.0185,
+   "frac_actual": 0.0191,
    "line": 5,
    "hits": 1,
    "file": "(starting text)"
@@ -64,8 +64,8 @@
    "frac": 0.4933724073365737,
    "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed X8V-6749`.",
    "probe": "run closed X8V-6749",
-   "frac_actual": 0.488,
-   "line": 49,
+   "frac_actual": 0.4953,
+   "line": 47,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.976647919562746,
    "body": "Kept by every job without exception: the job's handover note is saved under the file name `sandalwood-relay.md`, and under no other name.",
    "probe": "sandalwood-relay.md",
-   "frac_actual": 0.9679,
-   "line": 95,
+   "frac_actual": 0.972,
+   "line": 94,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,7 +90,7 @@
    "value": "reviewer: Noor Al-Tamimi",
    "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
    "probe": "`reviewer: Noor Al-Tamimi`",
-   "frac_actual": 0.1406,
+   "frac_actual": 0.1453,
    "line": 17,
    "hits": 1,
    "file": "(starting text)"
@@ -101,7 +101,7 @@
    "value": "reviewer: Mikko Rantanen",
    "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Mikko Rantanen`",
-   "frac_actual": 0.3904,
+   "frac_actual": 0.4034,
    "line": 38,
    "hits": 1,
    "file": "(starting text)"
@@ -113,7 +113,7 @@
    "frac": 0.11088114745752004,
    "body": "The Brae store took in 4 bassoons.",
    "probe": "The Brae store took in 4 bassoons.",
-   "frac_actual": 0.1015,
+   "frac_actual": 0.1049,
    "line": 13,
    "hits": 1,
    "file": "(starting text)"
@@ -125,8 +125,8 @@
    "frac": 0.6186523397151814,
    "body": "Hale End desk entered 5 violins on the sheet.",
    "probe": "Hale End desk entered 5 violins on the sheet.",
-   "frac_actual": 0.6243,
-   "line": 59,
+   "frac_actual": 0.5942,
+   "line": 58,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.8732360483379329,
    "body": "At Yarm the clerk wrote down 13 trumpets.",
    "probe": "At Yarm the clerk wrote down 13 trumpets.",
-   "frac_actual": 0.8708,
-   "line": 86,
+   "frac_actual": 0.8856,
+   "line": 85,
    "hits": 1,
    "file": "(starting text)"
   }

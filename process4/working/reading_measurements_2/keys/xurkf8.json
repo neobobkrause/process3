@@ -24,12 +24,12 @@
   },
   {
    "doc": "principles/process4__working__audit_foundations.md",
-   "lines": "1-224"
+   "lines": "1-222"
   }
  ],
  "files": [],
- "bytes": 64981,
- "lines": 548,
+ "bytes": 65037,
+ "lines": 547,
  "task": "wordtop",
  "values": {
   "code1": "N5Q-9272",
@@ -64,7 +64,7 @@
    "frac": 0.04787928974975332,
    "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `hollowell-relay.md`, and under no other name.",
    "probe": "hollowell-relay.md",
-   "frac_actual": 0.0452,
+   "frac_actual": 0.0453,
    "line": 33,
    "hits": 1,
    "file": "(starting text)"
@@ -79,7 +79,7 @@
    "frac": 0.45027208062955043,
    "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
    "probe": "desk: quillon",
-   "frac_actual": 0.4896,
+   "frac_actual": 0.4908,
    "line": 293,
    "hits": 1,
    "file": "(starting text)"
@@ -94,7 +94,7 @@
    "frac": 0.9712950235086396,
    "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref N5Q-9272`.",
    "probe": "# ref N5Q-9272",
-   "frac_actual": 0.9713,
+   "frac_actual": 0.9736,
    "line": 524,
    "hits": 1,
    "file": "(starting text)"
@@ -105,7 +105,7 @@
    "value": "reviewer: Tobias Hallworth",
    "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
    "probe": "`reviewer: Tobias Hallworth`",
-   "frac_actual": 0.177,
+   "frac_actual": 0.1774,
    "line": 101,
    "hits": 1,
    "file": "(starting text)"
@@ -116,8 +116,8 @@
    "value": "reviewer: Priya Venkataram",
    "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Priya Venkataram`",
-   "frac_actual": 0.8745,
-   "line": 487,
+   "frac_actual": 0.875,
+   "line": 485,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -128,7 +128,7 @@
    "frac": 0.18370045879024546,
    "body": "At Quay Nine the clerk wrote down 5 clarinets.",
    "probe": "At Quay Nine the clerk wrote down 5 clarinets.",
-   "frac_actual": 0.1756,
+   "frac_actual": 0.1761,
    "line": 96,
    "hits": 1,
    "file": "(starting text)"
@@ -140,7 +140,7 @@
    "frac": 0.2852517510931152,
    "body": "Received at Pell, 7 flutes.",
    "probe": "Received at Pell, 7 flutes.",
-   "frac_actual": 0.285,
+   "frac_actual": 0.2857,
    "line": 156,
    "hits": 1,
    "file": "(starting text)"
@@ -152,7 +152,7 @@
    "frac": 0.46227529955543856,
    "body": "Tally for Corrie: 11 trumpets.",
    "probe": "Tally for Corrie: 11 trumpets.",
-   "frac_actual": 0.4472,
+   "frac_actual": 0.4483,
    "line": 275,
    "hits": 1,
    "file": "(starting text)"
@@ -164,7 +164,7 @@
    "frac": 0.6393047122051376,
    "body": "16 cellos were logged at the Tamsin Row gate.",
    "probe": "16 cellos were logged at the Tamsin Row gate.",
-   "frac_actual": 0.6401,
+   "frac_actual": 0.6416,
    "line": 368,
    "hits": 1,
    "file": "(starting text)"
@@ -176,7 +176,7 @@
    "frac": 0.8139170228036583,
    "body": "Thorpe desk entered 3 bassoons on the sheet.",
    "probe": "Thorpe desk entered 3 bassoons on the sheet.",
-   "frac_actual": 0.8126,
+   "frac_actual": 0.8145,
    "line": 448,
    "hits": 1,
    "file": "(starting text)"

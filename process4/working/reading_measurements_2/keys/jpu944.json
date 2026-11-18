@@ -8,13 +8,13 @@
  "members": [
   {
    "doc": "principles/governing__foundations.md",
-   "s": 181,
-   "e": 230
+   "s": 117,
+   "e": 172
   }
  ],
  "files": [],
- "bytes": 16396,
- "lines": 86,
+ "bytes": 16402,
+ "lines": 93,
  "task": "wordtop",
  "values": {
   "code1": "B2M-9842",
@@ -49,7 +49,7 @@
    "frac": 0.03978045135953778,
    "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: hollowell`.",
    "probe": "desk: hollowell",
-   "frac_actual": 0.057,
+   "frac_actual": 0.0517,
    "line": 3,
    "hits": 1,
    "file": "(starting text)"
@@ -64,8 +64,8 @@
    "frac": 0.5205684388365295,
    "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref B2M-9842`.",
    "probe": "# ref B2M-9842",
-   "frac_actual": 0.5211,
-   "line": 28,
+   "frac_actual": 0.5174,
+   "line": 36,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9134351595951189,
    "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under dunmore`.",
    "probe": "-- filed under dunmore",
-   "frac_actual": 0.9223,
-   "line": 68,
+   "frac_actual": 0.9103,
+   "line": 75,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Maren Oduya",
    "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
    "probe": "`reviewer: Maren Oduya`",
-   "frac_actual": 0.1465,
-   "line": 15,
+   "frac_actual": 0.1958,
+   "line": 19,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Hamish Colquhoun",
    "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Maren Oduya is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Hamish Colquhoun`",
-   "frac_actual": 0.6547,
-   "line": 43,
+   "frac_actual": 0.6413,
+   "line": 44,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.2719576125379882,
    "body": "3 wrens were logged at the Corrie gate.",
    "probe": "3 wrens were logged at the Corrie gate.",
-   "frac_actual": 0.2373,
-   "line": 20,
+   "frac_actual": 0.2366,
+   "line": 27,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.6336692448403237,
    "body": "A box of 5 finches came through Osk.",
    "probe": "A box of 5 finches came through Osk.",
-   "frac_actual": 0.623,
-   "line": 39,
+   "frac_actual": 0.6707,
+   "line": 48,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.7650362440773627,
    "body": "At Yarm the clerk wrote down 17 herons.",
    "probe": "At Yarm the clerk wrote down 17 herons.",
-   "frac_actual": 0.7639,
-   "line": 55,
+   "frac_actual": 0.7638,
+   "line": 62,
    "hits": 1,
    "file": "(starting text)"
   }

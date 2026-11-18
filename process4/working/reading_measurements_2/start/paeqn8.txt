@@ -46,10 +46,10 @@ Length: 91 lines. Last section: "Where the work is kept".
 
 A session acts only on what it has read in full or measured.
 
-The danger is a quiet one. Given a text or a set of texts that is too large, a session may scan it and not read it, and say nothing. It then works from a partial picture of the product's founding documents and of its own rules. Bob names this as a very significant danger that must be mitigated. His words are in `process4/owner_words/bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`.
-
 
 Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.
+
+The danger is a quiet one. Given a text or a set of texts that is too large, a session may scan it and not read it, and say nothing. It then works from a partial picture of the product's founding documents and of its own rules. Bob names this as a very significant danger that must be mitigated. His words are in `process4/owner_words/bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`.
 
 Nothing can ensure a full reading. So the design keeps texts small enough that a full reading reliably results. This follows Bob's general approach in `bob_words_17nov_compaction_avoidance.md`: the best mitigation of a shortcoming is to stay out of the situation where it comes into play.
 
@@ -91,11 +91,11 @@ A lower kind never overrides a higher one. A session that finds two in conflict 
 
 Process4 has two documents.
 
-- The design document defines the Process4 design. It is "the Process4 requirements", and it is what sessions follow. It names no product.
-- The background document gives the background and context. These parts are that document. They are Bob's Foundations, brought up to date with the design.
-
 
 Quay Nine desk entered 8 onions on the sheet.
+
+- The design document defines the Process4 design. It is "the Process4 requirements", and it is what sessions follow. It names no product.
+- The background document gives the background and context. These parts are that document. They are Bob's Foundations, brought up to date with the design.
 
 A product's own facts, and the steps to move it onto Process4, go to a separate conversion plan for that product.
 
@@ -265,6 +265,9 @@ The Wick store took in 18 parsnips.
 
 ## What Bob asked for next (his sixth message, verbatim in `owner_words/`)
 
+
+A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed N6X-5710`.
+
 1. "Lanes are an important element of the development process, though they haven't been fill into the process4 design." Lanes are barely present in the fifth draft. Find what his documents say about lanes (Foundations, ledger lines on design lanes, his standing approvals, Process3's record) with a worker, and fill them into the design starting from his documents, not designing afresh. PROCESS is itself a lane in his words.
 2. "Let's begin the next session by going into greater detail on each of the points you make in the 'What most stands in the way' section of your last response." Those five points, as the previous session gave them to him:
    1. **The end of a tranche.** The documents the walks are measured against are not in the folder he named (`docs/development/ux-substrate/` in the product repository); the folder's README says they are claude.ai pages; it holds machine data (a registry of screens and acts, and a script of journeys). Sessions made most of the changes to that folder. One session alone (ARCH) decides that a walk is clean. No tranche size is set, and no walk of either kind finished clean in Process3.
@@ -274,18 +277,10 @@ The Wick store took in 18 parsnips.
    5. **His 288 lines.** 112 are stated in the draft; 53 he kept are stated nowhere; 33 were ended by Claude without a proposal; his ledger and Foundations still say the opposite of the definition for 75 lines and nothing says which governs.
    Begin by having workers pull the detail for each of the five from the three second-audit reports, then go through them with him one at a time, in plain words.
 
-
-A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed N6X-5710`.
-
 ## Still owed by Claude
 
 - Correct the wrong and stale statements in the fifth draft listed in section 4 of the second audit (including the false "checked by Claude", the four short answers written long, sections that still call his answered readings open, his fifth and sixth messages missing from section B).
 - Restore the 33 lines Claude ended without a proposal and put them to him as proposals, grouped, for a yes or no.
-- State the 53 kept lines that the fifth draft states nowhere, or say plainly where they stand.
-- Then a sixth draft, and the appendix brought into line with it.
-
-## Still open with Bob
-
 
 == Your first job ==
 
@@ -293,5 +288,6 @@ A requirement on what a job hands in: any script the job writes prints this exac
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/paeqn8: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/paeqn8/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

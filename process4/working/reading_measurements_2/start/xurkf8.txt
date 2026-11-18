@@ -485,10 +485,10 @@ Thorpe desk entered 3 bassoons on the sheet.
 - Section H: "Eight comes from a session's record of 13 Nov and matches your words of 6 Nov. On 7 Nov you set 20, and the field report says 20 of Process3. This document uses eight. Say if that is wrong."
 - Section K, point 7: "Your words of 6 Nov tied the number to GitHub traffic for the whole account. Counting for each product follows from one repository per session; two products on one account then run sixteen jobs unless you lower each number. Process3 counted across the account from the platform's list of sessions; whether Process4 could do the same was not measured. This is Claude's judgment, and it touches a question that was put to you on 13 Nov and not answered."
 
-### 8. "Your word is enough" is an assurance, and three of the four uses are not on the unproven list
-
 
 Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Tobias Hallworth is no longer written anywhere in a handover note.
+
+### 8. "Your word is enough" is an assurance, and three of the four uses are not on the unproven list
 
 **Counter-argument.** Nothing has been built or tried for holding a merge, putting a module first, skipping the external walk or changing the slot number. For a module put first the fixed rule has to read Bob's word from somewhere, so "nothing is built" cannot be right. Only the stop on his word is listed as unproven.
 
@@ -535,8 +535,6 @@ Kept by every job without exception: every file the job writes begins with this 
 
 **Sources.** Foundations: "BOB ... decides everything technical and detailed, and reports it to you in plain words as done (P17)"; "Questions that are yours are asked in one place, the walk-through, numbered, with a column for your word ... a decided question is never asked again"; "A question that is yours becomes your decision, and a design, before anything is built on it (P21)"; "In the middle ground both offer opinions, explanations, options and recommendations". Ledger note as Bob left it on 14 Nov: "toward Bob it always explains each decision of his with context, options and a recommendation". Foundations, roles table: lanes are started by BOB "when you identify the need". Bob, 14 Nov: "Decide technical matters yourself and tell me what you decided."
 
-**Kind.** (d), six Foundations rows; (g) a question asked and not answered; technical point 2 is (f) in so far as it creates a role B does not have.
-
 
 == Your first job ==
 
@@ -544,5 +542,6 @@ Kept by every job without exception: every file the job writes begins with this 
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/xurkf8: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/xurkf8/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

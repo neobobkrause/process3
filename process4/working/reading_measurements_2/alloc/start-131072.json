@@ -86,7 +86,7 @@
    },
    {
     "doc": "principles/governing__foundations.md",
-    "lines": "1-205"
+    "lines": "1-203"
    }
   ]
  },
@@ -142,7 +142,7 @@
   "members": [
    {
     "doc": "requirements/process4__evidence__process4_disposition.md",
-    "e": 696,
+    "e": 695,
     "s": 36
    }
   ]
@@ -153,8 +153,8 @@
   "members": [
    {
     "doc": "requirements/process4__evidence__ledger_lines.md",
-    "e": 1699,
-    "s": 146
+    "e": 1516,
+    "s": 22
    }
   ]
  },
@@ -180,7 +180,7 @@
    },
    {
     "doc": "requirements/process4__working__session2__later_requirements.md",
-    "lines": "1-156"
+    "lines": "1-155"
    }
   ]
  },
@@ -206,7 +206,7 @@
    },
    {
     "doc": "design/process4__evidence__verify_numbers.md",
-    "lines": "1-218"
+    "lines": "1-217"
    }
   ]
  },
@@ -232,7 +232,7 @@
    },
    {
     "doc": "design/notes__github-pacing.md",
-    "lines": "1-63"
+    "lines": "1-61"
    }
   ]
  },

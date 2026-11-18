@@ -8,13 +8,13 @@
  "members": [
   {
    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
-   "s": 30,
-   "e": 51
+   "s": 14,
+   "e": 33
   }
  ],
  "files": [],
- "bytes": 4032,
- "lines": 81,
+ "bytes": 4021,
+ "lines": 79,
  "task": "rle",
  "values": {
   "code1": "V9C-8139",
@@ -49,8 +49,8 @@
    "frac": 0.05261180901180078,
    "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
    "probe": "-- filed under fennimore",
-   "frac_actual": 0.0656,
-   "line": 6,
+   "frac_actual": 0.0541,
+   "line": 4,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -64,8 +64,8 @@
    "frac": 0.4565579046034629,
    "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref V9C-8139`.",
    "probe": "# ref V9C-8139",
-   "frac_actual": 0.4576,
-   "line": 37,
+   "frac_actual": 0.4558,
+   "line": 29,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9574485862368747,
    "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
    "probe": "desk: quillon",
-   "frac_actual": 0.9532,
-   "line": 66,
+   "frac_actual": 0.9715,
+   "line": 63,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Emeka Nwosuagwu",
    "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Emeka Nwosuagwu`.",
    "probe": "`reviewer: Emeka Nwosuagwu`",
-   "frac_actual": 0.3364,
-   "line": 29,
+   "frac_actual": 0.3509,
+   "line": 21,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Lucinda Abernathy",
    "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Emeka Nwosuagwu is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Lucinda Abernathy`",
-   "frac_actual": 0.6483,
-   "line": 46,
+   "frac_actual": 0.653,
+   "line": 45,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.2498022265471122,
    "body": "A box of 14 pines came through Osk.",
    "probe": "A box of 14 pines came through Osk.",
-   "frac_actual": 0.2485,
-   "line": 20,
+   "frac_actual": 0.2547,
+   "line": 14,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.6508069804080298,
    "body": "Eyre sent word of 3 birches on hand.",
    "probe": "Eyre sent word of 3 birches on hand.",
-   "frac_actual": 0.6802,
-   "line": 50,
+   "frac_actual": 0.6167,
+   "line": 41,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.900702700878765,
    "body": "The Varnel store took in 11 maples.",
    "probe": "The Varnel store took in 11 maples.",
-   "frac_actual": 0.9147,
-   "line": 61,
+   "frac_actual": 0.899,
+   "line": 56,
    "hits": 1,
    "file": "(starting text)"
   }

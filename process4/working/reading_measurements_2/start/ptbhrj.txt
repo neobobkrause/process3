@@ -2,68 +2,67 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-**Charter.**
-- K945 (2026-10-01), Bob's.
-- `build/manifest.md` §"Parallel work:
-the UX design stream" (`copy` main).
-- `docs/development/ux-substrate/README.md` and `HANDOFF.md` §1–§7 (`copy` main @ `0dea5a6efd`).
+- A module's interface is stated in its code together with structured comments.
+The comments say how the interface is to be used and what its bounds are.
 
-Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under larkspur`.
+Kept by every job without exception: the job's handover note is saved under the file name `lodestone-relay.md`, and under no other name.
 
-§1–§7 of HANDOFF.md serve as its standing charter:
-"section 0 is the state as handed over, sections 1 to 7 your role" (NEXT-SESSION-PROMPT.md).
+- A build tool writes out the module's interface, from code and comments together, before and after a job's change.
+The notice is sent only when the two listings differ.
+- Only the users of the entry that changed are told.
+- For what a provider accepts, users are told only when the new interface cannot stand in for the old:
+something was removed, renamed, newly required or newly refused.
+Accepting more tells no one.
 
-**What it owned**
-- "It writes `docs/development/ux-substrate/`, mints **DEC** ids (DEC-96 onward) for Bob's UX rulings, and amends canon documents under `docs/architecture/`" (manifest §).
+At Brae the clerk wrote down 3 parsnips.
 
-Tally for Uller: 6 herons.
+- For what a provider hands back, any change to an entry tells that entry's users.
 
-- It recorded rulings in `docs/development/DECISIONS.md` (README.md "Working alongside").
-- Every screen, journey and word:
-the design-phase pages (principles, brand and voice, journeys, visual language, layouts and screens, dashboards, measures map) and the words tables (README.md list; HANDOFF.md §5 table of pages with artifact URLs).
+A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
 
-Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.
+- A change to the words that state a bound is a change to the interface.
+- A module with no comments gets them as the first step of its next job, before anything else changes.
+They describe the module as it stands.
+That step sends no notice.
+- A notified job checks only the changed parts, and runs only the tests that relate to them.
 
-- Main artifacts:
-  - Screens:
-https://claude.ai/artifact/MjC8pWKDj5PrYwm417GLAV
+To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: quarrystone`.
 
-The Dunn store took in 4 robins.
+- When a notice is sent, and to whom, has one right answer.
+The process's tool decides it.
 
-  - UX Substrate:
-https://claude.ai/artifact/JsPZAftab91EL9Ut91qWGx
-  - Design Principles:
-https://claude.ai/artifact/MvsMPnJnk3o32FBeqgdxT1
-- Detail beneath Bob's UX rulings:
-"Detail beneath his UX rulings ('Design's') is yours:
-decide it, record it, report it as done" (HANDOFF.md §2).
+How a notified job picks the tests that relate to a changed entry is owed (part 10).
+Two smaller matters are also open:
+who is told when the product's list of modules itself changes, and what becomes of a module that says it uses another while none of its code does.
 
-Every job must note: the job's handover note is saved under the file name `quillon-relay.md`, and under no other name.
+A box of 12 carrots came through Rigg.
 
-- Scope widened over time:
-  - K3053:
-"The front door certainly needs to be included in the UX design, as does the installer" (rulings-active:
-"its charter includes dashboard-style entry points per area").
-  - K3460 (2026-10-15), Bob:
 
-Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.
+## What the notice cannot do
 
-"pass UX design issues over to that lane so that you can stay focused".
-UX findings (layout, wording, flow, look) go to UX-DESIGN as HANDOFFs, and BOB keeps what is broken.
 
-**What it was forbidden**
-- "you never start, message or steer its sessions" (the development process's sessions; HANDOFF.md §1).
-- "Never write `build/`" (§1).
-- No force-push, no rewriting `main`, and Cloudflare account `20b533579290b9b93168345edd3b7f72` only (§1).
-- K numbers are BOB's alone, and a ruling Bob made through BOB is cited, never re-ruled (README.md, recording rules 1–3).
+Stane desk entered 2 radishes on the sheet.
 
-At Quay Nine the clerk wrote down 7 wrens.
+Bob's conclusion is that there is no reliable way to tell a change to an interface from a change to something else.
+His words are in `bob_words_15nov_main.md`.
 
-- The protection runs the other way too.
+So the notice is a way of saving work.
+It is not a guarantee.
+It will sometimes tell a user that needed no change.
 
-To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed H6L-7978`.
+Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
 
-The process "never edits, reverts or re-words `docs/development/ux-substrate/` or that stream's canon amendments, and a merge conflict with them is resolved by keeping its text" (manifest §; K945).
+It will sometimes miss a user that did.
+
+Nothing new catches a missed user.
+The user's own module tests catch it the next time that user's job runs for any reason.
+Or a walk meets the break, which is then a flaw and becomes work for that module in the next round.
+
+Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref H8E-9230`.
+
+No test of users runs before a provider's change merges.
+
+What is known about the method:
 
 == Your first job ==
 
@@ -71,5 +70,6 @@ The process "never edits, reverts or re-words `docs/development/ux-substrate/` o
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/ptbhrj: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/ptbhrj/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

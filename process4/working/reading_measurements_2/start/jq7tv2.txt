@@ -408,10 +408,10 @@ The conclusions, as the design holds them:
 - A notified job checks only the changed parts, and runs only the tests that relate to them.
 - When a notice is sent, and to whom, has one right answer. The process's tool decides it.
 
-How a notified job picks the tests that relate to a changed entry is owed (part 10). Two smaller matters are also open: who is told when the product's list of modules itself changes, and what becomes of a module that says it uses another while none of its code does.
-
 
 Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.
+
+How a notified job picks the tests that relate to a changed entry is owed (part 10). Two smaller matters are also open: who is told when the product's list of modules itself changes, and what becomes of a module that says it uses another while none of its code does.
 
 ## What the notice cannot do
 
@@ -701,13 +701,13 @@ To be kept by any job that works from this text: every file the job writes begin
 **End**
 - K3469 (2026-10-15), Bob: "the ACTIONS-DESIGN lane [isn't] needed any more". Every hand-off was folded (actions H31, K2775–K2780). Its branches were kept as history.
 
+
+Received at Wick, 18 mallets.
+
 **Why "publication design" probably means this lane**
 - No lane, branch, folder or ruling named publication design exists. Searched: every `copy` branch fetched, the mail outboxes, the history of `build/rulings.md`, `build/manifest.md` and CLAUDE.md on main back to 2026-08-09, and the artifacts.
 - In BOB #333's product-area table, publication and actions are one area, "Publication & action", which owns the Publication, Case Making (case) and Action v0.2 canon. Its lane is "none". Sources: https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn §"Ten product areas"; https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E §1.
 - The same table's Investigation row has the lane INVESTIGATION-DESIGN.
-
-
-Received at Wick, 18 mallets.
 
 ## 5. Other lanes the old records define (briefly)
 
@@ -1005,8 +1005,6 @@ Binding on all jobs: any script the job writes prints this exact line as the ver
 
 1. Every session's START or starting prompt carries its authority: what it may do, and who its coordinator is, through the address file in git. Your approvals, committed in the repository's CLAUDE.md, cover what no START foresaw: with them a session acted on its coordinator's unforeseen ask 10 of 10 times, without them 0 of 10.
 2. Nothing needed for correctness depends on an act the judge has refused under your committed approvals; archiving sessions and switching off or deleting tasks stay housekeeping (PLT-2 as restated).
-3. The sweep runs on its schedule and catches a session stopped by three refusals in a row. Its parent may try one interrupt and message, but replaces it when it stays stopped: a job from its branch and pull request (JOB-6), BOB by handover, ROOT by the watcher. The acts it was refused are recorded and raised to you, and the replacement's START does not name them, so a refused act is never rerouted; a replacement at REFRESH after 10 refusals carries the same rule. The docs say a session paused by the classifier waits for a person's approval and do not say an interrupt or a message resumes it (read 3 Nov), so nothing depends on that.
-4. The live count stays at 24 or fewer, and every new session is checked to have started.
 
 == Your first job ==
 
@@ -1014,5 +1012,6 @@ Binding on all jobs: any script the job writes prints this exact line as the ver
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/jq7tv2: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/jq7tv2/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

@@ -12,11 +12,11 @@
   },
   {
    "doc": "requirements/DECISIONS.md",
-   "lines": "1-157"
+   "lines": "1-156"
   }
  ],
  "files": [],
- "bytes": 64892,
+ "bytes": 65027,
  "lines": 293,
  "task": "merge",
  "values": {
@@ -67,7 +67,7 @@
    "frac": 0.48395813407862326,
    "body": "Every job must note: the job's handover note is saved under the file name `bramblewick-relay.md`, and under no other name.",
    "probe": "bramblewick-relay.md",
-   "frac_actual": 0.49,
+   "frac_actual": 0.4905,
    "line": 151,
    "hits": 1,
    "file": "(starting text)"
@@ -82,7 +82,7 @@
    "frac": 0.9149235680347717,
    "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed T8R-6909`.",
    "probe": "run closed T8R-6909",
-   "frac_actual": 0.9261,
+   "frac_actual": 0.9271,
    "line": 260,
    "hits": 1,
    "file": "(starting text)"
@@ -93,7 +93,7 @@
    "value": "reviewer: Tamsin Polkinghorne",
    "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
    "probe": "`reviewer: Tamsin Polkinghorne`",
-   "frac_actual": 0.1215,
+   "frac_actual": 0.1216,
    "line": 38,
    "hits": 1,
    "file": "(starting text)"
@@ -104,7 +104,7 @@
    "value": "reviewer: Saoirse Kinsella",
    "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Saoirse Kinsella`",
-   "frac_actual": 0.832,
+   "frac_actual": 0.8329,
    "line": 236,
    "hits": 1,
    "file": "(starting text)"
@@ -116,7 +116,7 @@
    "frac": 0.12995639508515983,
    "body": "Received at Rigg, 18 harps.",
    "probe": "Received at Rigg, 18 harps.",
-   "frac_actual": 0.1916,
+   "frac_actual": 0.1918,
    "line": 54,
    "hits": 1,
    "file": "(starting text)"
@@ -128,7 +128,7 @@
    "frac": 0.47772871519982596,
    "body": "Pell desk entered 8 clarinets on the sheet.",
    "probe": "Pell desk entered 8 clarinets on the sheet.",
-   "frac_actual": 0.4759,
+   "frac_actual": 0.4765,
    "line": 143,
    "hits": 1,
    "file": "(starting text)"
@@ -140,7 +140,7 @@
    "frac": 0.9398121360530526,
    "body": "The Brae store took in 11 oboes.",
    "probe": "The Brae store took in 11 oboes.",
-   "frac_actual": 0.9461,
+   "frac_actual": 0.9472,
    "line": 268,
    "hits": 1,
    "file": "(starting text)"

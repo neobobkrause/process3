@@ -130,6 +130,8 @@ def reduce_session(s, key):
                             + u.get("cache_creation_input_tokens", 0), msg.get("model")))
             for b in content or []:
                 if b.get("type") == "tool_use":
+                    if b["name"] == "ReadNotifications" and not sub:
+                        users.append({"at": created, "text": "(notification read)", "origin": "notification"})
                     call = {"n": len(calls) + 1, "at": created, "tool": b["name"], "input": b.get("input", {}),
                             "after_messages": len(users), "worker": sub}
                     uses[b["id"]] = call
@@ -166,7 +168,8 @@ def reduce_session(s, key):
                         call["lines_returned"] = 0
                         call["message"] = out[:300]
                 else:
-                    stdout = tr.get("stdout") if isinstance(tr, dict) and isinstance(tr.get("stdout"), str) else out
+                    full = tr.get("stdout") if isinstance(tr, dict) and isinstance(tr.get("stdout"), str) else out
+                    stdout = out          # coverage counts only what was returned to the reader
                     cmd = json.dumps(call["input"])
                     hit = {}
                     for f in key["files"]:
@@ -182,12 +185,19 @@ def reduce_session(s, key):
                     if hit:
                         call["reading_lines_matched"] = hit
                     keep = "tail -n +1 /home/user/out" in cmd
-                    call["output"] = stdout if keep else stdout[:1500]
+                    call["output"] = full if keep else out[:1500]
     # coverage
     cover = {}
     for f in key["files"]:
         lines = file_lines(f)
         nonblank = [i + 1 for i, l in enumerate(lines) if l.strip()]
+        short = {i + 1 for i, l in enumerate(lines) if 0 < len(l.strip()) < 12}
+        longs = [i for i in nonblank if i not in short]
+        for i in sorted(short - got[f]):
+            before = [j for j in longs if j < i][-1:]
+            after_ = [j for j in longs if j > i][:1]
+            if all(j in got[f] for j in before + after_) and (before or after_):
+                got[f].add(i)
         missing = [i for i in nonblank if i not in got[f]]
         run = best = 0
         prev = None
@@ -370,7 +380,7 @@ def score_run(rec, key):
     out["work_correct"] = bool(work_ok) and bool(notes)
     out["work_detail"] = detail[:2]
     # the answers after the second message
-    extra_tools = [c for c in after if not (c["tool"] == "Bash" and "tail -n +1 /home/user/out" in c["input"].get("command", ""))]
+    extra_tools = [c for c in after if c["tool"] != "ReadNotifications"]
     out["tools_after_questions"] = len(extra_tools)
     ans = "\n".join(t["text"] for t in rec["texts"] if t["after_messages"] >= 2)
     out["answers_raw"] = ans
@@ -403,6 +413,8 @@ def score_run(rec, key):
         aside.append("session not idle: " + str(rec.get("status")))
     if len(msgs) < 2:
         aside.append("second message not delivered")
+    elif out["count_answer"] is None:
+        aside.append("second message not answered")
     out["set_aside"] = aside
     cov_ok = out["coverage"] in ("read whole", "not applicable")
     if out["tools_after_questions"]:
@@ -416,6 +428,8 @@ def score(out_dir, scores_path):
     res = []
     for f in sorted(glob.glob(os.path.join(out_dir, "*.json"))):
         rec = json.load(open(f))
+        if not os.path.exists(os.path.join(KEYS, rec["trial"] + ".json")):
+            continue
         key = json.load(open(os.path.join(KEYS, rec["trial"] + ".json")))
         res.append(score_run(rec, key))
     json.dump(res, open(scores_path, "w"), indent=1)

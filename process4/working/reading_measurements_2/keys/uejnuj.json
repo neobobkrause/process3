@@ -16,12 +16,12 @@
   },
   {
    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
-   "lines": "1-31"
+   "lines": "1-29"
   }
  ],
  "files": [],
- "bytes": 32209,
- "lines": 364,
+ "bytes": 32237,
+ "lines": 363,
  "task": "dates",
  "values": {
   "code1": "A4Z-7936",
@@ -56,7 +56,7 @@
    "frac": 0.030808721326506108,
    "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref A4Z-7936`.",
    "probe": "# ref A4Z-7936",
-   "frac_actual": 0.0272,
+   "frac_actual": 0.0274,
    "line": 13,
    "hits": 1,
    "file": "(starting text)"
@@ -71,7 +71,7 @@
    "frac": 0.5264686892026513,
    "body": "Every job must note: the job's handover note is saved under the file name `ostler-relay.md`, and under no other name.",
    "probe": "ostler-relay.md",
-   "frac_actual": 0.5278,
+   "frac_actual": 0.531,
    "line": 179,
    "hits": 1,
    "file": "(starting text)"
@@ -86,8 +86,8 @@
    "frac": 0.9214680181982295,
    "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under wainscot`.",
    "probe": "-- filed under wainscot",
-   "frac_actual": 0.9246,
-   "line": 317,
+   "frac_actual": 0.9143,
+   "line": 311,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -97,7 +97,7 @@
    "value": "reviewer: Liesel Hartmannsdorf",
    "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
    "probe": "`reviewer: Liesel Hartmannsdorf`",
-   "frac_actual": 0.1895,
+   "frac_actual": 0.1906,
    "line": 57,
    "hits": 1,
    "file": "(starting text)"
@@ -108,7 +108,7 @@
    "value": "reviewer: Saoirse Kinsella",
    "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Saoirse Kinsella`",
-   "frac_actual": 0.4817,
+   "frac_actual": 0.4845,
    "line": 168,
    "hits": 1,
    "file": "(starting text)"
@@ -120,7 +120,7 @@
    "frac": 0.17730030274072817,
    "body": "A box of 6 chisels came through Pell.",
    "probe": "A box of 6 chisels came through Pell.",
-   "frac_actual": 0.1696,
+   "frac_actual": 0.1706,
    "line": 48,
    "hits": 1,
    "file": "(starting text)"
@@ -132,7 +132,7 @@
    "frac": 0.4665632988345365,
    "body": "17 mallets were logged at the Varnel gate.",
    "probe": "17 mallets were logged at the Varnel gate.",
-   "frac_actual": 0.457,
+   "frac_actual": 0.4597,
    "line": 158,
    "hits": 1,
    "file": "(starting text)"
@@ -144,7 +144,7 @@
    "frac": 0.6745674713612398,
    "body": "Eyre sent word of 14 wrenches on hand.",
    "probe": "Eyre sent word of 14 wrenches on hand.",
-   "frac_actual": 0.6783,
+   "frac_actual": 0.6823,
    "line": 224,
    "hits": 1,
    "file": "(starting text)"

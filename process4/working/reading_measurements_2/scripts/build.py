@@ -401,8 +401,11 @@ def task_block(tid, task_id, source_word):
         f"the folder {out}: what you did and where the files are.\n"
         f"3. Follow every standing instruction {source_word} gives for a job's output.\n"
         f"4. Do the reading and the work yourself, without workers (subagents). Change nothing in "
-        f"the repository: no edits, commits or pushes there.\n\n"
-        f"Reply \"finished\" when the files are written."
+        f"the repository: no edits, commits or pushes there.\n"
+        f"5. When the files are written, print them with exactly this command: "
+        f"`tail -n +1 {out}/*`\n\n"
+        f"Then reply \"finished\". The session that started you will then send one follow-up message "
+        f"with a few questions. Answering it is part of this job."
     )
 
 
@@ -700,6 +703,19 @@ def build_start(docs, size, first, count):
     save_alloc(f"start-{size}", alloc)
 
 
+def restart_texts():
+    """Rewrite the starting text of every reading trial from its key (the task wording changed)."""
+    import glob
+    n = 0
+    for kp in glob.glob(os.path.join(KEYS, "*.json")):
+        key = json.load(open(kp))
+        if key["ladder"] in ("single", "set"):
+            st = start_text_reading(key["id"], key["files"], key["task"])
+            open(os.path.join(START, key["id"] + ".txt"), "w", encoding="utf-8").write(st)
+            n += 1
+    print("starting texts rewritten:", n)
+
+
 if __name__ == "__main__":
     docs = load_corpus()
     a = sys.argv[1:]
@@ -709,8 +725,11 @@ if __name__ == "__main__":
         build_set(docs, int(a[1]), int(a[2]), int(a[3]), int(a[4]))
     elif a[0] == "start":
         build_start(docs, int(a[1]), int(a[2]), int(a[3]))
+    elif a[0] == "restart":
+        restart_texts()
     elif a[0] == "pool":
         import collections
         pool = piece_pool(docs, int(a[1]), rng_for("pool", 0, int(a[1])))
         c = collections.Counter(p["kind"] for p in pool)
         print(len(pool), dict(c), sum(blen(p["text"]) for p in pool))
+

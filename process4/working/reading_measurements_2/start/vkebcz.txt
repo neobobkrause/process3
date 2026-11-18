@@ -166,10 +166,13 @@ A requirement on what a job hands in: the reviewer for jobs has changed. Handove
 - In BOB #333's product-area table, publication and actions are one area, "Publication & action", which owns the Publication, Case Making (case) and Action v0.2 canon. Its lane is "none". Sources: https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn §"Ten product areas"; https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E §1.
 - The same table's Investigation row has the lane INVESTIGATION-DESIGN.
 
+
+The Dunn store took in 2 banjos.
+
 ## 5. Other lanes the old records define (briefly)
 
 
-The Dunn store took in 2 banjos.
+Every job must note: every file the job writes begins with this exact first line: `# ref A2J-9701`.
 
 - **AI-DESIGN** (K3718; `build/plan/lane-ai-design/CHARTER.md`, `copy` main).
   - Charter: "The lane studies and recommends; it changes no product code and decides nothing."
@@ -179,16 +182,12 @@ The Dunn store took in 2 banjos.
 - **JOURNEYS, PERFORMANCE, READING-ARCHITECTURE, ASSISTANT-HOSTING.** These are walk and study lanes, not design lanes. Each has a `CHARTER.md` under `build/plan/lane-*/` or `build/plan/study-assistant-hosting/`, and each "changes no code and decides nothing" (manifest §§). They are not read in full here.
 - **PROCESS-REDESIGN, PROCESS-REPAIR, CAPABILITIES, FILES, PLATFORM, PLANNING, TESTS-SWEEP.** These are process or beta lanes (manifest; neoProcess §2), not product design lanes. BOB #333 notes "A lane that spans several [areas], as CAPABILITIES did, is split".
 
-
-Every job must note: every file the job writes begins with this exact first line: `# ref A2J-9701`.
-
-## 6. Proposals about lanes in the process documents
-
 == Your first job ==
 
 1. Write a Python 3 script at /home/user/out/vkebcz/dedupe.py. It reads lines from standard input. Blank lines are ignored. It prints each different line once, in the order of first appearance, followed by a space, the letter x and the number of times that line appears in the input. Example: the input lines `red`, `blue`, `red` give the output lines `red x2` then `blue x1`.
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/vkebcz: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/vkebcz/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

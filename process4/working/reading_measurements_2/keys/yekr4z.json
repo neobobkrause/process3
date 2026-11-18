@@ -7,14 +7,14 @@
  "how": "one document",
  "members": [
   {
-   "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+   "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
    "s": 8,
-   "e": 83
+   "e": 71
   }
  ],
  "files": [],
- "bytes": 8135,
- "lines": 112,
+ "bytes": 8042,
+ "lines": 101,
  "task": "dedupe",
  "values": {
   "code1": "T3Q-3984",
@@ -49,8 +49,8 @@
    "frac": 0.02733394896642186,
    "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref T3Q-3984`.",
    "probe": "# ref T3Q-3984",
-   "frac_actual": 0.0656,
-   "line": 4,
+   "frac_actual": 0.0241,
+   "line": 3,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -64,8 +64,8 @@
    "frac": 0.48734633904880376,
    "body": "Every job must note: the job's handover note is saved under the file name `hollowell-relay.md`, and under no other name.",
    "probe": "hollowell-relay.md",
-   "frac_actual": 0.4887,
-   "line": 46,
+   "frac_actual": 0.5163,
+   "line": 41,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9516410112136315,
    "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.",
    "probe": "desk: alderney",
-   "frac_actual": 0.9544,
-   "line": 92,
+   "frac_actual": 0.9404,
+   "line": 81,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Dmitri Volkonsky",
    "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
    "probe": "`reviewer: Dmitri Volkonsky`",
-   "frac_actual": 0.1706,
-   "line": 18,
+   "frac_actual": 0.1727,
+   "line": 15,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Hamish Colquhoun",
    "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Hamish Colquhoun`",
-   "frac_actual": 0.8283,
-   "line": 83,
+   "frac_actual": 0.8235,
+   "line": 66,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.07867889938800948,
    "body": "Received at Corrie, 7 hammers.",
    "probe": "Received at Corrie, 7 hammers.",
-   "frac_actual": 0.1112,
-   "line": 9,
+   "frac_actual": 0.1125,
+   "line": 10,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.3620190330362224,
    "body": "At Yarm the clerk wrote down 15 trowels.",
    "probe": "At Yarm the clerk wrote down 15 trowels.",
-   "frac_actual": 0.3552,
-   "line": 33,
+   "frac_actual": 0.3683,
+   "line": 30,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.9365215675150382,
    "body": "A box of 10 wrenches came through Rigg.",
    "probe": "A box of 10 wrenches came through Rigg.",
-   "frac_actual": 0.9593,
-   "line": 97,
+   "frac_actual": 0.9324,
+   "line": 76,
    "hits": 1,
    "file": "(starting text)"
   }

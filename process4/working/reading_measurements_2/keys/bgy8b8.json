@@ -9,12 +9,12 @@
   {
    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
    "s": 6,
-   "e": 40
+   "e": 38
   }
  ],
  "files": [],
- "bytes": 8182,
- "lines": 71,
+ "bytes": 8196,
+ "lines": 103,
  "task": "colsum",
  "values": {
   "code1": "L6E-8903",
@@ -49,8 +49,8 @@
    "frac": 0.023357399894742132,
    "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
    "probe": "greywether-relay.md",
-   "frac_actual": 0.0647,
-   "line": 3,
+   "frac_actual": 0.0347,
+   "line": 4,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -64,8 +64,8 @@
    "frac": 0.4560782166749653,
    "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref L6E-8903`.",
    "probe": "# ref L6E-8903",
-   "frac_actual": 0.4776,
-   "line": 24,
+   "frac_actual": 0.4925,
+   "line": 54,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -79,8 +79,8 @@
    "frac": 0.9722708837606748,
    "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: foxglove`.",
    "probe": "desk: foxglove",
-   "frac_actual": 0.9698,
-   "line": 55,
+   "frac_actual": 0.9773,
+   "line": 87,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,8 +90,8 @@
    "value": "reviewer: Greta Lindqvist",
    "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
    "probe": "`reviewer: Greta Lindqvist`",
-   "frac_actual": 0.1304,
-   "line": 7,
+   "frac_actual": 0.1247,
+   "line": 15,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -101,8 +101,8 @@
    "value": "reviewer: Odette Fairweather",
    "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Odette Fairweather`",
-   "frac_actual": 0.4777,
-   "line": 28,
+   "frac_actual": 0.4247,
+   "line": 50,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,8 +113,8 @@
    "frac": 0.22929493144423727,
    "body": "Received at Dunn, 8 elms.",
    "probe": "Received at Dunn, 8 elms.",
-   "frac_actual": 0.1944,
-   "line": 11,
+   "frac_actual": 0.2284,
+   "line": 27,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -125,8 +125,8 @@
    "frac": 0.5065775953334757,
    "body": "At Tamsin Row the clerk wrote down 5 alders.",
    "probe": "At Tamsin Row the clerk wrote down 5 alders.",
-   "frac_actual": 0.5037,
-   "line": 32,
+   "frac_actual": 0.5194,
+   "line": 59,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.6757031660826717,
    "body": "Tally for Lund: 13 willows.",
    "probe": "Tally for Lund: 13 willows.",
-   "frac_actual": 0.6854,
-   "line": 43,
+   "frac_actual": 0.6681,
+   "line": 70,
    "hits": 1,
    "file": "(starting text)"
   }

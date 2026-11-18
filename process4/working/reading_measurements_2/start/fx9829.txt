@@ -2,62 +2,63 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-## Development deployments
+- A ROOT started by Bob's plain prompt comes up on his newest approvals, and starts ARCH and the coordinator.
 
-`deploy` in `process/config.json` (optional; without it `deploy dev` is refused).
+A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed W9H-6792`.
 
-Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed D6V-7883`.
+This holds also straight after Bob commits new approvals.
 
-Development deployments only, in the product's own Cloudflare account under Bob's approvals:
+Tally for Rigg: 15 banjos.
 
-| key | what |
-|---|---|
-| `slug_prefix` | must begin with `p3dev-`; the default slug is `<slug_prefix>l<layer>` |
+- A merge with no review, made by Process4's tool, passes the permission checker.
+Twenty or more merges are tried.
+- A freed slot is refilled within minutes, and jobs obey an ARCH that has been replaced.
+- The shared state works, and the hourly alarm wakes a ROOT that Bob started.
 
-Eyre desk entered 17 eels on the sheet.
+Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
 
-| `dry_run` | an argv, or a list of argvs; each must print `guard_line` |
+- The watcher takes over from a ROOT that has died.
+- A stop, a held merge, a module put first and a new number of slots each work on Bob's word, and the alarm does not undo a stop.
+- Finished sessions do not use up the account's room.
+- Several sessions share one walk.
+Sessions make a deployment and an external walk as a step in a round.
 
-Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Kwabena Asantewaa`.
+The Brae store took in 7 violins.
 
-| `deploy` | an argv, or a list of argvs, run once the dry run passed |
-| `walk` | an argv, or a list of argvs, the walkers, run once the deploy passed |
-| `guard_line` | the line each dry-run step must print on its standard output, as a line of its own (trimmed), for example `p3dev guard:
-passed` |
-| `timeout_minutes` | per step; default 30 |
-| `walk_reports` | the files the walk writes, kept on the state branch under `deploys/<slug>/<UTC time>/`, masked; one over `max_file_bytes` recorded as not stored; report.json's counts in the row |
+The product's hosting account bears the walkers.
+The tranche branch merges into the main branch.
+- A mechanical edit across several modules merges once.
+- ARCH asks ROOT, ROOT starts PROCESS on the process's repository, and a process fault reaches PROCESS by way of the coordinator.
 
-At Brae the clerk wrote down 11 pike.
+Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref B5M-6791`.
 
-| `internal_walk` | required (Bob, 7 Nov:
+- A switch of account loses no work.
+- Sessions started this way load Bob's approvals and the list of forbidden commands, also after an edit and a restart.
+A release can be prepared as far as Bob's approval.
 
-A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Kwabena Asantewaa is no longer written anywhere in a handover note.
 
-"Required, tool-started"; setup check's `internal-walk` is missing without it), or Bob's recorded exemption `{"none":
+5 oboes were logged at the Varnel gate.
 
-Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.
+Also unproven, because they have never run:
 
-"<reason>", "by":
-"Bob, <date>"}` (his word only; setup check reads it `not configured:
-<reason> (<by>)`); `{"run":
-argv or argvs, "timeout_minutes":
-the whole run's, default 30, "reports":
-[paths]}`:
-the product's internal walk (offline, for example Miniflare on loopback; Bob, 4 Nov), run at each round close by the round-close run, never a gate.
-Where it is set, the round-close run is this walk alone (`walk round`), and the deploy, its dry run and its live walk run only as the release deployment, once a round's internal walk is clean (BD-R1, C43); where it is not, the round-close run is `deploy dev` |
+Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
 
-`walk` in `process/config.json` (optional; C43, Bob, 8 Nov:
-"run as many walks as is reasonable to speed up the walking process.
-(But be careful that there aren't too many external walkers to cause the Cloudflare system to exceed limits of the account."):
+the refresh of a long-lived role on purpose, with a successor that starts from the shared state and the repository alone; partial walks; and running and confirming an install and an update before a release.
 
-Tally for Dunn: 7 trout.
+Claude Code:
+ROOT is started by Bob's plain prompt, so its starting instructions do not name every act it may take.
+Whether that start works is unproven.
 
-how many walkers run at once.
-The tool hands each walk stage its count as `{concurrency}` in its argvs and `P3_WALK_CONCURRENCY` in its environment; the live walk also gets `P3_WALK_BROWSER_STARTS_PER_MINUTE`.
+## What only the first real tranche can show
 
-Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under varnish`.
+- Whether a tranche ends by a clean walk.
+- Whether the permission checker goes on passing merges at a real rate.
 
-How the walkers use them is the product's.
+To be kept by any job that works from this text: the job's handover note is saved under the file name `elderwood-relay.md`, and under no other name.
+
+- How often a process fault stops work and waits for Bob at PROCESS.
+- Whether cost can be read for the accounts and the report.
+In Process3 it often could not.
 
 == Your first job ==
 
@@ -65,5 +66,6 @@ How the walkers use them is the product's.
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/fx9829: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/fx9829/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

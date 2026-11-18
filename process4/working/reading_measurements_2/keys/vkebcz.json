@@ -9,12 +9,12 @@
   {
    "doc": "principles/notes__lane-charters.md",
    "s": 13,
-   "e": 161
+   "e": 159
   }
  ],
  "files": [],
- "bytes": 16316,
- "lines": 194,
+ "bytes": 16468,
+ "lines": 193,
  "task": "dedupe",
  "values": {
   "code1": "A2J-9701",
@@ -49,7 +49,7 @@
    "frac": 0.07183576740007355,
    "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under thistledown`.",
    "probe": "-- filed under thistledown",
-   "frac_actual": 0.0907,
+   "frac_actual": 0.091,
    "line": 8,
    "hits": 1,
    "file": "(starting text)"
@@ -64,7 +64,7 @@
    "frac": 0.4742507208269444,
    "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed B2E-6848`.",
    "probe": "run closed B2E-6848",
-   "frac_actual": 0.4755,
+   "frac_actual": 0.4773,
    "line": 84,
    "hits": 1,
    "file": "(starting text)"
@@ -79,8 +79,8 @@
    "frac": 0.9275153000814349,
    "body": "Every job must note: every file the job writes begins with this exact first line: `# ref A2J-9701`.",
    "probe": "# ref A2J-9701",
-   "frac_actual": 0.9963,
-   "line": 179,
+   "frac_actual": 0.9026,
+   "line": 171,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,7 +90,7 @@
    "value": "reviewer: Soren Achterberg",
    "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
    "probe": "`reviewer: Soren Achterberg`",
-   "frac_actual": 0.2181,
+   "frac_actual": 0.219,
    "line": 29,
    "hits": 1,
    "file": "(starting text)"
@@ -101,7 +101,7 @@
    "value": "reviewer: Mikko Rantanen",
    "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Mikko Rantanen`",
-   "frac_actual": 0.8104,
+   "frac_actual": 0.8134,
    "line": 150,
    "hits": 1,
    "file": "(starting text)"
@@ -113,7 +113,7 @@
    "frac": 0.06476944445456262,
    "body": "At Quay Nine the clerk wrote down 9 harps.",
    "probe": "At Quay Nine the clerk wrote down 9 harps.",
-   "frac_actual": 0.0946,
+   "frac_actual": 0.0949,
    "line": 13,
    "hits": 1,
    "file": "(starting text)"
@@ -125,7 +125,7 @@
    "frac": 0.27903425046281344,
    "body": "Thorpe sent word of 5 flutes on hand.",
    "probe": "Thorpe sent word of 5 flutes on hand.",
-   "frac_actual": 0.2852,
+   "frac_actual": 0.2862,
    "line": 45,
    "hits": 1,
    "file": "(starting text)"
@@ -137,7 +137,7 @@
    "frac": 0.4030701635335645,
    "body": "Received at Hale End, 16 trumpets.",
    "probe": "Received at Hale End, 16 trumpets.",
-   "frac_actual": 0.3846,
+   "frac_actual": 0.386,
    "line": 68,
    "hits": 1,
    "file": "(starting text)"
@@ -149,7 +149,7 @@
    "frac": 0.5051927826225074,
    "body": "Tally for Brae: 12 oboes.",
    "probe": "Tally for Brae: 12 oboes.",
-   "frac_actual": 0.5196,
+   "frac_actual": 0.5216,
    "line": 94,
    "hits": 1,
    "file": "(starting text)"
@@ -161,7 +161,7 @@
    "frac": 0.7713984668014392,
    "body": "Marsh Lane desk entered 3 violins on the sheet.",
    "probe": "Marsh Lane desk entered 3 violins on the sheet.",
-   "frac_actual": 0.7558,
+   "frac_actual": 0.7586,
    "line": 141,
    "hits": 1,
    "file": "(starting text)"
@@ -173,8 +173,8 @@
    "frac": 0.9019161591865534,
    "body": "The Dunn store took in 2 banjos.",
    "probe": "The Dunn store took in 2 banjos.",
-   "frac_actual": 0.8993,
-   "line": 168,
+   "frac_actual": 0.899,
+   "line": 166,
    "hits": 1,
    "file": "(starting text)"
   }

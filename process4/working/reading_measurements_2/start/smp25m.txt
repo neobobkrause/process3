@@ -2,139 +2,146 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
-**Counter-argument.** On 8 Nov Bob said, in his own words, that a tranche ends only after the walk of the deployed release is also clean and the installer and website are updated. The definition ends the tranche at the clean internal walk, merges it to the main branch, and sends whatever the external walk finds to the next tranche. It follows a session's record of 13 Nov and never tells Bob that this replaces what he said five days earlier.
-
-**Sentences attacked (section C).** "A round that completes with no failures ends the tranche. The tranche branch merges into the main branch as a whole ... A deploy-and-external-walk then follows ... It does not hold the tranche back. What it finds is the first work of the next tranche." Section H lists only 'a development release "in each round"' as ended.
-
-
-Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: elderwood`.
-
-**Sources.**
-- Bob, 8 Nov (`DECISIONS.md`, BD-R1, "in Bob's words"): "This successive set of rounds continues until an internal walk doesn't find flaws, the release deployment happens, and the walk of the release also doesn't identify flaws. When the release walk is clean, the installer is updated for that release, then the civicsmith.dev website is updated to refer to the new install, and that ends the tranche."
-- Session's record of 13 Nov: "A round that completes with no failures ends the tranche. An optional multi-session deploy-and-external-walk runs after that."
-- Foundations, "A job's life": "so nothing found waits for the next tranche".
-- `k_evidence.md`: "By Bob's words of 8 Nov the question could not arise ... No text of his says what its findings then open." And: "in Process3 nothing reached the main branch before a clean external walk."
-- The definition's own figure: the one time the internal walk was clean, the external walk of the same build passed 20 of 175.
+- 31 Oct (LL SES-1, PLT-5 original): ROOT at depth 0; "Sessions are started only from depth 0 or 1, so depth never grows past 2." No coordinator.
+- 3 Nov 19:30Z (LL PLT-5 note, "written in by the coordinator"): "depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3." Coordinator at 0, ROOT at 1.
+- 5 Nov 17:02Z, measured (LOG L629): "Bob's desktop session depth 0; coordinator chain 1,2; ROOT 3 (started by a coordinator); jobs 5 of 8." The "8" is the only number in the record that reads as a platform bound; "3" is the process's own rule (PLT-5: "Depth stays well inside what the platform allows").
+- 6 Nov (DEC PD-1, the coordinator's decision): "ROOT runs at depth 0 from Bob's app and starts BOB, the watcher and the coordinator; BOB starts jobs and lanes". So ROOT 0; coordinator, BOB, watcher 1; jobs, lanes, builders, short sessions 2.
+- 7 Nov 19:07Z to 8 Nov 19:00Z: ROOT was the former watcher, one level down.
 
 
-Received at Osk, 11 beets.
+Every job must note: the job's handover note is saved under the file name `pennant-relay.md`, and under no other name.
 
-**Kind.** (e). Claude's choice in K6 (a rule runs the walk; Bob may skip it) picks Bob's own rule of 8 Nov and is declared; the undeclared part is the end of the tranche and the fate of the findings.
-
-**How bad.** Silently corrupts the result: the main branch receives a product no deployed walk has passed, on the strength of a record Bob did not type.
-
-**Proposed correction.** Add to "End of a tranche", and repeat in section H: "This changes what you said on 8 Nov, that rounds continue until the walk of the release deployment also finds no flaws, the installer and website are updated, 'and that ends the tranche'. A session's record of 13 Nov has the tranche end at the clean internal walk, with the external walk after it and optional. This document follows the later record. Three things follow from it: the main branch receives the tranche before any deployed walk; updating the installer and website is no longer part of ending a tranche; and what the external walk finds waits for the next tranche, where your documents said nothing found waits for the next tranche. If the record of 13 Nov is wrong on this, say so."
-
-### 3. The walk before a public release "on a copy installed with the real installer" is a new test, unbuilt, and the whole release path is missing from the unproven list
-
-**Counter-argument.** In the same breath as ending the install test, Claude designs a walk that installs the product with the real installer. No document of Bob's asks for it, it has never been built, and it is not listed as unproven. Nothing on the path to a public release ever ran in Process3, and section J is silent on all of it. Two of Bob's rulings on that path are dropped.
+**The prior review's sentence, checked.** RV: "The Foundations name ROOT, BOB, jobs, lanes and workers. The coordinator appears nowhere in the original design. By 4 Nov it owned every 'process technical decision'".
 
 
-Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.
+Tally for Wick: 2 trumpets.
 
-**Sentences attacked.** Section C: "Claude decided that this walk is run on a copy installed with the real installer, since a development deployment does not use the installer. The process prepares the release and shows you what it carries. It waits for your approval, given in a protected area of GitHub ..." Section B: "There are no others".
+- Correct for the 31 Oct Ledger (SES-1, PLT-5) and for the roles table and diagram ("6 boxes, depth 0 to 2"), which never gained a coordinator row, in F-early or F-tip.
+- Not exact for the Foundations text as it stood by 3 to 4 Nov, which names the coordinator four times without defining it: the property row "depth never exceeds 3 (coordinator, ROOT, BOB, job)"; the watcher row "Whoever starts the first ROOT (you, or the coordinator)"; "a fresh coordinator reached 2 in its first minutes (measured 3 Nov)"; and Setup, "So the coordinator is started with the product repository only".
+- That last sentence does not match what ran: the coordinators of 3 and 4 Nov were started on process3 (`start/coordinator-3nov-2` is a process3 branch at tranche commit `cf440d5`; HO-4nov, "On neobobkrause/process3"). It matches only if "the product" there means process3, which the first handoff's wording supports ("You are BOB, the Process3 coordinator"). The record does not settle which was meant.
 
-**Sources.**
-- Bob, 14 Nov: "Do not add tests, gates, reviews or checks. Process4 has three tests, ever." "Do not assure me that something will work."
-- `k_evidence.md`, option 3 for the install test: "The external walk is made to cover them: it walks a copy installed by the installer ... Risk: unbuilt and unproven". Also: "No release of any kind was cut."
-- Bob, 8 Nov (BD-R3): "build the installer only when the internal walk completes without the need for another round, and build the site update only once the external walks complete without the need for another round."
-- Bob, 9 Nov (BD-R5): "The first run or two of the external system will run without without an AI account connected ... we'll configure an AI so that the AI-assisted journeys can be run and debugged." And: "Yes, the installer update and site update wait until a release walk with AI on is also clean." `k_evidence.md`: "BD-R5 leaves one act with Bob that is not on his list: connecting an AI account to the deployment".
+**How the role appeared and grew, dated.**
 
-**Kind.** (f) a new test; (g) unproven and not in J; (d) BD-R3 and BD-R5 dropped.
-
-
-The Dunn store took in 18 onions.
-
-**How bad.** Misleads Bob; could stop the first release.
-
-**Proposed correction.**
-- Replace the "Claude decided that this walk ..." sentence with: "A development deployment does not use the installer, so the external walk does not show that the installer can place a release into an empty account. Nothing in Process4 shows that. It is unproven."
-- Add to section J: "Nothing on the path to a public release has ever run: preparing the release, your approval in GitHub's protected area, updating the installer and the website page. Process3 cut no release of any kind. *Trial:* one rehearsal as far as the draft, stopping before anything is published."
-- Add to section C, or declare ended with the decider named: "Your rulings of 8 and 9 Nov stand: the installer is built only after a clean internal walk and the website update only after clean external walks; the first external walks run with no AI account, and the installer and website wait for a clean walk with one connected. Connecting that account is an act of yours and is added to the list in section B."
-
-### 4. The sentence that was meant to hold back growth is gone, and the rule said to replace it is narrower
-
-**Counter-argument.** Bob's own brake, that caution is a cost and that the default answer to an unmeasured worry is no change, appears nowhere in the main text. Item 7 of section I ends the citation rule and says the rule on process fixes "now does its work". That rule forbids only a new test, gate, review or stop. It does not cover new records, rules, alarms or duties, which section A itself names as part of what killed Process3.
+1. 2 Nov: "coordinator" in the tool means a job's superior, that is BOB (`d85a6e5`). 3 Nov 01:21Z: ROOT's prompt says "Your coordinator is Bob, the person who started you" (`0acc0e3`).
+2. 3 Nov 19:30Z: the PLT-5 note puts a coordinator above ROOT.
+3. 3 Nov 21:44Z (`c7ba5d2`): ROOT's prompt names "the coordinator session named by `coordinator` in process/config.json"; "ROOT sends technical questions to the coordinator session, not to Bob."
+4. 4 Nov 00:15Z (LOG L21): the owner asks "why does BOB keep handing him non-decisions"; the P17 purpose/mechanism rule follows.
+5. 4 Nov 01:23Z to 01:38Z (`ca9f3b2`, `d33d324`, `940b4d1`): ROOT and the watcher get a send act to the coordinator; an escalation chain; BOB takes the coordinator's words directly.
+6. 4 Nov 04:11Z (LOG L87): "the coordinator alone starts pin moves".
+7. 5 Nov: its own hourly task; the MERGER; `p3 hold`; five studies. LOG L325: "the coordinator role has no checks".
+8. 5 Nov 17:02Z: PR 162, a tool-printed prompt and an address file for it.
+9. 6 Nov: the owner keeps AUD-5 on the Keep and Drop page; PD-1 restates the Foundations: "BOB decides the product's technical matters, the coordinator the process's". `DECISIONS.md` begins.
+10. 6 to 9 Nov: standing builders, a problem-class register (`notes/problem-classes.md`), an hourly budget and audit report, PD-17 rehearsals.
+11. 8 Nov, DEC BD-R2, the owner's words: "Having the coordinator as the front door has been working well. Let's continue to do so if that's possible."
 
 
-Tally for Varnel: 6 shallots.
+Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.
 
-**Sentences attacked.** Section I, item 7: "*Claude decided:* end the citation rule. The rule on process fixes (section E) now does its work." Section E: "It must never add a new test, gate ... review or stop." Section A: "its sessions kept adding checks, reviews and record-keeping".
+**Whom the owner talked to.**
 
+- Day to day: the coordinator. Every "Bob, in this session" entry is in the coordinator's log.
+- (a) Product. Also the coordinator. Product decisions were given there and relayed: LOG L1171 "BOB'S DECISION (Bob, in this session) BD-R1"; L1060 "Q9 ANSWERS ... Sent to BOB for the copy's DECISIONS.md"; BD-R2 "relays Bob's words to it quoted and dated". Two side channels: lanes showed him claude.ai artifacts (LOG L651, his words: "design documents that lanes create/update/interact with me using are CC artifacts"), and decision pages. BOB's prompt allows a push notification to him; no conversation with BOB is recorded.
+- (b) Process. The coordinator, plus his own website commits to `CLAUDE.md` and settings.
+- ROOT: he pasted its first message three times and, on 8 Nov, "Bob asks ROOT to hand BOB over" (LOG L1190).
 
-Kept by every job without exception: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.
+---
 
-**Sources.**
-- Foundations: "caution is a cost, paid only against a measured failure or your word. ... The default answer to a finding with nothing measured behind it is no change, and a rule, check, review round, measurement run or owed task exists only against a measured failure or your word (GAP-3)."
-- Bob, 7 Nov (`DECISIONS.md`): "make sure that this baseless overcaution NEVER happens. NEVER!"
-- Disposition table: both Foundations rows are KEEP or purpose kept.
-- `change_sample.md`: the 121 additions were of "a check, gate, refusal, hold, review requirement, audit, alarm or bookkeeping duty".
+## 3. Start-up and restart as actually done
 
-**Kind.** (d). Section I says "Every purpose behind them stays", but for this item the main text does not state the purpose and nothing carries it.
-
-**How bad.** Silently corrupts the result: the documented way Process3 grew is only half forbidden.
-
-**Proposed correction.** Add to section E, in Bob's own words: "Two sentences of yours stay as rules for every session: 'Caution is a cost, paid only against a measured failure or your word', and 'The default answer to a finding with nothing measured behind it is no change.' They are rules in text; nothing enforces them." In item 7 replace the last sentence with: "The rule on process fixes covers tests, gates, reviews and stops. New records, rules, alarms and duties are held back only by your two sentences in section E."
-
-### 5. Claude ends Bob's judge of the process, quotes his rule with half of it cut off, and puts a new record in its place
-
-**Counter-argument.** The Foundations make two numbers "the standing judge of every other line" and say nothing is in force until a tranche has run with them measured. Claude retires both as a technical matter. Section J then cites "your own rule" without the half Claude ended. In their place the tranche report gets a new count, with a watch on walk steps added or removed, which no document of Bob's asks for. The report's own list is also shorter than Bob's.
-
-**Sentences attacked.** Section K, point 5: "*Claude decided:* the two numbers ... are retired." Section J: "By your own rule, nothing here is in force until it has run on a real tranche." Section G: "Claude decided that it also carries the walk result at the end of each round: steps passing out of steps in all, with any steps added or removed since the last round shown beside it". Section G: "A tranche report: time, work done, cost, overhead, and the minutes it took of yours."
+### 3.1 A fresh start (the sequence the tip encodes; run in full on 8 Nov 19:00Z, and on 5 Nov 18:41Z without step 6)
 
 
-Tamsin Row sent word of 19 parsnips on hand.
+At Rigg the clerk wrote down 6 clarinets.
 
-**Sources.**
-- Foundations: "Nothing here is in force until it has run on a real tranche with the two health metrics measured." "The two health metrics ... are the standing judge of every other line." "the tranche report states elapsed time, work done, deferrals, cost, the overhead share, BOB's idle time while work was ready, and the minutes it took of yours".
-- Disposition table, on the judge: "the owner should see any change to his judge".
-- `k_evidence.md`: "Not found: any line of Bob's that names walk steps passing ... as a measure." Also: survival of merged work "98.8%" was read from git, so half of the second number can still be read at no cost.
-- Bob, 14 Nov: "Bring me only what is mine to decide"; "start from my documents".
-
-**Kind.** (c) by Claude of something that is a purpose (how Bob judges the process), not a way; (f) the walk-step record; (e) the truncated rule; (d) "deferrals" and "idle time while work was ready" dropped from the report.
-
-
-To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.
-
-**How bad.** Misleads Bob; costs him his measure of "quickly, cheaply, and still there later".
-
-**Proposed correction.**
-- Section K, point 5: "Your Foundations call these two numbers 'the standing judge of every other line'. Ending them changes what you asked for, so you may want this back as your decision. Claude's reasons: the first is defined by two checks you ended; the cost half of the second could not be read for most of Process3. What can still be read from git at no cost is whether merged work is still there later."
-- Section J, first line: "Your rule is that nothing is in force until it has run on a real tranche 'with the two health metrics measured'. Claude has retired those two numbers (section K), so that half of your rule is not met."
-- Section G: restore the report's list as the Foundations give it, and either remove "with any steps added or removed since the last round shown beside it" or mark it plainly as an addition of Claude's that no document of yours asks for.
-
-### 6. "Replacing ROOT is not an act of yours" is contradicted by Process3's own record
-
-**Counter-argument.** The standby is in Bob's Foundations, so it is not a new design. But in Process3 each takeover left ROOT one level lower and left no standby, and the decision record says Bob then restarts ROOT himself. The text promises the opposite, does not list it as unproven, and does not list the standby among the sessions in section B.
-
-**Sentence attacked.** Section K, technical point 4: "For ROOT, keep Process3's standby session, woken once a day, which takes over, so that replacing ROOT is not an act of yours." Section B: "Sessions are at most three levels deep".
-
-**Sources.**
-- `DECISIONS.md`: "A takeover moves ROOT one level down, so it is a bridge: Bob restarts ROOT from his app at depth 0 at his next opportunity".
-- `roles_root_coordinator.md`: "It took over twice (4 Nov 04:11Z, 7 Nov 19:07Z)"; "Each left no watcher and put ROOT one level down"; and, of the roles suited to Process4, "Not in the set ... the watcher".
-- Foundations: "If the watcher's session declines, replacing ROOT stays yours".
-
-**Kind.** (g) assurance; proven and unproven blurred.
-
-**How bad.** Stops a tranche if it fails; misleads Bob.
-
-**Proposed correction.** "For ROOT, your Foundations name a standby session, woken once a day, that takes over. In Process3 it took over twice. Each time ROOT ended one level lower and no standby was left, and the Process3 decision record has you restart ROOT yourself afterwards. So a takeover is a bridge, and starting a fresh ROOT after one is the act already on your list. Not proven: that jobs can still be started after a takeover." Add the standby to section B, with who starts it.
+1. The owner commits his approvals to the product's `CLAUDE.md` on GitHub's website. Every role's prompt pins the approvals hash, so every role stops at its next wake.
+2. A session with a product checkout runs `p3 start root` (the coordinator through a short session, or BOB). It prints the prompt and the call.
+3. The coordinator gives the owner the text. **By hand:** he opens a new session on the product repository, picks branch `tranche`, pastes the prompt.
+4. ROOT: `git submodule update --init .process`; `start check`; `start record root <id>`; `status`.
+5. ROOT: `handover begin` (or `start bob`), `create_session`, `handover confirm`; `start watcher` and its daily task; its own sweep task.
+6. ROOT, at the coordinator's ask: `start coordinator --replace ...`, `create_session` (process3 only), `start record coordinator`.
+7. The new coordinator rebinds its tasks, sets the probe's `coordinator` field by pull request, tells BOB and the builders, and archives or deletes what the old ROOT left.
+8. BOB: `start check`, `list_sessions`, `status --role bob --sessions <file>`, then each `job start` line.
 
 
-Every job must note: the job's handover note ends with this exact last line: `-- filed under larkspur`.
+A box of 13 bassoons came through Uller.
 
-### 7. The slot number: the default and "for each product" both settle conflicts in Bob's own words without naming them
+**What broke.**
+- The owner-started ROOT's container stood on an old commit both times: "first start check failed (container on 18935dc7, older than the tip) ... the Bob-app ROOT clones the default ref, not the tip" (LOG L667); again on 8 Nov (L1190). Fixed by a message from the coordinator.
+- 8 Nov: "addresses/watcher.json still names the archived watcher, so ROOT's 'start watcher only when none' is blocked" (L1190).
+- 5 Nov 15:53Z: "The tool's prompt replaces BOB but not an addressed MERGER or watcher" (L600).
+- Every approvals edit stopped everything: 4 Nov, 5 Nov twice, 8 Nov, 9 Nov (RV).
+- 9 Nov: the owner's commit at about 16:45Z stopped ROOT, BOB and the watcher. The coordinator generated the new ROOT text, asked for "go", logged "waiting on Bob's 'go'" hourly from 18:52Z, and at 00:52Z on 10 Nov "Hourly check switched off until Bob answers" (LOG L1296 to L1302). No ROOT was started. `addresses/root.json` still names the 8 Nov ROOT.
 
 
-16 leeks were logged at the Stane gate.
+Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref Z5Q-5362`.
 
-**Counter-argument.** Bob's words give four different numbers on four dates, and his words of 6 Nov tie the number to GitHub traffic for the whole account. The text states "eight by default" and "for each product" as settled and mentions only the Foundations' 24.
+### 3.2 A coordinator replacement
 
-**Sentences attacked.** Section A: "Eight by default." Section H: "A default of 24 live sessions ... *Why:* eight job slots, and only you change the number." Section K, point 7: "*Claude decided:* for each product. A session holds one repository, so nothing can count jobs across two products without a new mechanism."
 
-**Sources.**
-- Foundations: "at most 24 live sessions by default ... (your word, 1 Nov)".
-- Bob, 6 Nov (quoted): "I think that github limits can handle the traffic from as many as 8 jobs at a time. Set the job slot limit to 8 and monitor github usage for an hour or so to see if there's any real need or opportunity to low or raise the slot count." And: "confirm that the github usage limits we agreed to abide by are written into process3 and used properly account wide."
+A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.
+
+- **Until 5 Nov.** Outgoing: writes the handoff, calls `create_session` itself. Incoming: (1) records its id as `coordinator` in the copy's and the probe's `process/config.json`, each "by a short session" and a pull request; (2) re-creates each of the predecessor's tasks bound to itself and deletes the old; (3) tells BOB, ROOT, the MERGER and builders its id; (4) archives the predecessor (HO-4nov, HO-4nov-d).
+- **Broke.** The id change waited in the merge train, "today's gap where roles could not take orders between handoff and config" (LOG L615). Each refresh nested one level deeper (L616).
+- **From 5 Nov 23:54Z.** Outgoing writes the handoff and asks ROOT. ROOT runs `start coordinator --replace <id> --branch start/coordinator-4nov --handoff notes/<file>`, creates the session, records the address, archives the old one. Steps (2) and (3) and the probe's pull request stayed, about 26 times.
+- **By hand, by the owner:** nothing after the first; several refreshes were on his word ("You need to refresh", "I suggest that we refresh you").
+
+### 3.3 A ROOT replacement
+
+Three routes ran:
+- The watcher takes over: 4 Nov 04:11Z, "Detection to takeover about 1 min after the wake" (LOG L88); 7 Nov 19:07Z. Each left no watcher and put ROOT one level down.
+- The coordinator starts it through a short session (4 Nov 08:13Z; 5 Nov 06:05Z, 06:50Z, 15:53Z).
+- The owner starts it from his app (5 Nov 17:45Z, 18:41Z; 8 Nov 19:00Z).
+
+After each: BOB handed over, watcher (and MERGER) replaced, a new sweep made, the old sweep deleted or switched off and the old ROOT archived, usually by the coordinator.
+
+### 3.4 Account switches
+
+**5 Nov** (`notes/account-switch-review.md`): "05:44 Bob: stop all work for the switch." The first new-account coordinator found no GitHub connection (05:55); then every push went "as neobobkrause, the repos' owner and admin", so "06:23 every job start refused". "06:37 Bob closed everything again". Roles were started twice over while the tranche moved. "Cost: 0 jobs live 05:44-07:18 (94 min at 0/20, against 19/20 at 05:20)." Old task prompts "were unreadable from the new one and were rebuilt from prose; 13 job sessions were stranded". By hand, the owner: connect GitHub (twice, the second time as the collaborator), start three coordinator sessions.
+
+
+Received at Stane, 12 violins.
+
+**7 Nov** ("switch out", "switch in"). 05:35Z, LOG L1066: "SWITCH OUT on Bob's word ('Please start the process of shutting down development in this account...'). Manifests: copy 72a5c7ba2d ... Stop acts done: 3 jobs, 5 tasks switched off ..., 3 lanes, BOB/ROOT/watcher." COPY `switch/manifest.json` (`3f70e577a9`, 05:32Z). HO-7nov-c-switch lists the owner's steps (runbook section 2: connect GitHub as the collaborator, install the GitHub App on three repositories, recreate the cloud environment with its secret, share the claude.ai documents, approvals, "Start the new coordinator session with one repository attached") and then `switch in` as the new coordinator's first act.
+
+What happened: LOG L1067, 15:07Z, "SWITCH CANCELLED on Bob's word ('The account switch didn't work... So start everything back up here in this account.'). `switch in` was never run, so the manifest is inert and the addresses stand." L1069: "The other account's session worked on neoprocess (tranche N2, layers 1-3), not on process3 or civicsmith-copy". Cost: "about 9.5 h" of layer 10's 12.5 (L1075). Why the other account's session went elsewhere is not recorded. `switch in` has no run in the record.
+
+---
+
+## 4. The maximum number of concurrent jobs or sessions
+
+| When | Number | Where it lived | Set by | Authority |
+| --- | --- | --- | --- | --- |
+| 1 Nov | 24 live sessions of every role | Tool default `live_cap` | The process build | F-early: "So the process keeps at most 24 live sessions by default ... BOB may raise or lower that number from what it measures, and records each change (your word, 1 Nov)". Basis: "at about 50 live sessions the account stops starting new ones" |
+| 4 Nov 17:28Z | "about 6 job sessions at most" | Nowhere: a message to BOB | The coordinator | Its own. LOG L325: "(its own number) ... the coordinator's number recorded as Bob's agreement"; ran about 6 hours |
+| 4 Nov 23:35Z (log) | 20 jobs | `P3_JOB_CAP`, a variable in the account's cloud environment, default 20 in `jobCap()` (`87b8853`, `8f7347a`, PR 130) | A builder, on the coordinator's brief | The owner, as logged without a quote: "concurrency cap is 20 jobs by default, Bob can change it" (L284); "cap and count should be account-specific" (L286). The two commits are dated 22:12Z and 22:20Z, about an hour before the log's time for his word; not resolved |
+| 6 Nov 20:27Z | 4 jobs, 1 lane | `PACING_DEFAULTS` in a builder's branch (`33662bf`): "`pacing.jobs` 4 (the job cap is the lower of this and P3_JOB_CAP)" | A builder, on the coordinator's R17 brief after the GitHub suspension | The coordinator's. Made "off by default" before merge (`de5ea3a`), after the owner's 21:10Z words on 80 to 90% of GitHub's limits |
+| 6 Nov 23:45Z | 1 | COPY `process/config.json`, `pacing.jobs` | The coordinator's ruling | Its own, after the owner's "All I can say is BE CAREFUL" (L1018) |
+| 6 Nov 23:52Z | 8 | `pacing.jobs`, landed by BOB | BOB, by pull request | The owner, quoted: "Set the job slot limit to 8 and monitor github usage for an hour or so" (L1021) |
+| 7 Nov, about 15:51Z | 20 | `pacing.jobs` 20 (still in the config at the tip) | BOB, by pull request | The owner: "job slots raised to 20" (L1072) |
+| 7 Nov | (what the number counts) | DEC PD-7 | The coordinator | Its own: "the job cap counts jobs still working toward publish" |
+| 9 Nov | 20 | Tool default; `pacing.jobs` ignored | The tool | COPY `heartbeat.json`, 9 Nov 16:05Z: "pacing.jobs (PD-6 ...) ignored; the job cap now comes from P3_JOB_CAP (default 20)", "job cap 20 (default)". So the variable was never set on this account |
+
+
+The Yarm store took in 17 harps.
+
+How a change was made: the owner told the coordinator; the coordinator told BOB; BOB opened a config pull request in the product (the coordinator holds no product repository after BD-R2). The designed route, `P3_JOB_CAP`, is a step of the owner's own hand ("the account owner sets it in the environment's variables", `README.md` line 111), and `setup/DEVELOPER.md` step 8 records that environment variables "reach only sessions started after you save".
+
+---
+
+## 5. The owner's Process4 description against the record
+
+Each clause, then what it meets. Nothing here is resolved.
+
+**"ROOT and the coordinator are different processes."**
+Matches Process3: two sessions, two repositories, different prompts. They were entangled in who started whom: coordinators started ROOT four times; from 5 Nov ROOT started coordinators.
+
+
+Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: wainscot`.
+
+**"He starts a session with the process repository mounted ... that session becomes the ROOT session for that development."**
+- In Process3 the session the owner started by hand with the process repository mounted was the **coordinator**. ROOT held the **product** repository at the tranche tip.
+- Everything ROOT did, it did with the tool inside a product checkout (`start check`, `start record root`, `status`, `sweep`, `handover`), writing to the product's `process-state` branch.
+- So the description gives the name ROOT to the seat Process3's coordinator held (owner-started, process repository), and its duties to a session that would have no product checkout.
 
 == Your first job ==
 
@@ -142,5 +149,6 @@ Every job must note: the job's handover note ends with this exact last line: `--
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/smp25m: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/smp25m/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

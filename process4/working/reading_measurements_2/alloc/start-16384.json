@@ -5,8 +5,8 @@
   "members": [
    {
     "doc": "principles/governing__foundations.md",
-    "e": 230,
-    "s": 181
+    "e": 172,
+    "s": 117
    }
   ]
  },
@@ -15,9 +15,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__evidence__roles_root_coordinator.md",
-    "e": 232,
-    "s": 113
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 128,
+    "s": 2
    }
   ]
  },
@@ -26,9 +26,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__HANDOFF.md",
-    "e": 115,
-    "s": 2
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 217,
+    "s": 119
    }
   ]
  },
@@ -38,7 +38,7 @@
   "members": [
    {
     "doc": "principles/notes__lane-charters.md",
-    "e": 161,
+    "e": 159,
     "s": 13
    }
   ]
@@ -48,9 +48,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/setup__DEVELOPER.md",
-    "e": 143,
-    "s": 13
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 113,
+    "s": 4
    }
   ]
  },
@@ -70,9 +70,9 @@
   "kind": "principles",
   "members": [
    {
-    "doc": "principles/process4__working__audit_foundations.md",
-    "e": 166,
-    "s": 63
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 288,
+    "s": 178
    }
   ]
  },
@@ -93,7 +93,7 @@
   "members": [
    {
     "doc": "requirements/process4__working__session2__later_requirements.md",
-    "e": 87,
+    "e": 86,
     "s": 45
    }
   ]
@@ -112,7 +112,7 @@
    },
    {
     "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
-    "lines": "1-34"
+    "lines": "1-30"
    }
   ]
  }

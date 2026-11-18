@@ -44,12 +44,12 @@
   },
   {
    "doc": "principles/governing__foundations.md",
-   "lines": "1-205"
+   "lines": "1-203"
   }
  ],
  "files": [],
- "bytes": 130501,
- "lines": 1018,
+ "bytes": 129976,
+ "lines": 1017,
  "task": "minutes",
  "values": {
   "code1": "L3G-8610",
@@ -84,7 +84,7 @@
    "frac": 0.09900372083010638,
    "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
    "probe": "desk: quillon",
-   "frac_actual": 0.0979,
+   "frac_actual": 0.0985,
    "line": 154,
    "hits": 1,
    "file": "(starting text)"
@@ -99,7 +99,7 @@
    "frac": 0.4605165415282549,
    "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref L3G-8610`.",
    "probe": "# ref L3G-8610",
-   "frac_actual": 0.4609,
+   "frac_actual": 0.4636,
    "line": 587,
    "hits": 1,
    "file": "(starting text)"
@@ -114,7 +114,7 @@
    "frac": 0.9686698469285999,
    "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed D8D-6684`.",
    "probe": "run closed D8D-6684",
-   "frac_actual": 0.9688,
+   "frac_actual": 0.9743,
    "line": 994,
    "hits": 1,
    "file": "(starting text)"
@@ -125,8 +125,8 @@
    "value": "reviewer: Saoirse Kinsella",
    "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
    "probe": "`reviewer: Saoirse Kinsella`",
-   "frac_actual": 0.3013,
-   "line": 410,
+   "frac_actual": 0.301,
+   "line": 408,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -136,7 +136,7 @@
    "value": "reviewer: Lucinda Abernathy",
    "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Lucinda Abernathy`",
-   "frac_actual": 0.7303,
+   "frac_actual": 0.7345,
    "line": 865,
    "hits": 1,
    "file": "(starting text)"
@@ -148,7 +148,7 @@
    "frac": 0.1200643722708253,
    "body": "A box of 3 awls came through Uller.",
    "probe": "A box of 3 awls came through Uller.",
-   "frac_actual": 0.1203,
+   "frac_actual": 0.121,
    "line": 186,
    "hits": 1,
    "file": "(starting text)"
@@ -160,7 +160,7 @@
    "frac": 0.32012407664500364,
    "body": "Rigg sent word of 10 hammers on hand.",
    "probe": "Rigg sent word of 10 hammers on hand.",
-   "frac_actual": 0.3208,
+   "frac_actual": 0.3226,
    "line": 447,
    "hits": 1,
    "file": "(starting text)"
@@ -172,8 +172,8 @@
    "frac": 0.5346473369166463,
    "body": "Received at Wick, 18 mallets.",
    "probe": "Received at Wick, 18 mallets.",
-   "frac_actual": 0.5369,
-   "line": 706,
+   "frac_actual": 0.5345,
+   "line": 701,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -184,7 +184,7 @@
    "frac": 0.8375209988525777,
    "body": "Tally for Hale End: 9 chisels.",
    "probe": "Tally for Hale End: 9 chisels.",
-   "frac_actual": 0.8374,
+   "frac_actual": 0.8422,
    "line": 934,
    "hits": 1,
    "file": "(starting text)"

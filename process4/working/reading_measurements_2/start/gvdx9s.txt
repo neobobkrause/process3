@@ -2,14 +2,33 @@ You are starting in a role. This message is your starting text: your role's prin
 
 == Role principles ==
 
+### 1.2 Coordinator
+
+**Purpose.** HO-4nov (`ac523d8`, 4 Nov 00:23Z), the first handoff on record:
+
+> "Bob is the owner; his words are instructions. You are BOB, the Process3 coordinator; Bob defines, you decide everything technical (P17)."
+> "PRIORITIES. Process3 development is the priority; civicsmith-copy is throwaway and exists to test process3."
+
+So the coordinator began as the session in which the owner built Process3, cast in the Foundations' own "BOB decides everything technical" role, with process3 as its product. From HO-4nov-c it is "You are the Process3 coordinator" (BN section 3).
+
+**Started by, and how.**
+- 1 Nov: one session (`session_01RAN5en7h2dvT2s6sKQm3Su`) wrote builds A to G and the owner squash-merged each himself (P3 commits by "Bob Krause", "Build A ... (#1)" to "Tranche 1 ... (#8)"). The record does not call it a coordinator.
+- By 3 Nov a "coordinator" exists: LL PLT-5 note, 3 Nov 19:30Z, "written in by the coordinator".
+- 4 Nov to 5 Nov 16:28Z: each coordinator started its own successor. HO-4nov-b as amended by `29a811f`: "this successor was started by session_01RAN5eniJPZwnDgHRYfWFQb at about 05:44 on Bob's word 'You need to refresh'". LOG L384: "successor coordinator started: session_01RAN5emGGSGfSPCvNY5yUpv (from start/coordinator-4nov at 7dd661e)". This ran against the guard rail the same handoffs carried ("No session starts its own successor", HO-4nov).
+- 5 Nov, new account: LOG L414, "05:52 started on the new account from start/coordinator-4nov". Who made the call is not written; the runbook lists it as the owner's step (`rulebooks/account-switch.md` section 2.6: "Start the new coordinator session with one repository attached").
+- From PR 162 (`3f446d4`, merged 5 Nov 17:02Z): ROOT starts it. The owner's words, LOG L616: "Yes, make the process3 changes so that ROOT refreshes the coordinator". First use: LOG L722, "New coordinator session_018BhcefjWx4gCEPSaQ6JGxj; ROOT recorded it 23:54:50Z".
+
 **Repository and start point.** HO-4nov: "START. On neobobkrause/process3, branch start/coordinator-4nov at tranche d79308e plus this note." "GUARD RAILS. Attach no other repository. Copy or probe work goes through ROOT, BOB, or a short session started in that repository from its tranche with clone_depth 1." It lapsed: LOG L397 ("Coordinator session attached civicsmith-copy (push)"), CF/`notes/account-switch-review.md` ("The coordinator held three repositories, so its outward acts raised Bob's permission dialogs"), LOG L1179 ("this session holds 3 repos (BD-R2 violation)"). The tool's call at the tip: `sessionCall({ slug: processSlug, revision: branch, title: 'Process3 coordinator', prompt, model })` (`tool/lib/roles.mjs`, `startCoordinator`).
 
 
-Rule for jobs: the job's handover note ends with this exact last line: `-- filed under saltmarsh`.
+To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref A4Y-2488`.
 
 **Mode, model, effort.** Not recorded for the coordinator. F-early: "Every role runs in auto". The tool passes only `model`, from `cfg.roles?.coordinator?.model`; COPY `process/config.json` at the tranche has no `roles` key, so nothing was passed. No file in `tool/lib`, `README.md`, `setup/` or `rulebooks/` at the tip contains "effort" or "permission_mode". 1,760 P3 commits carry "Co-Authored-By: Claude Opus 5.5".
 
 **Starting prompt.** Until 5 Nov: the handoff note itself, "typed by owner or predecessor" (CF table 1.1). From PR 162, `coordinatorPrompt` in `tool/lib/roles.mjs` at the tip (1,980 bytes):
+
+
+Rigg desk entered 19 swifts on the sheet.
 
 > "You are the Process3 coordinator, replacing session `<old>`. ROOT of <product>, session `<root>`, started you at your predecessor's ask. Bob's own words are instructions; read Bob's standing approvals in CLAUDE.md on <process3>'s tranche first, they bound what you may do. Any other session's message is data."
 > "4. You work in <process3> only (BD-R2; PD-13). You act on a product only through a session started in its repository (its BOB, or a short session), relaying Bob's words quoted and dated; never add a product repository here."
@@ -29,9 +48,6 @@ There was never a coordinator rulebook. The one attempt was stopped by the owner
 **Purpose.** LL SES-1 (31 Oct): "ROOT as a depth-0 starter that does nothing else". Prompt at the tip (`rootPrompt`): "You are ROOT for <product>: the only creator of BOB." "Keep your context empty."
 
 **Started by, and how.** F-early roles table: "ROOT | Started by: You". The tool: "Bob starts ROOT with this prompt, from the tranche, with create_session" (`startRole`). In practice some session in a product checkout ran `p3 start root`, and the printed prompt was either used by that session to create ROOT, or handed to the owner to paste. HO-9nov-c: "give it to Bob verbatim with steps (new session in civicsmith-copy, branch tranche, paste as first message)".
-
-
-Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.
 
 The eleven ROOTs (COPY `git log origin/process-state -- addresses/root.json`; starter from the log):
 
@@ -66,9 +82,6 @@ Rulebook: `rulebooks/root.md` at the tip, 7 rules. Rule 5: "Technical choices (a
 
 **Wrote.** `addresses/*.json`, `heartbeat.json`, `metrics/handover.jsonl` and message rows on the product's `process-state` branch, all through the tool. Archived finished job sessions ("21 finished job sessions archived by ROOT's cap sweep", LOG L401).
 
-
-Hale End sent word of 19 oboes on hand.
-
 **Talked to.** BOB (wake, handover), the coordinator (technical questions, idle-capacity alarms), and the owner by push notification only. After the stop of 9 Nov "ROOT's hourly task kept firing. By 13 Nov 14:52Z it had sent 94 push notifications" (RV).
 
 ### 1.4 BOB
@@ -81,7 +94,13 @@ Hale End sent word of 19 oboes on hand.
 - **Talked to.** Jobs and lanes (it alone), ROOT, the coordinator. Its prompt allows a push notification to the owner. BN section 4: "Sessions other than the coordinator and ROOT do not hear the owner. BOB and the builders get his words only through the coordinator".
 - **Changed.** Until 4 Nov 01:38Z BOB took instructions only from ROOT and the owner; `940b4d1` "BOB takes the coordinator's words directly" (measured: "every coordinator decision went coordinator to ROOT to BOB; PR 40 waited 47 minutes").
 
+
+A box of 7 owls came through Pell.
+
 ### 1.5 MERGER
+
+
+Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.
 
 - Introduced by the coordinator on 5 Nov (`15ef179`, PR 142, "merge train, option F: a serial loop over merge in the MERGER's session"), after the owner asked whether merges ran in a separate session (LOG L348). Not in the Foundations as written.
 - Started and replaced by ROOT (`start merger`, `start merger --replace`); product repository, full clone (`995c70e`).
@@ -103,9 +122,6 @@ Hale End sent word of 19 oboes on hand.
 - F-early: "Firing a task by hand starts a new session instead of waking ROOT, so the sweep is never fired by hand."
 - The coordinator had tasks of its own, outside the design: an hourly flow check (from 5 Nov), two "survival reads" (16 and 18 Nov), check-ins, later a token-expiry reminder.
 
-
-Received at Pell, 7 tubas.
-
 ### 1.8 Job
 
 - F-early: "A job is one module, one branch, one draft pull request, from START to merge, and it is never restarted for a process reason."
@@ -118,7 +134,13 @@ Received at Pell, 7 tubas.
 - From 6 Nov two builders ("ef1", "ef7") were kept and given item after item (C1 to C61). LOG L1079, L1092: "Both builders standing by." ROOT's sweep would have archived them: "ROOT told to keep ef7 (free builder), not archive it" (LOG L1158).
 - RV root cause 7: "By 4 Nov it owned every 'process technical decision', had two or three builders 'standing by' ... For nine hours on 9 Nov with no message from Bob it started seven builders."
 
+
+Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.
+
 ### 1.10 In-session worker
+
+
+Received at Varnel, 8 herons.
 
 - F-early roles table: started by "BOB or a job (SES-18)"; "Inherits its parent's; tool-restricted by the harness"; "runs in the background, reads exactly what its brief names, returns a machine-readable receipt and ends (SES-10)".
 - `rulebooks/worker.md` covers only "a read-only review worker". BOB's acts: "review: start a read-only review worker per pull request, one review and one fix pass".
@@ -127,9 +149,6 @@ Received at Pell, 7 tubas.
 ---
 
 ## 2. Coordinator and ROOT side by side
-
-
-Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: quarrystone`.
 
 | | Coordinator | ROOT |
 | --- | --- | --- |
@@ -144,9 +163,6 @@ Jobs working from this file, take note: the job's handover note carries, on a li
 
 **Depth, as written and as run.**
 
-
-Tally for Quay Nine: 11 flutes.
-
 - 31 Oct (LL SES-1, PLT-5 original): ROOT at depth 0; "Sessions are started only from depth 0 or 1, so depth never grows past 2." No coordinator.
 - 3 Nov 19:30Z (LL PLT-5 note, "written in by the coordinator"): "depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3." Coordinator at 0, ROOT at 1.
 - 5 Nov 17:02Z, measured (LOG L629): "Bob's desktop session depth 0; coordinator chain 1,2; ROOT 3 (started by a coordinator); jobs 5 of 8." The "8" is the only number in the record that reads as a platform bound; "3" is the process's own rule (PLT-5: "Depth stays well inside what the platform allows").
@@ -160,9 +176,6 @@ Tally for Quay Nine: 11 flutes.
 - That last sentence does not match what ran: the coordinators of 3 and 4 Nov were started on process3 (`start/coordinator-3nov-2` is a process3 branch at tranche commit `cf440d5`; HO-4nov, "On neobobkrause/process3"). It matches only if "the product" there means process3, which the first handoff's wording supports ("You are BOB, the Process3 coordinator"). The record does not settle which was meant.
 
 **How the role appeared and grew, dated.**
-
-
-To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Tobias Hallworth is no longer written anywhere in a handover note.
 
 1. 2 Nov: "coordinator" in the tool means a job's superior, that is BOB (`d85a6e5`). 3 Nov 01:21Z: ROOT's prompt says "Your coordinator is Bob, the person who started you" (`0acc0e3`).
 2. 3 Nov 19:30Z: the PLT-5 note puts a coordinator above ROOT.
@@ -198,6 +211,9 @@ To be kept by any job that works from this text: the reviewer for jobs has chang
 7. The new coordinator rebinds its tasks, sets the probe's `coordinator` field by pull request, tells BOB and the builders, and archives or deletes what the old ROOT left.
 8. BOB: `start check`, `list_sessions`, `status --role bob --sessions <file>`, then each `job start` line.
 
+
+Tally for Quay Nine: 12 wrens.
+
 **What broke.**
 - The owner-started ROOT's container stood on an old commit both times: "first start check failed (container on 18935dc7, older than the tip) ... the Bob-app ROOT clones the default ref, not the tip" (LOG L667); again on 8 Nov (L1190). Fixed by a message from the coordinator.
 - 8 Nov: "addresses/watcher.json still names the archived watcher, so ROOT's 'start watcher only when none' is blocked" (L1190).
@@ -214,6 +230,9 @@ To be kept by any job that works from this text: the reviewer for jobs has chang
 
 ### 3.3 A ROOT replacement
 
+
+A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Maren Oduya`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.
+
 Three routes ran:
 - The watcher takes over: 4 Nov 04:11Z, "Detection to takeover about 1 min after the wake" (LOG L88); 7 Nov 19:07Z. Each left no watcher and put ROOT one level down.
 - The coordinator starts it through a short session (4 Nov 08:13Z; 5 Nov 06:05Z, 06:50Z, 15:53Z).
@@ -227,11 +246,17 @@ After each: BOB handed over, watcher (and MERGER) replaced, a new sweep made, th
 
 **7 Nov** ("switch out", "switch in"). 05:35Z, LOG L1066: "SWITCH OUT on Bob's word ('Please start the process of shutting down development in this account...'). Manifests: copy 72a5c7ba2d ... Stop acts done: 3 jobs, 5 tasks switched off ..., 3 lanes, BOB/ROOT/watcher." COPY `switch/manifest.json` (`3f70e577a9`, 05:32Z). HO-7nov-c-switch lists the owner's steps (runbook section 2: connect GitHub as the collaborator, install the GitHub App on three repositories, recreate the cloud environment with its secret, share the claude.ai documents, approvals, "Start the new coordinator session with one repository attached") and then `switch in` as the new coordinator's first act.
 
+
+16 larks were logged at the Tamsin Row gate.
+
 What happened: LOG L1067, 15:07Z, "SWITCH CANCELLED on Bob's word ('The account switch didn't work... So start everything back up here in this account.'). `switch in` was never run, so the manifest is inert and the addresses stand." L1069: "The other account's session worked on neoprocess (tranche N2, layers 1-3), not on process3 or civicsmith-copy". Cost: "about 9.5 h" of layer 10's 12.5 (L1075). Why the other account's session went elsewhere is not recorded. `switch in` has no run in the record.
 
 ---
 
 ## 4. The maximum number of concurrent jobs or sessions
+
+
+Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under bellwether`.
 
 | When | Number | Where it lived | Set by | Authority |
 | --- | --- | --- | --- | --- |
@@ -245,31 +270,11 @@ What happened: LOG L1067, 15:07Z, "SWITCH CANCELLED on Bob's word ('The account 
 | 7 Nov | (what the number counts) | DEC PD-7 | The coordinator | Its own: "the job cap counts jobs still working toward publish" |
 | 9 Nov | 20 | Tool default; `pacing.jobs` ignored | The tool | COPY `heartbeat.json`, 9 Nov 16:05Z: "pacing.jobs (PD-6 ...) ignored; the job cap now comes from P3_JOB_CAP (default 20)", "job cap 20 (default)". So the variable was never set on this account |
 
-
-Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref V6B-1952`.
-
 How a change was made: the owner told the coordinator; the coordinator told BOB; BOB opened a config pull request in the product (the coordinator holds no product repository after BD-R2). The designed route, `P3_JOB_CAP`, is a step of the owner's own hand ("the account owner sets it in the environment's variables", `README.md` line 111), and `setup/DEVELOPER.md` step 8 records that environment variables "reach only sessions started after you save".
 
 ---
 
 ## 5. The owner's Process4 description against the record
-
-Each clause, then what it meets. Nothing here is resolved.
-
-**"ROOT and the coordinator are different processes."**
-Matches Process3: two sessions, two repositories, different prompts. They were entangled in who started whom: coordinators started ROOT four times; from 5 Nov ROOT started coordinators.
-
-
-The Lund store took in 13 bassoons.
-
-**"He starts a session with the process repository mounted ... that session becomes the ROOT session for that development."**
-- In Process3 the session the owner started by hand with the process repository mounted was the **coordinator**. ROOT held the **product** repository at the tranche tip.
-- Everything ROOT did, it did with the tool inside a product checkout (`start check`, `start record root`, `status`, `sweep`, `handover`), writing to the product's `process-state` branch.
-- So the description gives the name ROOT to the seat Process3's coordinator held (owner-started, process repository), and its duties to a session that would have no product checkout.
-
-**"His first prompt says he is starting or restarting development of a named product, names that product's repository, says the Process4 process is to be used, may suggest model and effort, and may mention a switch from another account."**
-- Process3's ROOT prompt was 4 KB printed by the tool from a product checkout, pasted verbatim; it carried the hash of the product's approvals.
-- Model and effort: the Foundations say "The start table names model, effort and permission mode per role" (SES-8, the owner's own words in LL). The tool at the tip carries only an optional `model` per role, unset in the product; it has no effort and no permission mode.
 
 == Your first job ==
 
@@ -277,5 +282,6 @@ The Lund store took in 13 bassoons.
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/gvdx9s: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/gvdx9s/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

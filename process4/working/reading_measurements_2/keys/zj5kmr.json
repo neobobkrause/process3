@@ -9,12 +9,12 @@
   {
    "doc": "principles/rulebooks__bob.md",
    "s": 9,
-   "e": 18
+   "e": 17
   }
  ],
  "files": [],
- "bytes": 4023,
- "lines": 74,
+ "bytes": 4118,
+ "lines": 72,
  "task": "dates",
  "values": {
   "code1": "K7L-2394",
@@ -49,7 +49,7 @@
    "frac": 0.04929769393808843,
    "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under lodestone`.",
    "probe": "-- filed under lodestone",
-   "frac_actual": 0.0859,
+   "frac_actual": 0.0907,
    "line": 9,
    "hits": 1,
    "file": "(starting text)"
@@ -64,7 +64,7 @@
    "frac": 0.5001919803069464,
    "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `rosehip-relay.md`, and under no other name.",
    "probe": "rosehip-relay.md",
-   "frac_actual": 0.4792,
+   "frac_actual": 0.506,
    "line": 28,
    "hits": 1,
    "file": "(starting text)"
@@ -79,8 +79,8 @@
    "frac": 0.9679855240648039,
    "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: bellwether`.",
    "probe": "desk: bellwether",
-   "frac_actual": 0.9484,
-   "line": 58,
+   "frac_actual": 0.9758,
+   "line": 56,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -90,7 +90,7 @@
    "value": "reviewer: Jacinta Ravensworth",
    "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
    "probe": "`reviewer: Jacinta Ravensworth`",
-   "frac_actual": 0.3508,
+   "frac_actual": 0.3705,
    "line": 21,
    "hits": 1,
    "file": "(starting text)"
@@ -101,8 +101,8 @@
    "value": "reviewer: Mikko Rantanen",
    "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Mikko Rantanen`",
-   "frac_actual": 0.6511,
-   "line": 39,
+   "frac_actual": 0.6633,
+   "line": 36,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,7 +113,7 @@
    "frac": 0.06032377755222457,
    "body": "At Rigg the clerk wrote down 15 wrenches.",
    "probe": "At Rigg the clerk wrote down 15 wrenches.",
-   "frac_actual": 0.0062,
+   "frac_actual": 0.0066,
    "line": 5,
    "hits": 1,
    "file": "(starting text)"
@@ -125,8 +125,8 @@
    "frac": 0.6273976479389274,
    "body": "Dunn desk entered 6 rasps on the sheet.",
    "probe": "Dunn desk entered 6 rasps on the sheet.",
-   "frac_actual": 0.6282,
-   "line": 33,
+   "frac_actual": 0.6053,
+   "line": 32,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -137,8 +137,8 @@
    "frac": 0.9624221355950244,
    "body": "Tally for Yarm: 18 handsaws.",
    "probe": "Tally for Yarm: 18 handsaws.",
-   "frac_actual": 0.947,
-   "line": 54,
+   "frac_actual": 0.9284,
+   "line": 52,
    "hits": 1,
    "file": "(starting text)"
   }

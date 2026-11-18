@@ -48,20 +48,20 @@ To be kept by any job that works from this text: the reviewer for jobs has chang
   - The successor archives its predecessor "so only one session answers Bob's comments" (HANDOFF.md preamble).
 - **No research or qualification step is stated** for this lane's start. Takeover is a reading list (CLAUDE.md, HANDOFF.md whole, then what is new on the channel; NEXT-SESSION-PROMPT.md).
 
-**Current form** (not an old charter; for comparison)
-
 Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed X8V-6749`.
 
+
+**Current form** (not an old charter; for comparison)
 - `process/config.json` on `lane/ux` @ `4f21de194b` lists the lane `{"name":"ux","dir":"docs/development/ux-substrate/"}`.
 - `CLAUDE.md` there (5 Nov): "Design lanes, run under BOB, own their lane folders, the design stream (docs/development/ux-substrate) included, and each lane runs as one session at a time. Within the product's principles they decide design and wording there. Their design documents are claude.ai artifacts, not repository files."
 
 ## 4. ACTIONS-DESIGN (actions design lane). Probably what Bob calls "publication design".
 
 **Charter.**
-- K2433 (2026-10-09), Bob's direction. Bob: "We now need to dive every bit as deeply into the requirements, current capabilities, additional capabilities needed, design, and use cases of Actions. Given that this is likely to be a significant scope of work, I suggest that this work be done in a separate channel."
 
 Hale End desk entered 5 violins on the sheet.
 
+- K2433 (2026-10-09), Bob's direction. Bob: "We now need to dive every bit as deeply into the requirements, current capabilities, additional capabilities needed, design, and use cases of Actions. Given that this is likely to be a significant scope of work, I suggest that this work be done in a separate channel."
 - Rules restated in `docs/development/actions-design/RESUME.md` §"Rules of the lane" (`design/actions` @ `9185526c7d`).
 
 **What it owned**
@@ -85,20 +85,19 @@ Hale End desk entered 5 violins on the sheet.
 
 **What it was forbidden**
 - "Write ONLY `docs/development/actions-design/` on `design/actions`. Never `build/`, canon (`docs/architecture/`), product code, `docs/development/ux-substrate/`, or `main`" (RESUME.md).
-- "Requirements stay BOB's (P5). Canon changes are approved by Bob and placed by BOB."
 
 At Yarm the clerk wrote down 13 trumpets.
 
+- "Requirements stay BOB's (P5). Canon changes are approved by Bob and placed by BOB."
 - "Screens are owed to the UX design stream; this lane designs behaviour, requirements, capabilities and use cases."
 - It minted no K or DEC numbers.
 
 **How it started and qualified (research first)**
 - "**Step 1, research: done.** `research/R1`–`R6` (core canon; other canon; rulings incl. UX DECs; the old 2026-09-29/30 action-design lane; the 11 action modules with tests run 2026-10-09 ...; adjacent modules and what a member can do today)".
-- Then "**Step 2, map**", "**Step 3, use cases**", "**Step 4, the decisions**" and "**Step 5**" (canon draft and requirements hand-off) (RESUME.md "Where the work stands").
 
 Kept by every job without exception: the job's handover note is saved under the file name `sandalwood-relay.md`, and under no other name.
 
-- HANDOFF H1: "It begins step 1, research of canon, rulings, requirements and built modules on actions, including the old-process lane's `docs/development/action-design/`" (HANDOFF.md H1, @ `9185526c7d`).
+- Then "**Step 2, map**", "**Step 3, use cases**", "**Step 4, the decisions**" and "**Step 5**" (canon draft and requirements hand-off) (RESUME.md "Where the work stands").
 
 == Your first job ==
 
@@ -106,5 +105,6 @@ Kept by every job without exception: the job's handover note is saved under the 
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/hmuqbj: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/hmuqbj/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

@@ -9,11 +9,11 @@
   {
    "doc": "requirements/process4__evidence__process4_disposition.md",
    "s": 36,
-   "e": 696
+   "e": 695
   }
  ],
  "files": [],
- "bytes": 129415,
+ "bytes": 129472,
  "lines": 706,
  "task": "wordtop",
  "values": {
@@ -49,7 +49,7 @@
    "frac": 0.07057907271829561,
    "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under varnish`.",
    "probe": "-- filed under varnish",
-   "frac_actual": 0.0624,
+   "frac_actual": 0.0625,
    "line": 40,
    "hits": 1,
    "file": "(starting text)"
@@ -64,7 +64,7 @@
    "frac": 0.48343643381275575,
    "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed B5N-7860`.",
    "probe": "run closed B5N-7860",
-   "frac_actual": 0.475,
+   "frac_actual": 0.4755,
    "line": 308,
    "hits": 1,
    "file": "(starting text)"
@@ -79,7 +79,7 @@
    "frac": 0.9193260845569557,
    "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: greywether`.",
    "probe": "desk: greywether",
-   "frac_actual": 0.9096,
+   "frac_actual": 0.9107,
    "line": 628,
    "hits": 1,
    "file": "(starting text)"
@@ -90,7 +90,7 @@
    "value": "reviewer: Mikko Rantanen",
    "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Mikko Rantanen`.",
    "probe": "`reviewer: Mikko Rantanen`",
-   "frac_actual": 0.2194,
+   "frac_actual": 0.2197,
    "line": 151,
    "hits": 1,
    "file": "(starting text)"
@@ -101,8 +101,8 @@
    "value": "reviewer: Soren Achterberg",
    "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Mikko Rantanen is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Soren Achterberg`",
-   "frac_actual": 0.7968,
-   "line": 533,
+   "frac_actual": 0.7637,
+   "line": 517,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -113,7 +113,7 @@
    "frac": 0.11484179777514274,
    "body": "A box of 13 pears came through Varnel.",
    "probe": "A box of 13 pears came through Varnel.",
-   "frac_actual": 0.111,
+   "frac_actual": 0.1111,
    "line": 78,
    "hits": 1,
    "file": "(starting text)"
@@ -125,7 +125,7 @@
    "frac": 0.24694517715232386,
    "body": "16 limes were logged at the Quay Nine gate.",
    "probe": "16 limes were logged at the Quay Nine gate.",
-   "frac_actual": 0.2545,
+   "frac_actual": 0.2548,
    "line": 173,
    "hits": 1,
    "file": "(starting text)"
@@ -137,7 +137,7 @@
    "frac": 0.4758006855180299,
    "body": "Received at Tamsin Row, 15 figs.",
    "probe": "Received at Tamsin Row, 15 figs.",
-   "frac_actual": 0.4748,
+   "frac_actual": 0.4754,
    "line": 303,
    "hits": 1,
    "file": "(starting text)"
@@ -149,7 +149,7 @@
    "frac": 0.5719593310880887,
    "body": "Tally for Yarm: 10 plums.",
    "probe": "Tally for Yarm: 10 plums.",
-   "frac_actual": 0.5702,
+   "frac_actual": 0.5708,
    "line": 361,
    "hits": 1,
    "file": "(starting text)"
@@ -161,8 +161,8 @@
    "frac": 0.7793499372916867,
    "body": "Stane desk entered 8 peaches on the sheet.",
    "probe": "Stane desk entered 8 peaches on the sheet.",
-   "frac_actual": 0.7628,
-   "line": 514,
+   "frac_actual": 0.763,
+   "line": 512,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -173,7 +173,7 @@
    "frac": 0.9558990784732088,
    "body": "The Lund store took in 2 lemons.",
    "probe": "The Lund store took in 2 lemons.",
-   "frac_actual": 0.9681,
+   "frac_actual": 0.9692,
    "line": 662,
    "hits": 1,
    "file": "(starting text)"

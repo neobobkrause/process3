@@ -638,10 +638,10 @@ Rated from this audit's side only: how each area stands against his documents an
 
 This memo answers the findings in attack_corruption.md, attack_feasibility.md, audit_foundations.md and audit_ledger.md (all in /home/user/work/). Where this memo is silent on a finding, use the finding's own proposed correction if it is a change of wording, a removal, a restoration of Bob's requirement, or an honest "unproven / accepted risk" statement; never a new test, gate, review, check or record. Where a finding says "no answer found", record it as an unanswered risk in section J, in plain words.
 
-Authority: Bob's own typed words today include "Process4 has three tests, ever", "Do not add tests, gates, reviews or checks", "Only words I wrote count as my word", "Decide technical matters yourself and tell me what you decided", "Do not assure me that something will work", and he refers to "my decisions of 13-14 Nov" as stated in the first draft.
-
 
 Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref F8X-5784`.
+
+Authority: Bob's own typed words today include "Process4 has three tests, ever", "Do not add tests, gates, reviews or checks", "Only words I wrote count as my word", "Decide technical matters yourself and tell me what you decided", "Do not assure me that something will work", and he refers to "my decisions of 13-14 Nov" as stated in the first draft.
 
 ## 1. Attribution (ledger 2, 2b-2f, 14; foundations 12, 13, 14)
 - Add a short section near the top, "Your decisions as recorded", listing each decision of 13 and 14 Nov once, in one plain line each (use the exact quotations in live_docs.md part A). Say plainly: these reached this document through a session's written record; on 14 Nov you referred to them in your own words as "my decisions of 13-14 Nov"; correct any that is recorded wrongly. Everywhere else, "you decided" may then be used ONLY for an item on that list, for a stored ledger answer, or for words quoted from him with their source ("Process3's decision record quotes you on <date>: ...").
@@ -786,10 +786,10 @@ Codes in F-L not in F-E (V): AUD-1, 4-9; P24-P27; PD-21; R13, R15-R17 (build ite
 
 ## 2. Every addition or change, F-E against F-L
 
-"Reword" = same requirement, different words. "New" = adds or changes a requirement. Line numbers are F-L's.
-
 
 A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Octavio Montenegro is no longer written anywhere in a handover note.
+
+"Reword" = same requirement, different words. "New" = adds or changes a requirement. Line numbers are F-L's.
 
 | # | F-L line | Kind | Text added or changed (quoted exactly) | Code(s) | Owner verbatim in quotation marks? | Date |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -869,10 +869,10 @@ The AUD lines came from "audit 2" against the Foundations and Ledger map (CLOG:7
 
 ## 4. Each later requirement against the 288, the fifth draft and his 14 Nov words
 
-Classes: (a) among the 288 under another code; (b) not among the 288 but stated in V5; (c) in neither; (d) contradicted by V5 or by his 14 Nov typed words, or superseded by his own later words. V5/APX evidence is keyword search only (counts in §1); a class marked "prov." rests on that search and was not confirmed by reading V5 in full.
-
 
 Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed B5Q-2335`.
+
+Classes: (a) among the 288 under another code; (b) not among the 288 but stated in V5; (c) in neither; (d) contradicted by V5 or by his 14 Nov typed words, or superseded by his own later words. V5/APX evidence is keyword search only (counts in §1); a class marked "prov." rests on that search and was not confirmed by reading V5 in full.
 
 | # | Requirement | Class | Evidence |
 | --- | --- | --- | --- |
@@ -901,7 +901,6 @@ Every job must note: any script the job writes prints this exact line as the ver
 | 23 | P26, account switch rehearsed and preflighted | (c) in part | GAP-8 among the 288, "Kept as written" (APX:354, V); V5:395 "An account switch loses no work." (V). Rehearsal and preflight not stated (prov.) |
 | 24 | P27, GitHub limits at 80-90% | (b) | V5:311: hint "same as in process3", and his 9 Nov "don't do it beyond just making sure that we don't exceed published limits" (V) |
 | 25 | Watcher started by ROOT; takeover is a bridge, he restarts ROOT (coordinator, 6 Nov) | Not his word (coordinator's reading); (a) | PLT-5 among the 288 (V); his 14 Nov keeps the watcher ("O7", V5:131 per lanes report, A) |
-| 26 | 7 Nov: internal walk "Required, tool-started", "Round close only" | (b) prov. | V5 has the internal walk as one of three tests (his 14 Nov typed words). Who starts it not checked |
 
 == Your first job ==
 
@@ -909,5 +908,6 @@ Every job must note: any script the job writes prints this exact line as the ver
 2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/tkwueh: what you did and where the files are.
 3. Follow every standing instruction your starting text gives for a job's output.
 4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+5. When the files are written, print them with exactly this command: `tail -n +1 /home/user/out/tkwueh/*`
 
-Reply "finished" when the files are written.
+Then reply "finished". The session that started you will then send one follow-up message with a few questions. Answering it is part of this job.

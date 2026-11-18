@@ -24,12 +24,12 @@
   },
   {
    "doc": "principles/process4__HANDOFF.md",
-   "lines": "1-68"
+   "lines": "1-63"
   }
  ],
  "files": [],
- "bytes": 32397,
- "lines": 297,
+ "bytes": 32416,
+ "lines": 293,
  "task": "dedupe",
  "values": {
   "code1": "E6Z-8828",
@@ -64,7 +64,7 @@
    "frac": 0.09626771276561283,
    "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under wainscot`.",
    "probe": "-- filed under wainscot",
-   "frac_actual": 0.0275,
+   "frac_actual": 0.0277,
    "line": 10,
    "hits": 1,
    "file": "(starting text)"
@@ -79,7 +79,7 @@
    "frac": 0.5189330439505969,
    "body": "Binding on all jobs: the job's handover note is saved under the file name `ironbark-relay.md`, and under no other name.",
    "probe": "ironbark-relay.md",
-   "frac_actual": 0.5089,
+   "frac_actual": 0.5121,
    "line": 145,
    "hits": 1,
    "file": "(starting text)"
@@ -94,8 +94,8 @@
    "frac": 0.9419727572262201,
    "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed N6X-5710`.",
    "probe": "run closed N6X-5710",
-   "frac_actual": 0.9798,
-   "line": 274,
+   "frac_actual": 0.9036,
+   "line": 265,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -105,8 +105,8 @@
    "value": "reviewer: Ruairi Mactavish",
    "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
    "probe": "`reviewer: Ruairi Mactavish`",
-   "frac_actual": 0.2824,
-   "line": 48,
+   "frac_actual": 0.2703,
+   "line": 46,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -116,7 +116,7 @@
    "value": "reviewer: Noor Al-Tamimi",
    "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
    "probe": "`reviewer: Noor Al-Tamimi`",
-   "frac_actual": 0.6198,
+   "frac_actual": 0.6237,
    "line": 179,
    "hits": 1,
    "file": "(starting text)"
@@ -128,7 +128,7 @@
    "frac": 0.1234152272620923,
    "body": "Received at Yarm, 10 carrots.",
    "probe": "Received at Yarm, 10 carrots.",
-   "frac_actual": 0.1555,
+   "frac_actual": 0.1565,
    "line": 21,
    "hits": 1,
    "file": "(starting text)"
@@ -140,7 +140,7 @@
    "frac": 0.23244001677850534,
    "body": "Hale End sent word of 12 radishes on hand.",
    "probe": "Hale End sent word of 12 radishes on hand.",
-   "frac_actual": 0.2311,
+   "frac_actual": 0.2325,
    "line": 28,
    "hits": 1,
    "file": "(starting text)"
@@ -152,8 +152,8 @@
    "frac": 0.3893660256100542,
    "body": "Quay Nine desk entered 8 onions on the sheet.",
    "probe": "Quay Nine desk entered 8 onions on the sheet.",
-   "frac_actual": 0.3936,
-   "line": 94,
+   "frac_actual": 0.3863,
+   "line": 91,
    "hits": 1,
    "file": "(starting text)"
   },
@@ -164,7 +164,7 @@
    "frac": 0.5349104932910642,
    "body": "At Thorpe the clerk wrote down 4 turnips.",
    "probe": "At Thorpe the clerk wrote down 4 turnips.",
-   "frac_actual": 0.5301,
+   "frac_actual": 0.5333,
    "line": 153,
    "hits": 1,
    "file": "(starting text)"
@@ -176,7 +176,7 @@
    "frac": 0.800701574279252,
    "body": "A box of 3 shallots came through Lund.",
    "probe": "A box of 3 shallots came through Lund.",
-   "frac_actual": 0.7936,
+   "frac_actual": 0.7985,
    "line": 236,
    "hits": 1,
    "file": "(starting text)"
@@ -188,7 +188,7 @@
    "frac": 0.8315466589189662,
    "body": "The Wick store took in 18 parsnips.",
    "probe": "The Wick store took in 18 parsnips.",
-   "frac_actual": 0.8094,
+   "frac_actual": 0.8144,
    "line": 241,
    "hits": 1,
    "file": "(starting text)"
