@@ -1,0 +1,191 @@
+{
+ "id": "aw78ns",
+ "ladder": "single",
+ "size": 24000,
+ "index": 92,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/README.md",
+   "s": 29,
+   "e": 50
+  }
+ ],
+ "files": [
+  "reading2/aw78ns/principles.md"
+ ],
+ "bytes": 24250,
+ "lines": 54,
+ "task": "colsum",
+ "values": {
+  "code1": "Z6C-2143",
+  "code2": "M7H-3860",
+  "w_last": "varnish",
+  "w_name": "marlowe",
+  "w_desk": "harrowgate",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Noor Al-Tamimi",
+  "family": "fish",
+  "members": [
+   "trout",
+   "salmon",
+   "pike",
+   "eels",
+   "cod",
+   "perch",
+   "herring",
+   "mackerel",
+   "bream",
+   "carp"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: harrowgate",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08926268014200378,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.",
+   "probe": "desk: harrowgate",
+   "frac_actual": 0.0896,
+   "line": 10,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref Z6C-2143",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5087798134393351,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref Z6C-2143`.",
+   "probe": "# ref Z6C-2143",
+   "frac_actual": 0.5232,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under varnish",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9513940592517905,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under varnish`.",
+   "probe": "-- filed under varnish",
+   "frac_actual": 0.9583,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16281810686729334,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.1408,
+   "line": 15,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5792753247026249,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.5805,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 3,
+   "frac": 0.05059569032052369,
+   "body": "Received at Brae, 3 trout.",
+   "probe": "Received at Brae, 3 trout.",
+   "frac_actual": 0.072,
+   "line": 6,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 15,
+   "frac": 0.2566737940753123,
+   "body": "Stane desk entered 15 salmon on the sheet.",
+   "probe": "Stane desk entered 15 salmon on the sheet.",
+   "frac_actual": 0.2452,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 19,
+   "frac": 0.4819600895885132,
+   "body": "At Yarm the clerk wrote down 19 pike.",
+   "probe": "At Yarm the clerk wrote down 19 pike.",
+   "frac_actual": 0.435,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 8,
+   "frac": 0.6537713066272857,
+   "body": "8 eels were logged at the Rigg gate.",
+   "probe": "8 eels were logged at the Rigg gate.",
+   "frac_actual": 0.6611,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 6,
+   "frac": 0.7193680296106721,
+   "body": "The Tamsin Row store took in 6 cod.",
+   "probe": "The Tamsin Row store took in 6 cod.",
+   "frac_actual": 0.7296,
+   "line": 42,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 17,
+   "frac": 0.929352831464428,
+   "body": "A box of 17 perch came through Marsh Lane.",
+   "probe": "A box of 17 perch came through Marsh Lane.",
+   "frac_actual": 0.9359,
+   "line": 48,
+   "hits": 1,
+   "file": "reading2/aw78ns/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 68
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

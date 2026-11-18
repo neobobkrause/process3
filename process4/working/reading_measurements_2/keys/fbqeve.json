@@ -1,0 +1,167 @@
+{
+ "id": "fbqeve",
+ "ladder": "single",
+ "size": 24000,
+ "index": 91,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__working__decisions_memo_d3.md",
+   "s": 2,
+   "e": 80
+  }
+ ],
+ "files": [
+  "reading2/fbqeve/requirements.md"
+ ],
+ "bytes": 23651,
+ "lines": 105,
+ "task": "dates",
+ "values": {
+  "code1": "E7H-1421",
+  "code2": "H7Z-8692",
+  "w_last": "rosehip",
+  "w_name": "nettlecombe",
+  "w_desk": "orrery",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Lucinda Abernathy",
+  "family": "musical instruments",
+  "members": [
+   "tubas",
+   "bassoons",
+   "trumpets",
+   "clarinets",
+   "flutes",
+   "violins",
+   "harps",
+   "banjos",
+   "oboes",
+   "cellos"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "nettlecombe-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09125515201757364,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `nettlecombe-relay.md`, and under no other name.",
+   "probe": "nettlecombe-relay.md",
+   "frac_actual": 0.0886,
+   "line": 9,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under rosehip",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47482249297233,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under rosehip`.",
+   "probe": "-- filed under rosehip",
+   "frac_actual": 0.4704,
+   "line": 51,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref E7H-1421",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9128809534910167,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref E7H-1421`.",
+   "probe": "# ref E7H-1421",
+   "frac_actual": 0.9198,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.229734767593595,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.2311,
+   "line": 31,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7842950076696664,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.796,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 19,
+   "frac": 0.18651895529684945,
+   "body": "Stane desk entered 19 tubas on the sheet.",
+   "probe": "Stane desk entered 19 tubas on the sheet.",
+   "frac_actual": 0.1883,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 18,
+   "frac": 0.3502807168257708,
+   "body": "The Tamsin Row store took in 18 bassoons.",
+   "probe": "The Tamsin Row store took in 18 bassoons.",
+   "frac_actual": 0.3409,
+   "line": 42,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 13,
+   "frac": 0.568463878152352,
+   "body": "Tally for Thorpe: 13 trumpets.",
+   "probe": "Tally for Thorpe: 13 trumpets.",
+   "frac_actual": 0.5692,
+   "line": 64,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 10,
+   "frac": 0.8164220422655759,
+   "body": "Rigg sent word of 10 clarinets on hand.",
+   "probe": "Rigg sent word of 10 clarinets on hand.",
+   "frac_actual": 0.8217,
+   "line": 88,
+   "hits": 1,
+   "file": "reading2/fbqeve/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 60
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

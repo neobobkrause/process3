@@ -1,0 +1,152 @@
+{
+ "id": "sk2vgc",
+ "ladder": "start",
+ "size": 8192,
+ "index": 90,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+   "s": 8,
+   "e": 77
+  }
+ ],
+ "files": [],
+ "bytes": 8257,
+ "lines": 106,
+ "task": "wordtop",
+ "values": {
+  "code1": "J5D-2343",
+  "code2": "D2X-8501",
+  "w_last": "drumlin",
+  "w_name": "sandalwood",
+  "w_desk": "larkspur",
+  "name_a": "Soren Achterberg",
+  "name_b": "Mikko Rantanen",
+  "family": "trees",
+  "members": [
+   "cedars",
+   "elms",
+   "beeches",
+   "alders",
+   "maples",
+   "birches",
+   "willows",
+   "pines",
+   "oaks",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref J5D-2343",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0663308115399162,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref J5D-2343`.",
+   "probe": "# ref J5D-2343",
+   "frac_actual": 0.0656,
+   "line": 10,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under drumlin",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5322062863797206,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under drumlin`.",
+   "probe": "-- filed under drumlin",
+   "frac_actual": 0.5342,
+   "line": 48,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: larkspur",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9129697094715242,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: larkspur`.",
+   "probe": "desk: larkspur",
+   "frac_actual": 0.9034,
+   "line": 85,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.263690798884166,
+   "value": "reviewer: Soren Achterberg",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.261,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6005859863193415,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.6151,
+   "line": 57,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 12,
+   "frac": 0.08147720847525769,
+   "body": "Tally for Tamsin Row: 12 cedars.",
+   "probe": "Tally for Tamsin Row: 12 cedars.",
+   "frac_actual": 0.0817,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 10,
+   "frac": 0.3597717130344127,
+   "body": "A box of 10 elms came through Pell.",
+   "probe": "A box of 10 elms came through Pell.",
+   "frac_actual": 0.363,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 5,
+   "frac": 0.7472834213616,
+   "body": "The Brae store took in 5 beeches.",
+   "probe": "The Brae store took in 5 beeches.",
+   "frac_actual": 0.7327,
+   "line": 72,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

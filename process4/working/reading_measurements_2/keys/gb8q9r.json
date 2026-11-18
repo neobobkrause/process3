@@ -1,0 +1,190 @@
+{
+ "id": "gb8q9r",
+ "ladder": "single",
+ "size": 96000,
+ "index": 91,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "requirements/DECISIONS.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__working__decisions_memo_d3.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__evidence__ledger_map.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/governing__ledger-map.md",
+   "lines": "1-74"
+  }
+ ],
+ "files": [
+  "reading2/gb8q9r/requirements.md"
+ ],
+ "bytes": 95784,
+ "lines": 645,
+ "task": "rle",
+ "values": {
+  "code1": "N9A-2840",
+  "code2": "D7D-8439",
+  "w_last": "pennant",
+  "w_name": "wainscot",
+  "w_desk": "bellwether",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Maren Oduya",
+  "family": "fish",
+  "members": [
+   "salmon",
+   "herring",
+   "cod",
+   "eels",
+   "bream",
+   "trout",
+   "perch",
+   "pike",
+   "mackerel",
+   "carp"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "wainscot-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.05431822842366024,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `wainscot-relay.md`, and under no other name.",
+   "probe": "wainscot-relay.md",
+   "frac_actual": 0.051,
+   "line": 37,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under pennant",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4639721668579811,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under pennant`.",
+   "probe": "-- filed under pennant",
+   "frac_actual": 0.4762,
+   "line": 191,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref N9A-2840",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9034477788313864,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref N9A-2840`.",
+   "probe": "# ref N9A-2840",
+   "frac_actual": 0.9067,
+   "line": 512,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.39768164276988455,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.3978,
+   "line": 169,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6976337363393331,
+   "value": "reviewer: Maren Oduya",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Maren Oduya`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.6758,
+   "line": 268,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 12,
+   "frac": 0.06821954007285354,
+   "body": "A box of 12 salmon came through Eyre.",
+   "probe": "A box of 12 salmon came through Eyre.",
+   "frac_actual": 0.0603,
+   "line": 45,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "herring",
+   "n": 8,
+   "frac": 0.3214275215154221,
+   "body": "The Rigg store took in 8 herring.",
+   "probe": "The Rigg store took in 8 herring.",
+   "frac_actual": 0.3259,
+   "line": 146,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 4,
+   "frac": 0.5527772217733191,
+   "body": "At Dunn the clerk wrote down 4 cod.",
+   "probe": "At Dunn the clerk wrote down 4 cod.",
+   "frac_actual": 0.5459,
+   "line": 220,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 5,
+   "frac": 0.778753797525578,
+   "body": "Tally for Varnel: 5 eels.",
+   "probe": "Tally for Varnel: 5 eels.",
+   "frac_actual": 0.782,
+   "line": 308,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 3,
+   "frac": 0.9448415493636126,
+   "body": "Pell desk entered 3 bream on the sheet.",
+   "probe": "Pell desk entered 3 bream on the sheet.",
+   "frac_actual": 0.9447,
+   "line": 578,
+   "hits": 1,
+   "file": "reading2/gb8q9r/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 32
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

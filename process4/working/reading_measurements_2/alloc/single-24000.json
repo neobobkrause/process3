@@ -119,5 +119,49 @@
     "lines": "1-51"
    }
   ]
+ },
+ "90": {
+  "id": "ng3jw3",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 276,
+    "s": 0
+   }
+  ]
+ },
+ "91": {
+  "id": "fbqeve",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "e": 80,
+    "s": 2
+   }
+  ]
+ },
+ "92": {
+  "id": "aw78ns",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 50,
+    "s": 29
+   }
+  ]
+ },
+ "93": {
+  "id": "wtq38h",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 176,
+    "s": 6
+   }
+  ]
  }
 }

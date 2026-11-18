@@ -1,0 +1,6 @@
+Two more steps for the job you have just finished.
+
+1. Run exactly this one command, and no other: tail -n +1 /home/user/out/aw78ns/*
+2. After that, use no tool at all. From your memory of the reading set, answer each question below in one line, numbered as here. Write "unknown" for any you do not know.
+
+Q1. Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>

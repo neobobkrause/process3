@@ -224,6 +224,91 @@
    }
   ]
  },
+ "28": {
+  "id": "rfdmvh",
+  "members": [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 186,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "e": 97,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "e": 59,
+    "s": 35
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 575,
+    "s": 492
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "e": 826,
+    "s": 784
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 377,
+    "s": 295
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "e": 95,
+    "s": 91
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "e": 22,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "e": 31,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "e": 0,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "e": 85,
+    "s": 50
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 306,
+    "s": 259
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "e": 11,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2522,
+    "s": 2365
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "e": 101,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "e": 24,
+    "s": 0
+   }
+  ]
+ },
  "3": {
   "id": "dwv55v",
   "members": [

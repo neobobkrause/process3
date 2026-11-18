@@ -1,0 +1,284 @@
+{
+ "id": "rfdmvh",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 28,
+ "files": [
+  "reading2/rfdmvh/01-notice-test.mjs",
+  "reading2/rfdmvh/02-appendix-commits.md",
+  "reading2/rfdmvh/03-joined.mjs",
+  "reading2/rfdmvh/04-causal-forensics.md",
+  "reading2/rfdmvh/05-joined.md",
+  "reading2/rfdmvh/06-joined.md",
+  "reading2/rfdmvh/07-layerflow.mjs",
+  "reading2/rfdmvh/08-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "code",
+  "design",
+  "principles",
+  "principles",
+  "code",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 0,
+    "e": 186
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 0,
+    "e": 97
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "s": 35,
+    "e": 59
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 492,
+    "e": 575
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 784,
+    "e": 826
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 295,
+    "e": 377
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "s": 91,
+    "e": 95
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "s": 0,
+    "e": 31
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "s": 0,
+    "e": 0
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "s": 50,
+    "e": 85
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 259,
+    "e": 306
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 11
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 2365,
+    "e": 2522
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "s": 0,
+    "e": 101
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "s": 0,
+    "e": 24
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 98215,
+ "lines": 1012,
+ "task": "colsum",
+ "values": {
+  "code1": "F2Z-7956",
+  "code2": "J2H-1194",
+  "w_last": "varnish",
+  "w_name": "juniper",
+  "w_desk": "thistledown",
+  "name_a": "Soren Achterberg",
+  "name_b": "Odette Fairweather",
+  "family": "vegetables",
+  "members": [
+   "parsnips",
+   "cabbages",
+   "turnips",
+   "beets",
+   "onions",
+   "carrots",
+   "radishes",
+   "marrows",
+   "shallots",
+   "leeks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref F2Z-7956",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.45500317053524053,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref F2Z-7956`.",
+   "probe": "# ref F2Z-7956",
+   "file_index": 0,
+   "frac_actual": 0.0973,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/rfdmvh/01-notice-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "juniper-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4213315263907126,
+   "body": "Every job must note: the job's handover note is saved under the file name `juniper-relay.md`, and under no other name.",
+   "probe": "juniper-relay.md",
+   "file_index": 4,
+   "frac_actual": 0.4903,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/rfdmvh/05-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed J2H-1194",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.5799478824492784,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed J2H-1194`.",
+   "probe": "run closed J2H-1194",
+   "file_index": 7,
+   "frac_actual": 0.915,
+   "line": 127,
+   "hits": 1,
+   "file": "reading2/rfdmvh/08-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7822778750280814,
+   "value": "reviewer: Soren Achterberg",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "file_index": 2,
+   "frac_actual": 0.7823,
+   "line": 128,
+   "hits": 1,
+   "file": "reading2/rfdmvh/03-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5140892597023033,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 5,
+   "frac_actual": 0.5962,
+   "line": 80,
+   "hits": 1,
+   "file": "reading2/rfdmvh/06-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 12,
+   "frac": 0.853124470261312,
+   "body": "Lund desk entered 12 parsnips on the sheet.",
+   "probe": "Lund desk entered 12 parsnips on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.8517,
+   "line": 171,
+   "hits": 1,
+   "file": "reading2/rfdmvh/01-notice-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 11,
+   "frac": 0.6411981780579944,
+   "body": "11 cabbages were logged at the Thorpe gate.",
+   "probe": "11 cabbages were logged at the Thorpe gate.",
+   "file_index": 3,
+   "frac_actual": 0.6388,
+   "line": 48,
+   "hits": 1,
+   "file": "reading2/rfdmvh/04-causal-forensics.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 3,
+   "frac": 0.7846908980884,
+   "body": "The Stane store took in 3 turnips.",
+   "probe": "The Stane store took in 3 turnips.",
+   "file_index": 4,
+   "frac_actual": 0.7538,
+   "line": 49,
+   "hits": 1,
+   "file": "reading2/rfdmvh/05-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 4,
+   "frac": 0.364965200507738,
+   "body": "Tally for Hale End: 4 beets.",
+   "probe": "Tally for Hale End: 4 beets.",
+   "file_index": 7,
+   "frac_actual": 0.372,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/rfdmvh/08-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 30
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

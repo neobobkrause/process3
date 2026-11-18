@@ -1,0 +1,179 @@
+{
+ "id": "wtq38h",
+ "ladder": "single",
+ "size": 24000,
+ "index": 93,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "s": 6,
+   "e": 176
+  }
+ ],
+ "files": [
+  "reading2/wtq38h/principles.md"
+ ],
+ "bytes": 23717,
+ "lines": 200,
+ "task": "dedupe",
+ "values": {
+  "code1": "B2U-5016",
+  "code2": "X7G-3536",
+  "w_last": "fennimore",
+  "w_name": "elderwood",
+  "w_desk": "quillon",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Kwabena Asantewaa",
+  "family": "vegetables",
+  "members": [
+   "marrows",
+   "shallots",
+   "onions",
+   "parsnips",
+   "turnips",
+   "leeks",
+   "carrots",
+   "beets",
+   "radishes",
+   "cabbages"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under fennimore",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07651737058389016,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
+   "probe": "-- filed under fennimore",
+   "frac_actual": 0.0885,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "elderwood-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.46287639258248203,
+   "body": "Every job must note: the job's handover note is saved under the file name `elderwood-relay.md`, and under no other name.",
+   "probe": "elderwood-relay.md",
+   "frac_actual": 0.4706,
+   "line": 88,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9686263169170551,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.9827,
+   "line": 193,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.354597459439462,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.3617,
+   "line": 70,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6379261664843746,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.6409,
+   "line": 121,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 12,
+   "frac": 0.10773751356703774,
+   "body": "12 marrows were logged at the Pell gate.",
+   "probe": "12 marrows were logged at the Pell gate.",
+   "frac_actual": 0.0908,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 10,
+   "frac": 0.2608180548059128,
+   "body": "Dunn desk entered 10 shallots on the sheet.",
+   "probe": "Dunn desk entered 10 shallots on the sheet.",
+   "frac_actual": 0.2688,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 17,
+   "frac": 0.47271573933113165,
+   "body": "Received at Wick, 17 onions.",
+   "probe": "Received at Wick, 17 onions.",
+   "frac_actual": 0.4782,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 7,
+   "frac": 0.7698749634434221,
+   "body": "A box of 7 parsnips came through Corrie.",
+   "probe": "A box of 7 parsnips came through Corrie.",
+   "frac_actual": 0.7812,
+   "line": 148,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 8,
+   "frac": 0.7862965886026831,
+   "body": "The Eyre store took in 8 turnips.",
+   "probe": "The Eyre store took in 8 turnips.",
+   "frac_actual": 0.7911,
+   "line": 153,
+   "hits": 1,
+   "file": "reading2/wtq38h/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 54
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

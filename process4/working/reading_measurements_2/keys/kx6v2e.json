@@ -1,0 +1,198 @@
+{
+ "id": "kx6v2e",
+ "ladder": "single",
+ "size": 96000,
+ "index": 90,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "requirements/governing__ledger-map-proposed-changes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__working__audit2_requirements.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__working__session2__later_requirements.md",
+   "lines": "all"
+  }
+ ],
+ "files": [
+  "reading2/kx6v2e/requirements.md"
+ ],
+ "bytes": 95075,
+ "lines": 601,
+ "task": "minutes",
+ "values": {
+  "code1": "F4V-5414",
+  "code2": "M2U-3557",
+  "w_last": "foxglove",
+  "w_name": "varnish",
+  "w_desk": "elderwood",
+  "name_a": "Priya Venkataram",
+  "name_b": "Soren Achterberg",
+  "family": "hand tools",
+  "members": [
+   "rasps",
+   "chisels",
+   "pliers",
+   "spanners",
+   "mallets",
+   "handsaws",
+   "wrenches",
+   "hammers",
+   "awls",
+   "trowels"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref F4V-5414",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0860821661192147,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref F4V-5414`.",
+   "probe": "# ref F4V-5414",
+   "frac_actual": 0.0839,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: elderwood",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47151003576581724,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: elderwood`.",
+   "probe": "desk: elderwood",
+   "frac_actual": 0.4951,
+   "line": 311,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "varnish-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9159334383660523,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.",
+   "probe": "varnish-relay.md",
+   "frac_actual": 0.9517,
+   "line": 559,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1847024410137781,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.1804,
+   "line": 127,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4404256385934213,
+   "value": "reviewer: Soren Achterberg",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.4408,
+   "line": 286,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 19,
+   "frac": 0.1635633307961146,
+   "body": "Received at Pell, 19 rasps.",
+   "probe": "Received at Pell, 19 rasps.",
+   "frac_actual": 0.1644,
+   "line": 112,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 15,
+   "frac": 0.22107163783190573,
+   "body": "A box of 15 chisels came through Yarm.",
+   "probe": "A box of 15 chisels came through Yarm.",
+   "frac_actual": 0.2241,
+   "line": 148,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 18,
+   "frac": 0.44122789814008556,
+   "body": "At Rigg the clerk wrote down 18 pliers.",
+   "probe": "At Rigg the clerk wrote down 18 pliers.",
+   "frac_actual": 0.4424,
+   "line": 291,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 12,
+   "frac": 0.5954213982365616,
+   "body": "12 spanners were logged at the Dunn gate.",
+   "probe": "12 spanners were logged at the Dunn gate.",
+   "frac_actual": 0.5901,
+   "line": 396,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 2,
+   "frac": 0.7762351419201667,
+   "body": "Thorpe sent word of 2 mallets on hand.",
+   "probe": "Thorpe sent word of 2 mallets on hand.",
+   "frac_actual": 0.8031,
+   "line": 478,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 7,
+   "frac": 0.8610642223550654,
+   "body": "Uller desk entered 7 handsaws on the sheet.",
+   "probe": "Uller desk entered 7 handsaws on the sheet.",
+   "frac_actual": 0.8737,
+   "line": 514,
+   "hits": 1,
+   "file": "reading2/kx6v2e/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 73
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}
