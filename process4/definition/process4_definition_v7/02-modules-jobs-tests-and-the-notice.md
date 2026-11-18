@@ -1,6 +1,6 @@
 # Part 2. Modules, jobs, module tests, and the notice
 
-Length: 103 lines. Last section: "9. Changes that are not a job's".
+Length: 107 lines. Last section: "9. Changes that are not a job's".
 
 ## 1. Modules and their order
 
@@ -71,7 +71,11 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **Who is told.** Only the users of the entry that changed. The tool sends the notice and decides to whom.
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
-- **Open (a session, by design work):** how a told job picks the tests that relate to a changed entry, and how the run on its pull request is held to those tests. The owner's rule stands meanwhile: only the related tests run.
+- **Which tests relate. Claude decided:** the tool picks them, not the job. The notice carries the places in the told module's files that name the changed entry. The related tests are the module's test files that hold such a place, or reach code that holds one, or reach code the told job itself changed, together with any test file the job changed. They are chosen by whole test file.
+- **The run on GitHub. Claude decided:** there is one required run with one name. The tool, at the tranche branch's version, sets its scope: nothing, the related tests, or the whole module. It works the list out itself, so the job supplies nothing. An ordinary job runs the whole module; a told job runs the related tests.
+- A told job that finds nothing to change runs the related tests in its own session, records the result in its pull request, and closes it unmerged.
+- **Reading:** three points here bear on what the owner's rule means, and are his to confirm (part 10): that a told job's own edits count among "the changed parts"; that tests are chosen by whole file; and that where the tool cannot follow a told module's code, that module's whole tests run, since the tool cannot say which relate.
+- **Unproven:** that the tool can follow from a use to the tests that reach it inside a module, and can tell when it has lost the thread. The method was proven only between modules. The saving is unmeasured. The grounds are in `process4/working/design_work_18nov/notified_job_tests.md`.
 - **When the module list changes. Claude decided:** a change to the list sends no notice of itself. Where it moves code between modules or splits a module, the tool makes the interface listings of the modules touched before and after, and the users of any entry whose listing differs are told as for any other change. Where only a provider's name changes for its users, their code is changed by a mechanical edit.
 - **A declared use that no code makes. Claude decided:** it receives no notice, because the tool works out uses from code (decision 1 below). The check of declared uses in the module's own tests finds it at the module's next job, which removes the declaration.
 
