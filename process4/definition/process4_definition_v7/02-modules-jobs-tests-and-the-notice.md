@@ -1,6 +1,6 @@
 # Part 2. Modules, jobs, module tests, and the notice
 
-Length: 100 lines. Last section: "9. Changes that are not a job's".
+Length: 102 lines. Last section: "9. Changes that are not a job's".
 
 ## 1. Modules and their order
 
@@ -24,7 +24,7 @@ Length: 100 lines. Last section: "9. Changes that are not a job's".
 4. **The job session is started,** with instructions naming every act the job may take.
 5. **The job works** in a draft pull request, writing only its own module's files, its tests among them. A flaw it finds in another module goes to ARCH, which places it against that module.
 6. **The job completes.** It pushes and marks the pull request ready. Its module's tests run on GitHub's machines. The job fixes its own failures and sends ARCH one message when the tests pass.
-7. **The job is merged** into the tranche branch with the tool, the only way a session can merge. There is no review and no act of the owner's.
+7. **ARCH merges it** into the tranche branch with the tool, the only way a session can merge. There is no review and no act of the owner's.
 8. **The slot is refilled** in the same turn, and the notice is sent if the module's interface listing changed (section 7).
 
 - A job decides how to meet its module's requirements and writes that module's tests. In the owner's words: "Yes, a job writes its own tests. That's an important responsibility."
@@ -45,18 +45,20 @@ The tool decides both, because each has one right answer. **Claude decided** the
 ## 5. Slots
 
 - Eight by default, counted across the account. The owner can change the number by a marked instruction.
-- Lane sessions, the standing roles and workers use no slot. Walking sessions use the slots, since a walk is made when no job is open.
+- Lane sessions, the standing roles and workers use no slot. **Claude decided:** walking sessions use the slots, since a walk is made when no job is open.
 - **Open (ARCH, when a second product starts):** how two products running at once share the eight.
 
 ## 6. Module tests
 
 - The tests of Process4 are module tests, the internal walk and the external walk. Before a release, an install and an update are each confirmed to have succeeded. Nothing more: no further test phases, gates or reviews, and no full regression, on request or otherwise.
+- A test runs only when there is a fully informed reason to run it.
 - Module tests run for the job's own module only, on GitHub's machines, when the job marks its pull request ready. A failure goes back to the job.
-- They give appropriate coverage of the code, demonstrate correct results, show that error conditions are properly identified and communicated, and check bounds. A test does not fail because it got a different but still valid response. This is a duty of the job, held by its instructions; nothing measures it.
+- They give appropriate coverage of the code, demonstrate correct results, show that error conditions are properly identified and communicated, and check bounds. A test does not fail because it got a different but still valid response. They "must be complete yet fast and efficient". This is a duty of the job, held by its instructions; nothing measures it.
+- The structured comments and the tool can also inform module tests, so that boundaries are properly checked.
 - Every requirement is tested at the module's interface.
 - Module tests include a check that the module's declared uses match its imports. The check reads the module's test files as well as its source.
-- Inside a module's own tests the tool may refuse a structured comment that disagrees with the module's code, and may refuse the module's code where it disagrees with a provider's stated interface. These are parts of module tests, not further tests.
-- A module's tests and a walk's steps are product work. Each exists only to prove a product requirement, which it names. A test or step that serves the process is not allowed. This is a rule in text.
+- Inside a module's own tests the tool may refuse a structured comment that disagrees with the module's code, and may refuse the module's code where it disagrees with a provider's stated interface. These are parts of module tests, not further tests. Only these two refusals stand; no other is built into module tests.
+- A module's tests and a walk's steps are product work. Each exists only to prove a product requirement, which it names. **Claude decided:** a test or step that serves the process is not allowed. This is a rule in text.
 - Module tests run in two parts, so that product code under test holds no access token.
 - Built files are never committed. They are built at each walk, deployment and release.
 
@@ -78,11 +80,11 @@ The tool decides both, because each has one right answer. **Claude decided** the
 2. A user the tool cannot follow fully counts as using everything of that provider.
 3. A bound that a kind of value cannot express is written on its own marked line in the comment.
 4. Code that checks or builds what crosses a module's interface says, in a comment, which kind it checks or builds.
-5. Calls made by name are made followable: each provider publishes one table of its operations, and the tables are gathered into one list.
+5. Calls made by name are made followable: each provider publishes one table of its operations, the tables are gathered into one list, and each shared piece that carries a call by name has one comment tying the name to that list.
 6. Both listings of a comparison are made at the same moment with the same version of the tool.
 7. "Accepts more" counts only when the language's own type checker confirms it.
 
-Which language reader the tool uses is a fact of the product and is named in its process config.
+**Claude decided:** which language reader the tool uses is a fact of the product, named in its process config.
 
 ## 8. Who decides an interface, and changes that must land together
 
@@ -94,7 +96,7 @@ Which language reader the tool uses is a fact of the product and is named in its
 
 ## 9. Changes that are not a job's
 
-- **The mechanical edit.** A worker in ARCH's session makes it as one change covering every affected module, and it is merged once. **Claude decided** the moment: when no job is open, between a round's last merge and its internal walk. A module where the change needs judgment gets its own job. **Unproven:** which test run GitHub requires on that one change.
+- **The mechanical edit.** **Claude decided:** a worker in ARCH's session makes it as one change covering every affected module, and it is merged once; and the moment: when no job is open, between a round's last merge and its internal walk. A module where the change needs judgment gets its own job. **Unproven:** which test run GitHub requires on that one change.
 - **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing.
 - **Requirement text, the module list, and the process's named files.** **Claude decided:** these change no code and no tests, so their pull requests merge through the tool with no module tests run. The required test run reports on every pull request, and passes at once when no module's code or tests changed.
 - **The owner's approvals and forbidden commands** are committed by the owner alone (part 6).

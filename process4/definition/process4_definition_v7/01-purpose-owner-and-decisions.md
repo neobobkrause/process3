@@ -22,7 +22,7 @@ Length: 79 lines. Last section: "7. Known weaknesses of AI sessions".
 | Start ROOT | At each start or restart of development; after each edit to his approvals; after any full stop |
 | Tell the coordinator things; give marked decisions and instructions | Whenever he chooses |
 | Approve or change ARCH's proposal for a tranche | Before each tranche opens |
-| Approve a release | Once for each release |
+| Approve a public release | Once for each public release |
 | At PROCESS: choose among the options offered for a process change, and approve a product's move to the changed process | Whenever a change is proposed |
 | Commit his standing approvals and the list of forbidden commands, in the product's repository and in the process's | At the start, then only when the wording must change |
 | Change a permission or rule setting in GitHub or in the hosting account | Very occasionally |
@@ -44,8 +44,8 @@ Length: 79 lines. Last section: "7. Known weaknesses of AI sessions".
 
 ## 5. How things are put to the owner
 
-- Plain words. No reference codes. Nothing that points to something he has not seen.
-- A question is put to him inline, once, in one form: a title; the question; an explanation of the issue; options, each with its own identity and what it gives and costs; the recommendation and its reasons; and the freedom to set the options aside.
+- In his words: "Talk to me in plain words. No codes, no shorthand, no references to things I have not seen."
+- A question is put to him inline, once, in one form: a title; the question; an explanation of the issue; options, each with its own identity; the recommendation and its reasons; and the freedom to set the options aside.
 - No technical question is brought to him. The AI decides it and reports it in one plain line.
 - No session assures him that something will work. Each claim put to him says what is proven and what is not, names its source, and calls anything unread or unmeasured unknown.
 - One standing page always shows everything waiting for him. A notification goes to his phone when something arrives that only he can clear.

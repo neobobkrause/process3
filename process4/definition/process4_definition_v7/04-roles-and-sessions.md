@@ -1,6 +1,6 @@
 # Part 4. Roles and sessions
 
-Length: 130 lines. Last section: "10. When something goes wrong".
+Length: 132 lines. Last section: "10. When something goes wrong".
 
 ## 1. The roles, and the sessions that hold no standing role
 
@@ -24,7 +24,7 @@ What the tool does and what ARCH keeps: whatever has one right answer is done by
 | ROOT | The watcher, ARCH, the coordinator, PROCESS |
 | ARCH | Jobs, walking sessions, the product's lanes |
 | PROCESS | Its own lanes (a reading; part 6, section 8) |
-| Any session | Its own workers |
+| A long-lived role or a job | Its own workers |
 
 - Under a ROOT the owner started, roles sit at most three levels deep: ROOT; then ARCH, the coordinator, the watcher and PROCESS; then jobs, walking sessions and lanes. A takeover by the watcher adds a level (section 6).
 - No session starts its own replacement.
@@ -47,13 +47,15 @@ The owner's rulings:
 - The owner identifies the need for a lane, and ARCH opens it. The UX lane is always there. A product's other lanes are named in its process config.
 - A lane runs as one session at a time. Whether it is kept running or started when a question arrives is ARCH's call, judged by cost.
 - The first time a lane runs, it uses workers to research the product's founding documents, the existing code and the best practice of its area, and answers no question until that research is recorded in its folder. Every later session of the lane reads it first and adds to it.
-- A lane decides within the product's principles.
+- A lane decides design and wording in its area, within the product's principles.
 - The owner keeps the product's direction, audiences and principles. A lane decision that would change one comes to him with options and the lane's recommendation.
-- Questions from the work reach a lane only through ARCH. A job never talks to a lane, and lanes never talk to each other.
+- Questions from the work reach a lane only through ARCH, which passes each on with enough context to decide. A job never talks to a lane, and lanes never talk to each other.
 - The UX lane owns the Screens document and the journeys.
 - A lane ends when the owner or ARCH says its area needs no further design. Its folder and research stay.
 
-**Claude decided:** a lane session uses no job slot; a fresh lane session begins by reading the lane's research and the links to its design pages.
+**Claude decided:** a lane session uses no job slot. A fresh lane session begins by reading the lane's research and the links to its design pages. One session for each lane is held by the lanes record: the tool does not start a second while the first is recorded as live.
+
+**Reading:** the questions ARCH puts to a lane, and its answers, are not kept as a running record. What a lane decides is written into its folder as design.
 
 ## 4. The shared state
 
@@ -84,8 +86,8 @@ The owner's rulings:
 ## 5. Refresh and replacement
 
 - Each long-lived role is refreshed on purpose, at a natural pause in its work or at the stated fill level (part 5), whichever comes first. It asks its parent. Its successor starts only from the shared state and the repository.
-- Before it asks, the role rewrites its handover record.
-- The parent of ARCH, the coordinator and PROCESS is ROOT. The parent of a product's lane is ARCH. ROOT replaces the watcher. ROOT itself is refreshed by the watcher (section 6).
+- **Claude decided:** before it asks, the role rewrites its handover record.
+- The parent of ARCH, the coordinator and PROCESS is ROOT. The parent of a product's lane is ARCH. **Claude decided:** ROOT replaces the watcher, and ROOT itself is refreshed by the watcher (section 6).
 - A job that fills up or dies is replaced by ARCH with a new session that continues from the same branch and pull request.
 - A finished session is archived, not deleted. **Claude decided:** the session that started a session archives it; where the starter is gone, ROOT does.
 - Sessions other than ROOT and the watcher are relatively short-lived. **Reading:** a role such as ARCH lasts, while its sessions are refreshed often.

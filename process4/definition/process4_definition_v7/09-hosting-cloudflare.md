@@ -1,6 +1,6 @@
 # Part 9. The hosting table for Cloudflare
 
-Length: 22 lines. Last section: "2. Not known".
+Length: 27 lines. Last section: "3. Not known".
 
 Everything in this part is specific to Cloudflare, the first hosting provider. Support for other hosting is not built; the design is written so that it can be added as another table.
 
@@ -15,7 +15,12 @@ Everything in this part is specific to Cloudflare, the first hosting provider. S
 | Install and update | The product's installer placing a release into an empty Cloudflare account, and its updater moving an installed release to a newer one. Both are run on a development account before a release is offered (a reading; part 3, section 6) |
 | Installed sites | Cloudflare accounts where a release runs for real users. No session holds a key to one |
 
-## 2. Not known
+## 2. Claude decided
+
+- The development site's names are kept apart from any installed site's.
+- The deploy token is for the development account only. Only ARCH's instructions name deploying. Nothing physical keeps the token's value from another session in the same environment.
+
+## 3. Not known
 
 - How many external walkers the account bears.
 - Whether a deployment can be made from a session within the time a session can run one thing. The two late deployments with a walk in the process before this one took 60 and 64 minutes on GitHub's machines.

@@ -1,6 +1,6 @@
 # Process4: the design, seventh draft
 
-Length: 81 lines. Last section: "5. Words used".
+Length: 82 lines. Last section: "5. Words used".
 
 Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force and nothing here has run.**
 
@@ -50,7 +50,7 @@ A rule with no mark is the owner's ruling, or follows from one directly.
 - **Role:** a standing responsibility that one session holds at a time: ROOT, the watcher, the coordinator, ARCH, a lane, PROCESS. A role lasts; its sessions are replaced.
 - **ROOT, the watcher, the coordinator, ARCH, PROCESS:** the standing roles (part 4). A job, a walking session and a worker hold no standing role.
 - **Long-lived role:** a role whose session runs long enough to need refreshing. **Handover:** what its successor needs, written before a refresh.
-- **Worker:** a helper a session starts inside itself for one bounded piece of work.
+- **Worker:** a helper that a long-lived role or a job starts inside itself for one bounded piece of work.
 - **Module:** one part of the product, with its own code files, tests and requirements file. The product is one ordered list of modules, and a module may use only modules before it.
 - **Provider and user:** a module that uses another is that module's user; the one used is the provider.
 - **Interface:** what a module accepts and what it hands back.
@@ -65,7 +65,8 @@ A rule with no mark is the owner's ruling, or follows from one directly.
 - **Flaw:** one of three things a walk can find (part 3). Anything else a walker notes is an **observation**.
 - **Mechanical edit:** one change that touches many modules in the same trivial way and needs no judgment. The owner's example: "a word table change".
 - **Development site and development deployment:** the product put on a site in its own development account, reaching no one else. It holds no secrets and keeps no permanent record.
-- **Release:** a version of the product offered for installing. **Installed sites** are where releases run for real users.
+- **Pull request:** a proposed change to a repository, which GitHub can test and then merge. A draft pull request is one not yet offered for merging.
+- **Release:** a public version of the product offered for installing. A development release, made only for development, is not one. **Installed sites** are where releases run for real users.
 - **The notice:** what tells a user module that a provider's interface changed. A **structured comment** is a comment in code that states the interface for the tool.
 - **Governing text:** a text a session must read in full and follow. **The maximums:** the largest single text and the largest set (part 5).
 - **The tool:** the process's own small program, each session's only door to GitHub (part 6).
@@ -78,4 +79,4 @@ A rule with no mark is the owner's ruling, or follows from one directly.
 - **Deploy token:** the secret value that lets a session deploy to the development account. **Hosting provider:** where a product is hosted and released.
 - **Fill level:** how full a session's context window is. **Refresh:** the planned replacement of a role's session by a fresh one.
 - **Lane:** a standing design responsibility for one area of a product. **Design pages:** the pages a lane keeps its designs on, where the owner works with it.
-- **Process config:** the product's short file of process settings: the process version it runs on, the slot number, its lanes, its hosting provider and development account, and the folder of the walks' documents.
+- **Process config:** the product's short file of process settings. **Claude decided** what it holds: the process version it runs on, the default slot number, its lanes, its hosting provider and development account, the folder of the walks' documents, and the language reader the tool uses.

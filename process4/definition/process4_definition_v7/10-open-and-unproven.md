@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 87 lines. Last section: "6. Risks with no trial".
+Length: 90 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -18,7 +18,7 @@ Each of these is to be put to him in full, with its options, before the design c
 
 ## 2. Open design work
 
-For a session to do. None needs the owner unless the answer changes what the product does or asks an act of him.
+For a session to do, and to report.
 
 1. How a told job picks the tests that relate to a changed entry, and which tests run on its pull request (part 2, section 7).
 2. What on GitHub carries the shared state (part 4, section 4).
@@ -55,7 +55,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 - The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. It needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
 
-What the trial rehearses, each once unless a number is given:
+**Claude decided** this list. What the trial rehearses, each once unless a number is given:
 
 1. A plain-started ROOT fetches the newest copy, comes up on the newest approvals, also straight after an approvals commit, and starts the watcher, ARCH and the coordinator.
 2. Twenty or more merges by the tool pass the permission checker.
@@ -69,6 +69,9 @@ What the trial rehearses, each once unless a number is given:
 10. A process fault travels from a job to PROCESS, and ROOT starts PROCESS in the process's repository.
 11. An edit to the approvals with a restart carries a round on.
 12. An install and an update are run and confirmed on a development account.
+13. The rule for who takes a free slot gives the same answer every time.
+14. The hosting account bears the external walkers.
+15. An account switch loses no work.
 
 ## 5. Only the first real tranche can show
 

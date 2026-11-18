@@ -1,6 +1,6 @@
 # Part 6. What holds a rule, the tool, and changing the process
 
-Length: 67 lines. Last section: "8. Process4 develops itself".
+Length: 69 lines. Last section: "8. Process4 develops itself".
 
 ## 1. What holds a rule
 
@@ -10,7 +10,7 @@ Length: 67 lines. Last section: "8. Process4 develops itself".
 
 ## 2. The owner's standing approvals
 
-- They are a block of text in the owner's own words, saying what sessions may do without asking him and what they may never do. He commits it himself. No session writes, edits or relays it.
+- They are a block of text in the owner's own words, saying what sessions may do without asking him and what they may never do. He commits it himself, on GitHub's website. No session writes, edits or relays it.
 - A session loads the approvals only when it starts. **Claude decided:** an edit therefore goes with a restart of ROOT (part 4, section 7), and no session compares the approvals it loaded with the newest.
 - The approvals and the list of forbidden commands are protected by the permission checker alone.
 - In the process's repository the approvals say that a process change is merged only on the owner's word given at PROCESS. Nothing enforced by GitHub is added for this.
@@ -33,7 +33,8 @@ Length: 67 lines. Last section: "8. Process4 develops itself".
 
 - The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; count failed runs on a job's pull request; and read and write the shared state.
 - It refuses nothing for size, and holds none of the checks the process before this one had that could stop work.
-- The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work.
+- The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work. **Claude decided:** the changes recorded when the notice's method was proven become tests of the tool.
+- The AI builds the tool, before anything is in force.
 - A product names one fixed version of the process in its process config, and a tranche runs on that one version from open to close. Each session fetches a read-only copy of it.
 - PROCESS answers a finding against the tool that needs a deliberate attack with "no change" unless the owner says otherwise.
 - **Unproven:** the tool is not built. Whether merges made by it pass the permission checker at a real rate is unmeasured.
@@ -58,6 +59,7 @@ What follows from them:
 - Any change to Process4 is explained to the owner, who decides whether and how the process is updated.
 - No session building a product may change the process, add a test, check, gate or review to it, or adopt a changed process on its own. ARCH moves a product to a changed process only with the owner's prior approval, by the means PROCESS proposes.
 - ROOT starts PROCESS. PROCESS works in the process's own repository, with the owner directly. The coordinator can talk to it.
+- **Claude decided:** PROCESS runs as one session at a time, keeps its own folder in the process's repository, and records its research there before it proposes.
 - **Claude decided:** PROCESS writes the owner's approving words into the record of the change, exactly as typed, with the date. Nothing else counts as approval.
 - **Unproven:** nothing physical stops a session building a product from changing the process's files, or from moving to a changed process.
 

@@ -22,7 +22,7 @@ All four are **provisional**. They stand, on the owner's word, until a second me
 | The fill level for a refresh | 40 percent | The owner's ruling. Not measured |
 
 - None of the four is a size at which reading was shown to fail on Codex.
-- Where a harness shows no fill level (part 8), the refresh comes only at a natural pause.
+- **Claude decided:** where a harness shows no fill level (part 8), the refresh comes only at a natural pause.
 
 ## 3. Keeping texts under the maximums
 
@@ -42,11 +42,11 @@ All four are **provisional**. They stand, on the owner's word, until a second me
 
 ## 5. The records of decisions
 
-- The owner's decisions about the Process4 design are kept in the process's repository, by PROCESS. His decisions about a product are kept in that product's repository, by the coordinator. Each record has one writer.
+- The owner's decisions about the Process4 design are kept in the process's repository, by PROCESS. His decisions about a product are kept by the coordinator. Each record has one writer. **Claude decided:** a product's record is kept in that product's repository.
 - A record is ordered by subject. Each entry states the rule as it now stands, and a decision that changes an entry rewrites it in place.
 - The owner's exact dated words are kept and never edited.
 - A rewritten entry is shown to the owner once before it stands.
-- ARCH's technical decisions are written in a second record in the product's repository, of which ARCH is the only writer.
+- **Claude decided:** ARCH's technical decisions are written in a second record in the product's repository, of which ARCH is the only writer.
 
 ## 6. Each product's ranking page
 
