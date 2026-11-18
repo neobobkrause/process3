@@ -27,18 +27,18 @@ Branch `claude/process4-design-handoff-7w8nh8`. Everything is pushed.
 2. Settled, as Claude's decisions marked in the draft: what carries the shared state (one issue, one comment for each record, one writing session for each); how a told job's related tests are picked and run; the order of the owner's acts to start a product; how two products share slots; what a module-list change tells; where each loop ends; how a release approval reaches the publishing session; grouping sessions on Claude Code; and about twenty smaller running rules (part 4, section 11).
 3. Had the four build texts written.
 
-## In progress when this was written
+## Done since, on the same day
 
-A worker is reconciling the build texts with each other and with the design, editing only inside `process4_build_v1/`. Its report goes to `readiness_18nov/build_texts_reconciled.md`. If that file is missing, the reconciling was not finished: have it done again from the brief's rulings, which are: the design rules; a job's record on its pull request takes build text 1's form; a module is known by its name; the process config takes every field texts 1 and 3 read; every rule in a starting text counts toward ten, the "never" lines included.
+- The build texts were reconciled with each other and the design in three passes (`readiness_18nov/build_texts_reconciled.md`). This session read build texts 1, 2 and 3 and the texts for ROOT, ARCH and a job in full; the other five starting texts it did not read.
+- Build text 4, `04-the-trial.md`, gives the order of building and trying. Stage 0 tries whether a program can reach GitHub from a session at all; the design changes if it cannot.
+- The background document was rewritten as background only (`readiness_18nov/background_rewritten.md`): eleven parts, 144,989 bytes. This session has not read the rewrite.
 
 ## Next, in order
 
-1. Read the reconciling report. Settle each conflict it could not, in the design, and report each to Bob in one plain line.
-2. Read build texts 1 and 2 and the starting texts in full. This session read only build text 3 itself.
-3. Have one fresh worker check the design and the build texts together for what a building session still could not act on.
-4. Rewrite the background document, `process4/working/foundations_updated/`, as background only. `background_checked_against_draft7.md` lists 8 contradictions, 43 out-of-date statements and about 252 passages that repeat the design.
-5. The plan for the trial: what is built first and tried first in the trial repository. Build text 1's build order and build text 3's section 8 are the start.
-6. The product's conversion plan and its written procedures. Both need the product's repository, which this session did not have.
+1. If the last check of the design and build texts together (`readiness_18nov/design_and_build_final_check.md`) is there, correct what it found. If it is missing, have it made: one fresh worker, the design and the four build texts and the starting texts, reporting what a building session still could not act on and where texts disagree.
+2. Put the matters in the design's part 10, section 1 to Bob, one at a time and in full.
+3. Nothing can be built until Bob has done what build text 4, section 2 lists. Do not start building the tool without his word.
+4. The product's conversion plan and its written procedures. Both need the product's repository.
 
 ## Waiting for Bob
 

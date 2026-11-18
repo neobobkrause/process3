@@ -1,4 +1,4 @@
-Length: @@ lines. Last section: "9. Never measured".
+Length: 81 lines. Last section: "9. Never measured".
 
 # Background, part 2: the tests
 

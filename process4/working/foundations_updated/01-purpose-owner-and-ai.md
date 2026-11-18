@@ -1,4 +1,4 @@
-Length: @@ lines. Last section: "8. What this part could not source".
+Length: 109 lines. Last section: "8. What this part could not source".
 
 # Background, part 1: why Process4 exists, the owner and the AI
 
@@ -68,7 +68,7 @@ The list of his acts is in design part 1, section 3. Three things lie behind it.
 
 **Two entries in the design's list are Claude's, not his.** The design marks as "Claude decided" that he starts ROOT after each edit to his approvals and when the harness's limit on depth is near. The evidence behind the first is in part 9 of this background (each of his five edits in Process3 stopped every long-lived session). The second follows from the watcher's takeover (part 5 of this background).
 
-One act has no carrier named: connecting an AI account to the development deployment before an external walk of journeys that use AI. Design part 9, section 3, lists what carries it as not known. The owner's related words, answering the fifth draft on 14 Nov (`owner_words/bob_words_14nov_c.md`): "A tranche can end without an AI enabled run". Whether a tranche can end with such a journey unwalked is listed as open with him (design part 10, section 1, item 9).
+The design's table also has him commit his two files in the product's repository and in the process's; the earlier form of this background did not say in which repository. One act has no carrier named: connecting an AI account to the development deployment before an external walk of journeys that use AI. Design part 9, section 3, lists what carries it as not known. The owner's related words, answering the fifth draft on 14 Nov (`owner_words/bob_words_14nov_c.md`): "A tranche can end without an AI enabled run". Whether a tranche can end with such a journey unwalked is listed as open with him (design part 10, section 1, item 9).
 
 Where his approvals live, and the wording he would commit, were still owed when the earlier form of this background was written. Both are now in the design: where they live is marked "Claude decided", and the wording is marked open with the owner (design part 6, section 2). The grounds are in part 9 of this background.
 
@@ -106,4 +106,4 @@ What is recorded for each weakness, and what is not:
 
 - The owner's typed words of 18 Nov. His rulings of that day are known only through `working/design_state_18nov.md`, which is written in Claude's words.
 - The text of the fourth draft's twelfth proposal, which this writer did not read beyond its heading.
-- The evidence table behind "41 percent before and after his instruction of 5 Nov", which `working/trial_plan_facts.md` says is lost.
+- The evidence table behind the 41 percent before and after his instruction of 5 Nov, which `working/trial_plan_facts.md` says is lost.
