@@ -31,8 +31,8 @@ For a session to do, and to report.
 
 4. The tool itself. Written: build text `01-the-tool-and-the-required-run.md`. Not built. Unproven there: a session that holds one repository fetching the tool's copy; and it assumes the process's repository is public.
 5. Each role's starting text. Drafted: eight texts in the build folder `starting_texts/`, each under 4,096 bytes. None has been put before the permission checker, and each is to be counted again against "at most ten rules" as part 4, section 11 now counts them.
-6. The form of a structured comment and of an interface listing.
-7. The form of the module list, a requirements file and the process config.
+6. The form of a structured comment and of an interface listing. Written: build text `02-the-forms.md`. The forms used when the notice's method was proven are in a repository this work could not open, and win where they differ.
+7. The form of the module list, a requirements file and the process config. Written in the same build text.
 8. The required test run. Written in the same build text. Not built.
 9. The walks. Written: build text `03-the-walks.md`. Nothing in it has run.
 
