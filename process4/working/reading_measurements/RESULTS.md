@@ -96,7 +96,7 @@ A set of texts:
 
 - Largest set that passed: **407,862 bytes in 27 files, 15 of 15.**
 - First set that failed: **709,246 bytes in 45 files, 2 of 5 skipped.** Whether the size or the number of files brought the skipping is not known; they rose together.
-- The Codex figure the design now holds is 175,000 bytes. The set at 165,358 bytes passed 5 of 5 here.
+- The Codex figure proposed for the design is 175,000 bytes. The set at 165,358 bytes passed 5 of 5 here.
 
 A single text:
 
@@ -104,7 +104,7 @@ A single text:
 - First size that failed: **540 KB, 1 of 3**, by skipping, after a refused read.
 - Largest size read in **one** read, measured: **140 KB, 10 of 10.** With the large-file option one read returned up to 219,158 bytes and did not return 249,731.
 - Largest size a plain read returned whole: **49,480 bytes.** The limit is 25,000 tokens.
-- The Codex figure the design now holds is 24,000 bytes. Every size at or under it passed here.
+- The Codex figure proposed for the design is 24,000 bytes. Every size at or under it passed here.
 
 ## 6. What this shows and does not show
 
