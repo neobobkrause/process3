@@ -1,6 +1,6 @@
 # Process4 design state, 18 Nov 2026
 
-Length: 106 lines. Last section: "12. Owed, not yet done".
+Length: 117 lines. Last section: "13. Owed, not yet done".
 
 Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
 
@@ -27,13 +27,15 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - Bob's Foundations, brought up to date with the design, become the background document. Bob's ledger was a worksheet and is retired.
 - Bob's decisions about the Process4 design are kept in the repository. The design document is kept up to date so that it reflects them, in the same step, and carries none of the history of how the design got to its present state.
 - The record of decisions is ordered by subject. Each entry states the rule as it now stands, and a decision that changes an entry rewrites it in place. Bob's exact dated words are kept and never edited. A rewritten entry is shown to Bob once before it stands.
+- The body of the design names no hosting provider. Whatever depends on where a product is hosted and released (the development site, deploying, the deploy token, the hosting account's limits, installing and updating) is stated in neutral terms, with a table for each hosting provider saying what carries each term. Cloudflare is the first. Support for other hosting is not built now; the design is written so that it can be added.
+- Where the Codex side of the design is not yet known or not yet built, the design notes the shortcoming plainly and leaves it for Bob's work on the OpenAI account to fill. The list is `process4/working/codex_shortcomings_to_fill.md`.
 - Harness-neutral terms in the body of the design, with a table for each harness (Claude Code, Codex) saying which construct carries each term. Anything specific to Claude Code, such as CLAUDE.md and settings.json, is marked as specific to Claude Code.
 - Process4 is proposed (now), then on trial (from Bob's acceptance, used for the trial repository and the first real tranche), then in force (after the first real tranche ends, on Bob's word).
 
 ## 3. Reading in full
 
 - Every text a session must read in full, and every set of texts read together, is kept below a measured maximum size. Nothing can ensure a full reading; keeping below the maximum reliably results in one.
-- The Codex maximums are used, because they rest on real measurements and Codex context windows are in effect more constrained than Claude Code's.
+- The Codex maximums are used, because they rest on real measurements and Codex context windows are in effect more constrained than Claude Code's. The values are not yet settled. The figures found so far are in `process4/working/harness_separation/`; they are sizes shown to work, and none is a size at which reading was shown to fail.
 - Each role's principles are concise, sufficient for the role to be performed correctly, and unambiguously clear. Whenever they are changed, every effort is made to keep them short enough to be read in full and not scanned. Where that cannot be done, the matter comes to Bob to find a solution. Reading: PROCESS brings it to him.
 - A module's requirements file is kept under the maximum as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge.
 - Claude's addition: each governing text says at its top how long it is and what its last section is.
@@ -96,11 +98,20 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - The Process4 work is kept in a folder named process4, on a branch named process4, of the process3 repository. The Codex work is on that same branch.
 - Bob's typed words are in `process4/owner_words/`. The working Foundations are `process4/evidence/foundations.md` and `process4/evidence/foundations_tranche_9nov.md`.
 
-## 12. Owed, not yet done
+## 12. Working principles (Bob, 18 Nov)
 
-- The values of the Codex maximums, to fill the design's named blanks.
+- Every problem is either an architecture bug or an implementation error. Reading: an architecture bug is corrected by rewriting the part of the design it belongs to, never by appending to it; an implementation error is corrected in the code or text that has it.
+- A workaround is not a fix.
+- Where the process stops. It owns what can be proven in the repository and on the machines that run the tests. Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob, and production keys are never in the sessions' environment. Process4 provides the appropriate level of support for promoting to installed sites, for rollback and for support. What that level is has not yet been decided.
+- Two kinds of refusal are kept apart. An act the permission checker refused is never retried elsewhere. An act a session declined only because its instructions did not name it may be given to a new session whose instructions do.
+- Development work continues as long as there is work that can still be done productively, efficiently and safely.
+
+## 13. Owed, not yet done
+
+- The values of the maximums, to fill the design's named blanks: first what limits Process3's own rules set, and if those do not settle it, credible tests that measure the thresholds.
+- The level of support Process4 gives for promoting a release to installed sites, for rollback and for support.
 - A design for how a notified job picks the tests that relate to a changed entry.
 - The design of the watcher's takeover.
 - A worked proposal on branches and where Bob's approvals live, with each act asked of him.
-- Technical matters Claude settles and reports: when a round's jobs are done; who can read the deploy token; who decides an interface between two modules; files that no module owns; which copy a job's tests run against; what the shared state holds; loops with no end; who closes a finished session; what an edit to Bob's approvals does to a running round; how Process3 kept to GitHub's limits and why the sessions' account was suspended on 6 Nov; the notification's two smaller open parts.
+- Technical matters Claude settles and reports: when a round's jobs are done; who can read the deploy token; who decides an interface between two modules; files that no module owns; which copy a job's tests run against; what the shared state holds; loops with no end; who closes a finished session; what an edit to Bob's approvals does to a running round; why the sessions' account was suspended on 6 Nov (how Process3 kept to GitHub's limits is answered in the working Foundations: it used 80 to 90% of the published limits and obeyed GitHub's rate-limit responses); the notification's two smaller open parts.
 - For the Civicsmith conversion plan: which journey list counts.
