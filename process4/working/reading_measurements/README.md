@@ -1,6 +1,6 @@
 # Reading measurements: materials and where they stand
 
-Length: 61 lines. Last section: "What is not done, and the next step".
+Length: 55 lines. Last section: "What is not done, and the next step".
 
 Kept by Claude. Bob's word: "Run the three measurements." The plan is `../process3_limits_18nov_measurements.md`, sections 3 to 5. Sections 3 and 4 are done; the results are in `RESULTS.md`. Section 5 is not started.
 
