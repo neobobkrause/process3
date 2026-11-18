@@ -1,6 +1,6 @@
 # Part 4. Roles and sessions
 
-Length: 133 lines. Last section: "10. When something goes wrong".
+Length: 134 lines. Last section: "10. When something goes wrong".
 
 ## 1. The roles, and the sessions that hold no standing role
 
@@ -126,6 +126,7 @@ The owner's rulings:
 ## 10. When something goes wrong
 
 - **A job fails its tests.** The job fixes its module and the tests run again. **Claude decided:** the tool counts the failed runs on a job's pull request from GitHub's own record. After two failed corrections it tells ARCH, which replaces the session with a fresh one. The fresh session first works out why the corrections were made, so as to foresee the others. If the replacement also fails twice, the module is recorded as blocked with the reason, its slot is freed, and the matter goes to ARCH as a design question.
+- **A loop that would not end. Claude decided** each end. A walk flaw that two modules' jobs have each handed back as needing no change there is not placed a third time; ARCH decides it as a design question. A job blocked twice by the same other module is the same: the boundary between the two is an architecture bug (part 2, section 8). A design that ARCH has sent back to a lane twice comes to the owner as a question, with both views. A chain of notices ends of itself, because a module is used only by modules after it. A tranche's rounds end on the owner's word (part 3, section 5), and takeovers by the watcher at the limit on depth (section 6). In each case other work goes on.
 - **A session dies or stops.** ROOT's hourly wake finds it, and it is woken or replaced as section 5 says.
 - **A stop nothing called for** is a process fault. Some need no change to Process4, for example a stop caused by a compaction; then the stopped session is woken or replaced. Each such case may be studied and reported to PROCESS. **Reading:** while Process4 is on trial every such stop is reported to PROCESS; the simpler handling applies once it is beyond trial.
 - **The process itself has a fault.** No session building a product fixes it or works round it (part 6, section 6).

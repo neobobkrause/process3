@@ -1,6 +1,6 @@
 # Part 2. Modules, jobs, module tests, and the notice
 
-Length: 102 lines. Last section: "9. Changes that are not a job's".
+Length: 103 lines. Last section: "9. Changes that are not a job's".
 
 ## 1. Modules and their order
 
@@ -46,7 +46,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 
 - Eight by default, counted across the account. The owner can change the number by a marked instruction.
 - Lane sessions, the standing roles and workers use no slot. **Claude decided:** walking sessions use the slots, since a walk is made when no job is open.
-- **Open (ARCH, when a second product starts):** how two products running at once share the eight.
+- **Claude decided:** when two products run at once, each product's process config names its share of the slots, and the shares add up to the account's number. The default is an equal split. The owner changes a share by a marked instruction. A product does not borrow another's unused share, because no record is shared between two products. **Unproven:** two products have never run at once.
 
 ## 6. Module tests
 
@@ -72,7 +72,8 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
 - **Open (a session, by design work):** how a told job picks the tests that relate to a changed entry, and how the run on its pull request is held to those tests. The owner's rule stands meanwhile: only the related tests run.
-- **Open (ARCH):** who is told when the module list itself changes; and what becomes of a module that declares a use no code of it makes.
+- **When the module list changes. Claude decided:** a change to the list sends no notice of itself. Where it moves code between modules or splits a module, the tool makes the interface listings of the modules touched before and after, and the users of any entry whose listing differs are told as for any other change. Where only a provider's name changes for its users, their code is changed by a mechanical edit.
+- **A declared use that no code makes. Claude decided:** it receives no notice, because the tool works out uses from code (decision 1 below). The check of declared uses in the module's own tests finds it at the module's next job, which removes the declaration.
 
 **Claude decided,** for the tool that finds the change:
 

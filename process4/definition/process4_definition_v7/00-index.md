@@ -1,6 +1,6 @@
 # Process4: the design, seventh draft
 
-Length: 86 lines. Last section: "5. Words used".
+Length: 89 lines. Last section: "5. Words used".
 
 Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force and nothing here has run.**
 
@@ -54,6 +54,9 @@ A rule with no mark is the owner's ruling, or follows from one directly.
 - **The account:** the owner's account on a harness, under which every session runs. The development account, the hosting account and the GitHub account are always named in full. **The account after each round** is a short report, not an account in this sense.
 - **Starting instructions:** the text a session is started with, naming every act it may take. **Reading:** a role's starting text is the same thing for a standing role, and a role's principles are the rules in that text.
 - **Process fault:** **Claude decided** the wording: a fault in the process itself and not in the product: a rule of this design that cannot be kept, a fault in the tool, or a stop that nothing called for.
+- **Architecture bug and implementation error:** **Reading:** an architecture bug is a fault in the design itself; an implementation error is a fault in code or text that does not follow the design (part 1, section 6).
+- **Held merge:** a merge the owner has told the coordinator to hold until he approves it.
+- **Foundations:** the owner's own earlier document of the reasons and evidence behind the process.
 - **Trial repository:** the throwaway repository in which the process is rehearsed before any product uses it.
 - **Module:** one part of the product, with its own code files, tests and requirements file. The product is one ordered list of modules, and a module may use only modules before it.
 - **Provider and user:** a module that uses another is that module's user; the one used is the provider.

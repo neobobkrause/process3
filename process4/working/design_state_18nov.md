@@ -1,6 +1,6 @@
 # Process4 design state, 18 Nov 2026
 
-Length: 143 lines. Last section: "15. Owed, not yet done".
+Length: 144 lines. Last section: "15. Owed, not yet done".
 
 Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
 
@@ -140,4 +140,5 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - The design of the watcher's takeover.
 - A worked proposal on branches and where Bob's approvals live, with each act asked of him.
 - Technical matters Claude settles and reports: when a round's jobs are done; who can read the deploy token; who decides an interface between two modules; files that no module owns; which copy a job's tests run against; what the shared state holds; loops with no end; what an edit to Bob's approvals does to a running round; why the sessions' account was suspended on 6 Nov (how Process3 kept to GitHub's limits is answered in the working Foundations: it used 80 to 90% of the published limits and obeyed GitHub's rate-limit responses); the notification's two smaller open parts.
+- Settled by Claude on 18 Nov and written in the seventh draft: how two products share the slots (each product's config names its share); who is told when the module list changes; a declared use that no code makes; where each loop ends.
 - For the Civicsmith conversion plan: which journey list counts.
