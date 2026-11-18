@@ -1,6 +1,6 @@
 # Process4 design state, 18 Nov 2026
 
-Length: 129 lines. Last section: "14. Owed, not yet done".
+Length: 142 lines. Last section: "15. Owed, not yet done".
 
 Written by Claude from Bob's answers in the review session of 18 Nov 2026. This is a working brief for sessions that continue the design. It is not the design document.
 
@@ -104,7 +104,7 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 
 - Every problem is either an architecture bug or an implementation error. Reading: an architecture bug is corrected by rewriting the part of the design it belongs to, never by appending to it; an implementation error is corrected in the code or text that has it.
 - A workaround is not a fix.
-- Where the process stops. It owns what can be proven in the repository and on the machines that run the tests. Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob, and production keys are never in the sessions' environment. Process4 provides the appropriate level of support for promoting to installed sites, for rollback and for support. What that level is has not yet been decided.
+- Where the process stops. It owns what can be proven in the repository and on the machines that run the tests. Promoting a release to installed sites, rolling one back, and support belong to the product's own procedures and to Bob, and production keys are never in the sessions' environment. Process4 provides the appropriate level of support for promoting to installed sites, for rollback and for support. That level is written procedures (section 14).
 - Two kinds of refusal are kept apart. An act the permission checker refused is never retried elsewhere. An act a session declined only because its instructions did not name it may be given to a new session whose instructions do.
 - Development work continues as long as there is work that can still be done productively, efficiently and safely.
 
@@ -118,10 +118,23 @@ Written by Claude from Bob's answers in the review session of 18 Nov 2026. This 
 - Bob can see each open job's progress and status without speaking to it. A product's ROOT, ARCH, coordinator, lanes and jobs are grouped under that product; workers are left out. A finished session is archived, not deleted. Claude decided: the session that started a session archives it.
 - The maximums and the fill level are chosen by one yardstick: after a session has read what it must, there is room for a worthwhile piece of correct work and a handover before the fill level.
 
-## 14. Owed, not yet done
+## 14. Decided from ideas (Bob, 18 Nov)
+
+- Support beyond the process is written procedures. For each product the process keeps a short written procedure for promoting a release to installed sites, for rolling one back, and for handling a problem reported from an installed site. With each release it writes what changed, what the update does to stored data, and how to go back. Bob, or whoever runs the product, carries the procedures out.
+- Each product has one short page, kept by ARCH and read by every role, that ranks its kinds of governing text: mission, principles, standards, requirements, design decisions. A lower one never overrides a higher one. A session that finds two in conflict follows the higher and tells ARCH.
+- A stop that nothing called for is a process fault. Some need no change to Process4, for example a stop caused by a compaction; then the stopped session is woken or replaced. Each such case may be studied and reported to PROCESS. Any change to Process4 is explained to Bob, who decides whether and how the process is updated. Reading: while Process4 is on trial every such stop is reported to PROCESS; the simpler handling applies once it is beyond trial.
+- Each act of Bob's with a known date appears on his standing page before the date, with the steps. Every reasonable effort is made to renew a token before it expires, so that no full stop is needed. Sessions other than ROOT and the watcher are relatively short-lived, so once a new token is in place, fresh sessions start with it before the old one expires. A full stop happens only if the token is not replaced in time. Reading: a role such as ARCH lasts, while its sessions are refreshed often.
+- A message wakes its receiver at once. Whatever the receiver needs is saved before the message is sent. A message from the directing session is an instruction; a message from any other session is information. Where a harness has not been shown to wake a session at once, that is noted as a shortcoming.
+- A harness runs AI sessions only on what Bob's subscription covers. Anything that would cost more comes to him first.
+- Each harness's own files are kept apart in the process's repository, and a change for one harness never alters the other's.
+- Where it is in doubt how a change will affect the product, and inspecting or testing the code cannot settle it, the walks exercise the running workflow concerned; if it does what is expected, there is no problem. Reading: this adds no test; it is part of what ARCH names for a round's walks. It is not stated as a habit in any role's principles.
+- Every kind of standing note in the shared state says what ends it, and the tool removes the note when that comes true.
+- The tool guards against mistakes, and not against a session that sets out to defeat it. That is a known limit. PROCESS answers a finding that needs a deliberate attack with "no change" unless Bob says otherwise.
+- A session saves its work to the repository before its turn ends. A stop on Bob's word takes effect in the turn in which a session receives it.
+
+## 15. Owed, not yet done
 
 - The values of the maximums, to fill the design's named blanks: first what limits Process3's own rules set, and if those do not settle it, credible tests that measure the thresholds.
-- The level of support Process4 gives for promoting a release to installed sites, for rollback and for support.
 - A design for how a notified job picks the tests that relate to a changed entry.
 - The design of the watcher's takeover.
 - A worked proposal on branches and where Bob's approvals live, with each act asked of him.
