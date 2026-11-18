@@ -1,4 +1,4 @@
-Length: 303 lines. Last section: "9. What could not be settled".
+Length: 304 lines. Last section: "9. What could not be settled".
 
 # Process4 build text 2: the forms of the files the design names
 
@@ -37,7 +37,7 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full; `schema/`
 | The owner's decisions on the product | `process/decisions-owner.md` | The coordinator |
 | ARCH's technical decisions | `process/decisions-arch.md` | ARCH |
 | Procedures, release notes, tranche reports | `process/procedures/`, `process/releases/`, `process/reports/` | ARCH |
-| A job's record | One comment on the job's own pull request, the job block | The tool, in the session the table in section 8 names |
+| A job's kind and its record | Two comments on the job's own pull request | The tool: the job block in ARCH's session, the record in the job's |
 
 ## 3. The module list
 
@@ -266,7 +266,9 @@ Decided: 19 Nov 2026.
 
 The `Decision` line is the one plain line the coordinator gives the owner. A changed decision rewrites the entry in place. Each is one pull request, which ARCH opens and merges by the tool.
 
-**A job's record.** It is the job block of build text 1 (section 4, `open`): one comment on the job's own pull request, whose first line is the hidden mark `<!-- process4-job -->`, as in the shared state, and whose rest is one JSON block. Only the tool writes and reads it, and it is rewritten in place.
+**A job's kind and its record.** Two comments on the job's own pull request, each with a hidden mark on its first line, as in the shared state, and one JSON block after it. Each has one writing session (part 4, section 11), and only the tool writes and reads them.
+
+The job block, `<!-- process4-job -->`, is written once by ARCH's session, by `open --module <name>`, from the waiting-work record:
 
 ```json
 {
@@ -276,22 +278,21 @@ The `Decision` line is the one plain line the coordinator gives the owner. A cha
               "entry": "src/pricing/index.mjs PriceArgs", "change": "bound",
               "was": "PriceArgs bound quantity: a whole number from 1 to 999",
               "now": "PriceArgs bound quantity: a whole number from 1 to 99",
-              "places": ["src/orders/lines.mjs:41", "test/orders/lines.test.mjs:17"] } ],
-  "blocked": { "by": "pricing", "why": "<one plain sentence>" },
-  "nothing_to_change": "<one plain sentence>"
+              "places": ["src/orders/lines.mjs:41", "test/orders/lines.test.mjs:17"] } ]
 }
 ```
 
-| Field | Written by | In |
-|---|---|---|
-| `module`, `kind` (`ordinary` or `told`), `uses` | `open --module <name>`, from the waiting-work record; `notify` adds the uses of a later notice to an open job | ARCH's session |
-| `blocked` | `push --blocked <module> "<why>"` | The job's session |
-| `nothing_to_change` | `close <pr> --nothing-to-change "<why>"` | The job's session |
+The job's record, `<!-- process4-job-record -->`, is written only by the job's session, and holds one of two things:
 
-- `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module.
-- An ordinary job's block holds `module` and `kind` only, until it is blocked.
+```json
+{ "blocked": { "by": "pricing", "why": "<one plain sentence>" } }
+{ "nothing_to_change": "<one plain sentence>" }
+```
+
+- `kind` is `ordinary` or `told`; an ordinary job's block holds `module` and `kind` only. `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module.
+- `blocked` is written by `push --blocked <module> "<why>"`, `nothing_to_change` by `close <pr> --nothing-to-change "<why>"`. A later record rewrites the comment in place; its one writer is the job.
 - The tool reads `blocked.by` to make the job ready again when that module merges, and reads `nothing_to_change` on a pull request closed unmerged to count the module finished (part 2, section 4). No test runs for that record (part 2, section 7).
-- **Decided here**, following build text 1: one block, rewritten in place, in place of a comment of plain lines for each record. Gives: the required run and every command read one place. Costs: two sessions write the one comment, ARCH's and the job's, and GitHub keeps no guard between two writes; a second block of the same kind replaces the first.
+- **Decided here**, following build text 1 and part 4, section 11: one JSON block for each of the two, in place of a comment of plain lines for each record. Gives: the required run and every command read fixed places, and no write can be lost to another session's. Costs: a notice that arrives while the job is open cannot be added to its block (build text 1, section 9).
 
 ## 9. What could not be settled
 

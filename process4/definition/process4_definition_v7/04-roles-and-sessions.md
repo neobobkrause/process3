@@ -154,5 +154,5 @@ The owner's rulings:
 - **What ARCH learns from the coordinator** (a held or approved merge, a module put first, a new slot number, a request for a full external walk) comes by the standing notes and a message.
 - **The one message when the process is completely blocked** is sent by the coordinator, or by ROOT where the coordinator is what has stopped.
 - **The tool is first built** by a session on the owner's word, before anything is in force. After that only PROCESS changes it.
-- **"At most ten rules"** counts every rule in a starting text, the lines that say what the session never does among them. The size limit applies to the text as filled in for a session.
+- **"At most ten rules"** counts every rule in a starting text, the lines that say what the session never does among them. The size limit applies to the text as filled in for a session. What is filled in is names and addresses only. A list (the work placed, the uses a notice carries, a walk's areas) stays in the pull request or the round record, which the text names.
 

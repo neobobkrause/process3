@@ -1,6 +1,6 @@
 # Part 2. Modules, jobs, module tests, and the notice
 
-Length: 107 lines. Last section: "9. Changes that are not a job's".
+Length: 108 lines. Last section: "9. Changes that are not a job's".
 
 ## 1. Modules and their order
 
@@ -69,6 +69,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **What counts as a change.** In the owner's words: "any change to either a provider's domain or range necessitates that its users be retested. But if both domain and range stay the same, then no retesting of users is needed." For what a provider accepts, users are told only when the new interface cannot stand in for the old: something removed, renamed, newly required or newly refused. Accepting more tells no one. For what a provider hands back, any change to an entry tells that entry's users.
 - **How it is found.** The tool writes out the module's interface, from its code and its structured comments together, before and after the job's change. The notice is sent only when the two listings differ. A comment edited with no change to the listing sends nothing.
 - **Who is told.** In the owner's words, "ideally only the users of the entry that changed". The tool sends the notice and decides to whom.
+- **A module whose job is already open. Claude decided:** the notice waits in the waiting-work record until that job's pull request merges or closes. The module then has work again, and its next job is the told job. Nothing is passed to the open job.
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
 - **Which tests relate. Claude decided:** the tool picks them, not the job. The notice carries the places in the told module's files that name the changed entry. The related tests are the module's test files that hold such a place, or reach code that holds one, or reach code the told job itself changed, together with any test file the job changed. They are chosen by whole test file.

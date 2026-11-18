@@ -2,7 +2,7 @@
 
 Length: 200 lines. Last section: "9. The owner's to settle".
 
-Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here has run.** It stands beside the seventh draft of the design (`process4/definition/process4_definition_v7/`, "the design" below) and answers item 9 of its part 10, section 2. It changes no rule of the design and adds no test, check, gate, review or stop. Words in quotation marks are the owner's unless a line says otherwise. Reconciled the same day with build texts 1 and 2 and with the design's part 4, section 11; the tool's commands named here are in build text 1, section 4.
+Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here has run.** It stands beside the seventh draft of the design (`process4/definition/process4_definition_v7/`, "the design" below) and answers item 9 of its part 10, section 2. It changes no rule of the design and adds no test, check, gate, review or stop. Words in quotation marks are the owner's unless a line says otherwise. Reconciled the same day with build texts 1 and 2 and with the design; the tool's commands named here are in build text 1, section 4.
 
 Marks: **Decided here:** a choice made in this text, with what it gives and costs. **Unproven:** never shown to work. **Owner's:** his to settle.
 
@@ -44,7 +44,7 @@ The design fixes what an area is: for the internal walk a screen or a named grou
 
 **Decided here:** how ARCH names a round's areas.
 
-1. The tool (`walk areas`) lists the round's changed modules: those whose pull request merged in the round, and those a notice was sent to, whether or not they then changed.
+1. The tool (`walk areas`, a listing ARCH reads) lists the round's changed modules: those whose pull request merged in the round, and those a notice was sent to, whether or not they then changed.
 2. For each, the tool lists the screen pages and journeys named in the headers of that module's steps (section 3) and in its requirement text.
 3. A changed module that names none takes the areas of its users, followed upward until modules that name some are reached.
 4. That is the candidate list. ARCH adds an area where it doubts how a change will show (the design, part 3, section 3), and may take one away. Each added or removed area carries one line of reason.
@@ -82,7 +82,7 @@ Gives: a step changes with the code it proves, under the rule that a job writes 
 5. It compares what is on each screen, each state the page names, and where each action leads, with the page's words. A difference is a flaw of the first kind. Anything else it notes is an observation.
 6. It writes its record (section 6) and sends ARCH one message.
 
-A walking session starts no workers. At the fill level it finishes its record, tells ARCH in one message and stops, and ARCH gives the areas that remain to a fresh session (the design, part 4, section 11). It has made no commit, so there is nothing of its own to push.
+A walking session starts no workers. At the fill level it writes its last lines in the walk issue, tells ARCH and stops, and ARCH gives the areas not yet walked to a fresh session (the design, part 4, section 11). It has no commit and no branch.
 
 **Decided here:** the process config holds two commands (build text 2, section 7, `walk`): the one that builds and serves the product on one machine, and the one that runs named steps against an address. The tool copies them into a walking session's starting instructions. Costs: two more entries in the process config; the design's list for it now names them (part 0, section 6).
 
@@ -174,7 +174,7 @@ Observations go into the same account. ARCH may write a requirement from one. Wh
 
 An area with no line, or marked not walked, means the walk is not finished. ARCH gives the area to a session again. That is the design's "the areas it was given", and no added stop. A flaw given to the UX lane still counts in that walk: the document was wrong, and the corrected page is walked in the next round.
 
-**The tool judges nothing.** ARCH writes the outcome, through the tool, into the round record: each area as clean, flawed or not walked, and one line for the walk, without flaws or not. From the walk the tool needs only fixed-form lines it can copy: the hidden mark, the area lines, and each flaw's number with the module ARCH named. It opens and closes the walk issue (`walk open`, `walk close`), writes a walking session's comment (`walk write`), prints the issue (`walk read`), and writes ARCH's placements into waiting work and ARCH's lines into the round record (`state write`). The four walk commands are not in the design's list of what the tool does (part 6, section 5); build text 1, section 9 records that. It never judges a flaw's words and never refuses a deployment or an end of tranche. ARCH's session deploys after ARCH has written that the internal walk is without flaws.
+**The tool judges nothing.** ARCH writes the outcome, through the tool, into the round record: each area as clean, flawed or not walked, and one line for the walk, without flaws or not. From the walk the tool needs only fixed-form lines it can copy: the hidden mark, the area lines, and each flaw's number with the module ARCH named. It opens and closes the walk issue (`walk open`, `walk close`), writes a walking session's comment (`walk write`), prints the issue (`walk read`), and writes ARCH's placements into waiting work and ARCH's lines into the round record (`state write`). These are acts of the design's list (part 6, section 5). It never judges a flaw's words and never refuses a deployment or an end of tranche. ARCH's session deploys after ARCH has written that the internal walk is without flaws.
 
 ## 8. To try first in the trial repository, smallest first
 

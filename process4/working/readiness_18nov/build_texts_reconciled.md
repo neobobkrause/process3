@@ -1,4 +1,4 @@
-Length: 206 lines. Last section: "4. Still silent".
+Length: 281 lines. Last section: "5. Second pass".
 
 # The build texts reconciled with the design and with each other
 
@@ -204,3 +204,78 @@ The thirteen items of `starting_texts/00-index.md`, section 4, in short:
 13. Where a module's walk steps lie in its entry, and whether a changed step sets off the module's tests.
 
 Also still as the build texts left them, and not touched: build text 1, section 9, items 4, 5, 7, 8 and 9; build text 2, section 9, items 1 to 6; build text 3, section 9, the five matters that are the owner's.
+
+## 5. Second pass
+
+Made after the design settled the eleven matters of section 3. Re-read first: part 4, section 11; part 6, section 5; part 0, section 5. Sections 1 to 4 above stand as the record of the first pass; the sizes and the unsettled list below replace theirs.
+
+**`01-the-tool-and-the-required-run.md` (12; 139 lines, 23,941 bytes)**
+
+1. Section 4, opening: the mark that the walk commands are outside the design's list removed.
+2. `open --module`: the job block is written once, by ARCH's session only; `open` now prints the job's starting instructions with the pull request filled in; the order `next-job`, `branch`, `open`, start stated.
+3. `next-job`: prints the module, its work and its kind, and no longer the starting instructions.
+4. `push --blocked`: writes into the job's own record, not the job block.
+5. `close --nothing-to-change`: the job's record defined as a second comment, mark `<!-- process4-job-record -->`, written only by the job's session.
+6. `notify`: no longer adds uses to an open job's block; writes waiting work and prints which told module has a job open.
+7. `walk text` and `walk areas` split into commands 22 and 23; `walk areas` said plainly to be a listing ARCH reads, the naming being ARCH's judgment.
+8. Command 24 added, `related <pr>`: lists a told job's related tests and runs nothing; it replaces the told job's `run scope --pr`.
+9. "The run's entry": `run scope` and `run tests` are on GitHub's machines only.
+10. Section 3, table: `related` among the reading commands; a note that `open`, `close` and `push` may write a comment.
+11. Section 7: piece 5 names `related`.
+12. Section 9: four items struck as settled (the told job's listing, the walk commands, the comment act, the order of `next-job` and `open`); two added (items 1 and 2 below).
+
+**`02-the-forms.md` (3; 304 lines, 23,692 bytes)**
+
+1. Section 2, table: "a job's kind and its record, two comments", with the writer of each.
+2. Section 8: the one block split in two: the job block (module, kind, uses) written once by ARCH's session, and the job's record (`blocked` or `nothing_to_change`) written only by the job's session.
+3. Section 8: the "Decided here" cost changed from "two sessions write the one comment" to "a notice that arrives while the job is open cannot be added to its block".
+
+**`03-the-walks.md` (4; 200 lines, 19,738 bytes)**
+
+1. Section 4: at the fill level a walking session writes its last lines in the walk issue, tells ARCH and stops; ARCH gives the areas not yet walked to a fresh session; no commit and no branch.
+2. Section 2, step 1: `walk areas` called a listing ARCH reads.
+3. Section 7: "not in the design's list" became "acts of the design's list".
+4. Opening: the reconciling note shortened.
+
+**`starting_texts/arch.md` (6; 27 lines, 3,661 bytes; 4,063 filled; 10 rules)**
+
+1. Rule 2: `next-job` chooses, ARCH runs `branch` and `open`, then starts the session with the text `open` prints.
+2. Rules 4 and 5: the walk and its flaws by pointer to build text 3; unwalked areas go to a fresh walking session; notices and reported flaws placed in waiting work.
+3. Rules 3, 6 and 7 and "Who directs you" shortened; "No review" dropped from rule 2, since "Never" forbids adding one.
+4. The acts' command list shortened in form, every command kept.
+5. The `p4` line no longer repeats the commit id, in every text that carries the fetch line.
+6. Trimmed from 4,062 to 3,661 bytes so that it passes as filled.
+
+**`starting_texts/job.md` (6; 26 lines, 3,304 bytes; 4,028 filled; 10 rules)**
+
+1. Opening: ARCH made the branch and pull request and wrote the job's kind there.
+2. Acts: `related` in place of `run scope --pr`; the commands listed once after `p4`.
+3. Rule 7: `related` only lists; a told job that changes nothing runs no test.
+4. Rule 8: `--blocked` and `--nothing-to-change` write the job's own record.
+5. Rule 3: the duties of tests by pointer to part 2, section 6.
+6. "<module>" used once, in the opening, to shorten the filled text.
+
+**`starting_texts/walking-session.md` (3; 28 lines, 3,512 bytes; 4,000 filled; 10 rules)**
+
+1. Rule 9: at the fill level, last lines in the walk issue, tell ARCH which areas are not yet walked, stop; no commit and no branch.
+2. Rule 3: the three kinds of flaw by pointer to part 3, section 3, joined with the forms.
+3. Rule 4 is now the comment and the one message, moved out of rule 6.
+
+**`watcher.md`, `coordinator.md`, `lane.md` (1 each; 2,614, 3,606 and 3,275 bytes)**: the `p4` line only. `root.md` (3,959) and `process.md` (3,439) unchanged. `lane.md` already had a lane merge its own folder's pull requests.
+
+**`starting_texts/00-index.md` (5; 84 lines, 9,609 bytes)**
+
+1. Section 1: the limit is on the text as filled; new bytes.
+2. Section 1: a table of the three texts as filled, with what they were filled with.
+3. Section 2: the design's part sizes as they now are (96,802 in all), the build texts' sizes, and every combined figure recomputed.
+4. Section 2: the reason for build texts in reading sets now cites part 0, section 5.
+5. Section 4: 13 items became 11: four struck (the design folder and build texts in the copy; a lane's merges; a walking session at the fill level; the pull request's number), two added.
+
+**The fill used for the check.** A product name of 40 characters; a fetch line of 383 bytes (`git clone` of a full address, checkout, `npm ci`, `chmod`, the 40-character commit id four times). For the job: a 13-character module, 166 bytes of work, a told job with six uses. For the walking session: an external walk of four journeys.
+
+**Still unsettled**
+
+1. **`walk areas` and `walk text` are not named one by one in the design's list** (part 6, section 5). `walk text` rests on part 4, section 11, "The tool fills in a job's and a walking session's." `walk areas` reads modules' step headers and requirement text, which is none of "open and close a walk's issue, and write and read what is in it"; build text 1 calls it a listing ARCH reads.
+2. **A notice to a module whose job is already open.** The design: ARCH's session "writes there, once, the job's kind and the uses its notice carries." Build text 1's `notify` formerly added later uses to the open job's block. Now it writes them to waiting work and prints the module; how they reach the open job is not chosen. The design's waiting-work record is for "modules with no open job".
+3. **A filled text over the limit.** `arch.md` passes by 33 bytes with the fill above. A job told of many more uses, or a longer fetch line, would pass 4,096 bytes; the design says the tool refuses nothing for size and does not say what then happens.
+4. The eleven items of `starting_texts/00-index.md`, section 4, of which 4 and 11 are items 2 and 3 here.
