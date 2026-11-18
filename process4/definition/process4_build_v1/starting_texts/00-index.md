@@ -16,7 +16,7 @@ Limit for each: 4,096 bytes and ten rules (part 5, section 2). Bytes are of the 
 | `arch.md` | ARCH | 3,724 | 10 | Never |
 | `process.md` | PROCESS | 3,226 | 10 | Never |
 | `lane.md` | A lane (template: area, folder, design pages) | 3,053 | 10 | Never |
-| `job.md` | A job (template the tool fills: module, work placed, branch, pull request, ordinary or told with the uses its notice carries) | 3,138 | 10 | Never |
+| `job.md` | A job (template the tool fills: module, work placed, branch, pull request, ordinary or told with the uses its notice carries) | 3,131 | 10 | Never |
 | `walking-session.md` | A walking session (template: internal or external, round, areas, where flaws are saved, the walks' folder, the site's address) | 2,646 | 10 | Never |
 
 A filled template is longer than its template by the length of what is filled in. The largest room left is in `arch.md`: 372 bytes.

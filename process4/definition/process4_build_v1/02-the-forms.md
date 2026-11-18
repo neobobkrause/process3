@@ -8,7 +8,7 @@ Marks: **Decided here:** a choice made in this text, with what it gives and what
 
 ## 1. What was proven, and in what form
 
-Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full (89, 107, 140, 61 and 72 lines); `schema/` and `tool/`; `process4/working/notice_study/` and `replay/`; the sixth draft's notice sections; `process4/evidence/interface_and_cycle.md`.
+Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full; `schema/` and `tool/`; `process4/working/notice_study/` and `replay/`; the sixth draft's notice sections; `process4/evidence/interface_and_cycle.md`.
 
 **Measured, on a past record, by the study session (15 Nov), with TypeScript 5.6.3 reading plain JavaScript:**
 
@@ -25,7 +25,7 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full (89, 107, 
 
 ## 2. Where everything is
 
-**Decided here:** the process config is `process.json` at the top of the product's repository, the one fixed place. It names the process folder, and every other form here lives under that folder. Gives: the tool finds everything from one file. Costs: one more file at the top of the repository. The examples take the process folder to be `process/`.
+**Decided here:** the process config is `process.json` at the top of the product's repository, the one fixed place. It names the process folder, and every other form here lives under that folder. Gives: the tool finds everything from one file. Costs: one more file at the top of the repository. The examples use `process/`.
 
 | Form | Place | Writer |
 |---|---|---|
@@ -41,7 +41,7 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full (89, 107, 
 
 ## 3. The module list
 
-**Decided here:** the list is one order file and one small entry file for each module. Gives: no file nears the maximum however many modules there are (220 entries in one file would be about 60,000 bytes on the earlier product's figures), and a job reads only the order and its own entry. Costs: "the module list" is many files, and a rename touches two.
+**Decided here:** the list is one order file and one small entry file for each module. Gives: no file nears the maximum however many modules there are (220 entries in one file would be about 60,000 bytes, estimated), and a job reads only the order and its own entry. Costs: "the module list" is many files, and a rename touches two.
 
 **The order file** holds one module name on each line and nothing else. A module's order is its line number. A name is lower-case letters, digits and hyphens.
 
@@ -97,7 +97,7 @@ Next number: 4
 
 ## 5. A structured comment
 
-This is the form for a product in plain JavaScript read by TypeScript's reader, the only reader tried. Comments are JSDoc blocks, `/** … */`, which the running code never sees.
+This is the form for plain JavaScript read by TypeScript's reader, the only reader tried. Comments are JSDoc blocks, `/** … */`, which running code never sees.
 
 **What a module accepts and hands back.** Every exported function, every public method of an exported class and every exported value has a block with `@param` and `@returns`, or `@type`. A kind with a name is a `@typedef`.
 
@@ -192,7 +192,7 @@ Each line is: file, entry, a word for the line's sort, then the rest. The sorts 
 | A new `optional` line, or `required` become `optional` | Accepts more | Nobody, if the checker agrees |
 | The kind on an `accepts` or `field` line changed | Accepts more if the checker agrees; otherwise newly refused | Nobody; otherwise the entry's users |
 
-- **"If the checker agrees."** The tool asks the reader's own type checker one question: can a value of the old accepted kind be given where the new one is wanted? It writes a two-line file that does exactly that and reads whether the checker complains. No complaint: accepts more, nobody told. A complaint, or a kind the checker calls "anything": the entry's users are told. **Unproven:** this is the proof's eighth design, described and not built.
+- **"If the checker agrees."** The tool asks the reader's own type checker one question: can a value of the old accepted kind be given where the new one is wanted? It writes a two-line file that does that and reads whether the checker complains. No complaint: accepts more, nobody told. A complaint, or a kind the checker calls "anything": the entry's users are told. **Unproven:** this is the proof's eighth design, described and not built.
 - **Decided here:** a named kind that is reached from any `returns`, `value` or answer is treated as handed back, so any change to its lines tells its users; only a kind reached from arguments alone gets the "accepts more" question. Gives: one plain rule for kinds used both ways. Costs: some needless notices.
 - **An entry's users** are the modules whose code or comments name it, as the tool works out (part 2, section 7, decision 1), together with the users of every entry whose lines name it. In the example a change to `PriceArgs` tells the users of `priceOf` and of the `priceof` row. A user the tool cannot follow fully is a user of every entry.
 - **Decided here:** a listing is lines of plain text, not the reader's raw output. Gives: "removed, newly required, newly refused" each read off a line's sort, and two listings can be compared by any session by eye. Costs: turning the reader's output into these lines is a new step. **Unproven:** all of it. What was measured is a line-by-line comparison of the raw output: identical, only gained, or lost or altered.
@@ -274,9 +274,9 @@ Use: src/orders/lines.mjs:41
 Use: test/orders/lines.test.mjs:17
 ```
 
-- A second notice to an open job is a second comment. The uses a job works from are all its notice comments together.
+- A second notice to an open job is a second comment; the job works from all of them.
 - The tool reads `Blocked by` to make the job ready again when that module merges, and reads the nothing-needs-changing mark on a pull request closed unmerged to count the module finished (part 2, section 4).
-- **Decided here:** one comment for each record, never rewritten. Gives: each comment has one writer and is written once, so no write can be lost to another. Costs: a job blocked twice carries two blocked comments, and the tool takes the newest.
+- **Decided here:** one comment for each record, never rewritten. Gives: no write can be lost to another. Costs: a job blocked twice carries two blocked comments; the tool takes the newest.
 
 ## 9. What could not be settled
 
