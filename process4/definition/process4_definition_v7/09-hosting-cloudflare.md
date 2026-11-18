@@ -1,6 +1,6 @@
 # Part 9. The hosting table for Cloudflare
 
-Length: 27 lines. Last section: "3. Not known".
+Length: 28 lines. Last section: "3. Not known".
 
 Everything in this part is specific to Cloudflare, the first hosting provider. Support for other hosting is not built; the design is written so that it can be added as another table.
 
@@ -25,3 +25,4 @@ Everything in this part is specific to Cloudflare, the first hosting provider. S
 - How many external walkers the account bears.
 - Whether a deployment can be made from a session within the time a session can run one thing. The two late deployments with a walk in the process before this one took 60 and 64 minutes on GitHub's machines.
 - Whether the installer can place a release into an empty account. A development deployment does not use the installer.
+- What carries the owner's act of connecting an AI account to the development deployment (part 1, section 3).

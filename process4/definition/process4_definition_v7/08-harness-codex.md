@@ -1,6 +1,6 @@
 # Part 8. The harness table for Codex
 
-Length: 46 lines. Last section: "3. What the owner fills".
+Length: 50 lines. Last section: "3. What the owner fills".
 
 Everything in this part is specific to Codex. Where the Codex side is not known or not built, this part says so plainly and leaves it for the owner's work on his OpenAI account. "Not known" means no record shows it; it does not mean Codex cannot do it.
 
@@ -29,11 +29,15 @@ Everything in this part is specific to Codex. Where the Codex side is not known 
 | The owner speaking to a role | Through the chat he opened only | Measured |
 | Depth of sessions | Four: the owner's chat, ROOT, ARCH and the coordinator, jobs | Measured, second-hand |
 | Model and effort passed on | Not known | |
+| The owner's standing page; a lane's design pages | Not known | |
+| Grouping sessions under a product | Not known | |
+| The owner seeing each open job | Not known | |
+| Starting instructions | Not known beyond the instruction files above | |
 | Reading a file | A shell command with an output limit in tokens. Over the limit the start and end arrive, the middle does not, and the command reports success | Measured |
 
 ## 2. Rules of this design that Codex cannot yet be shown to keep
 
-- **A refresh at a stated fill level.** No fill level can be read, so only the natural pause can trigger a refresh. The owner's requirement that compaction be avoided entirely on Codex is therefore met only by frequent refreshes at pauses, and nothing signals a compaction if one happens.
+- **A refresh at a stated fill level.** No fill level can be read, so only the natural pause can trigger a refresh. The rule that compaction is never needed (part 5, section 1) is therefore met only by frequent refreshes at pauses. The owner's words: a Codex-based process "requires that we be able to avoid compaction entirely". Nothing signals a compaction if one happens.
 - **The three things that hold a rule** (part 6, section 1). What carries the approvals, the forbidden commands and the permission checker is not known.
 - **A message wakes its receiver at once.** Shown only for a child in the same chat.
 - **Each role as a session of its own that the owner can open.** On Codex every role was a child inside one chat.

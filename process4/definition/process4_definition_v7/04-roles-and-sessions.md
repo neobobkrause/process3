@@ -1,6 +1,6 @@
 # Part 4. Roles and sessions
 
-Length: 132 lines. Last section: "10. When something goes wrong".
+Length: 133 lines. Last section: "10. When something goes wrong".
 
 ## 1. The roles, and the sessions that hold no standing role
 
@@ -11,8 +11,8 @@ Length: 132 lines. Last section: "10. When something goes wrong".
 - **A lane** is a standing design responsibility for one area of a product (section 3).
 - **PROCESS** is where the process is changed, and the only place (part 6).
 - **A job** is a session started to do one module's work (part 2).
-- **A walking session** is started by ARCH for a walk and uses a job slot (part 3).
-- **A worker** is a helper a session starts inside itself (part 1, section 6).
+- **A walking session** is started by ARCH for a walk (part 3) and uses a job slot (part 2, section 5).
+- **A worker** is a helper that a long-lived role or a job starts inside itself (part 1, section 6).
 
 What the tool does and what ARCH keeps: whatever has one right answer is done by the tool: who takes a free slot, when a notice is sent and to whom, whether a round's jobs are done. ARCH's session keeps what needs judgment. The share of ARCH's work that is passing things on is measured on the first tranche. **Claude decided:** the tool chooses the next job and writes its starting instructions; ARCH's session makes the start, because only a session can start a session.
 
@@ -26,7 +26,7 @@ What the tool does and what ARCH keeps: whatever has one right answer is done by
 | PROCESS | Its own lanes (a reading; part 6, section 8) |
 | A long-lived role or a job | Its own workers |
 
-- Under a ROOT the owner started, roles sit at most three levels deep: ROOT; then ARCH, the coordinator, the watcher and PROCESS; then jobs, walking sessions and lanes. A takeover by the watcher adds a level (section 6).
+- Under a ROOT the owner started, sessions sit at most three levels deep: ROOT; then ARCH, the coordinator, the watcher and PROCESS; then jobs, walking sessions and lanes. A takeover by the watcher adds a level (section 6).
 - No session starts its own replacement.
 - A session is started with one repository only; from the newest commit of the tranche branch; in the harness's unattended mode; and with starting instructions that name every act it may take. PROCESS works in the process's own repository.
 - **Claude decided:** ROOT's first act is to fetch the newest copy of its branch, and to stop if it cannot.
@@ -45,7 +45,7 @@ The owner's rulings:
 
 - A lane has a folder of design knowledge in the product's repository, which it owns. It reads its area whole. It delivers designs, never product code.
 - The owner identifies the need for a lane, and ARCH opens it. The UX lane is always there. A product's other lanes are named in its process config.
-- A lane runs as one session at a time. Whether it is kept running or started when a question arrives is ARCH's call, judged by cost.
+- A lane runs as one session at a time. Whether it is kept running or started when a question arrives is ARCH's call, judged by cost, and is measured at the end of the first tranche.
 - The first time a lane runs, it uses workers to research the product's founding documents, the existing code and the best practice of its area, and answers no question until that research is recorded in its folder. Every later session of the lane reads it first and adds to it.
 - A lane decides design and wording in its area, within the product's principles.
 - The owner keeps the product's direction, audiences and principles. A lane decision that would change one comes to him with options and the lane's recommendation.
@@ -53,7 +53,7 @@ The owner's rulings:
 - The UX lane owns the Screens document and the journeys.
 - A lane ends when the owner or ARCH says its area needs no further design. Its folder and research stay.
 
-**Claude decided:** a lane session uses no job slot. A fresh lane session begins by reading the lane's research and the links to its design pages. One session for each lane is held by the lanes record: the tool does not start a second while the first is recorded as live.
+**Claude decided:** a lane session uses no job slot. A fresh lane session begins by reading the lane's research and the links to its design pages. One session for each lane is held by the lanes record. The record is written before the session is started, and the tool refuses to write a second while the first is recorded as live.
 
 **Reading:** the questions ARCH puts to a lane, and its answers, are not kept as a running record. What a lane decides is written into its folder as design.
 
@@ -86,6 +86,7 @@ The owner's rulings:
 ## 5. Refresh and replacement
 
 - Each long-lived role is refreshed on purpose, at a natural pause in its work or at the stated fill level (part 5), whichever comes first. It asks its parent. Its successor starts only from the shared state and the repository.
+- ARCH is long-lived.
 - **Claude decided:** before it asks, the role rewrites its handover record.
 - The parent of ARCH, the coordinator and PROCESS is ROOT. The parent of a product's lane is ARCH. **Claude decided:** ROOT replaces the watcher, and ROOT itself is refreshed by the watcher (section 6).
 - A job that fills up or dies is replaced by ARCH with a new session that continues from the same branch and pull request.

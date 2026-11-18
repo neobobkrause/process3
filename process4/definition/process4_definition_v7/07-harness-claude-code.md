@@ -1,6 +1,6 @@
 # Part 7. The harness table for Claude Code
 
-Length: 43 lines. Last section: "3. Not proven on Claude Code".
+Length: 52 lines. Last section: "3. Not proven on Claude Code".
 
 Everything in this part is specific to Claude Code.
 
@@ -26,6 +26,16 @@ Everything in this part is specific to Claude Code.
 | The owner's standing page; a lane's design pages | Pages on claude.ai |
 | The owner speaking to a role | He opens that role's session and types |
 | Grouping sessions under a product | **Open (a session):** what carries it on Claude Code is not named anywhere read |
+| The owner seeing each open job | **Open (a session):** not named anywhere read. He can open any session; whether that meets the rule is not shown |
+| Starting instructions | The prompt a session is started with |
+| Model and effort passed on | The starter names both when it starts a session. Read in the starting tool's own description; not measured |
+| Planned replacement | The parent starts a fresh session and archives the old one |
+| The limit on depth | One session reported a limit of eight (seen once). It bounds how many times a watcher can take over before the owner starts a fresh ROOT (part 4, section 6) |
+| The shared state | Not carried by the harness. It is on GitHub (part 4, section 4) |
+| Connecting the harness to GitHub | The owner connects his GitHub to Claude and installs Claude's GitHub App on the repository |
+| A session's browser | A browser on the session's own machine. Not shown to reach the development site |
+| A read-only copy of the process | **Unproven:** how a session that holds one repository fetches the process's copy without losing its deny list |
+| What the subscription covers; cost | **Open (a session):** where cost can be read is not named anywhere read |
 
 ## 2. Reading, as measured
 
@@ -33,7 +43,6 @@ From the first measurement of 18 Nov, on one model with a 1,000,000-token window
 
 - A plain read returns a file whole up to 25,000 tokens. A larger file comes back cut, and the notice of the cut arrives apart from the read's result.
 - A file over 256 KB is refused, with no lines returned.
-- A session reported a depth of sessions with a limit of eight (seen once). This bounds how many times a watcher can take over before the owner starts a fresh ROOT (part 4, section 6).
 
 ## 3. Not proven on Claude Code
 

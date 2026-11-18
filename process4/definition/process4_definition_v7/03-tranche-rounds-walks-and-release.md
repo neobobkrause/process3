@@ -50,7 +50,7 @@ The coordinator gives the owner a short account: jobs done, flaws found, flaws c
 - When the tranche ends, ARCH merges the tranche branch into the main branch as a whole, by pull request. None of the tests runs on that pull request.
 - A tranche that does not come clean goes on in rounds until the owner says. He then chooses between merging it with its flaws named, with no release from it, and dropping it.
 - **Reading:** a tranche merged with its flaws named has not ended in the sense of section 6. Its flaws become work in the next tranche, and a release can be made once a later tranche ends clean.
-- ARCH writes one report at the tranche's end, only from what git and GitHub already hold: time, work done and left, anything deferred and why, cost where it can be read and "unmeasured" otherwise, the owner's minutes, and every change the UX lane made during the tranche to the two documents the walks are measured against. No number is a target. Nothing reads the report to decide anything.
+- ARCH writes one report at the tranche's end, only from what git and GitHub already hold: time, work done and left, anything deferred and why, cost where it can be read and "unmeasured" otherwise, the overhead share, ARCH's idle time while work was ready, the owner's minutes, and every change the UX lane made during the tranche to the two documents the walks are measured against. No number is a target. Nothing reads the report to decide anything.
 
 ## 6. Release
 

@@ -50,15 +50,15 @@ The tool decides both, because each has one right answer. **Claude decided** the
 
 ## 6. Module tests
 
-- The tests of Process4 are module tests, the internal walk and the external walk. Before a release, an install and an update are each confirmed to have succeeded. Nothing more: no further test phases, gates or reviews, and no full regression, on request or otherwise.
+- The tests of Process4 are module tests, the internal walk and the external walk. Before a release, an install and an update are each confirmed to have succeeded. Nothing more: no further test phases, gates or reviews, and no full regression, on request or otherwise. Every other check the process before this one had that could stop work has ended.
 - A test runs only when there is a fully informed reason to run it.
 - Module tests run for the job's own module only, on GitHub's machines, when the job marks its pull request ready. A failure goes back to the job.
 - They give appropriate coverage of the code, demonstrate correct results, show that error conditions are properly identified and communicated, and check bounds. A test does not fail because it got a different but still valid response. They "must be complete yet fast and efficient". This is a duty of the job, held by its instructions; nothing measures it.
 - The structured comments and the tool can also inform module tests, so that boundaries are properly checked.
 - Every requirement is tested at the module's interface.
-- Module tests include a check that the module's declared uses match its imports. The check reads the module's test files as well as its source.
-- Inside a module's own tests the tool may refuse a structured comment that disagrees with the module's code, and may refuse the module's code where it disagrees with a provider's stated interface. These are parts of module tests, not further tests. Only these two refusals stand; no other is built into module tests.
-- A module's tests and a walk's steps are product work. Each exists only to prove a product requirement, which it names. **Claude decided:** a test or step that serves the process is not allowed. This is a rule in text.
+- Module tests include, in the owner's words, "a check that the module's declared uses match its imports". The check reads the module's test files as well as its source: "I think it has to check tests too".
+- The owner approved two refusals. Inside a module's own tests the tool may refuse a structured comment that disagrees with the module's code, and may refuse the module's code where it disagrees with a provider's stated interface. These are parts of module tests, not further tests. Only these two refusals stand; no other is built into module tests.
+- **Claude decided:** a module's tests and a walk's steps are product work. Each exists only to prove a product requirement, which it names. A test or step that serves the process is not allowed. This is a rule in text.
 - Module tests run in two parts, so that product code under test holds no access token.
 - Built files are never committed. They are built at each walk, deployment and release.
 
@@ -71,14 +71,14 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **Who is told.** Only the users of the entry that changed. The tool sends the notice and decides to whom.
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
-- **Open (a session, by design work):** how a told job picks the tests that relate to a changed entry, and whether the required run on its pull request can be held to those tests. If it cannot, the whole module's tests run there as for any job, which the ruling above does not allow for.
+- **Open (a session, by design work):** how a told job picks the tests that relate to a changed entry, and how the run on its pull request is held to those tests. The owner's rule stands meanwhile: only the related tests run.
 - **Open (ARCH):** who is told when the module list itself changes; and what becomes of a module that declares a use no code of it makes.
 
 **Claude decided,** for the tool that finds the change:
 
 1. Which parts of a provider a user uses is worked out by the tool from the user's code and comments. No list is kept by hand.
 2. A user the tool cannot follow fully counts as using everything of that provider.
-3. A bound that a kind of value cannot express is written on its own marked line in the comment.
+3. A bound that a kind of value cannot express is written on its own marked line in the comment. A change to those words is a change to the interface. In the owner's words: "If those words are changing, then there must be a reason why. It must be that that interface is changing, right?"
 4. Code that checks or builds what crosses a module's interface says, in a comment, which kind it checks or builds.
 5. Calls made by name are made followable: each provider publishes one table of its operations, the tables are gathered into one list, and each shared piece that carries a call by name has one comment tying the name to that list.
 6. Both listings of a comparison are made at the same moment with the same version of the tool.
@@ -98,5 +98,5 @@ The tool decides both, because each has one right answer. **Claude decided** the
 
 - **The mechanical edit.** **Claude decided:** a worker in ARCH's session makes it as one change covering every affected module, and it is merged once; and the moment: when no job is open, between a round's last merge and its internal walk. A module where the change needs judgment gets its own job. **Unproven:** which test run GitHub requires on that one change.
 - **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing.
-- **Requirement text, the module list, and the process's named files.** **Claude decided:** these change no code and no tests, so their pull requests merge through the tool with no module tests run. The required test run reports on every pull request, and passes at once when no module's code or tests changed.
+- **Requirement text, the module list, and the process's named files.** **Claude decided:** these change no code and no tests, so their pull requests merge through the tool with no module tests run. The required test run reports on every pull request. It passes at once when no module's code or tests changed, and on the tranche's own pull request into the main branch, where none of the tests runs (part 3, section 5).
 - **The owner's approvals and forbidden commands** are committed by the owner alone (part 6).

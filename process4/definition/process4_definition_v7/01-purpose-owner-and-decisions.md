@@ -19,7 +19,7 @@ Length: 79 lines. Last section: "7. Known weaknesses of AI sessions".
 
 | Act | When |
 |---|---|
-| Start ROOT | At each start or restart of development; after each edit to his approvals; after any full stop |
+| Start ROOT | At each start or restart of development; after any full stop; and, as **Claude decided**, after each edit to his approvals (part 4, section 7) |
 | Tell the coordinator things; give marked decisions and instructions | Whenever he chooses |
 | Approve or change ARCH's proposal for a tranche | Before each tranche opens |
 | Approve a public release | Once for each public release |
@@ -45,7 +45,7 @@ Length: 79 lines. Last section: "7. Known weaknesses of AI sessions".
 ## 5. How things are put to the owner
 
 - In his words: "Talk to me in plain words. No codes, no shorthand, no references to things I have not seen."
-- A question is put to him inline, once, in one form: a title; the question; an explanation of the issue; options, each with its own identity; the recommendation and its reasons; and the freedom to set the options aside.
+- A question is put to him inline, in one form: a title; the question; an explanation of the issue; options, each with its own identity; the recommendation and its reasons; and the freedom to set the options aside.
 - No technical question is brought to him. The AI decides it and reports it in one plain line.
 - No session assures him that something will work. Each claim put to him says what is proven and what is not, names its source, and calls anything unread or unmeasured unknown.
 - One standing page always shows everything waiting for him. A notification goes to his phone when something arrives that only he can clear.

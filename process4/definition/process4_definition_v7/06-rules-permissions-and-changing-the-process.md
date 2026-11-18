@@ -31,7 +31,7 @@ Length: 69 lines. Last section: "8. Process4 develops itself".
 
 ## 5. The tool
 
-- The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; count failed runs on a job's pull request; and read and write the shared state.
+- The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; count failed runs on a job's pull request; read and write the shared state, removing a standing note when what ends it comes true and refusing a second live session for a lane; and, inside a module's own tests, check declared uses and make the two refusals the owner approved (part 2, section 6).
 - It refuses nothing for size, and holds none of the checks the process before this one had that could stop work.
 - The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work. **Claude decided:** the changes recorded when the notice's method was proven become tests of the tool.
 - The AI builds the tool, before anything is in force.
