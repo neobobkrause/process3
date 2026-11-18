@@ -1,0 +1,196 @@
+{
+ "run": "a-280-t1",
+ "size": "280",
+ "arm": "t",
+ "agent": "a59088712e17a5831",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 187086,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [
+  {
+   "after_call": 2
+  }
+ ],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 371,
+   "returned_lines": [],
+   "said": "File content (273.3KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: true — onl"
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 50862,
+   "returned_lines": [
+    [
+     1,
+     113
+    ]
+   ],
+   "tail": "rated files are built, never committed or hand-edited). BOB measures whether words-reads.src.mjs output carries the plane keys; if yes, R95 reads generator output at test time and PR 159 closes; if no, the generator fix is Bob's (his list)."
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 114,
+   "limit": 130,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 58589,
+   "returned_lines": [
+    [
+     114,
+     243
+    ]
+   ],
+   "tail": "tor's context (BOB and ROOT are watched by the sweep at refresh_context 60%; auto-compaction at 784k). Plan: hand over at 60% at a natural break (after the review-triggers build), and ask for the sweep to read the coordinator's context too."
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 244,
+   "limit": 130,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 76246,
+   "returned_lines": [
+    [
+     244,
+     311
+    ],
+    [
+     313,
+     373
+    ]
+   ],
+   "tail": "erged at 67409f8 (04:18:57). BOB no longer merges job PRs; told (priority now) to stop its 364 and 175 loops, record review notes, and leave them to the MERGER (one merging actor). Awaiting ROOT's MERGER start and first merge (trial clock)."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 374,
+   "limit": 130,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 48095,
+   "returned_lines": [
+    [
+     374,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     453
+    ],
+    [
+     455,
+     503
+    ]
+   ],
+   "tail": "LOCKED job clears only on restart or deferral, and holds are not read. Item 6 to build/train-scan: a live module hold is the ruling's record; held blocks leave the owed list. BOB: start agent-model (startable 16 min), hold module:scheduler."
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 504,
+   "limit": 124,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 48449,
+   "returned_lines": [
+    [
+     504,
+     520
+    ],
+    [
+     522,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "questions.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 1979
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 7,
+ "first_text_call": 1,
+ "text_calls_after_questions": [],
+ "calls_after_questions": [],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (~05:40)\n3. [q01] b48585af\n4. [q06] 712/712\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-minutes\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 min\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (~05:40)",
+  "q01": "b48585af",
+  "q06": "712/712",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-minutes",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 min",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "set_aside": false,
+ "pass": true
+}

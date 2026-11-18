@@ -1,0 +1,259 @@
+{
+ "run": "a-280-h10",
+ "size": "280",
+ "arm": "h",
+ "agent": "a7b6fc0beba82db06",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 187980,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "target": "wc -c -l /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h10/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 121,
+   "returned_lines": [],
+   "said": "   626 279854 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h10/text.md"
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 120,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 53895,
+   "returned_lines": [
+    [
+     1,
+     120
+    ]
+   ],
+   "tail": " not a re-run.\n120\t- 06:49 pin f4c0d0f on the copy: PR 165 (2d52c51), pre-check no overlap (records process/ only), BOB woken pin-19 and told: PR 148 needs a new gate event, then merge --plain. No pin move open. Open build: bootstrap-close."
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 121,
+   "limit": 110,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 49236,
+   "returned_lines": [
+    [
+     121,
+     230
+    ]
+   ],
+   "tail": " ids and true moves (same line text, file changed on the branch; ids are per file, so id alone was unsafe). Next build started: job start --fresh-branch (no force-push or delete), and full verify output plus every built row in the gate log."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 231,
+   "limit": 110,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (25279 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 231,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 45841,
+   "returned_lines": [
+    [
+     231,
+     311
+    ],
+    [
+     313,
+     320
+    ]
+   ],
+   "tail": "0 unmet R, 0 found marks, no open job, no notice work; modules with no uses entry wait for their layer; over-cap files are never listed as startable (cap work paused to after release). Candidates for the 14 empty slots; measurement to rank."
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 321,
+   "limit": 80,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 46473,
+   "returned_lines": [
+    [
+     321,
+     384
+    ],
+    [
+     386,
+     400
+    ]
+   ],
+   "tail": "st is not known to it. 396 (provider) was draft while users 420, 431 were not: risk of users landing first. BOB told (priority now): draft 420, 431, keep 441 draft until 396 / 423 merge; un-draft 396 when green. Folded into the train study."
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 401,
+   "limit": 75,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 26338,
+   "returned_lines": [
+    [
+     401,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     453
+    ],
+    [
+     455,
+     475
+    ]
+   ],
+   "tail": "unts reopen, over-cap files, base-red owners, unmet found marks; program.mjs untrack plain PR next, then 364 note. LESSON (mine): the archive ruling needs \"and the job's own goal met\"; ai-accounts was archived with its consolidation undone."
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 476,
+   "limit": 75,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 29373,
+   "returned_lines": [
+    [
+     476,
+     520
+    ],
+    [
+     522,
+     550
+    ]
+   ],
+   "tail": "ROOT, BOB, MERGER working; watcher idle (daily). Builds: train-robust coding (items 1-6). Asked BOB for figures on open_by \"uses\" (start modules above the open layer once their providers merged) to fill slots beside the train. Context ~25%."
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 551,
+   "limit": 76,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 31078,
+   "returned_lines": [
+    [
+     551,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+ ],
+ "search_on_text": [
+  2
+ ],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (the study recommended C at 05:31)\n3. [q01] b48585af\n4. [q06] 712/712 (712 passed of 712)\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-min\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 min\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (the study recommended C at 05:31)",
+  "q01": "b48585af",
+  "q06": "712/712 (712 passed of 712)",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-min",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 min",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

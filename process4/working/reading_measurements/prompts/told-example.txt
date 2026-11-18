@@ -1,0 +1,5 @@
+Read the file `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-140-t1/text.md` whole, from its first line to its last, before doing anything else. It is 139719 bytes. Questions about it will follow.
+
+Only when you have read all of it, open `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-140-t1/questions.md` and answer the questions from what you read. Once you have opened the questions, do not open the text again and do not use any other tool.
+
+Reply with your answers as a numbered list, each line carrying its id in square brackets, and nothing else.

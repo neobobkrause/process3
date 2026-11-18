@@ -1,0 +1,195 @@
+{
+ "run": "a-280-h8",
+ "size": "280",
+ "arm": "h",
+ "agent": "a70131c6fdb38f4a7",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 187208,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [
+  {
+   "after_call": 2
+  }
+ ],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 50862,
+   "returned_lines": [
+    [
+     1,
+     113
+    ]
+   ],
+   "tail": "rated files are built, never committed or hand-edited). BOB measures whether words-reads.src.mjs output carries the plane keys; if yes, R95 reads generator output at test time and PR 159 closes; if no, the generator fix is Bob's (his list)."
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 114,
+   "limit": 120,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 53491,
+   "returned_lines": [
+    [
+     114,
+     233
+    ]
+   ],
+   "tail": "-import 275's base build timed out rebuilding file-scanner, so the smoke counted against it (re-run). Fail-closed is right; 281 first in line. Watch base-build timeouts on the runner. Plane 175 job complete running, R102 made deterministic."
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 234,
+   "limit": 130,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 76514,
+   "returned_lines": [
+    [
+     234,
+     311
+    ],
+    [
+     313,
+     363
+    ]
+   ],
+   "tail": " sent to start-fixes. Found PR 390 filed the 03:26 rulings (machinery-producers F1, registers F1, publication F1, inquiry-grammar F1). Merging 389, 387, 390, 383, 353, 290, 314; then next start pass. merge_train config PR 388 held in draft."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 364,
+   "limit": 130,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 48368,
+   "returned_lines": [
+    [
+     364,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     453
+    ],
+    [
+     455,
+     493
+    ]
+   ],
+   "tail": " (control-plane long suite). 7 over-cap jobs started on 465 (467-473). Live 13/20. installer has never had a gate: left out. RULED: fold R112 into 290's attempt with the split (one complete, one gate); close 464 as superseded (branch kept)."
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 494,
+   "limit": 134,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 53006,
+   "returned_lines": [
+    [
+     494,
+     520
+    ],
+    [
+     522,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] About 05:40 (the study recommended C at 05:31 and it was put to Bob ~05:40)\n3. [q01] b48585af\n4. [q06] 712/712\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-min\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo (resumed from WIP 493d872)\n9. [q03] $15.57\n10. [q08] 67409f8 (04:18:57)\n11. [q12] 285 min\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "About 05:40 (the study recommended C at 05:31 and it was put to Bob ~05:40)",
+  "q01": "b48585af",
+  "q06": "712/712",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-min",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo (resumed from WIP 493d872)",
+  "q03": "$15.57",
+  "q08": "67409f8 (04:18:57)",
+  "q12": "285 min",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

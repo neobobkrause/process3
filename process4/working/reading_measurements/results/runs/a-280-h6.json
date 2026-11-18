@@ -1,0 +1,265 @@
+{
+ "run": "a-280-h6",
+ "size": "280",
+ "arm": "h",
+ "agent": "a89e648e54e4ce2d8",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 188201,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "target": "wc -lc /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h6/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 120,
+   "returned_lines": [],
+   "said": "   626 279854 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h6/text.md"
+  },
+  {
+   "n": 3,
+   "tool": "Bash",
+   "target": "++; if (length($0)>m) m=length($0)} END {print c, m}' /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h6/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 5,
+   "returned_lines": [],
+   "said": " 1450"
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 160,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (29195 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 130,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 59104,
+   "returned_lines": [
+    [
+     1,
+     130
+    ]
+   ],
+   "tail": " at start: every ROOT, watcher and BOB started before is replaced; sweep and daily tasks carry the hash. 08:11 short session session_01RAN5enPGeREWswSUQNwQ85 runs `start root` and `start watcher --replace`; the new ROOT runs BOB's handover."
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 131,
+   "limit": 120,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 53442,
+   "returned_lines": [
+    [
+     131,
+     250
+    ]
+   ],
+   "tail": "erges). Proposed self-merge for untriggered PRs, fresh reviewer for triggered. BOB'S WORD: queue the trial for after the first dev release. Plan: notes/self-merge-trial.md. Coordinator also batches its own messages to BOB: one per check-in."
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 251,
+   "limit": 110,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (26848 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 251,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 51962,
+   "returned_lines": [
+    [
+     251,
+     311
+    ],
+    [
+     313,
+     340
+    ]
+   ],
+   "tail": ".9 h serialized; whole green->merged median 11.0 min, of which ~7 is BOB pickup and moved-tranche retries. Batched merge sim (4-min cycle): mean batch 1.24, saves ~1-2 h over 48 h (EST): little at today's rate. Measurement session archived."
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 341,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 40141,
+   "returned_lines": [
+    [
+     341,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ]
+   ],
+   "tail": "aude's GitHub at civicsmith: 0 / 20 live, 1 startable (plane), 5 blocked, 34 reports unanswered. Roles live: ROOT, BOB, MERGER (BOB's list missed it; get_session shows it RUNNING), watcher, build/train-order. Pin-move session archived.\n430\t"
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 430,
+   "limit": 100,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 37884,
+   "returned_lines": [
+    [
+     431,
+     453
+    ],
+    [
+     455,
+     520
+    ],
+    [
+     522,
+     529
+    ]
+   ],
+   "tail": "\t- 11:55 build/receipt-regate session_018Bhcef4zwt5MmLjMYFSUGo (gate change: options note first, my ruling before code).\n529\t- 11:54 probe coordinator id merged: probe PR 226 (ed79d0c); short session archived. Copy's is queued in the train."
+  },
+  {
+   "n": 11,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 530,
+   "limit": 97,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 39707,
+   "returned_lines": [
+    [
+     530,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11
+ ],
+ "search_on_text": [
+  2,
+  3
+ ],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (the study recommended C at 05:31)\n3. [q01] b48585af\n4. [q06] 712/712\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-min\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 min\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (the study recommended C at 05:31)",
+  "q01": "b48585af",
+  "q06": "712/712",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-min",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 min",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

@@ -1,0 +1,9 @@
+# START: summary facts
+
+You are a worker for the coordinator.
+
+## Task
+
+Your task is in `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-100-n1/task.md`.
+
+Reply with your answers as a numbered list, each line carrying its id in square brackets, and nothing else.

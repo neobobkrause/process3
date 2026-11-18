@@ -1,0 +1,250 @@
+{
+ "run": "a-280-h28",
+ "size": "280",
+ "arm": "h",
+ "agent": "ae1da5c6e02c452ec",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 188278,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "target": "wc -l -c /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h28/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 121,
+   "returned_lines": [],
+   "said": "   626 279854 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h28/text.md"
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 160,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (29195 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 120,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 53895,
+   "returned_lines": [
+    [
+     1,
+     120
+    ]
+   ],
+   "tail": " not a re-run.\n120\t- 06:49 pin f4c0d0f on the copy: PR 165 (2d52c51), pre-check no overlap (records process/ only), BOB woken pin-19 and told: PR 148 needs a new gate event, then merge --plain. No pin move open. Open build: bootstrap-close."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 121,
+   "limit": 110,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 49236,
+   "returned_lines": [
+    [
+     121,
+     230
+    ]
+   ],
+   "tail": " ids and true moves (same line text, file changed on the branch; ids are per file, so id alone was unsafe). Next build started: job start --fresh-branch (no force-push or delete), and full verify output plus every built row in the gate log."
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 231,
+   "limit": 110,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (25279 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 231,
+   "limit": 100,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 53870,
+   "returned_lines": [
+    [
+     231,
+     311
+    ],
+    [
+     313,
+     330
+    ]
+   ],
+   "tail": "-grades 365 (consolidate or propose split, R55-R58), agent-worker F1 364. Plane 175 receipt disagrees (3 excused tests since fixed on tranche): resync, rerun complete. 338 and 348 in loops. Next: screens-inquiry split, base-red found marks."
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 331,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 44484,
+   "returned_lines": [
+    [
+     331,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     420
+    ]
+   ],
+   "tail": "cd: `merge 145 --plain --reviewed ... --rounds 1` (one cold review, fixes in 513595c, 784/784).\n420\t- 06:04 coordinator id: copy PR 447 (8599ecf), probe PR 223 (68bff9d), both by me directly (`merge --plain --no-review`), no short sessions."
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 421,
+   "limit": 100,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 39063,
+   "returned_lines": [
+    [
+     421,
+     429
+    ],
+    [
+     431,
+     453
+    ],
+    [
+     455,
+     520
+    ]
+   ],
+   "tail": "cegkGtAhUqZ59UwPUUK.\n520\t- 11:53 process3 PR 153 (release-tier: named release_path modules first, ahead of aged PRs; release_path not a gate run key) merged 43a5876 by me; pin move to 43a5876 left to the new coordinator after 06ab532 lands."
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 521,
+   "limit": 106,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 41687,
+   "returned_lines": [
+    [
+     522,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+ ],
+ "search_on_text": [
+  2
+ ],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (the study recommended C at 05:31; put to Bob ~05:40)\n3. [q01] b48585af\n4. [q06] 712/712\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-minutes\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 minutes\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (the study recommended C at 05:31; put to Bob ~05:40)",
+  "q01": "b48585af",
+  "q06": "712/712",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-minutes",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 minutes",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

@@ -1,0 +1,443 @@
+{
+ "run": "a-540-t2",
+ "size": "540",
+ "arm": "t",
+ "agent": "ae2e26144125be5fb",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 305257,
+ "text_lines": 1297,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 371,
+   "returned_lines": [],
+   "said": "File content (527.3KB) exceeds maximum allowed size (256KB). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: true — onl"
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 1,
+   "limit": 1500,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 344,
+   "returned_lines": [],
+   "said": "File content (229812 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. Even with allow_large, this is more than fits in the context you have left this turn (other la"
+  },
+  {
+   "n": 3,
+   "tool": "Bash",
+   "target": "wc -l -c /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-540-t2/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 120,
+   "returned_lines": [],
+   "said": "  1297 539985 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-540-t2/text.md"
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 1,
+   "limit": 260,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 117375,
+   "returned_lines": [
+    [
+     1,
+     260
+    ]
+   ],
+   "tail": "ired; process serves several products; copy tokens are thrown away (prove each step once, no second clean cycle on the copy). Written into the Build Plan (rev 233) under the Phase 4 heading: entry gate R1-R9 and coordinator-free gate C1-C8."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 261,
+   "limit": 240,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 114665,
+   "returned_lines": [
+    [
+     261,
+     311
+    ],
+    [
+     313,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     453
+    ],
+    [
+     455,
+     500
+    ]
+   ],
+   "tail": "07:28->07:45, 08:58->none by 09:12, 09:20->09:30). build/train-scan started (first pick within 2 min on a warm clone, same order; expire a taken plain row whose caller died; pin move from a process3-only session prints instead of refusing)."
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 501,
+   "limit": 250,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 343,
+   "returned_lines": [],
+   "said": "File content (40429 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. Even with allow_large, this is more than fits in the context you have left this turn (other lar"
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 501,
+   "limit": 150,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 343,
+   "returned_lines": [],
+   "said": "File content (26150 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. Even with allow_large, this is more than fits in the context you have left this turn (other lar"
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 651,
+   "limit": 150,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 48955,
+   "returned_lines": [
+    [
+     651,
+     683
+    ],
+    [
+     685,
+     690
+    ],
+    [
+     692,
+     696
+    ],
+    [
+     698,
+     704
+    ],
+    [
+     706,
+     711
+    ],
+    [
+     713,
+     719
+    ],
+    [
+     721,
+     741
+    ],
+    [
+     743,
+     759
+    ],
+    [
+     761,
+     772
+    ],
+    [
+     774,
+     783
+    ],
+    [
+     785,
+     791
+    ],
+    [
+     793,
+     799
+    ]
+   ],
+   "tail": "hat module (BOB records a found mark) and the merge proceeds. Small fix plus a test in 183.\n799\t- 05:09 PR 183 at 2e9a862: SLB-7 close-scope fix in, with a test of today's case; 1070/1070, ci green. Ready to merge after layer 6 closes.\n800\t"
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 501,
+   "limit": 75,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 30887,
+   "returned_lines": [
+    [
+     501,
+     520
+    ],
+    [
+     522,
+     575
+    ]
+   ],
+   "tail": "offs).\n575\t- 14:55 MERGING: C' not live (build ~5-7 h from 14:45, behind a flag). Serial train: 290 re-merged on 74c3679 as 18a8421853, gate running from ~14:33 (~49 min, expect ~15:22) under the in-flight hold; 427 prepared next; queue 46."
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 576,
+   "limit": 75,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 33056,
+   "returned_lines": [
+    [
+     576,
+     606
+    ],
+    [
+     608,
+     650
+    ]
+   ],
+   "tail": "ecQe4FRe81BaYKrQKT. After it lands: MERGER replaced (train release; ROOT start merger --replace; new MERGER runs train + starter); BOB re-reads at wake; ROOT restart for 'start coordinator' deferred to Bob's choice of starting ROOT himself."
+  },
+  {
+   "n": 11,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 801,
+   "limit": 125,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 44604,
+   "returned_lines": [
+    [
+     801,
+     808
+    ],
+    [
+     810,
+     822
+    ],
+    [
+     824,
+     829
+    ],
+    [
+     831,
+     832
+    ],
+    [
+     834,
+     842
+    ],
+    [
+     844,
+     845
+    ],
+    [
+     847,
+     857
+    ],
+    [
+     859,
+     865
+    ],
+    [
+     867,
+     882
+    ],
+    [
+     884,
+     910
+    ],
+    [
+     912,
+     925
+    ]
+   ],
+   "tail": "s on 4ff1ff6. 194 now conflicts; builder ef1pxNY merging the tranche in.\n925\t- 16:22 process3 PR 197 (found preview numbering) merged ce12d31 by me (--no-review, small fix with a failing-first test). Rides pin 3. 194 at d516af3: ci running."
+  },
+  {
+   "n": 12,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 926,
+   "limit": 125,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 44191,
+   "returned_lines": [
+    [
+     926,
+     927
+    ],
+    [
+     929,
+     946
+    ],
+    [
+     948,
+     972
+    ],
+    [
+     974,
+     1021
+    ],
+    [
+     1023,
+     1038
+    ],
+    [
+     1040,
+     1050
+    ]
+   ],
+   "tail": "' is a dormant probe with no BOB — no act, noted. Copy pin move session_018Bhceev9drZYe6CcNZiumA running. Opened 214 (C5), 215 (C2). Builder ef1pxNY: build/rerun-leftovers (layer-sync kept write, R17e refused-flush double count, C14 guard)."
+  },
+  {
+   "n": 13,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 1051,
+   "limit": 125,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 343,
+   "returned_lines": [],
+   "said": "File content (26755 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. Even with allow_large, this is more than fits in the context you have left this turn (other lar"
+  },
+  {
+   "n": 14,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 1176,
+   "limit": 125,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 52914,
+   "returned_lines": [
+    [
+     1176,
+     1297
+    ]
+   ]
+  },
+  {
+   "n": 15,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 1051,
+   "limit": 60,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 27282,
+   "returned_lines": [
+    [
+     1051,
+     1110
+    ]
+   ],
+   "tail": "ds in the order the dependencies set. Moving; stop rule ~19:45Z. BUDGET: primary 0%, content 20/500 (4%), pushes 61/h (counted only, PD-6), no pause. AUDIT 00:51-01:35Z: every push and write in the ledger. Builders standing by. Context 39%."
+  },
+  {
+   "n": 16,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 1111,
+   "limit": 65,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 31273,
+   "returned_lines": [
+    [
+     1111,
+     1175
+    ]
+   ],
+   "tail": "8 (interface-shell CR2-27, at 6cfd210c21): requirements-ids tracks F4's struck mark (met by F7); cr2-27.test fails with placeTip reverted. Not restoring the mark (a false unmet record). BOB told, plus the C39 pin and the round-1 close path."
+  },
+  {
+   "n": 17,
+   "tool": "Read",
+   "target": "questions.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2303
+  }
+ ],
+ "lines_received": 1297,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 17,
+ "first_text_call": 1,
+ "text_calls_after_questions": [],
+ "calls_after_questions": [],
+ "search_on_text": [
+  3
+ ],
+ "answers_raw": "1. [q05] 13b925a9\n2. [q09] $2.55\n3. [q01] 270 s\n4. [q06] 775 min\n5. [q10] 1272 (of 15000)\n6. [q02] 933\n7. [q07] dd6e7b0\n8. [q11] ~3m48s\n9. [q03] $15.6 (given as $15.57 in the earlier 02:11 entry)\n10. [q08] 20.5 h\n11. [q12] 59cccd18\n12. [q04] 559/559",
+ "answers": {
+  "q05": "13b925a9",
+  "q09": "$2.55",
+  "q01": "270 s",
+  "q06": "775 min",
+  "q10": "1272 (of 15000)",
+  "q02": "933",
+  "q07": "dd6e7b0",
+  "q11": "~3m48s",
+  "q03": "$15.6 (given as $15.57 in the earlier 02:11 entry)",
+  "q08": "20.5 h",
+  "q12": "59cccd18",
+  "q04": "559/559"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "set_aside": false,
+ "pass": true
+}

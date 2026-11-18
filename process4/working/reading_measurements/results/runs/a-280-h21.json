@@ -1,0 +1,245 @@
+{
+ "run": "a-280-h21",
+ "size": "280",
+ "arm": "h",
+ "agent": "ab844ac9f9e73249a",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 187571,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "target": "wc -c -l /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h21/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 121,
+   "returned_lines": [],
+   "said": "   626 279854 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h21/text.md"
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 80,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 32879,
+   "returned_lines": [
+    [
+     1,
+     80
+    ]
+   ],
+   "tail": "th his offline catalogue key (and record his public key lines if not on record); (2) in his UX design stream, raise .cs-btn to min-height var(--tap) 44 px at every width (DEC-412; civicsmith.css 291 and components.css source), for site R18."
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 81,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 40914,
+   "returned_lines": [
+    [
+     81,
+     170
+    ]
+   ],
+   "tail": "ranche only). BOB, ROOT and the old-notices build told. Old coordinator archived. Plan step 2 started: read-only trust-layer review session_01RAN5ekZMZFTTxmxL2H4fgZ, output notes/trust-layer-review-4nov.md on branch review/trust-layer-4nov."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 171,
+   "limit": 100,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 49293,
+   "returned_lines": [
+    [
+     171,
+     270
+    ]
+   ],
+   "tail": "ngs R67: founder drawn no pairing section). journey-check F4 rerunnable, F5 p3dev- test-page Worker, F6 roles check in PR 311; GO for a journey-check job (F2, F4-F6); F5 Worker defined in the product and deployed by deploy dev, not by hand."
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 271,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 55177,
+   "returned_lines": [
+    [
+     271,
+     311
+    ],
+    [
+     313,
+     360
+    ]
+   ],
+   "tail": "dger PR, config merge_train: true by plain PR, then stop merging job PRs and handle the MERGER's exceptions and review notes. ROOT told to start the MERGER on its next sweep and report its id. Trial clock starts at the MERGER's first merge."
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 361,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 33335,
+   "returned_lines": [
+    [
+     361,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     450
+    ]
+   ],
+   "tail": "--plain --reviewed --rounds 1`. Pin move for it waits until the next batch: this MERGER is already unshallowed. MY MISTAKE: my first edit attempt never applied (an earlier `&&` link failed) and I ran the unchanged tests; caught before push."
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 451,
+   "limit": 90,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 34846,
+   "returned_lines": [
+    [
+     451,
+     453
+    ],
+    [
+     455,
+     520
+    ],
+    [
+     522,
+     540
+    ]
+   ],
+   "tail": " 45.0 s, 42 ready: hold reads 24.9 s, release path 7.7 s, gate reads 2.8, post reads 2.5, gate minutes 2.4, heads fetch 2.1, rest <1 s each.\n540\t- 12:24 copy coordinator id merged: PR 500 at 18fbc6d; config names me. Short session archived."
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 541,
+   "limit": 86,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 35790,
+   "returned_lines": [
+    [
+     541,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "search_on_text": [
+  2
+ ],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (~05:40)\n3. [q01] b48585af\n4. [q06] 712/712\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-min\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 min\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (~05:40)",
+  "q01": "b48585af",
+  "q06": "712/712",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-min",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 min",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

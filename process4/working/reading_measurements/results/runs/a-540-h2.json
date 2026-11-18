@@ -1,0 +1,607 @@
+{
+ "run": "a-540-h2",
+ "size": "540",
+ "arm": "h",
+ "agent": "a7667ce6347adcead",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 80970,
+ "text_lines": 1297,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2411
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "target": "wc -lc /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-540-h2/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 120,
+   "returned_lines": [],
+   "said": "  1297 539985 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-540-h2/text.md"
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 150,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (27679 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 4,
+   "tool": "Bash",
+   "target": "d at 11:46|PLT-8 probe|1190/1190|oldest blocked|03:56Z|PR 77|176 merged|58f96824|urgency-wakes|bob-262|18:52Z|close-anchors DONE).{0,300}' text.md | cut -c1-700",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 7520,
+   "returned_lines": [
+    [
+     44,
+     44
+    ],
+    [
+     58,
+     58
+    ],
+    [
+     702,
+     702
+    ],
+    [
+     1169,
+     1169
+    ]
+   ],
+   "tail": "commit (copy PR 1115, ~16:45Z) stopped ROOT, BOB (bob-359 handover note: all 4 modules landed in layer 14; layer merge 14 waits on C61) and the watcher. C61 merged in process3 at 38b0f3f0 (18:13Z, after GitHub's pull_request_target brownout"
+  },
+  {
+   "n": 5,
+   "tool": "Bash",
+   "target": " in 7 62 126 527 702 770 1169 1235 1292 1296; do echo \"=== $n\"; sed -n \"${n}p\" text.md; done; echo; grep -n -E '17:16|02:33|20:52 hourly' text.md | cut -c1-1500",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 8697,
+   "returned_lines": [
+    [
+     7,
+     7
+    ],
+    [
+     62,
+     62
+    ],
+    [
+     66,
+     66
+    ],
+    [
+     126,
+     126
+    ],
+    [
+     527,
+     527
+    ],
+    [
+     638,
+     638
+    ],
+    [
+     640,
+     640
+    ],
+    [
+     643,
+     643
+    ],
+    [
+     653,
+     653
+    ],
+    [
+     698,
+     698
+    ],
+    [
+     702,
+     702
+    ],
+    [
+     770,
+     770
+    ],
+    [
+     1051,
+     1051
+    ],
+    [
+     1169,
+     1169
+    ],
+    [
+     1235,
+     1235
+    ],
+    [
+     1292,
+     1292
+    ],
+    [
+     1296,
+     1296
+    ]
+   ],
+   "tail": " all three tranches match the note's bases; before Bob applies, builder ef7TXuV runs C3's admit check against the proposed denies (git push, gh) so no told command is refused (C3 class). Builder ef1pxNY measures C9/C10/C12 for 02:25–03:25Z."
+  },
+  {
+   "n": 6,
+   "tool": "Bash",
+   "target": "wakes \\$|20\\.5 h|59cccd18|559/559' text.md; grep -n -o -E '.{60}(13b925a9|59cccd18|dd6e7b0|\\$2\\.55|3m48s|559/559|20\\.5 h|775 min|270 s|1272/15000).{60}' text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 2802,
+   "returned_lines": [
+    [
+     1,
+     1
+    ],
+    [
+     22,
+     22
+    ],
+    [
+     313,
+     313
+    ],
+    [
+     386,
+     386
+    ],
+    [
+     413,
+     413
+    ],
+    [
+     431,
+     431
+    ],
+    [
+     455,
+     455
+    ],
+    [
+     522,
+     522
+    ],
+    [
+     608,
+     608
+    ],
+    [
+     685,
+     685
+    ],
+    [
+     692,
+     692
+    ],
+    [
+     698,
+     698
+    ],
+    [
+     706,
+     706
+    ],
+    [
+     713,
+     713
+    ],
+    [
+     721,
+     721
+    ],
+    [
+     743,
+     743
+    ],
+    [
+     761,
+     761
+    ],
+    [
+     774,
+     774
+    ],
+    [
+     785,
+     785
+    ],
+    [
+     793,
+     793
+    ],
+    [
+     801,
+     801
+    ],
+    [
+     810,
+     810
+    ],
+    [
+     824,
+     824
+    ],
+    [
+     831,
+     831
+    ],
+    [
+     834,
+     834
+    ],
+    [
+     844,
+     844
+    ],
+    [
+     847,
+     847
+    ],
+    [
+     859,
+     859
+    ],
+    [
+     867,
+     867
+    ],
+    [
+     884,
+     884
+    ],
+    [
+     912,
+     912
+    ],
+    [
+     929,
+     929
+    ],
+    [
+     948,
+     948
+    ],
+    [
+     974,
+     974
+    ],
+    [
+     1023,
+     1023
+    ],
+    [
+     1040,
+     1040
+    ]
+   ],
+   "tail": "ane, journey-check). BUDGET primary 1272/15000 (8%), content 15/500, pushes 61/h; AUDIT 02:51Z on clean. C\n1296:nce 18:26Z; nudged. The new ROOT start text (approvals hash 59cccd18) has been generated; Bob was asked \"go\" for me to start ROO"
+  },
+  {
+   "n": 7,
+   "tool": "Bash",
+   "target": "2/ && grep -n -o -E '.{100}(PR 267|C38|\\b933\\b|PR 97\\b|approvals hash|PR 297|15\\.6|gate job|bob-262|extraction 432|13b925a|\\b498\\b).{120}' text.md | cut -c1-330",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 3977,
+   "returned_lines": [],
+   "said": "7:w (run 41733911709); workflow PR creation blocked by repo setting; longest job limit 6 h vs longest gate job 270 s; draft release by workflow works but creates no tag until publish (release workflow must push its tag); cron unme\n62:65/66, L6 300/304/308, L7 7/7/7, L8 7/58/59, L9 3/17/18, L10 0/13/"
+  }
+ ],
+ "lines_received": 88,
+ "lines_missing": [
+  [
+   2,
+   6
+  ],
+  [
+   8,
+   21
+  ],
+  [
+   23,
+   43
+  ],
+  [
+   45,
+   57
+  ],
+  [
+   59,
+   61
+  ],
+  [
+   63,
+   65
+  ],
+  [
+   67,
+   125
+  ],
+  [
+   127,
+   311
+  ],
+  [
+   314,
+   384
+  ],
+  [
+   387,
+   411
+  ],
+  [
+   414,
+   429
+  ],
+  [
+   432,
+   453
+  ],
+  [
+   456,
+   520
+  ],
+  [
+   523,
+   526
+  ],
+  [
+   528,
+   606
+  ],
+  [
+   609,
+   637
+  ],
+  [
+   639,
+   639
+  ],
+  [
+   641,
+   642
+  ],
+  [
+   644,
+   652
+  ],
+  [
+   654,
+   683
+  ],
+  [
+   686,
+   690
+  ],
+  [
+   693,
+   696
+  ],
+  [
+   699,
+   701
+  ],
+  [
+   703,
+   704
+  ],
+  [
+   707,
+   711
+  ],
+  [
+   714,
+   719
+  ],
+  [
+   722,
+   741
+  ],
+  [
+   744,
+   759
+  ],
+  [
+   762,
+   769
+  ],
+  [
+   771,
+   772
+  ],
+  [
+   775,
+   783
+  ],
+  [
+   786,
+   791
+  ],
+  [
+   794,
+   799
+  ],
+  [
+   802,
+   808
+  ],
+  [
+   811,
+   822
+  ],
+  [
+   825,
+   829
+  ],
+  [
+   832,
+   832
+  ],
+  [
+   835,
+   842
+  ],
+  [
+   845,
+   845
+  ],
+  [
+   848,
+   857
+  ],
+  [
+   860,
+   865
+  ],
+  [
+   868,
+   882
+  ],
+  [
+   885,
+   910
+  ],
+  [
+   913,
+   927
+  ],
+  [
+   930,
+   946
+  ],
+  [
+   949,
+   972
+  ],
+  [
+   975,
+   1021
+  ],
+  [
+   1024,
+   1038
+  ],
+  [
+   1041,
+   1050
+  ],
+  [
+   1052,
+   1168
+  ],
+  [
+   1170,
+   1234
+  ],
+  [
+   1236,
+   1291
+  ],
+  [
+   1293,
+   1295
+  ],
+  [
+   1297,
+   1297
+  ]
+ ],
+ "covered": false,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "search_on_text": [
+  2,
+  4,
+  5,
+  6,
+  7
+ ],
+ "answers_raw": "1. [q05] 13b925a9\n2. [q09] $2.55\n3. [q01] 270 seconds\n4. [q06] 775 minutes\n5. [q10] 1272 (of 15000, 8%)\n6. [q02] 933 (total 481/601/933)\n7. [q07] dd6e7b0\n8. [q11] ~3m48s\n9. [q03] $15.6\n10. [q08] 20.5 hours\n11. [q12] 59cccd18\n12. [q04] 559/559",
+ "answers": {
+  "q05": "13b925a9",
+  "q09": "$2.55",
+  "q01": "270 seconds",
+  "q06": "775 minutes",
+  "q10": "1272 (of 15000, 8%)",
+  "q02": "933 (total 481/601/933)",
+  "q07": "dd6e7b0",
+  "q11": "~3m48s",
+  "q03": "$15.6",
+  "q08": "20.5 hours",
+  "q12": "59cccd18",
+  "q04": "559/559"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": false
+}

@@ -1,0 +1,209 @@
+{
+ "run": "a-280-h4",
+ "size": "280",
+ "arm": "h",
+ "agent": "aa13bf195c88bb9b8",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 187283,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [
+  {
+   "after_call": 2
+  }
+ ],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 50862,
+   "returned_lines": [
+    [
+     1,
+     113
+    ]
+   ],
+   "tail": "rated files are built, never committed or hand-edited). BOB measures whether words-reads.src.mjs output carries the plane keys; if yes, R95 reads generator output at test time and PR 159 closes; if no, the generator fix is Bob's (his list)."
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 114,
+   "limit": 130,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 58589,
+   "returned_lines": [
+    [
+     114,
+     243
+    ]
+   ],
+   "tail": "tor's context (BOB and ROOT are watched by the sweep at refresh_context 60%; auto-compaction at 784k). Plan: hand over at 60% at a natural break (after the review-triggers build), and ask for the sweep to read the coordinator's context too."
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 244,
+   "limit": 190,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 95816,
+   "returned_lines": [
+    [
+     244,
+     311
+    ],
+    [
+     313,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     433
+    ]
+   ],
+   "tail": "x: \"run with urgency\".\n433\t- 06:49 process3 PR 146 (train order) merged c4f2cae: `merge 146 --plain --reviewed \"3 rounds...\" --rounds 3 --decision ...`, ci and record green on 2e5f6c9. process3 tranche tip c4f2cae (145, 147, 146 all on it)."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 434,
+   "limit": 194,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 343,
+   "returned_lines": [],
+   "said": "File content (31997 tokens) exceeds maximum allowed tokens (31796). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. Even with allow_large, this is more than fits in the context you have left this turn (other lar"
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 434,
+   "limit": 100,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 39391,
+   "returned_lines": [
+    [
+     434,
+     453
+    ],
+    [
+     455,
+     520
+    ],
+    [
+     522,
+     533
+    ]
+   ],
+   "tail": "red blocks (citation, contradiction, op-grades, investigation, runtime-limits), drafts 432, 460. Idle reds acted: member-roster 446 and plane 452 restarted; case-authoring 456, queue 455 after plain 501; agent-runner 394 after 364. Live ~7."
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 534,
+   "limit": 94,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 37583,
+   "returned_lines": [
+    [
+     534,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (the study recommended C at 05:31; put to Bob ~05:40)\n3. [q01] b48585af\n4. [q06] 712/712\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-minutes\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 minutes\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (the study recommended C at 05:31; put to Bob ~05:40)",
+  "q01": "b48585af",
+  "q06": "712/712",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-minutes",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 minutes",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

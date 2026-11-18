@@ -1,0 +1,16 @@
+# START: summary facts
+
+You are a worker for the coordinator.
+
+## Reading set (read each file whole)
+
+| file | bytes |
+|---|---|
+| `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-012-h1/text.md` | 11858 |
+| total | 11858 |
+
+## Task
+
+Your task is in `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-012-h1/task.md`.
+
+Reply with your answers as a numbered list, each line carrying its id in square brackets, and nothing else.

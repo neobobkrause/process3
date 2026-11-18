@@ -1,0 +1,87 @@
+{
+ "run": "a-140-h6",
+ "size": "140",
+ "arm": "h",
+ "agent": "a48264db923489d57",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 126915,
+ "text_lines": 301,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2007
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 140813,
+   "returned_lines": [
+    [
+     1,
+     301
+    ]
+   ]
+  }
+ ],
+ "lines_received": 301,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2
+ ],
+ "calls_after_questions": [
+  2
+ ],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 08:02:34Z\n2. [q09] 734 minutes\n3. [q01] run 41733911709\n4. [q06] 103.49 USD\n5. [q10] rev 239\n6. [q02] 4,543 lines\n7. [q07] 1,164,695 bytes\n8. [q11] 1.56.1\n9. [q03] 4248 bytes\n10. [q08] $4.23\n11. [q12] 5ecda36\n12. [q04] 31818275",
+ "answers": {
+  "q05": "08:02:34Z",
+  "q09": "734 minutes",
+  "q01": "run 41733911709",
+  "q06": "103.49 USD",
+  "q10": "rev 239",
+  "q02": "4,543 lines",
+  "q07": "1,164,695 bytes",
+  "q11": "1.56.1",
+  "q03": "4248 bytes",
+  "q08": "$4.23",
+  "q12": "5ecda36",
+  "q04": "31818275"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

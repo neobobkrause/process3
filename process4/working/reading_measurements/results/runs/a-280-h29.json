@@ -1,0 +1,240 @@
+{
+ "run": "a-280-h29",
+ "size": "280",
+ "arm": "h",
+ "agent": "a3ebc6dfea1d55366",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 187828,
+ "text_lines": 626,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2087
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "target": "wc -c -l /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h29/text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 121,
+   "returned_lines": [],
+   "said": "   626 279854 /tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/a-280-h29/text.md"
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": 120,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 53895,
+   "returned_lines": [
+    [
+     1,
+     120
+    ]
+   ],
+   "tail": " not a re-run.\n120\t- 06:49 pin f4c0d0f on the copy: PR 165 (2d52c51), pre-check no overlap (records process/ only), BOB woken pin-19 and told: PR 148 needs a new gate event, then merge --plain. No pin move open. Open build: bootstrap-close."
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 121,
+   "limit": 120,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 54115,
+   "returned_lines": [
+    [
+     121,
+     240
+    ]
+   ],
+   "tail": "rser deciding policy). Gap accepted for the trial. EARLY SIGNAL: BOB hand-reviewed 5 of the last 6 PRs (278 PASS; 281, 173, 291, 272 CONCERNS with follow-ups only; 175 running): asked which trigger fired for each; possible over-application."
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 241,
+   "limit": 110,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 378,
+   "returned_lines": [],
+   "said": "File content (25855 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file. To read it anyway, up to what still fits in your context, call Read again with allow_large: tru"
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 241,
+   "limit": 110,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 62861,
+   "returned_lines": [
+    [
+     241,
+     311
+    ],
+    [
+     313,
+     350
+    ]
+   ],
+   "tail": " workflow PRs stay per-PR; native merge queue needs merge_group in the gate shim and Bob's ruleset. Forwarded to the design study with option F: per-PR merges made automatic and immediate by a non-BOB actor (sim 7.0/20.5 vs train 5.2/13.5)."
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 351,
+   "limit": 90,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 36361,
+   "returned_lines": [
+    [
+     351,
+     384
+    ],
+    [
+     386,
+     411
+    ],
+    [
+     413,
+     429
+    ],
+    [
+     431,
+     440
+    ]
+   ],
+   "tail": "vider first, BOB's draft marks): 420, 431 until 396; 441 until 423; 425, 432 until 430; 394 after 364. PR 146's provider-first hold now does this in the train itself once the pin moves; BOB lifts the manual drafts when the train holds them."
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 441,
+   "limit": 95,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 38116,
+   "returned_lines": [
+    [
+     441,
+     453
+    ],
+    [
+     455,
+     520
+    ],
+    [
+     522,
+     535
+    ]
+   ],
+   "tail": "e train. The merge printed no wake of BOB (process-state moved on origin, retries 2-3 of 5, exit 0): DEFECT owed (a land whose state push retries must still print the wake). Told BOB by hand. MERGER restarts onto it under my standing order."
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": 536,
+   "limit": 91,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 36887,
+   "returned_lines": [
+    [
+     536,
+     606
+    ],
+    [
+     608,
+     626
+    ]
+   ]
+  }
+ ],
+ "lines_received": 626,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "calls_after_questions": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "search_on_text": [
+  2
+ ],
+ "answers_raw": "1. [q05] 41899640593\n2. [q09] about 05:40 (the study recommended C at 05:31 and it was put to Bob ~05:40)\n3. [q01] b48585af\n4. [q06] 712/712 (712 passed out of 712)\n5. [q10] 7c7e7c9a\n6. [q02] 01:05:19\n7. [q07] 2427 PR-minutes\n8. [q11] session_018Bhcegu7gjj5C8n51W8Eoo\n9. [q03] $15.57\n10. [q08] 67409f8\n11. [q12] 285 minutes\n12. [q04] 333",
+ "answers": {
+  "q05": "41899640593",
+  "q09": "about 05:40 (the study recommended C at 05:31 and it was put to Bob ~05:40)",
+  "q01": "b48585af",
+  "q06": "712/712 (712 passed out of 712)",
+  "q10": "7c7e7c9a",
+  "q02": "01:05:19",
+  "q07": "2427 PR-minutes",
+  "q11": "session_018Bhcegu7gjj5C8n51W8Eoo",
+  "q03": "$15.57",
+  "q08": "67409f8",
+  "q12": "285 minutes",
+  "q04": "333"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

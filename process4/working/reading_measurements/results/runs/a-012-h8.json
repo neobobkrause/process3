@@ -1,0 +1,87 @@
+{
+ "run": "a-012-h8",
+ "size": "012",
+ "arm": "h",
+ "agent": "a69a85cc7b9711fa8",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 68551,
+ "text_lines": 37,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2046
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "text",
+   "returned_chars": 11963,
+   "returned_lines": [
+    [
+     1,
+     37
+    ]
+   ]
+  }
+ ],
+ "lines_received": 37,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2
+ ],
+ "calls_after_questions": [
+  2
+ ],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] 5c35497\n2. [q09] 223\n3. [q01] 22:18\n4. [q06] 23:59:30\n5. [q10] P3-M2\n6. [q02] 22:31\n7. [q07] 4248\n8. [q11] P3-M3\n9. [q03] b48585af\n10. [q08] fe9376c\n11. [q12] P3-11\n12. [q04] 15c41d4",
+ "answers": {
+  "q05": "5c35497",
+  "q09": "223",
+  "q01": "22:18",
+  "q06": "23:59:30",
+  "q10": "P3-M2",
+  "q02": "22:31",
+  "q07": "4248",
+  "q11": "P3-M3",
+  "q03": "b48585af",
+  "q08": "fe9376c",
+  "q12": "P3-11",
+  "q04": "15c41d4"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}

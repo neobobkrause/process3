@@ -1,0 +1,87 @@
+{
+ "run": "a-070-h7",
+ "size": "070",
+ "arm": "h",
+ "agent": "a1a57c410bdabca2f",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 97760,
+ "text_lines": 160,
+ "prompt_exact": true,
+ "cut_notices": [],
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "target": "task.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "on": "questions",
+   "returned_chars": 2460
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "target": "text.md",
+   "offset": null,
+   "limit": null,
+   "allow_large": true,
+   "on": "text",
+   "returned_chars": 70482,
+   "returned_lines": [
+    [
+     1,
+     160
+    ]
+   ]
+  }
+ ],
+ "lines_received": 160,
+ "lines_missing": [],
+ "covered": true,
+ "questions_opened_at_call": 1,
+ "first_text_call": 2,
+ "text_calls_after_questions": [
+  2
+ ],
+ "calls_after_questions": [
+  2
+ ],
+ "search_on_text": [],
+ "answers_raw": "1. [q05] $15.6 (the 02:33 entry's figure; the 02:11 entry gives the same build as $15.57)\n2. [q09] about 10:28\n3. [q01] b48585af\n4. [q06] 01:43:46\n5. [q10] 1,164,695 bytes\n6. [q02] 270 seconds\n7. [q07] 4.2 hours\n8. [q11] 3.16 (USD)\n9. [q03] run 41735339840\n10. [q08] 105.7 minutes\n11. [q12] 3.25 minutes\n12. [q04] 4,543 lines",
+ "answers": {
+  "q05": "$15.6 (the 02:33 entry's figure; the 02:11 entry gives the same build as $15.57)",
+  "q09": "about 10:28",
+  "q01": "b48585af",
+  "q06": "01:43:46",
+  "q10": "1,164,695 bytes",
+  "q02": "270 seconds",
+  "q07": "4.2 hours",
+  "q11": "3.16 (USD)",
+  "q03": "run 41735339840",
+  "q08": "105.7 minutes",
+  "q12": "3.25 minutes",
+  "q04": "4,543 lines"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true
+ },
+ "right": 12,
+ "right_by_zone": {
+  "first": 4,
+  "middle": 4,
+  "last": 4
+ },
+ "pass": true
+}
