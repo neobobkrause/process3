@@ -1,4 +1,4 @@
-Length: 281 lines. Last section: "5. Second pass".
+Length: 334 lines. Last section: "6. Third pass".
 
 # The build texts reconciled with the design and with each other
 
@@ -279,3 +279,56 @@ Made after the design settled the eleven matters of section 3. Re-read first: pa
 2. **A notice to a module whose job is already open.** The design: ARCH's session "writes there, once, the job's kind and the uses its notice carries." Build text 1's `notify` formerly added later uses to the open job's block. Now it writes them to waiting work and prints the module; how they reach the open job is not chosen. The design's waiting-work record is for "modules with no open job".
 3. **A filled text over the limit.** `arch.md` passes by 33 bytes with the fill above. A job told of many more uses, or a longer fetch line, would pass 4,096 bytes; the design says the tool refuses nothing for size and does not say what then happens.
 4. The eleven items of `starting_texts/00-index.md`, section 4, of which 4 and 11 are items 2 and 3 here.
+
+## 6. Third pass
+
+Made after three last rulings. Re-read first: part 6, section 5; part 2, section 7; part 4, section 11. The sizes here replace those of sections 1 and 5.
+
+**`01-the-tool-and-the-required-run.md` (7; 137 lines, 23,852 bytes)**
+
+1. `walk areas`: now "lists the modules a round changed and the areas they name, for ARCH to choose from", citing part 6, section 5; the "listing ARCH reads, no choice of the tool's" wording removed.
+2. `walk text`: fills names and addresses only; a walking session's areas stay in the round record.
+3. `notify`: a notice to a module whose job is open waits in waiting work until that pull request merges or closes; the next job is the told job; nothing is passed to the open job.
+4. `open --module`: the job's text is filled with the fetch line, module, branch and pull request only; the job block also holds the work placed.
+5. `open` on a branch whose pull request is already open also prints the job block, which is how a job reads its work, kind and uses.
+6. The fetch line names the commit id once, as a shell variable.
+7. Section 9: items 1 and 2 struck as settled; five remain.
+
+**`02-the-forms.md` (3; 305 lines, 23,935 bytes)**
+
+1. Section 8: the job block gains `work`, the work placed.
+2. Section 8: a line that the job's starting text carries none of the block and names the pull request.
+3. Section 8: the "Decided here" cost now says a notice to an open job waits for the module's next job.
+
+**`03-the-walks.md` (3; 200 lines, 19,776 bytes)**
+
+1. Section 2, step 1: "a listing ARCH reads" removed from `walk areas`.
+2. Section 4, step 1: the starting instructions name the walk, the walk issue and the commands; the areas stay in the round record.
+3. Section 6: a flaw's number, module and link are carried by the job block, not the job's starting instructions.
+
+**`starting_texts/job.md` (2; 26 lines, 3,267 bytes; 3,550 filled; 10 rules)**
+
+1. Opening: the work and the uses are no longer filled in; the job block on the pull request holds them, and `p4 open` prints it.
+2. Acts: `open` added, to print the pull request and job block.
+
+**`starting_texts/walking-session.md` (3; 28 lines, 3,568 bytes; 3,788 filled; 10 rules)**
+
+1. Opening: the areas are no longer filled in; the round record gives them by the session's number.
+2. Acts: `p4 state read` added.
+3. Rule 1: "the areas named above" became "the areas given you".
+
+**`starting_texts/arch.md`**: unchanged, 3,661 bytes; 3,878 filled with the shorter fetch line.
+
+**`starting_texts/00-index.md` (5; 82 lines)**
+
+1. Section 1: the job and walking-session rows say what is filled in and what stays in the pull request or round record.
+2. Section 1: the filled table redone with a fetch line of 198 bytes: 3,878, 3,550 and 3,788.
+3. Section 2: the design's part sizes as they now are (97,320 in all), the build texts' sizes and every combined figure recomputed.
+4. Section 4: the notice to an open job and the over-long filled text struck; nine items remain.
+5. Opening: "reconciled three times".
+
+**Still unsettled**
+
+1. A job reads its job block by running `open` on its own branch. That is my choice of an existing command; the design's list has "write a job's kind and record on its pull request" and no act named for reading it.
+2. The job block now holds the work placed, where part 4, section 11 says ARCH's session writes there "the job's kind and the uses its notice carries". The ruling that the work "stays in the pull request" is what put it there.
+3. The nine items of `starting_texts/00-index.md`, section 4.

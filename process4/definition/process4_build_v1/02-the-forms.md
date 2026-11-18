@@ -1,4 +1,4 @@
-Length: 304 lines. Last section: "9. What could not be settled".
+Length: 305 lines. Last section: "9. What could not be settled".
 
 # Process4 build text 2: the forms of the files the design names
 
@@ -273,6 +273,7 @@ The job block, `<!-- process4-job -->`, is written once by ARCH's session, by `o
 ```json
 {
   "module": "orders",
+  "work": ["R3", "notice from pricing"],
   "kind": "told",
   "uses": [ { "provider": "pricing", "old": "a1b2c3d", "new": "e4f5a6b",
               "entry": "src/pricing/index.mjs PriceArgs", "change": "bound",
@@ -289,10 +290,10 @@ The job's record, `<!-- process4-job-record -->`, is written only by the job's s
 { "nothing_to_change": "<one plain sentence>" }
 ```
 
-- `kind` is `ordinary` or `told`; an ordinary job's block holds `module` and `kind` only. `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module.
+- `kind` is `ordinary` or `told`; an ordinary job's block holds `module`, `work` and `kind` only. `work` is the work placed: requirement numbers, notices, and flaws by number and link. The job's starting text carries none of this; it names the pull request (part 4, section 11). `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module.
 - `blocked` is written by `push --blocked <module> "<why>"`, `nothing_to_change` by `close <pr> --nothing-to-change "<why>"`. A later record rewrites the comment in place; its one writer is the job.
 - The tool reads `blocked.by` to make the job ready again when that module merges, and reads `nothing_to_change` on a pull request closed unmerged to count the module finished (part 2, section 4). No test runs for that record (part 2, section 7).
-- **Decided here**, following build text 1 and part 4, section 11: one JSON block for each of the two, in place of a comment of plain lines for each record. Gives: the required run and every command read fixed places, and no write can be lost to another session's. Costs: a notice that arrives while the job is open cannot be added to its block (build text 1, section 9).
+- **Decided here**, following build text 1 and part 4, section 11: one JSON block for each of the two, in place of a comment of plain lines for each record. Gives: the required run and every command read fixed places, and no write can be lost to another session's. Costs: a notice that arrives while the job is open waits in waiting work for the module's next job (part 2, section 7).
 
 ## 9. What could not be settled
 

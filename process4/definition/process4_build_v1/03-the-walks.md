@@ -44,7 +44,7 @@ The design fixes what an area is: for the internal walk a screen or a named grou
 
 **Decided here:** how ARCH names a round's areas.
 
-1. The tool (`walk areas`, a listing ARCH reads) lists the round's changed modules: those whose pull request merged in the round, and those a notice was sent to, whether or not they then changed.
+1. The tool (`walk areas`) lists the round's changed modules: those whose pull request merged in the round, and those a notice was sent to, whether or not they then changed.
 2. For each, the tool lists the screen pages and journeys named in the headers of that module's steps (section 3) and in its requirement text.
 3. A changed module that names none takes the areas of its users, followed upward until modules that name some are reached.
 4. That is the candidate list. ARCH adds an area where it doubts how a change will show (the design, part 3, section 3), and may take one away. Each added or removed area carries one line of reason.
@@ -75,7 +75,7 @@ Gives: a step changes with the code it proves, under the rule that a job writes 
 
 ## 4. The internal walk
 
-1. ARCH starts each walking session from the newest commit of the tranche branch. Its starting instructions, which the tool fills in (`walk text`), name the walk, its areas, the walk issue and the commands.
+1. ARCH starts each walking session from the newest commit of the tranche branch. Its starting instructions, which the tool fills in (`walk text`), name the walk, the walk issue and the commands; its areas stay in the round record, which it reads (`state read`).
 2. The session builds the product on its own machine. Built files are not committed.
 3. It serves the product there with the product's own local command, with the product's stand-in wherever a screen needs an AI answer, and with no secret.
 4. For each area it reads the Screens page in full, runs that page's steps, and walks by hand what no step covers.
@@ -159,7 +159,7 @@ Among observations: a part of a page that no step covers and that matched when w
 
 **How ARCH turns a flaw into work.** ARCH reads the whole walk issue (`walk read`). For each flaw it does one of three things.
 
-1. **Work for a named module.** It names the module: the one in the step's requirement line; for a part walked by hand, the module that owns the screen's code in the module list; where the step itself is wrong, the module that holds the step. Where no requirement covers what the document says, ARCH first writes one, marked not yet met. ARCH's session, by the tool, writes the flaw's number, the module and a link to the comment into the waiting-work record (`state write`). The job's starting instructions carry them, and the job reads the flaw where it lies (`walk read`).
+1. **Work for a named module.** It names the module: the one in the step's requirement line; for a part walked by hand, the module that owns the screen's code in the module list; where the step itself is wrong, the module that holds the step. Where no requirement covers what the document says, ARCH first writes one, marked not yet met. ARCH's session, by the tool, writes the flaw's number, the module and a link to the comment into the waiting-work record (`state write`). The job block on its pull request carries them, and the job reads the flaw where it lies (`walk read`).
 2. **The document is wrong.** ARCH gives it to the UX lane, which corrects the page. It is named in the account after the round.
 3. **It is none of the three things.** ARCH sets it aside with one line of reason. **Decided here:** each flaw set aside is named in the account after the round with that reason. Costs: ARCH judges entries about a product it designed; the account is what lets the owner see it.
 
