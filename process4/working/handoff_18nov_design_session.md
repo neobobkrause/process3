@@ -1,6 +1,6 @@
 # Handoff from the design session of 18 Nov 2026
 
-Length: 57 lines. Last section: "Practical notes".
+Length: 58 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff. Where it differs from `handoff_18nov_review_session.md` or `handoff_18nov_measurements_session.md`, this one rules. Read it whole, then the seventh draft whole.
 
@@ -35,10 +35,11 @@ Branch `claude/process4-design-handoff-7w8nh8`. Everything is pushed.
 
 ## Next, in order
 
-1. If the last check of the design and build texts together (`readiness_18nov/design_and_build_final_check.md`) is there, correct what it found. If it is missing, have it made: one fresh worker, the design and the four build texts and the starting texts, reporting what a building session still could not act on and where texts disagree.
-2. Put the matters in the design's part 10, section 1 to Bob, one at a time and in full.
-3. Nothing can be built until Bob has done what build text 4, section 2 lists. Do not start building the tool without his word.
-4. The product's conversion plan and its written procedures. Both need the product's repository.
+1. The last check of the design and build texts together was made (`readiness_18nov/design_and_build_final_check.md`) and its findings applied (`readiness_18nov/build_texts_after_final_check.md`). A fifth build text, `05-the-records-and-following.md`, came out of it. The texts as they now stand have not been checked again, and this session has not read build texts 4 (as rewritten) and 5. Read them, then have one fresh check made.
+2. Small things the last pass left: the build texts still say two matters are "not ruled" that the design has since ruled (how the building session pushes before the tool exists: part 4, section 11; that a development release needs no approval: part 3, section 6). The lane's starting text is in no stage of the trial; put it at the walks' stage. The working file `design_work_18nov/shared_state_carrier.md` puts PROCESS's handover in the product's issue; the design and build text 5 put it in the process's repository, and they rule.
+3. Put the matters in the design's part 10, section 1 to Bob, one at a time and in full.
+4. Nothing can be built until Bob has done what build text 4, section 2 lists. Do not start building the tool without his word.
+5. Owed design work: the steps of an account switch; what is read to show archived sessions free the account's room; the product's conversion plan and written procedures, which need the product's repository.
 
 ## Waiting for Bob
 

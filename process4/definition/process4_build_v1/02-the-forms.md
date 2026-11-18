@@ -1,8 +1,8 @@
-Length: 305 lines. Last section: "9. What could not be settled".
+Length: 283 lines. Last section: "9. What could not be settled".
 
 # Process4 build text 2: the forms of the files the design names
 
-Written by Claude on 18 Nov 2026, beside the seventh draft (`process4/definition/process4_definition_v7/`), not into it. **Status: proposed. Nothing here has run.** It answers part 10, section 2, items 6 and 7 of that draft. It adds no check, gate, review or stop. Reconciled the same day with build texts 1 and 3 and with part 4, section 11.
+Written by Claude on 18 Nov 2026, beside the seventh draft (`process4/definition/process4_definition_v7/`), not into it. **Status: proposed. Nothing here has run.** It answers part 10, section 2, items 6 and 7 of that draft. It adds no check, gate, review or stop. Reconciled the same day with build texts 1, 3 and 5 and with part 4, section 11.
 
 Marks: **Decided here:** a choice made in this text, with what it gives and what it costs. **Unproven:** never shown to work in this form. Every example is made up: a product in plain JavaScript with modules `dates`, `pricing` and `orders`.
 
@@ -37,7 +37,8 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full; `schema/`
 | The owner's decisions on the product | `process/decisions-owner.md` | The coordinator |
 | ARCH's technical decisions | `process/decisions-arch.md` | ARCH |
 | Procedures, release notes, tranche reports | `process/procedures/`, `process/releases/`, `process/reports/` | ARCH |
-| A job's kind and its record | Two comments on the job's own pull request | The tool: the job block in ARCH's session, the record in the job's |
+| A job's kind and its record | Two comments on the job's own pull request (build text 5, section 5) | The tool: the job block in ARCH's session, the record in the job's |
+| The shared state's records | Comments on one issue (build text 5, sections 1 to 4) | One session each |
 
 ## 3. The module list
 
@@ -64,10 +65,10 @@ orders
 
 - `name`: as in the file's name and the order file.
 - `files`: the paths of the code the module owns. A path ending in `/` is a folder with everything under it. A file belongs to the module with the longest matching path, as in the process before this one.
-- `tests`: the paths of its tests, read the same way.
+- `tests`: the paths of its tests, read the same way. Its walk steps are under these paths too, in `walk/internal/` and `walk/external/`, and the module's test command never runs those two folders (build text 3, section 3).
 - `uses`: its declared uses, by name.
 - The requirements file is not named: it is always the `.md` of the same name. The test command is not here either: it is one line of the process config (section 7).
-- A module is identified everywhere by its `name`: in the tool's commands, in a job's branch `job/<name>`, and in the records.
+- A module is identified everywhere by its `name`: in the tool's commands, in a job's branch `job/<name>/<n>` (build text 1, section 4), and in the records.
 
 **How "a module may use only modules before it" reads:** every name in `uses` stands on an earlier line of the order file than the module's own. `orders` is on line 3, `dates` and `pricing` on lines 1 and 2, so it holds. Had `pricing` listed `orders`, that would be a design error, which ARCH corrects by reshaping code (part 2, section 1). Nothing refuses it.
 
@@ -87,13 +88,14 @@ Next number: 4
 ## Requirements
 
 - **R1** [met] An order holds one or more lines, each a product code and a quantity.
-- **R3** [not yet met] An order of more than 999 of one product is refused, and the refusal says which line.
+- **R3** [not yet met] An order of more than 999 of one product is refused, and the refusal says which line. (screen: checkout / basket)
 ```
 
 - One requirement is one line: `- **R<n>** [met]` or `- **R<n>** [not yet met]`, then the text. However long the text, it stays one line, so that a change to a requirement is a change to exactly one line.
 - The number is permanent. A requirement that is withdrawn has its line deleted and its number is never used again (R2 above). `Next number` is what makes that hold.
 - **Who changes which part.** ARCH writes and rewords the text, adds and deletes lines, and keeps `Next number` and the length line. The job changes one thing only: `[not yet met]` to `[met]`, in its own pull request. Marking changes no line count, so the job never touches the length line.
-- **Decided here:** ARCH writes `[not yet met]` on a new requirement, and puts it back on a met one in the same change that rewords it so as to change what the product does. Gives: "the module has work" (part 2, section 3) reads from the file alone. Costs: ARCH writes a mark in that one case; the design gives the mark to the job and does not say who takes it away.
+- ARCH writes `[not yet met]` on a new requirement, and puts it back on a met one in the same change that rewords it so as to change what the product does (part 2, section 2). So "the module has work" (part 2, section 3) reads from the file alone.
+- Requirement text names what it serves by ending with `(screen: <page> / <screen>)` or `(journey: <page> step <n>)`. `walk areas` reads these endings.
 - ARCH keeps the file under 24,000 bytes by splitting the module (part 2, section 2). Nothing refuses a longer one.
 
 ## 5. A structured comment
@@ -195,7 +197,7 @@ Each line is: file, entry, a word for the line's sort, then the rest. The sorts 
 
 - **"If the checker agrees."** The tool asks the reader's own type checker one question: can a value of the old accepted kind be given where the new one is wanted? It writes a two-line file that does that and reads whether the checker complains. No complaint: accepts more, nobody told. A complaint, or a kind the checker calls "anything": the entry's users are told. **Unproven:** this is the proof's eighth design, described and not built.
 - **Decided here:** a named kind that is reached from any `returns`, `value` or answer is treated as handed back, so any change to its lines tells its users; only a kind reached from arguments alone gets the "accepts more" question. Gives: one plain rule. Costs: some needless notices.
-- **An entry's users** are the modules whose code or comments name it (part 2, section 7, decision 1), together with the users of every entry whose lines name it. In the example a change to `PriceArgs` tells the users of `priceOf` and of the `priceof` row. A user the tool cannot follow fully is a user of every entry.
+- **An entry's users** are the modules whose code or comments name it (part 2, section 7, decision 1), together with the users of every entry whose lines name it. In the example a change to `PriceArgs` tells the users of `priceOf` and of the `priceof` row. A user the tool cannot follow fully (build text 5, section 6) is a user of every entry.
 - **Decided here:** a listing is lines of plain text, not the reader's raw output. Gives: "removed, newly required, newly refused" each read off a line's sort, and two listings can be compared by any session by eye. Costs: turning the reader's output into these lines is a new step. **Unproven:** all of it. What was measured is a line-by-line comparison of the raw output: identical, only gained, or lost or altered.
 
 ## 7. The process config
@@ -214,20 +216,23 @@ Place: `process.json`. ARCH writes it; it changes as the process's named files d
   "hosting": { "provider": "cloudflare", "development_account": "<the account's id>" },
   "walks_folder": "lanes/ux/walks/",
   "walk": { "build_and_serve": "npm run serve-local", "run_steps": "npm run walk --", "most_external_walkers": 1 },
+  "deploy": { "deploy": "npm run dev-deploy --", "seed": "npm run dev-seed --", "remove": "npm run dev-remove --" },
   "process_folder": "process/",
   "language_reader": { "name": "typescript", "version": "5.6.3", "source": ["**/*.mjs"] }
 }
 ```
 
 - `process`: the one fixed version of the process the tranche runs on: the process repository's address, the version's name, and its full commit id on that repository's main branch. Each session, and the required run, fetches a read-only copy of exactly that commit (build text 1, section 2).
-- `tranche_branch`: the name of the one lasting tranche branch.
+- `tranche_branch`: the name of the one lasting tranche branch, which pull requests go into. The process's repository has no tranche branch: its own `process.json` names `main` here.
 - `node`, `lock_files`: the Node version, and the lock files the required run installs the product's dependencies from (build text 1, section 5).
 - `test_command`: the command the tool runs over a list of a module's test files. **Decided here:** one command for the product, kept here and not in each entry. Gives: an entry keeps four fields. Costs: a product whose modules need different commands must give one command that tells them apart.
 - `slots.default`: the account's slot number when the owner has given none. `slots.share`: this product's share of it (part 2, section 5); with one product the two are equal. A number the owner gives later is held in the standing notes, not here.
 - `lanes`: each lane's name and its folder. The UX lane is always there.
 - `hosting`: the provider's name and the development account. The account's id is not a secret. The deploy token is, and is never written here.
 - `walks_folder`: where the Screens document and the journeys are kept.
-- `walk`: the command that builds and serves the product on one machine; the command that runs named steps against an address; and the most external walkers, which begins at one (build text 3, sections 4 and 5). The tool copies the two commands into a walking session's starting instructions.
+- `walk`: the command that builds and serves the product on one machine; the command that runs named steps against an address; and the most external walkers, which begins at one (build text 3, sections 4 and 5). A walking session reads the two commands here: its starting text names this file, and is filled in with names and addresses only.
+- `deploy`: the product's own commands that deploy, seed and remove a development copy, each run with a copy's name by ARCH's session (build text 3, section 5).
+- **Decided here:** one trial-only line, `"trial": { "mechanical_edit_tests": "none" }`, written only in the trial repository, asks the required run to run no test on a mechanical edit (build text 1, section 5, step 5). Gives: trial item 9's "none run" form can be tried. Costs: a line no product's config may hold.
 - `process_folder`: where the files of sections 3, 4 and 8 are kept.
 - `language_reader`: the reader's name, its exact version, and which files are the product's code. **Decided here:** the version is fixed in the config. Gives: every session and GitHub's machines make the same listing. Costs: a new version is a change to this file.
 
@@ -266,34 +271,7 @@ Decided: 19 Nov 2026.
 
 The `Decision` line is the one plain line the coordinator gives the owner. A changed decision rewrites the entry in place. Each is one pull request, which ARCH opens and merges by the tool.
 
-**A job's kind and its record.** Two comments on the job's own pull request, each with a hidden mark on its first line, as in the shared state, and one JSON block after it. Each has one writing session (part 4, section 11), and only the tool writes and reads them.
-
-The job block, `<!-- process4-job -->`, is written once by ARCH's session, by `open --module <name>`, from the waiting-work record:
-
-```json
-{
-  "module": "orders",
-  "work": ["R3", "notice from pricing"],
-  "kind": "told",
-  "uses": [ { "provider": "pricing", "old": "a1b2c3d", "new": "e4f5a6b",
-              "entry": "src/pricing/index.mjs PriceArgs", "change": "bound",
-              "was": "PriceArgs bound quantity: a whole number from 1 to 999",
-              "now": "PriceArgs bound quantity: a whole number from 1 to 99",
-              "places": ["src/orders/lines.mjs:41", "test/orders/lines.test.mjs:17"] } ]
-}
-```
-
-The job's record, `<!-- process4-job-record -->`, is written only by the job's session, and holds one of two things:
-
-```json
-{ "blocked": { "by": "pricing", "why": "<one plain sentence>" } }
-{ "nothing_to_change": "<one plain sentence>" }
-```
-
-- `kind` is `ordinary` or `told`; an ordinary job's block holds `module`, `work` and `kind` only. `work` is the work placed: requirement numbers, notices, and flaws by number and link. The job's starting text carries none of this; it names the pull request (part 4, section 11). `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module.
-- `blocked` is written by `push --blocked <module> "<why>"`, `nothing_to_change` by `close <pr> --nothing-to-change "<why>"`. A later record rewrites the comment in place; its one writer is the job.
-- The tool reads `blocked.by` to make the job ready again when that module merges, and reads `nothing_to_change` on a pull request closed unmerged to count the module finished (part 2, section 4). No test runs for that record (part 2, section 7).
-- **Decided here**, following build text 1 and part 4, section 11: one JSON block for each of the two, in place of a comment of plain lines for each record. Gives: the required run and every command read fixed places, and no write can be lost to another session's. Costs: a notice that arrives while the job is open waits in waiting work for the module's next job (part 2, section 7).
+**A job's kind and its record** are two comments on the job's own pull request, the job block and the job's record. Their forms are in build text 5 (`05-the-records-and-following.md`), section 5, with the shared state's records.
 
 ## 9. What could not be settled
 
@@ -301,5 +279,5 @@ The job's record, `<!-- process4-job-record -->`, is written only by the job's s
 2. **A product in another language.** Sections 5 and 6 are for plain JavaScript under TypeScript's reader. No other reader has been tried.
 3. **Helpers under a module's tests that other modules import.** The listing covers `files`, not `tests`. On the earlier record such helpers were a real route between modules, and one missed effect came through one.
 4. **Messages between two separately running parts.** The study names the need for one written kind shared by both ends; no form is given here.
-5. **How the tool says it "cannot follow" a user.** The rule depends on it and nothing here defines it.
+5. **How the tool says it "cannot follow" a user.** Now defined in build text 5, section 6, and unproven.
 6. **A decision record that outgrows the maximum.** The owner's dated words are never edited, so his record only grows. How it is split is the coordinator's and PROCESS's to settle.
