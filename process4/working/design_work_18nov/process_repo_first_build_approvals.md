@@ -1,4 +1,4 @@
-Length: 96 lines. Last section: "5. Not proven".
+Length: 93 lines. Last section: "5. Not proven".
 
 # The process repository's approvals and forbidden commands for the first build, taken from Process3's own
 
