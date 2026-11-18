@@ -1,8 +1,8 @@
-Length: 293 lines. Last section: "9. What could not be settled".
+Length: 290 lines. Last section: "9. What could not be settled".
 
 # Process4 build text 2: the forms of the files the design names
 
-Written by Claude on 18 Nov 2026, beside the seventh draft (`process4/definition/process4_definition_v7/`), not into it. **Status: proposed. Nothing here has run.** It answers part 10, section 2, items 6 and 7 of that draft. It adds no check, gate, review or stop, and nothing here is refused for size.
+Written by Claude on 18 Nov 2026, beside the seventh draft (`process4/definition/process4_definition_v7/`), not into it. **Status: proposed. Nothing here has run.** It answers part 10, section 2, items 6 and 7 of that draft. It adds no check, gate, review or stop.
 
 Marks: **Decided here:** a choice made in this text, with what it gives and what it costs. **Unproven:** never shown to work in this form. Every example is made up: a product in plain JavaScript with modules `dates`, `pricing` and `orders`.
 
@@ -21,7 +21,7 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full (89, 107, 
 
 **Only described, never run:** the bound on its own marked line; the tables "gathered into one list"; "accepts more" confirmed by the type checker (the proof's eighth design, not built); a listing sorted entry by entry into removed, newly required and newly refused; the tool saying whether it follows a user fully; following a use to the tests that reach it.
 
-**The process before this one** kept its module list as `build/modules.json` in the product (220 modules, each with `id`, `paths`, `tests`, `uses` and a layer), a record for each module as `process/ledger/<id>.json` under `schema/ledger-entry.schema.json` (a job could change only its own entry's status), requirements as `build/requirements/<module>.md` with `**R<n>**` first on the line and `*(not yet met: …)*`, and settings in `process/config.json`. The forms below start from those.
+**The process before this one** kept its module list as `build/modules.json` (220 modules, each with `id`, `paths`, `tests`, `uses` and a layer), a record for each module as `process/ledger/<id>.json` (a job could change only its own entry's status), requirements as `build/requirements/<module>.md` with `**R<n>**` first on the line, and settings in `process/config.json`. The forms below start from those.
 
 ## 2. Where everything is
 
@@ -37,7 +37,6 @@ Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full (89, 107, 
 | The owner's decisions on the product | `process/decisions-owner.md` | The coordinator |
 | ARCH's technical decisions | `process/decisions-arch.md` | ARCH |
 | Procedures, release notes, tranche reports | `process/procedures/`, `process/releases/`, `process/reports/` | ARCH |
-| An interface listing | Nowhere in the repository; the tool's working folder | The tool |
 | A job's record lines | Comments on the job's own pull request | The tool, in the session the table in section 8 names |
 
 ## 3. The module list
@@ -63,13 +62,13 @@ orders
 }
 ```
 
-- `name`: the same as the file's name and the line in the order file.
+- `name`: as in the file's name and the order file.
 - `files`: the paths of the code the module owns. A path ending in `/` is a folder with everything under it. A file belongs to the module with the longest matching path, as in the process before this one.
 - `tests`: the paths of its tests, read the same way.
 - `uses`: its declared uses, by name.
 - The requirements file is not named: it is always the `.md` of the same name.
 
-**How "a module may use only modules before it" reads:** every name in `uses` stands on an earlier line of the order file than the module's own name. `orders` is on line 3; `dates` and `pricing` are on lines 1 and 2; so it holds. Had `pricing` listed `orders`, that would be a use of a later module: a design error that ARCH corrects by reshaping code (part 2, section 1). Nothing refuses it.
+**How "a module may use only modules before it" reads:** every name in `uses` stands on an earlier line of the order file than the module's own name. `orders` is on line 3; `dates` and `pricing` are on lines 1 and 2; so it holds. Had `pricing` listed `orders`, that would be a design error, which ARCH corrects by reshaping code (part 2, section 1). Nothing refuses it.
 
 **Decided here:** a job may change the `uses` of its own entry and nothing else in the list. Gives: the job can remove a declared use that no code makes, as part 2, section 7 says it does, and add one its new code needs. Costs: the list has two writers for one field; a job adding a use of a later module is caught only by ARCH's reading. This is a rule in the job's instructions, held by no check.
 
@@ -78,7 +77,7 @@ orders
 Place: `process/modules/<name>.md`. It is a governing text for the module's job, so its top says its length.
 
 ```
-Length: 9 lines. Last section: "Requirements".
+Length: 10 lines. Last section: "Requirements".
 
 # orders: requirements
 
@@ -95,7 +94,6 @@ Next number: 4
 - **Who changes which part.** ARCH writes and rewords the text, adds and deletes lines, and keeps `Next number` and the length line. The job changes one thing only: `[not yet met]` to `[met]`, in its own pull request. Marking changes no line count, so the job never touches the length line.
 - **Decided here:** ARCH writes `[not yet met]` on a new requirement, and puts it back on a met requirement in the same change that rewords it so as to change what the product does. Gives: "the module has work" (part 2, section 3) can be read from the file alone. Costs: ARCH writes a mark in that one case; the design gives the mark to the job and does not say who takes it away.
 - The file is kept under 24,000 bytes by ARCH splitting the module in two (part 2, section 2). Nothing refuses a longer one.
-- Sections other than "Requirements" (a purpose, terms) may stand above it. The tool reads only the requirement lines.
 
 ## 5. A structured comment
 
@@ -124,7 +122,7 @@ This is the form for a product in plain JavaScript read by TypeScript's reader, 
 export function priceOf(args) { /* … */ }
 ```
 
-**The marked line for a bound.** A bound that a kind cannot express is one whole line of the block, and only that line: `[bound <Kind>.<field>: <the bound in words>]`, or `[bound <name>: …]` for a kind or a function's own argument. It is never wrapped onto a second line and never placed inside another sentence. Any change to the words is a change to the interface (part 2, section 7, decision 3).
+**The marked line for a bound.** A bound that a kind cannot express is one whole line of the block, and only that line: `[bound <Kind>.<field>: <the bound in words>]`, or `[bound <name>: …]` for a kind or a function's own argument. It is never wrapped onto a second line. Any change to the words is a change to the interface (part 2, section 7, decision 3).
 
 **Decided here:** the trial's bracket mark is kept and moved onto a line of its own. Gives: the tool finds every bound by one pattern in the reader's own output, as the replay did, and tells a bound from the explanation around it. Costs: long lines. **Unproven:** the one-line form; the trial wrote bounds inside descriptions, wrapped.
 
@@ -138,7 +136,7 @@ function isPriceArgs(v) { /* … */ }
 const answer = { ok: true, pence };
 ```
 
-**Decided here:** these two standard forms and no other. Gives: the reader's own checker then compares the code with the kind, which is what makes the two approved refusals possible. Costs: a check written some other way (inside a longer function) must be moved into a function of its own to be named. **Unproven** beyond one case.
+**Decided here:** these two standard forms and no other. Gives: the reader's own checker then compares the code with the kind, which is what makes the two approved refusals possible. Costs: a check buried in a longer function must be moved into a function of its own. **Unproven** beyond one case.
 
 **The provider's one table of operations.** A module whose operations are called by name publishes one kind named `<Module>Ops` and one exported value `OPS` of that kind. Each row is the name callers send and the function that answers it.
 
@@ -158,7 +156,7 @@ export const OPS = Object.freeze({ priceof: priceOf });
 export const call = (name, args) => door.send(name, args);
 ```
 
-After that, `call("priceof", { sku: 7 })` in any module is a use of `pricing`'s `priceof` that the reader can follow and check. Gives: no committed file that every provider's job would have to write, and no early module importing a later one. Costs: the comment means nothing without the tool; an operation name must be the only one of that name in the product, a rule ARCH applies. **Unproven:** this form. What was shown is one case, where a comment on one helper named one provider's kinds directly.
+After that, `call("priceof", { sku: 7 })` in any module is a use of `pricing`'s `priceof` that the reader can follow. Gives: no committed file that every provider's job would have to write, and no early module importing a later one. Costs: the comment means nothing without the tool; an operation name must be the only one of that name in the product, a rule ARCH applies. **Unproven:** this form. What was shown is one case, where a comment on one helper named one provider's kinds directly.
 
 ## 6. An interface listing
 
@@ -179,7 +177,7 @@ src/pricing/index.mjs priceOf accepts args required PriceArgs
 src/pricing/index.mjs priceOf returns PriceAnswer
 ```
 
-Each line is: file, entry, a word for the line's sort, then the rest. The sorts are `accepts` (an argument: name, `required` or `optional`, kind), `returns`, `field` (of a named kind: name, `required` or `optional`, kind), `kind` (a named kind that is not a list of fields), `value` (an exported value's kind), `op` (a row of the operations table), and `bound` (the words of a marked line). Kinds are written as the reader writes them. Explanations in comments are not in the listing, which is why editing one sends nothing.
+Each line is: file, entry, a word for the line's sort, then the rest. The sorts are `accepts` (an argument: name, `required` or `optional`, kind), `returns`, `field` (of a named kind: name, `required` or `optional`, kind), `kind` (a named kind that is not a list of fields), `value` (an exported value's kind), `op` (a row of the operations table), and `bound` (the words of a marked line). Kinds are written as the reader writes them. Explanations in comments are left out, so editing one sends nothing.
 
 **Comparing two listings.** Identical text: nobody is told. Otherwise, entry by entry:
 
@@ -197,7 +195,7 @@ Each line is: file, entry, a word for the line's sort, then the rest. The sorts 
 - **"If the checker agrees."** The tool asks the reader's own type checker one question: can a value of the old accepted kind be given where the new one is wanted? It writes a two-line file that does exactly that and reads whether the checker complains. No complaint: accepts more, nobody told. A complaint, or a kind the checker calls "anything": the entry's users are told. **Unproven:** this is the proof's eighth design, described and not built.
 - **Decided here:** a named kind that is reached from any `returns`, `value` or answer is treated as handed back, so any change to its lines tells its users; only a kind reached from arguments alone gets the "accepts more" question. Gives: one plain rule for kinds used both ways. Costs: some needless notices.
 - **An entry's users** are the modules whose code or comments name it, as the tool works out (part 2, section 7, decision 1), together with the users of every entry whose lines name it. In the example a change to `PriceArgs` tells the users of `priceOf` and of the `priceof` row. A user the tool cannot follow fully is a user of every entry.
-- **Decided here:** a listing is lines of plain text, not the reader's raw output. Gives: "removed, newly required, newly refused" each read off a line's sort, and two listings can be compared by any session by eye. Costs: the tool must turn the reader's output into these lines, and that step is new. **Unproven:** all of it. What was measured is a line-by-line comparison of the raw output: identical, only gained, or lost or altered.
+- **Decided here:** a listing is lines of plain text, not the reader's raw output. Gives: "removed, newly required, newly refused" each read off a line's sort, and two listings can be compared by any session by eye. Costs: turning the reader's output into these lines is a new step. **Unproven:** all of it. What was measured is a line-by-line comparison of the raw output: identical, only gained, or lost or altered.
 
 ## 7. The process config
 
@@ -216,11 +214,11 @@ Place: `process.json`. ARCH writes it; it changes as the process's named files d
 ```
 
 - `process`: the one fixed version of the process the tranche runs on, by its version name and its commit in the process's repository. Each session fetches a read-only copy of exactly that commit.
-- `slots.default`: the account's slot number when the owner has given none. `slots.share`: this product's share of it; with one product the two are equal. A number the owner gives by a marked instruction is held in the standing notes, not written here.
+- `slots.default`: the account's slot number when the owner has given none. `slots.share`: this product's share of it; with one product the two are equal. A number the owner gives later is held in the standing notes, not here.
 - `lanes`: each lane's name and the folder it owns. The UX lane is always there.
 - `hosting`: the provider's name, which says which hosting part of the design applies, and the development account. The account's id is not a secret. The deploy token is, and is never written here.
 - `walks_folder`: where the Screens document and the journeys are kept.
-- `process_folder`: where sections 3, 4 and 8 and the procedures, release notes and reports live.
+- `process_folder`: where the files of sections 3, 4 and 8 are kept.
 - `language_reader`: the reader's name, its exact version, and which files are the product's code. **Decided here:** the version is fixed in the config. Gives: every session and GitHub's machines make the same listing. Costs: a new reader version is a change to this file.
 
 ## 8. The ranking page, the two decision records, and a job's record lines
@@ -289,5 +287,4 @@ Use: test/orders/lines.test.mjs:17
 5. **How the tool says it "cannot follow" a user.** The rule depends on it and nothing here defines it.
 6. **A decision record that outgrows the maximum.** The owner's dated words are never edited, so his record only grows. How it is split is the coordinator's and PROCESS's to settle.
 7. **Who sets a met requirement back to not yet met** (section 4), and whether ARCH writing that one mark is what the owner means by "the job marks".
-8. **Whether each lane's folder belongs in the config** as written here, or only its name.
-9. **The exact words of the "Change" line** when one entry changes in two ways at once; here each way is its own `Entry` block.
+8. **An entry that changes in two ways at once.** Here each way is its own `Entry` block in the notice.

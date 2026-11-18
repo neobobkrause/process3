@@ -29,11 +29,11 @@ For a session to do, and to report.
 
 **What a session needs before it can build the tool, and this document does not yet say.** Each is design work, to be written as its own text beside this one and not into it:
 
-4. The tool itself: its language, where it lives, its commands, how it signs in to GitHub, and how a session runs it.
+4. The tool itself. Written: build text `01-the-tool-and-the-required-run.md`. Not built. Unproven there: a session that holds one repository fetching the tool's copy; and it assumes the process's repository is public.
 5. Each role's starting text: the words, where they are kept, and who writes them.
 6. The form of a structured comment and of an interface listing.
 7. The form of the module list, a requirements file and the process config.
-8. The required test run: what defines it, its two parts, and how the tool sets its scope.
+8. The required test run. Written in the same build text. Not built.
 9. The walks. Written: build text `03-the-walks.md`. Nothing in it has run.
 
 ## 3. Unproven
