@@ -1,6 +1,6 @@
 # Handoff from the measurements session of 18 Nov 2026
 
-Length: 50 lines. Last section: "Practical notes".
+Length: 52 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. Read `handoff_18nov_review_session.md` whole first, then `design_state_18nov.md` whole, then this. Where this file and the earlier handoff differ, this one is later.
 
@@ -34,6 +34,8 @@ It took over from the review session, read both files above in full (63 and 142 
 - On his word "let's use these current values for now", the four values are in the design state, section 3, as provisional. That they are the four meant is a reading he has not confirmed.
 - He asked whether the design is ready to build the process from. The answer, **no, not yet**, is `readiness_18nov/DETERMINATION.md` (94 lines), with six workers' findings beside it. Its section 4 lists what only he can settle. None of it has been put to him in full yet.
 - His message that asked for this ended at the word "But". What followed is not known.
+- He then asked for the seventh draft. It is `process4/definition/process4_definition_v7/`, eleven parts, 75,892 bytes, starting at `00-index.md`. It is one statement of the design; part 10 lists what is open and unproven. Two fresh workers checked it, against the design state (185 rules) and against the sixth draft's design sections (243 rules); what they found is corrected, and their findings are `readiness_18nov/draft7_check_design_state.md` and `draft7_check_sixth_draft.md`. The corrected draft has not been checked a second time.
+- The session that wrote it did not read the sixth draft's history sections or its last section of questions, nor the owner's words of 16 and 17 Nov.
 
 ## Next, in order
 
@@ -43,7 +45,7 @@ It took over from the review session, read both files above in full (63 and 142 
 
 ## Practical notes
 
-- This session ended at about 55 percent of its 1,000,000-token window, past the provisional 40 percent. Starting each reader costs the starting session about 1,000 tokens; 148 workers were started.
+- This session ended at about 65 percent of its 1,000,000-token window, past the provisional 40 percent. Do not give it more work; start a successor. Starting each reader costs the starting session about 1,000 tokens; 148 workers were started.
 - A worker's record is under `~/.claude/projects/` on the session's own machine and is gone when the machine is. What matters from each is in `results/`.
 - A worker cannot start workers.
 - One check of the environment's settings was refused by the permission checker and was not retried.
