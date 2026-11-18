@@ -50,7 +50,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 
 ## 4. The trial
 
-- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. It needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions. The account switch, item 15, adds his acts in a second account.
+- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. **Claude judged** that it needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions. The account switch, item 15, adds his acts in a second account.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
 
 **Claude decided** this list. What the trial rehearses, each once unless a number is given:

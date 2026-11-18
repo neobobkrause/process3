@@ -59,7 +59,7 @@ The owner's rulings:
 
 ## 4. The shared state
 
-- What belongs to one job stays in that job's pull request. What every role needs is in the shared state.
+- **Claude decided:** what belongs to one job stays in that job's pull request, and what every role needs is in the shared state.
 - What sessions say to each other, and the process's running records, never build up as files or commits in a repository.
 - Every kind of standing note in the shared state says what ends it, and the tool removes the note when that comes true.
 

@@ -30,7 +30,7 @@ All four are **provisional**. They stand, on the owner's word, until a second me
 - Each role's principles are concise, sufficient for the role to be performed correctly, and unambiguously clear. Whenever they are changed, every effort is made to keep them short enough to be read in full and not scanned. Where that cannot be done, the matter comes to the owner to find a solution. **Reading:** PROCESS brings it to him.
 - **Claude decided:** the size of a role's starting text is a rule, not a refusal among the tool's tests.
 - A module's requirements file is kept under the single-text maximum as a rule ARCH applies; ARCH splits the module when a file nears it (part 2).
-- Nothing is refused for size.
+- Nothing refuses a job or a merge for size.
 
 ## 4. The two documents
 

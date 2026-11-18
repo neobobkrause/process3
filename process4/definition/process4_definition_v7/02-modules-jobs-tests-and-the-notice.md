@@ -45,7 +45,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 ## 5. Slots
 
 - Eight by default, counted across the account. The owner can change the number by a marked instruction.
-- Lane sessions, the standing roles and workers use no slot. **Claude decided:** walking sessions use the slots, since a walk is made when no job is open.
+- The standing roles and workers use no slot. **Claude decided:** lane sessions use none either, and walking sessions use the slots, since a walk is made when no job is open.
 - **Claude decided:** when two products run at once, each product's process config names its share of the slots, and the shares add up to the account's number. The default is an equal split. The owner changes a share by a marked instruction. A product does not borrow another's unused share, because no record is shared between two products. **Unproven:** two products have never run at once.
 
 ## 6. Module tests
@@ -57,7 +57,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - The structured comments and the tool can also inform module tests, so that boundaries are properly checked.
 - Every requirement is tested at the module's interface.
 - Module tests include, in the words of the record of 13 Nov, "a check that the module's declared uses match its imports". The check reads the module's test files as well as its source: "I think it has to check tests too".
-- The owner approved two refusals. Inside a module's own tests the tool may refuse a structured comment that disagrees with the module's code, and may refuse the module's code where it disagrees with a provider's stated interface. These are parts of module tests, not further tests. Only these two refusals stand; no other is built into module tests.
+- The owner approved two refusals, and **Claude decided** that no other is taken. Inside a module's own tests the tool may refuse a structured comment that disagrees with the module's code, and may refuse the module's code where it disagrees with a provider's stated interface. These are parts of module tests, not further tests. Only these two refusals stand; no other is built into module tests.
 - **Claude decided:** a module's tests and a walk's steps are product work. Each exists only to prove a product requirement, which it names. A test or step that serves the process is not allowed. This is a rule in text.
 - Module tests run in two parts, so that product code under test holds no access token.
 - Built files are never committed. They are built at each walk, deployment and release.
@@ -68,7 +68,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - It is a way of saving work, not a guarantee. It will sometimes tell a user that needed no change and sometimes miss one that did. A missed user is caught by that user's own module tests the next time its job runs, or by a walk. No test of users runs before a provider's change merges.
 - **What counts as a change.** In the owner's words: "any change to either a provider's domain or range necessitates that its users be retested. But if both domain and range stay the same, then no retesting of users is needed." For what a provider accepts, users are told only when the new interface cannot stand in for the old: something removed, renamed, newly required or newly refused. Accepting more tells no one. For what a provider hands back, any change to an entry tells that entry's users.
 - **How it is found.** The tool writes out the module's interface, from its code and its structured comments together, before and after the job's change. The notice is sent only when the two listings differ. A comment edited with no change to the listing sends nothing.
-- **Who is told.** Only the users of the entry that changed. The tool sends the notice and decides to whom.
+- **Who is told.** In the owner's words, "ideally only the users of the entry that changed". The tool sends the notice and decides to whom.
 - **A module with no comments yet.** The first thing its job does is add the structured comments, as a step of their own, describing the module as it stands. That step sends no notice.
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
 - **Which tests relate. Claude decided:** the tool picks them, not the job. The notice carries the places in the told module's files that name the changed entry. The related tests are the module's test files that hold such a place, or reach code that holds one, or reach code the told job itself changed, together with any test file the job changed. They are chosen by whole test file.
@@ -102,6 +102,6 @@ The tool decides both, because each has one right answer. **Claude decided** the
 ## 9. Changes that are not a job's
 
 - **The mechanical edit.** **Claude decided:** a worker in ARCH's session makes it as one change covering every affected module, and it is merged once; and the moment: when no job is open, between a round's last merge and its internal walk. A module where the change needs judgment gets its own job. **Unproven:** which test run GitHub requires on that one change.
-- **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing.
+- **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing. **Reading:** this is among the lane rules he has not confirmed one by one (part 4, section 3).
 - **Requirement text, the module list, and the process's named files.** **Claude decided:** these change no code and no tests, so their pull requests merge through the tool with no module tests run. The required test run reports on every pull request. It passes at once when no module's code or tests changed, and on the tranche's own pull request into the main branch, where none of the tests runs (part 3, section 5).
 - **The owner's approvals and forbidden commands** are committed by the owner alone (part 6).

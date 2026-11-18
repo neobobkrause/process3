@@ -24,7 +24,7 @@ Process4 is **proposed** now. It is **on trial** from the owner's acceptance: us
 - **Open:** not settled. The line says who settles it.
 - **Unproven:** the rule depends on something never shown to work. Part 10 gathers these.
 
-A rule with no mark is the owner's ruling, or follows from one directly.
+A rule with no mark is the owner's ruling, or follows from one directly, or is one of 34 rules carried unchanged from the sixth draft, where they stood with no mark. Most of those describe how sessions, permissions and GitHub work. They are listed in `process4/working/readiness_18nov/draft7_unmarked_lines_traced.md`, and the owner has ruled on none of them one by one.
 
 ## 4. The parts
 
