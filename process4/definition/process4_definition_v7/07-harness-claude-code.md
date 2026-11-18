@@ -1,6 +1,6 @@
 # Part 7. The harness table for Claude Code
 
-Length: 70 lines. Last section: "4. The owner's acts to start a product".
+Length: 69 lines. Last section: "4. The owner's acts to start a product".
 
 Everything in this part is specific to Claude Code.
 

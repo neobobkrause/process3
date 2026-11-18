@@ -37,7 +37,7 @@ A rule with no mark is the owner's ruling, or follows from one directly, or is o
 | 4 | `04-roles-and-sessions.md` | Each role; starting, refreshing and replacing sessions; messages; the shared state; when something goes wrong |
 | 5 | `05-reading-and-documents.md` | Reading in full; the maximums; the documents and records |
 | 6 | `06-rules-permissions-and-changing-the-process.md` | What holds a rule; the tool; how the process is changed |
-| 7 | `07-harness-claude-code.md` | What carries each term on Claude Code |
+| 7 | `07-harness-claude-code.md` | What carries each term on Claude Code, and the owner's acts to start a product there |
 | 8 | `08-harness-codex.md` | What carries each term on Codex, and what is not known |
 | 9 | `09-hosting-cloudflare.md` | What carries each hosting term on Cloudflare |
 | 10 | `10-open-and-unproven.md` | What is open, with whom; what is unproven; the trial |
