@@ -38,7 +38,7 @@ Length: 103 lines. Last section: "9. Changes that are not a job's".
 The tool decides both, because each has one right answer. **Claude decided** the rules:
 
 - A module's work is finished when its job's pull request has merged.
-- A module whose only work was a notice is also finished when its job records, through the tool, that nothing needs changing.
+- A module whose only work was a notice is also finished when its job records in its own pull request that nothing needs changing.
 - A module with a walk flaw against it is finished only by a merge. If its job finds that nothing in the module needs changing, the flaw goes back to ARCH, which places it against another module or, where the walks' document is wrong, gives it to the UX lane.
 - A round's jobs are done when every module that had work when the round opened, or was given work during it, is finished.
 

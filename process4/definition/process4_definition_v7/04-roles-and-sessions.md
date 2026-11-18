@@ -1,6 +1,6 @@
 # Part 4. Roles and sessions
 
-Length: 134 lines. Last section: "10. When something goes wrong".
+Length: 138 lines. Last section: "10. When something goes wrong".
 
 ## 1. The roles, and the sessions that hold no standing role
 
@@ -74,14 +74,18 @@ The owner's rulings:
 | Wakes | The time ROOT last woke | ROOT |
 | Stop | A stop on the owner's word, naming the account | The coordinator |
 | Standing notes | The owner's instructions now in force for running work: a held merge, a module put first, the slot number | The coordinator |
-| Round | The tranche, the round, the areas named, the modules with work, and which are finished or blocked and why | The tool |
-| Waiting work | Notices and walk flaws placed against modules with no open job | The tool |
+| Round | The tranche, the round, the areas named, the modules with work, and which are finished or blocked and why | ARCH's session, by the tool |
+| Waiting work | Notices and walk flaws placed against modules with no open job | ARCH's session, by the tool |
 | Handover, one for each long-lived role | What that role's successor needs to carry on | The holder of the role |
 
 - Sessions name roles, not session addresses, so that a replaced role can be obeyed.
 - The owner's decisions are not kept here. They are in the record of decisions (part 5).
-- **Open (a session, in the trial):** what on GitHub carries the records. First candidate: one issue in the product's repository, each record one comment rewritten in place. It must be shown to take a write without a merge, to hold under GitHub's limits, and to be read in one call.
-- **Unproven:** all of it. The shared state is not built.
+- What carries the records on GitHub: one issue in the product's repository, found by its label, with each record one comment rewritten in place. Each comment's first line is a hidden mark naming its record. One listing call reads them all; one call rewrites a record.
+- GitHub keeps no guard against two writes to one comment at the same moment: one is lost, silently. So every record has exactly one writing session. A job writes none. It records that it is blocked, or that a notice needs no change, in its own pull request, and sends ARCH its one message; the tool in ARCH's session then rewrites the round and waiting-work records. Which modules are finished is worked out afresh from GitHub's own record of merged pull requests each time.
+- On a failed write the tool obeys GitHub's rate-limit response and tries again up to four times. If the write still fails, that is a process fault. It keeps no list of writes to make later.
+- Each record is kept under the single-text maximum, as a rule.
+- The grounds and the alternatives set aside are in `process4/working/design_work_18nov/shared_state_carrier.md`.
+- **Unproven:** all of it. The shared state is not built. Not verified from GitHub's own pages: the size a comment can hold, that rewriting a comment notifies no one, and any limit on how often one comment can be rewritten.
 
 ## 5. Refresh and replacement
 
