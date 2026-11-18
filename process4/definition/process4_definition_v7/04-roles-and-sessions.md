@@ -1,6 +1,6 @@
 # Part 4. Roles and sessions
 
-Length: 138 lines. Last section: "10. When something goes wrong".
+Length: 140 lines. Last section: "10. When something goes wrong".
 
 ## 1. The roles, and the sessions that hold no standing role
 
@@ -28,7 +28,7 @@ What the tool does and what ARCH keeps: whatever has one right answer is done by
 
 - Under a ROOT the owner started, sessions sit at most three levels deep: ROOT; then ARCH, the coordinator, the watcher and PROCESS; then jobs, walking sessions and lanes. A takeover by the watcher adds a level (section 6).
 - No session starts its own replacement.
-- A session is started with one repository only; from the newest commit of the tranche branch; in the harness's unattended mode; and with starting instructions that name every act it may take. PROCESS works in the process's own repository.
+- A session is started with one repository only; from the newest commit of the tranche branch, or for PROCESS of the process repository's main branch; in the harness's unattended mode; and with starting instructions that name every act it may take. PROCESS works in the process's own repository.
 - **Claude decided:** ROOT's first act is to fetch the newest copy of its branch, and to stop if it cannot.
 - Every session passes the owner's suggestion of model and effort on to each session it starts. His ledger note, as the sixth draft quotes it: "always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand".
 - **Unproven:** that a ROOT started by a plain prompt, whose instructions name no acts, comes up on the owner's newest approvals and can act as ROOT.
@@ -65,23 +65,23 @@ The owner's rulings:
 
 **Claude decided** the rest of this section.
 
-- The shared state is a small fixed set of records, each rewritten in place. Each record has one role that writes it. It is read and written only through the tool, and writing it needs no merge.
+- The shared state is a small fixed set of records, each rewritten in place. Each record has one writer. It is read and written only through the tool, and writing it needs no merge.
 
 | Record | Holds | Writer |
 |---|---|---|
-| Roles | Which session holds ROOT, the watcher, ARCH, the coordinator and PROCESS | ROOT |
-| Lanes | Which session holds each lane | The starter of the lane |
+| Roles | Which session holds ROOT, the watcher, ARCH, the coordinator and PROCESS | The holder of ROOT. At a takeover the watcher writes it, and by that write becomes ROOT |
+| Lanes | Which session holds each of the product's lanes | ARCH. PROCESS keeps a like record of its own lanes in the process's repository |
 | Wakes | The time ROOT last woke | ROOT |
 | Stop | A stop on the owner's word, naming the account | The coordinator |
 | Standing notes | The owner's instructions now in force for running work: a held merge, a module put first, the slot number | The coordinator |
 | Round | The tranche, the round, the areas named, the modules with work, and which are finished or blocked and why | ARCH's session, by the tool |
-| Waiting work | Notices and walk flaws placed against modules with no open job | ARCH's session, by the tool |
+| Waiting work | Notices, walk flaws and flaws reported by jobs, placed against modules with no open job | ARCH's session, by the tool |
 | Handover, one for each long-lived role | What that role's successor needs to carry on | The holder of the role |
 
 - Sessions name roles, not session addresses, so that a replaced role can be obeyed.
 - The owner's decisions are not kept here. They are in the record of decisions (part 5).
 - What carries the records on GitHub: one issue in the product's repository, found by its label, with each record one comment rewritten in place. Each comment's first line is a hidden mark naming its record. One listing call reads them all; one call rewrites a record.
-- GitHub keeps no guard against two writes to one comment at the same moment: one is lost, silently. So every record has exactly one writing session. A job writes none. It records that it is blocked, or that a notice needs no change, in its own pull request, and sends ARCH its one message; the tool in ARCH's session then rewrites the round and waiting-work records. Which modules are finished is worked out afresh from GitHub's own record of merged pull requests each time.
+- GitHub keeps no guard against two writes to one comment at the same moment: one is lost, silently. So every record has exactly one writing session. A job writes none. It records that it is blocked, or that a notice needs no change, in its own pull request, and sends ARCH its one message; the tool in ARCH's session then rewrites the round and waiting-work records. Which modules are finished is worked out afresh each time from GitHub's own record of pull requests: merged, or closed with the job's record that nothing needed changing.
 - On a failed write the tool obeys GitHub's rate-limit response and tries again up to four times. If the write still fails, that is a process fault. It keeps no list of writes to make later.
 - Each record is kept under the single-text maximum, as a rule.
 - The grounds and the alternatives set aside are in `process4/working/design_work_18nov/shared_state_carrier.md`.
@@ -104,15 +104,17 @@ The owner's rulings:
 
 - ROOT starts the watcher as its first act after fetching. The watcher has no other duty.
 - The watcher has its own scheduled wake. At each wake it reads the time ROOT last woke.
-- If ROOT has missed two wakes, the watcher takes over. It writes itself into the roles record as ROOT, takes over ROOT's scheduled wake, starts a new watcher, tells the coordinator, and archives the old ROOT session if it still exists.
+- The watcher wakes hourly, half an hour after ROOT. If ROOT has missed two wakes, the watcher takes over. It writes itself into the roles record as ROOT, takes over ROOT's scheduled wake, starts a new watcher, tells the coordinator, and archives the old ROOT session if it still exists.
 - ARCH, the coordinator and PROCESS go on as they were. They name ROOT by role.
 - A planned refresh of ROOT is the same takeover, asked for: ROOT rewrites its handover record and asks the watcher to take over.
-- Each takeover leaves the new ROOT one level deeper than the one before, because the watcher was started by the ROOT it replaces. When the harness's limit on depth is near, ROOT puts it on the owner's standing page, and the owner starts a fresh ROOT at a pause.
+- Each takeover leaves the new ROOT one level deeper than the one before, because the watcher was started by the ROOT it replaces. When the harness's limit on depth is two levels away, ROOT puts it on the owner's standing page, and the owner starts a fresh ROOT at a pause.
 
 ## 7. The one way back
 
 - After any full stop there is one way back: the owner starts ROOT, and ROOT rebuilds everything from the shared state and the repository.
 - **Claude decided:** an edit to the owner's approvals goes with a restart of ROOT by this way. What it does to a running round: the owner first tells the coordinator to stop, and open jobs push and stop; he commits the edit and starts ROOT; ROOT starts the standing roles afresh; ARCH starts a new session for each module with an open pull request, continuing from its branch. The round goes on from the round record.
+- **Claude decided:** a restarted ROOT first archives every session still named in the roles and lanes records, and every open job's session, and then starts the roles afresh.
+- **Claude decided:** the coordinator's session removes a standing note, by the tool, when what ends it comes true. A held merge reaches ARCH by the standing notes, which the tool reads before every merge, and by a message from the coordinator.
 - A switch of account adds only the owner's own acts in the new account. **Unproven:** an account switch that loses no work.
 
 ## 8. Messages
@@ -135,4 +137,4 @@ The owner's rulings:
 - **A stop nothing called for** is a process fault. Some need no change to Process4, for example a stop caused by a compaction; then the stopped session is woken or replaced. Each such case may be studied and reported to PROCESS. **Reading:** while Process4 is on trial every such stop is reported to PROCESS; the simpler handling applies once it is beyond trial.
 - **The process itself has a fault.** No session building a product fixes it or works round it (part 6, section 6).
 - **The process is completely blocked.** The owner gets one plain message with a numbered list of what is his to do.
-- **A stop on the owner's word.** He tells the coordinator, which writes the stop record and tells ARCH, which interrupts each job. A stop takes effect in the turn in which a session receives it. ROOT reads the stop record at every wake, so that the hourly wake does not undo it.
+- **A stop on the owner's word.** He tells the coordinator, which writes the stop record and tells ARCH, which interrupts each job. **Claude decided:** it is lifted the same way: he tells the coordinator, which clears the record and tells ARCH, which wakes or replaces each job from its pull request. A stop takes effect in the turn in which a session receives it. ROOT reads the stop record at every wake, so that the hourly wake does not undo it.

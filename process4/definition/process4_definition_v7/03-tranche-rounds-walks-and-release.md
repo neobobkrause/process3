@@ -5,7 +5,7 @@ Length: 73 lines. Last section: "8. Support beyond the process".
 ## 1. Opening a tranche
 
 - Before a tranche opens, ARCH proposes in a few plain lines what it is for and which journeys are expected to complete at its end, naming any journey left out and why. The owner approves or changes it.
-- The tranche is built on the tranche branch. The main branch never moves while a tranche runs.
+- The tranche is built on the tranche branch. The main branch never moves while a tranche runs. **Claude decided:** there is one lasting tranche branch. After a tranche merges into the main branch, the next tranche goes on from the same branch.
 - A product's tranche runs on one fixed version of the process from open to close (part 6).
 - While a tranche runs, ARCH prepares what the next round or tranche needs.
 
@@ -59,7 +59,7 @@ The coordinator gives the owner a short account: jobs done, flaws found, flaws c
 - ARCH prepares the release and waits for the owner's approval. No session publishes a release without it.
 - **Open (the owner):** who carries out the act of publishing once he has approved. **Reading:** ARCH publishes the release in the product's repository; promoting it to installed sites is the owner's, by the written procedure (section 8).
 - **Claude decided** how his approval reaches the publishing session, if ARCH publishes: ARCH prepares the release unpublished and the coordinator puts it on his standing page. He types his approval in ARCH's own session, as a marked decision naming that release. ARCH publishes in that turn and passes his words to the coordinator for the record. Approval relayed through another session is not used, because the permission checker has declined consent that was only quoted. **Unproven:** that the checker accepts an approval typed this way.
-- With each release the process writes what changed, what the update does to stored data, and how to go back.
+- With each release the process writes what changed, what the update does to stored data, and how to go back. **Claude decided:** these notes, the written procedures of section 8 and each tranche report are kept in the product repository's process folder, named in the process config, and change as the process's named files do (part 2, section 9).
 - **Unproven:** the whole release path. No release of any kind has been made by sessions.
 
 ## 7. An urgent fix

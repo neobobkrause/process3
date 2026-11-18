@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 89 lines. Last section: "6. Risks with no trial".
+Length: 100 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -14,7 +14,7 @@ Each of these is to be put to him in full, with its options, before the design c
 4. **Publishing a release** (part 3, section 6): who carries out the act once he has approved; and what "successful" means for the install and the update.
 5. **An urgent fix while a tranche is open** (part 3, section 7).
 6. **A told job's tests** (part 2, section 7): that its own edits count among the changed parts; that tests are chosen by whole file; and that a module the tool cannot follow runs its whole tests.
-7. **The other readings:** how an architecture bug is corrected (part 1, section 6); that exercising a doubtful workflow in a walk adds no test (part 3, section 3); the lane rules he has not confirmed one by one, and that questions to a lane and its answers are not kept as a running record (part 4, section 3); that a role lasts while its sessions are refreshed often (part 4, section 5); that every stop nothing called for is reported to PROCESS during the trial (part 4, section 10); that PROCESS brings him a role's principles that cannot be kept short (part 5, section 3); the order of the ranking page (part 5, section 6); that PROCESS starts its own lanes (part 6, section 8).
+7. **The other readings:** that a role's starting text and its starting instructions are one thing, and what an architecture bug and an implementation error are (part 0, section 5); that a lane's folder needs no module tests (part 2, section 9); that the install and the update run on a development account, and what a failure leads to (part 3, section 6); how an architecture bug is corrected (part 1, section 6); that exercising a doubtful workflow in a walk adds no test (part 3, section 3); the lane rules he has not confirmed one by one, and that questions to a lane and its answers are not kept as a running record (part 4, section 3); that a role lasts while its sessions are refreshed often (part 4, section 5); that every stop nothing called for is reported to PROCESS during the trial (part 4, section 10); that PROCESS brings him a role's principles that cannot be kept short (part 5, section 3); the order of the ranking page (part 5, section 6); that PROCESS starts its own lanes (part 6, section 8).
 8. **His approvals and forbidden commands for Process4** (part 6, section 2): the wording, which only he can write. A proposal is ready for him.
 9. **Codex:** everything part 8 marks not known, from his OpenAI account; and which Codex model the process is to use, which no part states.
 
@@ -24,6 +24,16 @@ For a session to do, and to report.
 
 1. The written procedures for promoting, rolling back and support, for each product. The rule is in part 3, section 8; no procedure is written yet.
 2. Each product's conversion plan. It is not part of this document.
+3. Where cost can be read on Claude Code (part 7).
+
+**What a session needs before it can build the tool, and this document does not yet say.** Each is design work, to be written as its own text beside this one and not into it:
+
+4. The tool itself: its language, where it lives, its commands, how it signs in to GitHub, and how a session runs it.
+5. Each role's starting text: the words, where they are kept, and who writes them.
+6. The form of a structured comment and of an interface listing.
+7. The form of the module list, a requirements file and the process config.
+8. The required test run: what defines it, its two parts, and how the tool sets its scope.
+9. The walks: who writes a walk's steps, where a flaw is saved, and how the internal walk runs on a product that is not deployed.
 
 ## 3. Unproven
 
@@ -45,12 +55,13 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 - **Two products sharing the slots.**
 - **An edit to the approvals with a restart** that carries a round on.
 - **The notice as part of a running process.** It was proven only on made-up modules. Picking a told job's related tests is not proven at all.
+- **The owner's acts to start a product** (part 7, section 4), and that nothing physical stops a product's session from changing the process (part 6, section 7).
 - **Everything listed as not proven on Claude Code** in part 7, and a session fetching a read-only copy of the process.
 - **Everything on Codex not marked measured in part 8.**
 
 ## 4. The trial
 
-- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. **Claude judged** that it needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions. The account switch, item 15, adds his acts in a second account.
+- The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. **Claude decided** that it needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions. The account switch, item 15, adds his acts in a second account.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
 
 **Claude decided** this list. What the trial rehearses, each once unless a number is given:

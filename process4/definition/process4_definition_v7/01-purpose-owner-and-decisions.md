@@ -19,7 +19,7 @@ Length: 79 lines. Last section: "7. Known weaknesses of AI sessions".
 
 | Act | When |
 |---|---|
-| Start ROOT | At each start or restart of development; after any full stop; and, as **Claude decided**, after each edit to his approvals (part 4, section 7) |
+| Start ROOT | At each start or restart of development; after any full stop; and, as **Claude decided**, after each edit to his approvals (part 4, section 7) and when the harness's limit on depth is near (part 4, section 6) |
 | Tell the coordinator things; give marked decisions and instructions | Whenever he chooses |
 | Approve or change ARCH's proposal for a tranche | Before each tranche opens |
 | Approve a public release | Once for each public release |
@@ -48,7 +48,7 @@ Length: 79 lines. Last section: "7. Known weaknesses of AI sessions".
 - A question is put to him inline, in one form: a title; the question; an explanation of the issue; options, each with its own identity; the recommendation and its reasons; and the freedom to set the options aside.
 - No technical question is brought to him. The AI decides it and reports it in one plain line.
 - No session assures him that something will work. Each claim put to him says what is proven and what is not, names its source, and calls anything unread or unmeasured unknown.
-- One standing page always shows everything waiting for him. A notification goes to his phone when something arrives that only he can clear.
+- One standing page always shows everything waiting for him. A notification goes to his phone when something arrives that only he can clear. **Claude decided:** the coordinator keeps the page and sends the notification; PROCESS and ROOT pass it what is theirs to show.
 - He can see each open job's progress and status without speaking to it (part 4, section 9).
 - When the process is completely blocked he gets one plain message with a numbered list of what is his to do. In every other case the stop is recorded as a named blocker and other work goes on.
 

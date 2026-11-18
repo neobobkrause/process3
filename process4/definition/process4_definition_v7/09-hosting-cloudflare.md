@@ -25,4 +25,4 @@ Everything in this part is specific to Cloudflare, the first hosting provider. S
 - How many external walkers the account bears.
 - Whether a deployment can be made from a session within the time a session can run one thing. The two late deployments with a walk in the process before this one took 60 and 64 minutes on GitHub's machines.
 - Whether the installer can place a release into an empty account. A development deployment does not use the installer.
-- What carries the owner's act of connecting an AI account to the development deployment (part 1, section 3).
+- What carries the owner's act of connecting an AI account to the development deployment (part 1, section 3), and how that stands with a deployment that holds no secrets.

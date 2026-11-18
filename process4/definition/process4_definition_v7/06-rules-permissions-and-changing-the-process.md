@@ -1,6 +1,6 @@
 # Part 6. What holds a rule, the tool, and changing the process
 
-Length: 71 lines. Last section: "8. Process4 develops itself".
+Length: 72 lines. Last section: "8. Process4 develops itself".
 
 ## 1. What holds a rule
 
@@ -16,7 +16,7 @@ Length: 71 lines. Last section: "8. Process4 develops itself".
 - In the process's repository the approvals say that a process change is merged only on the owner's word given at PROCESS. Nothing enforced by GitHub is added for this.
 - **Claude decided** where they live: in the product's repository on the tranche branch, carried to the main branch by each tranche's merge, so that every session starts from a commit that holds them; and in the process's repository on its main branch.
 - **Claude decided:** his two files are first committed on the main branch, and the tranche branch is made from it. A later edit is a pull request on the tranche branch that he opens and merges himself, after telling the coordinator to stop (part 4, section 7).
-- The ordered list of his acts to start a product is in each harness's part (part 7, section 4).
+- The ordered list of his acts to start a product is in part 7, section 4, for Claude Code. For Codex it is not known (part 8).
 - **Open (the owner):** the wording of his approvals and forbidden commands for Process4. A proposal for him to adopt or change, with each change from the present wording, is in `process4/working/design_work_18nov/owner_acts_and_approvals.md`. Until he commits his own wording, no session can run under Process4.
 
 ## 3. Forbidden commands and GitHub's rules
@@ -33,7 +33,7 @@ Length: 71 lines. Last section: "8. Process4 develops itself".
 
 ## 5. The tool
 
-- The tool is the process's own small program. It does only this: push; open a pull request and mark it ready; merge; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; read a pull request's test results, and count failed runs on a job's pull request; read and write the shared state, removing a standing note when what ends it comes true and refusing a second live session for a lane; and, inside a module's own tests, check declared uses and make the two refusals the owner approved (part 2, section 6).
+- The tool is the process's own small program. It does only this: make a branch; push; open a pull request, mark it ready, and close it; merge; prepare a release and, on the owner's approval, publish it; choose the next job and write its starting instructions; write out a module's interface listing and send notices; decide when a module's work is finished and a round's jobs are done; read a pull request's test results, and count failed runs on a job's pull request; read and write the shared state, removing a standing note when what ends it comes true and refusing a second live session for a lane; and, inside a module's own tests, check declared uses and make the two refusals the owner approved (part 2, section 6).
 - It refuses nothing for size, and holds none of the checks the process before this one had that could stop work.
 - The tool has tests of its own. They test no product, run only when PROCESS changes the process, and never run on a product's work. **Claude decided:** the changes recorded when the notice's method was proven become tests of the tool.
 - The AI builds the tool, before anything is in force.
@@ -61,6 +61,7 @@ What follows from them:
 - Any change to Process4 is explained to the owner, who decides whether and how the process is updated.
 - No session building a product may change the process, add a test, check, gate or review to it, or adopt a changed process on its own. ARCH moves a product to a changed process only with the owner's prior approval, by the means PROCESS proposes.
 - ROOT starts PROCESS. PROCESS works in the process's own repository, with the owner directly. The coordinator can talk to it.
+- **Claude decided:** a ROOT that finds PROCESS already running, by the record PROCESS keeps in the process's repository, starts no second and passes the matter to the one that runs. **Unproven** with two products.
 - **Claude decided:** PROCESS runs as one session at a time, keeps its own folder in the process's repository, and records its research there before it proposes.
 - **Claude decided:** PROCESS writes the owner's approving words into the record of the change, exactly as typed, with the date. Nothing else counts as approval.
 - **Unproven:** nothing physical stops a session building a product from changing the process's files, or from moving to a changed process.

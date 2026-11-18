@@ -7,7 +7,7 @@ Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force a
 ## 1. What this is
 
 - This is the design of Process4, in eleven parts. It is "the process4 requirements" and is what sessions follow.
-- It states the design as it now stands. It carries no history of how the design came to be. The owner's decisions, in his exact dated words, are kept in the record of decisions (part 5). The reasons and the evidence are in the background document.
+- It states the design as it now stands. It carries no history of how the design came to be, beyond naming where a figure or a quotation comes from. The owner's decisions, in his exact dated words, are kept in the record of decisions (part 5). The reasons and the evidence are in the background document.
 - It names no product. A product's own facts and the steps to bring it under Process4 belong to that product's conversion plan.
 - Parts 1 to 6 name no hosting provider and use harness-neutral terms. A harness is named there only in part 5, where a figure comes from one. Part 7 says what carries each term on Claude Code, part 8 on Codex, part 9 on Cloudflare.
 - Each part is kept under the single-text maximum, and the eleven together under the set maximum (part 5).
@@ -48,8 +48,8 @@ A rule with no mark is the owner's ruling, or follows from one directly, or is o
 - **Harness:** the system that runs AI sessions. Two are covered: Claude Code and Codex.
 - **Session:** one running AI conversation on a harness.
 - **Role:** a standing responsibility that one session holds at a time: ROOT, the watcher, the coordinator, ARCH, a lane, PROCESS. A role lasts; its sessions are replaced.
-- **ROOT, the watcher, the coordinator, ARCH, PROCESS:** the standing roles (part 4). A job, a walking session and a worker hold no standing role.
-- **Long-lived role:** a role whose session runs long enough to need refreshing. **Handover:** what its successor needs, written before a refresh.
+- **ROOT, the watcher, the coordinator, ARCH, PROCESS:** the standing roles (part 4). A lane is a role a product has while its design needs one. A job, a walking session and a worker hold no role.
+- **Long-lived role:** a role whose session runs long enough to need refreshing. **Claude decided:** every standing role, and a lane that is kept running, is long-lived; a job and a walking session are not. **Handover:** what its successor needs, written before a refresh.
 - **Worker:** a helper that a long-lived role or a job starts inside itself for one bounded piece of work.
 - **The account:** the owner's account on a harness, under which every session runs. The development account, the hosting account and the GitHub account are always named in full. **The account after each round** is a short report, not an account in this sense.
 - **Starting instructions:** the text a session is started with, naming every act it may take. **Reading:** a role's starting text is the same thing for a standing role, and a role's principles are the rules in that text.

@@ -12,13 +12,13 @@ Length: 107 lines. Last section: "9. Changes that are not a job's".
 ## 2. Requirements
 
 - Each module has one requirements file. Each requirement has a permanent number and is marked met or not yet met.
-- ARCH writes and rewords the requirement text, and touches no code and no tests. The module's job marks a requirement met in its own pull request.
+- ARCH writes and rewords the requirement text, and touches no code and no tests, other than by the mechanical edit (section 9). The module's job marks a requirement met in its own pull request.
 - A rewording that changes what the product does comes to the owner first. One that only says the same thing more clearly is made, and told to him in the account after the round.
 - A requirements file is kept under the single-text maximum (part 5) as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge for size.
 
 ## 3. The life of one module's job
 
-1. **The module has work.** A requirement in its file is marked not yet met, or a walk flaw or a notice has been placed against it.
+1. **The module has work.** A requirement in its file is marked not yet met, or a walk flaw, a notice, or a flaw reported by another module's job has been placed against it.
 2. **Its job is ready:** the module has work and no job already open. It does not wait for the modules it uses.
 3. **It takes a slot.** Ready jobs take free slots, earliest in the module order first. Only the owner's marked instruction puts a module ahead. The tool decides who takes a free slot.
 4. **The job session is started,** with instructions naming every act the job may take.
@@ -38,9 +38,9 @@ Length: 107 lines. Last section: "9. Changes that are not a job's".
 The tool decides both, because each has one right answer. **Claude decided** the rules:
 
 - A module's work is finished when its job's pull request has merged.
-- A module whose only work was a notice is also finished when its job records in its own pull request that nothing needs changing.
+- A module whose only work was a notice is also finished when its job records in its own pull request that nothing needs changing, and closes it unmerged.
 - A module with a walk flaw against it is finished only by a merge. If its job finds that nothing in the module needs changing, the flaw goes back to ARCH, which places it against another module or, where the walks' document is wrong, gives it to the UX lane.
-- A round's jobs are done when every module that had work when the round opened, or was given work during it, is finished.
+- A round's jobs are done when every module that had work when the round opened, or was given work during it, is finished, or is recorded blocked on a matter that no open job of the round can clear. A blocked module's work carries into the next round and is named in the account after the round.
 
 ## 5. Slots
 
@@ -73,7 +73,7 @@ The tool decides both, because each has one right answer. **Claude decided** the
 - **What a told job does.** It checks only the changed parts and runs only the tests that relate to them.
 - **Which tests relate. Claude decided:** the tool picks them, not the job. The notice carries the places in the told module's files that name the changed entry. The related tests are the module's test files that hold such a place, or reach code that holds one, or reach code the told job itself changed, together with any test file the job changed. They are chosen by whole test file.
 - **The run on GitHub. Claude decided:** there is one required run with one name. The tool, at the tranche branch's version, sets its scope: nothing, the related tests, or the whole module. It works the list out itself, so the job supplies nothing. An ordinary job runs the whole module; a told job runs the related tests.
-- A told job that finds nothing to change runs the related tests in its own session, records the result in its pull request, and closes it unmerged.
+- A told job that finds nothing to change records that in its pull request and closes it unmerged. No test runs, because nothing changed.
 - **Reading:** three points here bear on what the owner's rule means, and are his to confirm (part 10): that a told job's own edits count among "the changed parts"; that tests are chosen by whole file; and that where the tool cannot follow a told module's code, that module's whole tests run, since the tool cannot say which relate.
 - **Unproven:** that the tool can follow from a use to the tests that reach it inside a module, and can tell when it has lost the thread. The method was proven only between modules. The saving is unmeasured. The grounds are in `process4/working/design_work_18nov/notified_job_tests.md`.
 - **When the module list changes. Claude decided:** a change to the list sends no notice of itself. Where it moves code between modules or splits a module, the tool makes the interface listings of the modules touched before and after, and the users of any entry whose listing differs are told as for any other change. Where only a provider's name changes for its users, their code is changed by a mechanical edit.
@@ -102,6 +102,6 @@ The tool decides both, because each has one right answer. **Claude decided** the
 ## 9. Changes that are not a job's
 
 - **The mechanical edit.** **Claude decided:** a worker in ARCH's session makes it as one change covering every affected module, and it is merged once; and the moment: when no job is open, between a round's last merge and its internal walk. A module where the change needs judgment gets its own job. **Unproven:** which test run GitHub requires on that one change.
-- **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing. **Reading:** this is among the lane rules he has not confirmed one by one (part 4, section 3).
+- **A lane's folder.** A change that touches only files in a lane's own folder needs no module tests. Design documents do not need testing. **Reading:** the owner has not confirmed this.
 - **Requirement text, the module list, and the process's named files.** **Claude decided:** these change no code and no tests, so their pull requests merge through the tool with no module tests run. The required test run reports on every pull request. It passes at once when no module's code or tests changed, and on the tranche's own pull request into the main branch, where none of the tests runs (part 3, section 5).
 - **The owner's approvals and forbidden commands** are committed by the owner alone (part 6).
