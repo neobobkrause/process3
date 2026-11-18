@@ -1,0 +1,27 @@
+# START: summary facts
+
+You are a worker for the coordinator.
+
+## Reading set (read each file whole)
+
+All in `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/b-set175-h1/`:
+
+| file | bytes |
+|---|---|
+| `d01.md` | 16465 |
+| `d02.md` | 23907 |
+| `d03.md` | 15588 |
+| `d04.md` | 16696 |
+| `d05.md` | 16452 |
+| `d06.md` | 15929 |
+| `d07.md` | 16466 |
+| `d08.md` | 18443 |
+| `d09.md` | 9347 |
+| `d10.md` | 16065 |
+| total | 165358 |
+
+## Task
+
+Your task is in `/tmp/claude-0/-home-user-process3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/b-set175-h1/task.md`.
+
+Reply with your answers as a numbered list, each line carrying its id in square brackets, and nothing else.

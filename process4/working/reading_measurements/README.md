@@ -1,8 +1,8 @@
 # Reading measurements: materials and where they stand
 
-Length: 55 lines. Last section: "What is not done, and the next step".
+Length: 58 lines. Last section: "What is not done, and the next step".
 
-Kept by Claude. Bob's word: "Run the three measurements." The plan is `../process3_limits_18nov_measurements.md`, sections 3 to 5. Sections 3 and 4 are done; the results are in `RESULTS.md`. Section 5 is not started.
+Kept by Claude. Bob's word: "Run the three measurements." The plan is `../process3_limits_18nov_measurements.md`, sections 3 to 5. Sections 3, 4 and 5 are done; the results are in `RESULTS.md`.
 
 These are research into how well a session reads. They are not tests, checks or gates on any product.
 
@@ -22,6 +22,7 @@ A working folder outside the repository holding `src/log.md`, `texts/`, `keys/`,
 - `gen.py WORK READERS SERIES SIZE ARM FIRST LAST` makes the reader folders and the exact prompt for each run. Arms: `h` habit, `t` told, `n` no text.
 - `score.py WORK RECORDS OUT` scores every reader found in a folder of worker records.
 - `oneread.py READERS RECORDS` reports what each single read returned.
+- For sets: `build_sets.py WORK EVIDENCE_DIR` cuts the documents in `process4/evidence/` into pieces and writes `sets/sets.json` (a copy is `results/sets.json`); `verify_set.py SIZE` and `onehome_set.py SIZE` check `keys/setSIZE.json`; `gen_set.py` and `score_set.py` make and score the readers.
 
 ## A question set
 
@@ -49,7 +50,9 @@ The evidence must occur exactly once in the text and lie in the stated zone. At 
 
 ## What is not done, and the next step
 
-- **Next: the set measurement, section 5 of the plan.** It has no materials. It needs sets built from real files, each piece under the single-text figure Bob chooses from `RESULTS.md` section 4; twenty questions for each set, four from the last file read, four from the middle of the set, two that need two files together; then the runs.
+- **Next: Bob's choice of the two figures**, from `RESULTS.md` section 5. Then the design's blanks can be filled.
+- A set size between 400 and 700 KB, and sets of one size with fewer, larger files.
+- The told arm for sets, and a reading by a session itself with no helper.
 - The folder for Bob's Codex session: the same texts, questions, key and steps.
 - A reading at a smaller window. The large-file allowance seen here was for a 1,000,000-token window.
 - Sizes 24 KB and 100 KB have two habit runs each.

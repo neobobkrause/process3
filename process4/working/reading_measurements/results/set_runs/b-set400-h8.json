@@ -1,0 +1,491 @@
+{
+ "run": "b-set400-h8",
+ "size": "400",
+ "agent": "a52ad365a6bd30e45",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 236948,
+ "prompt_exact": true,
+ "files": 27,
+ "files_whole": 27,
+ "files_not_whole": {},
+ "files_never_named_in_a_call": [],
+ "lines_received": 3048,
+ "lines_total": 3048,
+ "cut_notices": 0,
+ "task_opened_at_call": 1,
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "files": [],
+   "task": true,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 3288,
+   "new_lines": 0
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "files": [
+    "d01.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16771,
+   "new_lines": 66
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "files": [
+    "d02.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 24189,
+   "new_lines": 62
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "files": [
+    "d03.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 15861,
+   "new_lines": 64
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "files": [
+    "d04.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16925,
+   "new_lines": 60
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "files": [
+    "d05.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16631,
+   "new_lines": 51
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "files": [
+    "d06.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16052,
+   "new_lines": 37
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "files": [
+    "d07.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16874,
+   "new_lines": 88
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "files": [
+    "d08.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18935,
+   "new_lines": 105
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "files": [
+    "d09.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 9545,
+   "new_lines": 48
+  },
+  {
+   "n": 11,
+   "tool": "Read",
+   "files": [
+    "d10.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16523,
+   "new_lines": 105
+  },
+  {
+   "n": 12,
+   "tool": "Read",
+   "files": [
+    "d11.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18409,
+   "new_lines": 165
+  },
+  {
+   "n": 13,
+   "tool": "Read",
+   "files": [
+    "d12.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 17444,
+   "new_lines": 109
+  },
+  {
+   "n": 14,
+   "tool": "Read",
+   "files": [
+    "d13.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18243,
+   "new_lines": 125
+  },
+  {
+   "n": 15,
+   "tool": "Read",
+   "files": [
+    "d14.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 8281,
+   "new_lines": 54
+  },
+  {
+   "n": 16,
+   "tool": "Read",
+   "files": [
+    "d15.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 19522,
+   "new_lines": 80
+  },
+  {
+   "n": 17,
+   "tool": "Read",
+   "files": [
+    "d16.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 19313,
+   "new_lines": 136
+  },
+  {
+   "n": 18,
+   "tool": "Read",
+   "files": [
+    "d17.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 21958,
+   "new_lines": 118
+  },
+  {
+   "n": 19,
+   "tool": "Read",
+   "files": [
+    "d18.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 5341,
+   "new_lines": 31
+  },
+  {
+   "n": 20,
+   "tool": "Read",
+   "files": [
+    "d19.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 17856,
+   "new_lines": 130
+  },
+  {
+   "n": 21,
+   "tool": "Read",
+   "files": [
+    "d20.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 19080,
+   "new_lines": 97
+  },
+  {
+   "n": 22,
+   "tool": "Read",
+   "files": [
+    "d21.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 17332,
+   "new_lines": 78
+  },
+  {
+   "n": 23,
+   "tool": "Read",
+   "files": [
+    "d22.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 316,
+   "new_lines": 2
+  },
+  {
+   "n": 24,
+   "tool": "Read",
+   "files": [
+    "d23.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18831,
+   "new_lines": 158
+  },
+  {
+   "n": 25,
+   "tool": "Read",
+   "files": [
+    "d24.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 5582,
+   "new_lines": 24
+  },
+  {
+   "n": 26,
+   "tool": "Read",
+   "files": [
+    "d25.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 19044,
+   "new_lines": 113
+  },
+  {
+   "n": 27,
+   "tool": "Read",
+   "files": [
+    "d26.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 4461,
+   "new_lines": 24
+  },
+  {
+   "n": 28,
+   "tool": "Read",
+   "files": [
+    "d27.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18243,
+   "new_lines": 119
+  }
+ ],
+ "calls_elsewhere": [],
+ "answers_raw": "1. [q20] 16:45:44 UTC on 9 Nov 2026 (merged to the tranche as PR 1115)\n2. [q03] 390 of the 466 marks\n3. [q06] 1,339 sync merges\n4. [q09] 194 minutes\n5. [q12] 202 test imports\n6. [q15] 41 merges\n7. [q18] 26 Sep (2026)\n8. [q01] PR 503\n9. [q04] PR 371\n10. [q07] 351 minutes\n11. [q10] 19:19Z on 6 Nov\n12. [q13] 14,700 lines\n13. [q16] pin-91\n14. [q19] 16:10Z on 7 Nov (layer 10)\n15. [q02] 4,907 (24%)\n16. [q05] 8,838 requirement ids\n17. [q08] PR 1116\n18. [q11] 94 minutes (05:44 to 07:18)\n19. [q14] 543\n20. [q17] 22.5 hours",
+ "answers": {
+  "q20": "16:45:44 UTC on 9 Nov 2026 (merged to the tranche as PR 1115)",
+  "q03": "390 of the 466 marks",
+  "q06": "1,339 sync merges",
+  "q09": "194 minutes",
+  "q12": "202 test imports",
+  "q15": "41 merges",
+  "q18": "26 Sep (2026)",
+  "q01": "PR 503",
+  "q04": "PR 371",
+  "q07": "351 minutes",
+  "q10": "19:19Z on 6 Nov",
+  "q13": "14,700 lines",
+  "q16": "pin-91",
+  "q19": "16:10Z on 7 Nov (layer 10)",
+  "q02": "4,907 (24%)",
+  "q05": "8,838 requirement ids",
+  "q08": "PR 1116",
+  "q11": "94 minutes (05:44 to 07:18)",
+  "q14": "543",
+  "q17": "22.5 hours"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true,
+  "q13": true,
+  "q14": true,
+  "q15": true,
+  "q16": true,
+  "q17": true,
+  "q18": true,
+  "q19": true,
+  "q20": true
+ },
+ "right": 20,
+ "right_by_kind": {
+  "last": 4,
+  "middle": 4,
+  "spread": 10,
+  "two": 2
+ },
+ "covered": true,
+ "pass": true
+}
