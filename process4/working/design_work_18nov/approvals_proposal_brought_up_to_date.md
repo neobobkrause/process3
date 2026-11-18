@@ -178,12 +178,12 @@ Changed or added against P:84 to 90:
 
 ### 3d. The process's repository while the tool is first built: the lines that differ from 3c
 
-This wording is for the time from his acts 7 and 8 until the tool can merge (B1:128). After that he commits 3c. Three lines differ.
+This wording is for the time from his acts 7 and 8 while the tool is first built (B1:128). After that he commits 3c. Three lines differ.
 
 1. **Changed, the first paragraph's second sentence.** For "They cover the PROCESS session and the sessions it starts.":
 
 ```text
-They cover the PROCESS session and the sessions it starts, and, until the tool can merge, the one building session I start on this repository to build the tool.
+They cover the PROCESS session and the sessions it starts, and, while the tool is first built, the one building session I start on this repository to build the tool.
 ```
 
 2. **Added, after the list of the tool's acts:**
@@ -204,7 +204,7 @@ Why: gaps 14 and 15. The words follow D4:156 and B4:28.
 
 **Proposal.** The starting point is the list he committed for Process3, as the inventory quotes it (`process4/evidence/permissions_inventory.md` lines 122 to 160). The form of each line is that list's own form.
 
-### 4a. A real product's repository, the trial repository, and the process's repository once the tool can merge
+### 4a. A real product's repository, the trial repository, and the process's repository once the first build is done
 
 ```json
 {
@@ -292,7 +292,7 @@ Three lines of the `deny` list are left out, and the `allow` list holds `Artifac
 - **Left out:** `"mcp__github__create_pull_request"` (line 32).
 - **Left out of `allow`:** the `node` line, because the tool does not exist yet.
 
-Why: gap 15. Lines 4 to 11 still take away a forced push, a deletion and a push to main. When the tool can merge, he commits 4a there. The process repository's main has no settings file today (P:104), so leaving the file out until then is the other way to the same end; it leaves the forced push, deletion and push to main to GitHub's own rules alone.
+Why: gap 15. Lines 4 to 11 still take away a forced push, a deletion and a push to main. When the first build is done, he commits 4a there. The process repository's main has no settings file today (P:104), so leaving the file out until then is the other way to the same end; it leaves the forced push, deletion and push to main to GitHub's own rules alone.
 
 ## 5. Proven, unproven and uncertain
 
@@ -316,7 +316,7 @@ Why: gap 15. Lines 4 to 11 still take away a forced push, a deletion and a push 
 9. Whether the "word" is needed for every merge by PROCESS, or only for a change to the process. PROCESS also keeps a folder of research and records in that repository (D6:65; D4:150). 3c keeps P's wording, which speaks only of "a change to the process" and forbids nothing else in so many words.
 10. Who publishes a public release (D3:61, open with him), and so which session's name fills the blank in 3a.
 11. Where the process's repository is, and whether it is public (B4:23; B1:134). If it is this repository, replacing the present block (C:3) also ends the approvals that Process3's own sessions run under.
-12. When exactly 3d and 4b give way to 3c and 4a. The texts say "until the tool exists" for the pushes (D4:156) and "until the tool can merge" for his merging (B1:128); these are two different moments.
+12. When exactly 3d and 4b give way to 3c and 4a. The texts say "until the tool exists" for the pushes (D4:156) and "while the tool is first built" for his merging (B1:128); these are two different moments.
 13. Whether the trial's stage 0 session and stage 1 "plain session" (B4:36, B4:50) count as "working on this product under Process4" when no ROOT has started them. 3a's first paragraph is P's and does not name them.
 14. Whether the tool's `branch` and `walk open` need a label or anything else made on GitHub that 3a does not name. `state write --create` finds the issue "by its label" (B1:75, B1:76); making a label is not named in B1's table.
 15. The trial's first content includes a workflow file pushed by a session (B4:50). Whether the sessions' GitHub account may push one is a GitHub setting, not wording, and is not said.
