@@ -1,0 +1,589 @@
+{
+ "pieces": [
+  {
+   "file": "d01.md",
+   "bytes": 16465,
+   "lines": 103,
+   "source": "foundations.md",
+   "part": 1,
+   "cumulative": 16465
+  },
+  {
+   "file": "d02.md",
+   "bytes": 23907,
+   "lines": 96,
+   "source": "foundations.md",
+   "part": 2,
+   "cumulative": 40372
+  },
+  {
+   "file": "d03.md",
+   "bytes": 15588,
+   "lines": 93,
+   "source": "foundations.md",
+   "part": 3,
+   "cumulative": 55960
+  },
+  {
+   "file": "d04.md",
+   "bytes": 16696,
+   "lines": 79,
+   "source": "DECISIONS.md",
+   "part": 1,
+   "cumulative": 72656
+  },
+  {
+   "file": "d05.md",
+   "bytes": 16452,
+   "lines": 62,
+   "source": "DECISIONS.md",
+   "part": 2,
+   "cumulative": 89108
+  },
+  {
+   "file": "d06.md",
+   "bytes": 15929,
+   "lines": 43,
+   "source": "DECISIONS.md",
+   "part": 3,
+   "cumulative": 105037
+  },
+  {
+   "file": "d07.md",
+   "bytes": 16466,
+   "lines": 128,
+   "source": "roles_root_coordinator.md",
+   "part": 1,
+   "cumulative": 121503
+  },
+  {
+   "file": "d08.md",
+   "bytes": 18443,
+   "lines": 149,
+   "source": "roles_root_coordinator.md",
+   "part": 2,
+   "cumulative": 139946
+  },
+  {
+   "file": "d09.md",
+   "bytes": 9347,
+   "lines": 68,
+   "source": "roles_root_coordinator.md",
+   "part": 3,
+   "cumulative": 149293
+  },
+  {
+   "file": "d10.md",
+   "bytes": 16065,
+   "lines": 145,
+   "source": "interface_and_cycle.md",
+   "part": 1,
+   "cumulative": 165358
+  },
+  {
+   "file": "d11.md",
+   "bytes": 17637,
+   "lines": 220,
+   "source": "interface_and_cycle.md",
+   "part": 2,
+   "cumulative": 182995
+  },
+  {
+   "file": "d12.md",
+   "bytes": 16948,
+   "lines": 151,
+   "source": "interface_and_cycle.md",
+   "part": 3,
+   "cumulative": 199943
+  },
+  {
+   "file": "d13.md",
+   "bytes": 17719,
+   "lines": 176,
+   "source": "product_side.md",
+   "part": 1,
+   "cumulative": 217662
+  },
+  {
+   "file": "d14.md",
+   "bytes": 8095,
+   "lines": 70,
+   "source": "product_side.md",
+   "part": 2,
+   "cumulative": 225757
+  },
+  {
+   "file": "d15.md",
+   "bytes": 19164,
+   "lines": 116,
+   "source": "permissions_inventory.md",
+   "part": 1,
+   "cumulative": 244921
+  },
+  {
+   "file": "d16.md",
+   "bytes": 18773,
+   "lines": 161,
+   "source": "permissions_inventory.md",
+   "part": 2,
+   "cumulative": 263694
+  },
+  {
+   "file": "d17.md",
+   "bytes": 21486,
+   "lines": 144,
+   "source": "permissions_inventory.md",
+   "part": 3,
+   "cumulative": 285180
+  },
+  {
+   "file": "d18.md",
+   "bytes": 5224,
+   "lines": 41,
+   "source": "permissions_inventory.md",
+   "part": 4,
+   "cumulative": 290404
+  },
+  {
+   "file": "d19.md",
+   "bytes": 17304,
+   "lines": 164,
+   "source": "causal_forensics.md",
+   "part": 1,
+   "cumulative": 307708
+  },
+  {
+   "file": "d20.md",
+   "bytes": 18686,
+   "lines": 125,
+   "source": "causal_forensics.md",
+   "part": 2,
+   "cumulative": 326394
+  },
+  {
+   "file": "d21.md",
+   "bytes": 16976,
+   "lines": 115,
+   "source": "causal_forensics.md",
+   "part": 3,
+   "cumulative": 343370
+  },
+  {
+   "file": "d22.md",
+   "bytes": 308,
+   "lines": 3,
+   "source": "causal_forensics.md",
+   "part": 4,
+   "cumulative": 343678
+  },
+  {
+   "file": "d23.md",
+   "bytes": 18099,
+   "lines": 209,
+   "source": "verify_numbers.md",
+   "part": 1,
+   "cumulative": 361777
+  },
+  {
+   "file": "d24.md",
+   "bytes": 5471,
+   "lines": 39,
+   "source": "verify_numbers.md",
+   "part": 2,
+   "cumulative": 367248
+  },
+  {
+   "file": "d25.md",
+   "bytes": 18566,
+   "lines": 147,
+   "source": "bob_naming.md",
+   "part": 1,
+   "cumulative": 385814
+  },
+  {
+   "file": "d26.md",
+   "bytes": 4371,
+   "lines": 32,
+   "source": "bob_naming.md",
+   "part": 2,
+   "cumulative": 390185
+  },
+  {
+   "file": "d27.md",
+   "bytes": 17677,
+   "lines": 169,
+   "source": "no_layers_width.md",
+   "part": 1,
+   "cumulative": 407862
+  },
+  {
+   "file": "d28.md",
+   "bytes": 4676,
+   "lines": 58,
+   "source": "no_layers_width.md",
+   "part": 2,
+   "cumulative": 412538
+  },
+  {
+   "file": "d29.md",
+   "bytes": 16605,
+   "lines": 61,
+   "source": "audit_A.md",
+   "part": 1,
+   "cumulative": 429143
+  },
+  {
+   "file": "d30.md",
+   "bytes": 22559,
+   "lines": 71,
+   "source": "audit_A.md",
+   "part": 2,
+   "cumulative": 451702
+  },
+  {
+   "file": "d31.md",
+   "bytes": 16707,
+   "lines": 115,
+   "source": "audit_A.md",
+   "part": 3,
+   "cumulative": 468409
+  },
+  {
+   "file": "d32.md",
+   "bytes": 11907,
+   "lines": 85,
+   "source": "audit_A.md",
+   "part": 4,
+   "cumulative": 480316
+  },
+  {
+   "file": "d33.md",
+   "bytes": 21175,
+   "lines": 103,
+   "source": "change_sample.md",
+   "part": 1,
+   "cumulative": 501491
+  },
+  {
+   "file": "d34.md",
+   "bytes": 17202,
+   "lines": 66,
+   "source": "change_sample.md",
+   "part": 2,
+   "cumulative": 518693
+  },
+  {
+   "file": "d35.md",
+   "bytes": 17452,
+   "lines": 114,
+   "source": "change_sample.md",
+   "part": 3,
+   "cumulative": 536145
+  },
+  {
+   "file": "d36.md",
+   "bytes": 11540,
+   "lines": 65,
+   "source": "change_sample.md",
+   "part": 4,
+   "cumulative": 547685
+  },
+  {
+   "file": "d37.md",
+   "bytes": 17475,
+   "lines": 134,
+   "source": "levers_github_cloudflare_product.md",
+   "part": 1,
+   "cumulative": 565160
+  },
+  {
+   "file": "d38.md",
+   "bytes": 16119,
+   "lines": 154,
+   "source": "levers_github_cloudflare_product.md",
+   "part": 2,
+   "cumulative": 581279
+  },
+  {
+   "file": "d39.md",
+   "bytes": 17224,
+   "lines": 147,
+   "source": "levers_github_cloudflare_product.md",
+   "part": 3,
+   "cumulative": 598503
+  },
+  {
+   "file": "d40.md",
+   "bytes": 18761,
+   "lines": 141,
+   "source": "levers_github_cloudflare_product.md",
+   "part": 4,
+   "cumulative": 617264
+  },
+  {
+   "file": "d41.md",
+   "bytes": 14688,
+   "lines": 109,
+   "source": "levers_github_cloudflare_product.md",
+   "part": 5,
+   "cumulative": 631952
+  },
+  {
+   "file": "d42.md",
+   "bytes": 23648,
+   "lines": 160,
+   "source": "canon_analysis.md",
+   "part": 1,
+   "cumulative": 655600
+  },
+  {
+   "file": "d43.md",
+   "bytes": 18526,
+   "lines": 112,
+   "source": "canon_analysis.md",
+   "part": 2,
+   "cumulative": 674126
+  },
+  {
+   "file": "d44.md",
+   "bytes": 18416,
+   "lines": 251,
+   "source": "canon_analysis.md",
+   "part": 3,
+   "cumulative": 692542
+  },
+  {
+   "file": "d45.md",
+   "bytes": 16704,
+   "lines": 116,
+   "source": "canon_analysis.md",
+   "part": 4,
+   "cumulative": 709246
+  },
+  {
+   "file": "d46.md",
+   "bytes": 16831,
+   "lines": 102,
+   "source": "canon_analysis.md",
+   "part": 5,
+   "cumulative": 726077
+  },
+  {
+   "file": "d47.md",
+   "bytes": 23950,
+   "lines": 115,
+   "source": "foundations_tranche_9nov.md",
+   "part": 1,
+   "cumulative": 750027
+  },
+  {
+   "file": "d48.md",
+   "bytes": 18489,
+   "lines": 72,
+   "source": "foundations_tranche_9nov.md",
+   "part": 2,
+   "cumulative": 768516
+  },
+  {
+   "file": "d49.md",
+   "bytes": 20949,
+   "lines": 75,
+   "source": "foundations_tranche_9nov.md",
+   "part": 3,
+   "cumulative": 789465
+  },
+  {
+   "file": "d50.md",
+   "bytes": 6064,
+   "lines": 44,
+   "source": "foundations_tranche_9nov.md",
+   "part": 4,
+   "cumulative": 795529
+  },
+  {
+   "file": "d51.md",
+   "bytes": 23636,
+   "lines": 74,
+   "source": "audit_C.md",
+   "part": 1,
+   "cumulative": 819165
+  },
+  {
+   "file": "d52.md",
+   "bytes": 16728,
+   "lines": 51,
+   "source": "audit_C.md",
+   "part": 2,
+   "cumulative": 835893
+  },
+  {
+   "file": "d53.md",
+   "bytes": 16293,
+   "lines": 117,
+   "source": "audit_C.md",
+   "part": 3,
+   "cumulative": 852186
+  },
+  {
+   "file": "d54.md",
+   "bytes": 14678,
+   "lines": 94,
+   "source": "audit_C.md",
+   "part": 4,
+   "cumulative": 866864
+  }
+ ],
+ "sets": {
+  "100": {
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md"
+   ],
+   "bytes": 89108,
+   "last": "d05.md",
+   "middle": [
+    "d03.md"
+   ]
+  },
+  "175": {
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md"
+   ],
+   "bytes": 165358,
+   "last": "d10.md",
+   "middle": [
+    "d05.md",
+    "d06.md"
+   ]
+  },
+  "250": {
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md"
+   ],
+   "bytes": 244921,
+   "last": "d15.md",
+   "middle": [
+    "d07.md",
+    "d08.md"
+   ]
+  },
+  "400": {
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md"
+   ],
+   "bytes": 407862,
+   "last": "d27.md",
+   "middle": [
+    "d13.md",
+    "d14.md"
+   ]
+  },
+  "700": {
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md",
+    "d28.md",
+    "d29.md",
+    "d30.md",
+    "d31.md",
+    "d32.md",
+    "d33.md",
+    "d34.md",
+    "d35.md",
+    "d36.md",
+    "d37.md",
+    "d38.md",
+    "d39.md",
+    "d40.md",
+    "d41.md",
+    "d42.md",
+    "d43.md",
+    "d44.md",
+    "d45.md"
+   ],
+   "bytes": 709246,
+   "last": "d45.md",
+   "middle": [
+    "d21.md",
+    "d23.md"
+   ]
+  }
+ }
+}

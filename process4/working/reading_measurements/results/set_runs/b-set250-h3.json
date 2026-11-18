@@ -1,0 +1,311 @@
+{
+ "run": "b-set250-h3",
+ "size": "250",
+ "agent": "ac9eaae76ba3059f4",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 164364,
+ "prompt_exact": true,
+ "files": 15,
+ "files_whole": 15,
+ "files_not_whole": {},
+ "files_never_named_in_a_call": [],
+ "lines_received": 1699,
+ "lines_total": 1699,
+ "cut_notices": 0,
+ "task_opened_at_call": 1,
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "files": [],
+   "task": true,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 3618,
+   "new_lines": 0
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "files": [
+    "d01.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16771,
+   "new_lines": 66
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "files": [
+    "d02.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 24189,
+   "new_lines": 62
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "files": [
+    "d03.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 15861,
+   "new_lines": 64
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "files": [
+    "d04.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16925,
+   "new_lines": 60
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "files": [
+    "d05.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16631,
+   "new_lines": 51
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "files": [
+    "d06.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16052,
+   "new_lines": 37
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "files": [
+    "d07.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16874,
+   "new_lines": 88
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "files": [
+    "d08.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18935,
+   "new_lines": 105
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "files": [
+    "d09.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 9545,
+   "new_lines": 48
+  },
+  {
+   "n": 11,
+   "tool": "Read",
+   "files": [
+    "d10.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16523,
+   "new_lines": 105
+  },
+  {
+   "n": 12,
+   "tool": "Read",
+   "files": [
+    "d11.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18409,
+   "new_lines": 165
+  },
+  {
+   "n": 13,
+   "tool": "Read",
+   "files": [
+    "d12.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 17444,
+   "new_lines": 109
+  },
+  {
+   "n": 14,
+   "tool": "Read",
+   "files": [
+    "d13.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18243,
+   "new_lines": 125
+  },
+  {
+   "n": 15,
+   "tool": "Read",
+   "files": [
+    "d14.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 8281,
+   "new_lines": 54
+  },
+  {
+   "n": 16,
+   "tool": "Read",
+   "files": [
+    "d15.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 19522,
+   "new_lines": 80
+  }
+ ],
+ "calls_elsewhere": [],
+ "answers_raw": "1. [q20] screens-inquiry (PR 1056)\n2. [q03] `tool/lib/record.mjs`\n3. [q06] 37.24 USD\n4. [q09] 103\n5. [q12] 09:04Z (8 Nov)\n6. [q15] 7,539 (3,855 of them have no outside importer)\n7. [q18] believeinoakland (`believeinoakland <biogithub@neologic.com>`)\n8. [q01] `snapshot/pre-refactor-2026-09-25`\n9. [q04] 12:54 PST (commit `6d4e2009c1`)\n10. [q07] `17 11 * * *`\n11. [q10] 194 minutes\n12. [q13] 282 (282/282)\n13. [q16] 14,700 lines\n14. [q19] 16:45:44Z (merged as PR 1115)\n15. [q02] 08:15 on 4 Nov\n16. [q05] 1,980 bytes\n17. [q08] `18935dc7`\n18. [q11] 19:19Z\n19. [q14] 10,771\n20. [q17] 8,838",
+ "answers": {
+  "q20": "screens-inquiry (PR 1056)",
+  "q03": "`tool/lib/record.mjs`",
+  "q06": "37.24 USD",
+  "q09": "103",
+  "q12": "09:04Z (8 Nov)",
+  "q15": "7,539 (3,855 of them have no outside importer)",
+  "q18": "believeinoakland (`believeinoakland <biogithub@neologic.com>`)",
+  "q01": "`snapshot/pre-refactor-2026-09-25`",
+  "q04": "12:54 PST (commit `6d4e2009c1`)",
+  "q07": "`17 11 * * *`",
+  "q10": "194 minutes",
+  "q13": "282 (282/282)",
+  "q16": "14,700 lines",
+  "q19": "16:45:44Z (merged as PR 1115)",
+  "q02": "08:15 on 4 Nov",
+  "q05": "1,980 bytes",
+  "q08": "`18935dc7`",
+  "q11": "19:19Z",
+  "q14": "10,771",
+  "q17": "8,838"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true,
+  "q13": true,
+  "q14": true,
+  "q15": true,
+  "q16": true,
+  "q17": true,
+  "q18": true,
+  "q19": true,
+  "q20": true
+ },
+ "right": 20,
+ "right_by_kind": {
+  "last": 4,
+  "middle": 4,
+  "spread": 10,
+  "two": 2
+ },
+ "covered": true,
+ "pass": true
+}

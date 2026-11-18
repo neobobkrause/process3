@@ -1,0 +1,637 @@
+{
+ "run": "b-set700-h3",
+ "size": "700",
+ "agent": "a4427660b35e87014",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 128778,
+ "prompt_exact": true,
+ "files": 45,
+ "files_whole": 5,
+ "files_not_whole": {
+  "d01.md": [
+   46,
+   103
+  ],
+  "d02.md": [
+   38,
+   96
+  ],
+  "d03.md": [
+   33,
+   93
+  ],
+  "d04.md": [
+   31,
+   79
+  ],
+  "d05.md": [
+   15,
+   62
+  ],
+  "d06.md": [
+   8,
+   43
+  ],
+  "d07.md": [
+   50,
+   128
+  ],
+  "d08.md": [
+   53,
+   149
+  ],
+  "d09.md": [
+   26,
+   68
+  ],
+  "d10.md": [
+   50,
+   145
+  ],
+  "d11.md": [
+   65,
+   220
+  ],
+  "d12.md": [
+   53,
+   151
+  ],
+  "d13.md": [
+   66,
+   176
+  ],
+  "d14.md": [
+   27,
+   70
+  ],
+  "d15.md": [
+   45,
+   116
+  ],
+  "d16.md": [
+   54,
+   161
+  ],
+  "d17.md": [
+   37,
+   144
+  ],
+  "d18.md": [
+   13,
+   41
+  ],
+  "d19.md": [
+   49,
+   164
+  ],
+  "d20.md": [
+   40,
+   125
+  ],
+  "d21.md": [
+   46,
+   115
+  ],
+  "d24.md": [
+   22,
+   39
+  ],
+  "d25.md": [
+   43,
+   147
+  ],
+  "d26.md": [
+   13,
+   32
+  ],
+  "d29.md": [
+   24,
+   61
+  ],
+  "d30.md": [
+   25,
+   71
+  ],
+  "d31.md": [
+   31,
+   115
+  ],
+  "d32.md": [
+   29,
+   85
+  ],
+  "d33.md": [
+   33,
+   103
+  ],
+  "d34.md": [
+   25,
+   66
+  ],
+  "d35.md": [
+   37,
+   114
+  ],
+  "d36.md": [
+   33,
+   65
+  ],
+  "d37.md": [
+   58,
+   134
+  ],
+  "d38.md": [
+   62,
+   154
+  ],
+  "d39.md": [
+   61,
+   147
+  ],
+  "d40.md": [
+   61,
+   141
+  ],
+  "d41.md": [
+   27,
+   109
+  ],
+  "d42.md": [
+   30,
+   160
+  ],
+  "d43.md": [
+   7,
+   112
+  ],
+  "d44.md": [
+   40,
+   251
+  ]
+ },
+ "files_never_named_in_a_call": [],
+ "lines_received": 2061,
+ "lines_total": 5110,
+ "cut_notices": 0,
+ "task_opened_at_call": 1,
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "files": [],
+   "task": true,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 4075,
+   "new_lines": 0
+  },
+  {
+   "n": 2,
+   "tool": "Bash",
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md",
+    "d28.md",
+    "d29.md",
+    "d30.md",
+    "d31.md",
+    "d32.md",
+    "d33.md",
+    "d34.md",
+    "d35.md",
+    "d36.md",
+    "d37.md",
+    "d38.md",
+    "d39.md",
+    "d40.md",
+    "d41.md",
+    "d42.md",
+    "d43.md",
+    "d44.md",
+    "d45.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "-20; echo ----; grep -n -o -E \\\".{300}25 specific.{400}\\\" d*.md | head; echo ----; grep -n -o -E \\\".{300}earned its cost.{300}\\\" d*.md | head\", \"description\": \"Search documents for first three facts\"}",
+   "other": false,
+   "returned_chars": 1037,
+   "new_lines": 0
+  },
+  {
+   "n": 3,
+   "tool": "Bash",
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md",
+    "d28.md",
+    "d29.md",
+    "d30.md",
+    "d31.md",
+    "d32.md",
+    "d33.md",
+    "d34.md",
+    "d35.md",
+    "d36.md",
+    "d37.md",
+    "d38.md",
+    "d39.md",
+    "d40.md",
+    "d41.md",
+    "d42.md",
+    "d43.md",
+    "d44.md",
+    "d45.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "ess3/5c006f99-f9bb-5f8b-b9ba-e96ed28bfa45/scratchpad/readers/b-set700-h3/ && head -c 600 d*.md | cut -c1-400; wc -l d*.md | tail -50\", \"description\": \"Show the start of each document and line counts\"}",
+   "other": false,
+   "returned_chars": 26883,
+   "new_lines": 336
+  },
+  {
+   "n": 4,
+   "tool": "Bash",
+   "files": [
+    "d04.md",
+    "d05.md",
+    "d06.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": " ----; grep -n -i \\\"earned its cost\\\" d*.md | cut -c1-1200; echo ---; grep -n \\\"refs/\\\" d04.md d05.md d06.md | cut -c1-900\", \"description\": \"Search for the 134 figure, the review quote and ref paths\"}",
+   "other": false,
+   "returned_chars": 5488,
+   "new_lines": 0
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "files": [
+    "d27.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18243,
+   "new_lines": 108
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "files": [
+    "d28.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 4844,
+   "new_lines": 37
+  },
+  {
+   "n": 7,
+   "tool": "Bash",
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md",
+    "d28.md",
+    "d29.md",
+    "d30.md",
+    "d31.md",
+    "d32.md",
+    "d33.md",
+    "d34.md",
+    "d35.md",
+    "d36.md",
+    "d37.md",
+    "d38.md",
+    "d39.md",
+    "d40.md",
+    "d41.md",
+    "d42.md",
+    "d43.md",
+    "d44.md",
+    "d45.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": " -i -E \\\"\\\\\\\"every\\\\\\\"|'every'|word .every|held by code|left out|18 mentions|16 mentions|mentions\\\" d4[2-5].md | cut -c1-900\", \"description\": \"Locate canon analysis word counts and restraint tallies\"}",
+   "other": false,
+   "returned_chars": 1728,
+   "new_lines": 1
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "files": [
+    "d45.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 17036,
+   "new_lines": 92
+  },
+  {
+   "n": 9,
+   "tool": "Bash",
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md",
+    "d28.md",
+    "d29.md",
+    "d30.md",
+    "d31.md",
+    "d32.md",
+    "d33.md",
+    "d34.md",
+    "d35.md",
+    "d36.md",
+    "d37.md",
+    "d38.md",
+    "d39.md",
+    "d40.md",
+    "d41.md",
+    "d42.md",
+    "d43.md",
+    "d44.md",
+    "d45.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "and .\\\\.js|files .* parsed|parsed for\\\" \\\"68 false|68 .*lines\\\" \\\"\\\\+444\\\"; do echo \\\"=== $p\\\"; grep -n -E \\\"$p\\\" d*.md | cut -c1-1500; done\", \"description\": \"Locate remaining facts across documents\"}",
+   "other": false,
+   "returned_chars": 13650,
+   "new_lines": 35
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "files": [
+    "d23.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18831,
+   "new_lines": 141
+  },
+  {
+   "n": 11,
+   "tool": "Bash",
+   "files": [
+    "d01.md",
+    "d02.md",
+    "d03.md",
+    "d04.md",
+    "d05.md",
+    "d06.md",
+    "d07.md",
+    "d08.md",
+    "d09.md",
+    "d10.md",
+    "d11.md",
+    "d12.md",
+    "d13.md",
+    "d14.md",
+    "d15.md",
+    "d16.md",
+    "d17.md",
+    "d18.md",
+    "d19.md",
+    "d20.md",
+    "d21.md",
+    "d22.md",
+    "d23.md",
+    "d24.md",
+    "d25.md",
+    "d26.md",
+    "d27.md",
+    "d28.md",
+    "d29.md",
+    "d30.md",
+    "d31.md",
+    "d32.md",
+    "d33.md",
+    "d34.md",
+    "d35.md",
+    "d36.md",
+    "d37.md",
+    "d38.md",
+    "d39.md",
+    "d40.md",
+    "d41.md",
+    "d42.md",
+    "d43.md",
+    "d44.md",
+    "d45.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "gate\\\" \\\"23:42|path traversal\\\" \\\"unpushed\\\"; do echo \\\"=== $p\\\"; grep -n -E \\\"$p\\\" d*.md | cut -c1-1300; done\", \"description\": \"Locate account switch, late firing, re-gate and review catch mentions\"}",
+   "other": false,
+   "returned_chars": 25590,
+   "new_lines": 46
+  },
+  {
+   "n": 12,
+   "tool": "Bash",
+   "files": [
+    "d04.md",
+    "d29.md",
+    "d32.md",
+    "d40.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "sed -n '98,105p' d40.md | cut -c1-400; grep -n -E \\\"\\\\b13 (new )?standing|thirteen\\\" d29.md d3[0-2].md | cut -c1-400\", \"description\": \"Verify PD-3 heading, standing acts count and module map context\"}",
+   "other": false,
+   "returned_chars": 2966,
+   "new_lines": 16
+  }
+ ],
+ "calls_elsewhere": [],
+ "answers_raw": "1. [q20] 11 (the module is `plane`)\n2. [q03] 19\n3. [q06] 23:42 on 3 Nov\n4. [q09] `refs/p3/unpushed/`\n5. [q12] 1,339\n6. [q15] 390\n7. [q18] 146 merges\n8. [q01] 60\n9. [q04] about 148K tokens a review\n10. [q07] 41\n11. [q10] 94 minutes (05:44-07:18)\n12. [q13] 81 seconds (range 59 to 81 s)\n13. [q16] 13 (D1 to D13)\n14. [q19] -1,364 lines (PR 32, +339 / -1,703)\n15. [q02] 28\n16. [q05] 87\n17. [q08] 20.6 hours later (PR 236)\n18. [q11] 5,385 files\n19. [q14] 19 messages\n20. [q17] +788 test lines\n\nMethod note: I did not read all 45 files whole. I answered from targeted searches across the full set, and read d23, d27, d28 and d45 in full.",
+ "answers": {
+  "q20": "11 (the module is `plane`)",
+  "q03": "19",
+  "q06": "23:42 on 3 Nov",
+  "q09": "`refs/p3/unpushed/`",
+  "q12": "1,339",
+  "q15": "390",
+  "q18": "146 merges",
+  "q01": "60",
+  "q04": "about 148K tokens a review",
+  "q07": "41",
+  "q10": "94 minutes (05:44-07:18)",
+  "q13": "81 seconds (range 59 to 81 s)",
+  "q16": "13 (D1 to D13)",
+  "q19": "-1,364 lines (PR 32, +339 / -1,703)",
+  "q02": "28",
+  "q05": "87",
+  "q08": "20.6 hours later (PR 236)",
+  "q11": "5,385 files",
+  "q14": "19 messages",
+  "q17": "+788 test lines"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true,
+  "q13": true,
+  "q14": true,
+  "q15": true,
+  "q16": true,
+  "q17": true,
+  "q18": true,
+  "q19": true,
+  "q20": true
+ },
+ "right": 20,
+ "right_by_kind": {
+  "last": 4,
+  "middle": 4,
+  "spread": 10,
+  "two": 2
+ },
+ "covered": false,
+ "pass": false
+}

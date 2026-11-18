@@ -1,0 +1,316 @@
+[
+ {
+  "id": "q01",
+  "kind": "last",
+  "question": "The product's module map had four later-pointing uses for about three hours on 5 Nov. Which pull request number brought the count back to two?",
+  "answer": "PR 503 (bob/modules-layer-order-2)",
+  "accept": [
+   "503"
+  ],
+  "evidence": [
+   {
+    "file": "d27.md",
+    "quote": "PR 503, `bob/modules-layer-order-2`, brought it back to two"
+   }
+  ]
+ },
+ {
+  "id": "q02",
+  "kind": "last",
+  "question": "Of the 20,473 cross-layer pairs of modules in the product's map, how many have no uses path at all?",
+  "answer": "4,907 (24%)",
+  "accept": [
+   "4,907",
+   "4907"
+  ],
+  "evidence": [
+   {
+    "file": "d27.md",
+    "quote": "4,907 of those 20,473 pairs (24%) have no uses path at all"
+   }
+  ]
+ },
+ {
+  "id": "q03",
+  "kind": "last",
+  "question": "With the three order-breaking uses kept, 27 of the 65 modules with remaining work can never start. How many of the 466 unmet marks do those 27 modules hold?",
+  "answer": "390",
+  "accept": [
+   "390"
+  ],
+  "evidence": [
+   {
+    "file": "d27.md",
+    "quote": "Those 27 hold 390 of the 466 marks."
+   }
+  ]
+ },
+ {
+  "id": "q04",
+  "kind": "last",
+  "question": "Which product pull request number added the first later-pointing edge in the module map, the declared use of agent-worker by agent-drafts?",
+  "answer": "PR 371 (bob/agentdrafts-uses)",
+  "accept": [
+   "371"
+  ],
+  "evidence": [
+   {
+    "file": "d27.md",
+    "quote": "The reverse use was added by PR 371, `bob/agentdrafts-uses`"
+   }
+  ]
+ },
+ {
+  "id": "q05",
+  "kind": "middle",
+  "question": "At the tranche's base commit, before Process3 ran, how many requirement ids did the product's 191 requirement files hold?",
+  "answer": "8,838",
+  "accept": [
+   "8,838",
+   "8838"
+  ],
+  "evidence": [
+   {
+    "file": "d13.md",
+    "quote": "191 requirement files holding 8,838 requirement ids"
+   }
+  ]
+ },
+ {
+  "id": "q06",
+  "kind": "middle",
+  "question": "How many sync merges were made in the product repository during the week of Process3, set against its 508 landings?",
+  "answer": "1,339",
+  "accept": [
+   "1,339",
+   "1339"
+  ],
+  "evidence": [
+   {
+    "file": "d13.md",
+    "quote": "1,339 sync merges in the week"
+   }
+  ]
+ },
+ {
+  "id": "q07",
+  "kind": "middle",
+  "question": "On 9 Nov two jobs, ai-accounts and credentials, sat across a deadlock on a companion-order rule. How many minutes did they take from job start to merge?",
+  "answer": "351 minutes",
+  "accept": [
+   "351"
+  ],
+  "evidence": [
+   {
+    "file": "d14.md",
+    "quote": "took 351 minutes from start to merge for 63 and 28 lines of source"
+   }
+  ]
+ },
+ {
+  "id": "q08",
+  "kind": "middle",
+  "question": "The last process pin move on the product, to process commit 38b0f3f07f, was merged to the product's tranche as which pull request number?",
+  "answer": "PR 1116",
+  "accept": [
+   "1116"
+  ],
+  "evidence": [
+   {
+    "file": "d14.md",
+    "quote": "merged to the tranche as PR 1116"
+   }
+  ]
+ },
+ {
+  "id": "q09",
+  "kind": "spread",
+  "question": "In the 2 Nov measurement made with no pull-request event reaching BOB, after how many minutes did BOB notice that attempt 1 of a job had completed?",
+  "answer": "194 minutes",
+  "accept": [
+   "194"
+  ],
+  "evidence": [
+   {
+    "file": "d02.md",
+    "quote": "with no event, BOB noticed attempt 1's completion after 194 minutes"
+   }
+  ]
+ },
+ {
+  "id": "q10",
+  "kind": "spread",
+  "question": "At what UTC time on 6 Nov was the civicsmith GitHub account suspended, according to the decision record that set the process's own push ceiling?",
+  "answer": "19:19Z",
+  "accept": [
+   "19:19"
+  ],
+  "evidence": [
+   {
+    "file": "d04.md",
+    "quote": "the civicsmith account was suspended on 6 Nov at 19:19Z"
+   }
+  ]
+ },
+ {
+  "id": "q11",
+  "kind": "spread",
+  "question": "According to the review of the 5 Nov account switch, for how many minutes were zero jobs live during the switch?",
+  "answer": "94 minutes (05:44 to 07:18)",
+  "accept": [
+   "94"
+  ],
+  "evidence": [
+   {
+    "file": "d08.md",
+    "quote": "(94 min at 0/20, against 19/20 at 05:20)"
+   }
+  ]
+ },
+ {
+  "id": "q12",
+  "kind": "spread",
+  "question": "In the analysis of module interfaces in the product, how many test imports go to a module that the importing module does not declare in its uses?",
+  "answer": "202",
+  "accept": [
+   "202"
+  ],
+  "evidence": [
+   {
+    "file": "d10.md",
+    "quote": "202 test imports go to a module the importer does not declare"
+   }
+  ]
+ },
+ {
+  "id": "q13",
+  "kind": "spread",
+  "question": "How many lines long is agent-worker's test suite, the suite that takes over six minutes to run and that the job rules warn never to stop midway?",
+  "answer": "14,700 lines",
+  "accept": [
+   "14,700",
+   "14700"
+  ],
+  "evidence": [
+   {
+    "file": "d12.md",
+    "quote": "agent-worker's suite is 14,700 lines"
+   }
+  ]
+ },
+ {
+  "id": "q14",
+  "kind": "spread",
+  "question": "On the product tranche's first-parent line since 1 Nov, how many tool merges were made by the session account named Civicsmith?",
+  "answer": "543",
+  "accept": [
+   "543"
+  ],
+  "evidence": [
+   {
+    "file": "d17.md",
+    "quote": "543 by Civicsmith and 144 by believeinoakland"
+   }
+  ]
+ },
+ {
+  "id": "q15",
+  "kind": "spread",
+  "question": "The forensic review gave 61 process merges for 3 Nov and 75 for 4 Nov, but the first is a Pacific day and the second a UTC day. How many merges are counted in both figures?",
+  "answer": "41",
+  "accept": [
+   "41"
+  ],
+  "evidence": [
+   {
+    "file": "d23.md",
+    "quote": "41 merges are counted in both figures"
+   }
+  ]
+ },
+ {
+  "id": "q16",
+  "kind": "spread",
+  "question": "What is the highest pin label found in the coordinator's log, cited as consistent with the review's count of 98 version moves?",
+  "answer": "pin-91",
+  "accept": [
+   "91"
+  ],
+  "evidence": [
+   {
+    "file": "d24.md",
+    "quote": "the coordinator log's highest pin label is pin-91"
+   }
+  ]
+ },
+ {
+  "id": "q17",
+  "kind": "spread",
+  "question": "A lower-case tool key produced 68 false \"ruling owed by Bob\" lines. Over how many hours were those lines produced?",
+  "answer": "22.5 hours",
+  "accept": [
+   "22.5"
+  ],
+  "evidence": [
+   {
+    "file": "d25.md",
+    "quote": "68 false \"ruling owed by Bob\" lines over 22.5 hours"
+   }
+  ]
+ },
+ {
+  "id": "q18",
+  "kind": "spread",
+  "question": "From what date had the earlier process already been using the same two names, Bob for the owner and BOB for a session?",
+  "answer": "26 Sep",
+  "accept": [
+   "26 Sep",
+   "Sep 26",
+   "September 26"
+  ],
+  "evidence": [
+   {
+    "file": "d26.md",
+    "quote": "The earlier process used the same two names from 26 Sep"
+   }
+  ]
+ },
+ {
+  "id": "q19",
+  "kind": "two",
+  "question": "On 7 Nov at 04:51Z, with the account reading 121/120 pushes, BOB deferred one layer's merge by hand for about 20 minutes. At what UTC time did that layer close, per the state branch's layer close times?",
+  "answer": "16:10Z on 7 Nov (layer 10)",
+  "accept": [
+   "16:10"
+  ],
+  "evidence": [
+   {
+    "file": "d04.md",
+    "quote": "BOB deferred `layer merge 10` and the found-mark PRs 756/757 by hand"
+   },
+   {
+    "file": "d13.md",
+    "quote": "| 9, 10 | 7 Nov 03:39Z, 16:10Z | 0, 1 |"
+   }
+  ]
+ },
+ {
+  "id": "q20",
+  "kind": "two",
+  "question": "The owner's last setting of the approvals in the product's CLAUDE.md is commit 50515e4526. At what UTC time, to the second, was the pull request that carried it merged to the tranche?",
+  "answer": "16:45:44Z on 9 Nov (PR 1115)",
+  "accept": [
+   "16:45:44"
+  ],
+  "evidence": [
+   {
+    "file": "d15.md",
+    "quote": "commit `50515e4526`, merged as PR 1115"
+   },
+   {
+    "file": "d14.md",
+    "quote": "| 16:38, 16:45:44 | Owner's patch 16 to `CLAUDE.md`"
+   }
+  ]
+ }
+]

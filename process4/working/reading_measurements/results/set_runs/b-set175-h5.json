@@ -1,0 +1,236 @@
+{
+ "run": "b-set175-h5",
+ "size": "175",
+ "agent": "ac78941e0b381e3ab",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 130762,
+ "prompt_exact": true,
+ "files": 10,
+ "files_whole": 10,
+ "files_not_whole": {},
+ "files_never_named_in_a_call": [],
+ "lines_received": 966,
+ "lines_total": 966,
+ "cut_notices": 0,
+ "task_opened_at_call": 1,
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "files": [],
+   "task": true,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 3378,
+   "new_lines": 0
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "files": [
+    "d01.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16771,
+   "new_lines": 66
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "files": [
+    "d02.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 24189,
+   "new_lines": 62
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "files": [
+    "d03.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 15861,
+   "new_lines": 64
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "files": [
+    "d04.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16925,
+   "new_lines": 60
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "files": [
+    "d05.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16631,
+   "new_lines": 51
+  },
+  {
+   "n": 7,
+   "tool": "Read",
+   "files": [
+    "d06.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16052,
+   "new_lines": 37
+  },
+  {
+   "n": 8,
+   "tool": "Read",
+   "files": [
+    "d07.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16874,
+   "new_lines": 88
+  },
+  {
+   "n": 9,
+   "tool": "Read",
+   "files": [
+    "d08.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 18935,
+   "new_lines": 105
+  },
+  {
+   "n": 10,
+   "tool": "Read",
+   "files": [
+    "d09.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 9545,
+   "new_lines": 48
+  },
+  {
+   "n": 11,
+   "tool": "Read",
+   "files": [
+    "d10.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16523,
+   "new_lines": 105
+  }
+ ],
+ "calls_elsewhere": [],
+ "answers_raw": "1. [q20] 282 (282/282 with the three pull requests merged together, PD-19b; the other count is 273 pass / 3 fail, PD-19)\n2. [q03] 27 Oct 2026\n3. [q06] 34\n4. [q09] 126 (103 kept, 16 modified, 7 dropped)\n5. [q12] about 450\n6. [q15] 37.24 USD\n7. [q18] Line 203 (LOG L203)\n8. [q01] 4,841\n9. [q04] 8.7% (117 of 1,338)\n10. [q07] 250 KB\n11. [q10] 194 minutes\n12. [q13] 19:19Z\n13. [q16] 1,760\n14. [q19] process3 PR 256 (the earlier record is PD-13; PD-22 ended its hand-run hook)\n15. [q02] 8,250\n16. [q05] 09:04Z (8 Nov)\n17. [q08] 19d1e91\n18. [q11] $26\n19. [q14] 1,690 (640 undefined classes plus 1,050 DEC-340 overlaps)\n20. [q17] `17 11 * * *`",
+ "answers": {
+  "q20": "282 (282/282 with the three pull requests merged together, PD-19b; the other count is 273 pass / 3 fail, PD-19)",
+  "q03": "27 Oct 2026",
+  "q06": "34",
+  "q09": "126 (103 kept, 16 modified, 7 dropped)",
+  "q12": "about 450",
+  "q15": "37.24 USD",
+  "q18": "Line 203 (LOG L203)",
+  "q01": "4,841",
+  "q04": "8.7% (117 of 1,338)",
+  "q07": "250 KB",
+  "q10": "194 minutes",
+  "q13": "19:19Z",
+  "q16": "1,760",
+  "q19": "process3 PR 256 (the earlier record is PD-13; PD-22 ended its hand-run hook)",
+  "q02": "8,250",
+  "q05": "09:04Z (8 Nov)",
+  "q08": "19d1e91",
+  "q11": "$26",
+  "q14": "1,690 (640 undefined classes plus 1,050 DEC-340 overlaps)",
+  "q17": "`17 11 * * *`"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true,
+  "q13": true,
+  "q14": true,
+  "q15": true,
+  "q16": true,
+  "q17": true,
+  "q18": true,
+  "q19": true,
+  "q20": true
+ },
+ "right": 20,
+ "right_by_kind": {
+  "last": 4,
+  "middle": 4,
+  "spread": 10,
+  "two": 2
+ },
+ "covered": true,
+ "pass": true
+}

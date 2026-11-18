@@ -1,0 +1,161 @@
+{
+ "run": "b-set100-h4",
+ "size": "100",
+ "agent": "a36965ac76d96a38f",
+ "model": "claude-fable-5-2",
+ "context_tokens_at_end": 99976,
+ "prompt_exact": true,
+ "files": 5,
+ "files_whole": 5,
+ "files_not_whole": {},
+ "files_never_named_in_a_call": [],
+ "lines_received": 433,
+ "lines_total": 433,
+ "cut_notices": 0,
+ "task_opened_at_call": 1,
+ "calls": [
+  {
+   "n": 1,
+   "tool": "Read",
+   "files": [],
+   "task": true,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 3358,
+   "new_lines": 0
+  },
+  {
+   "n": 2,
+   "tool": "Read",
+   "files": [
+    "d01.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16771,
+   "new_lines": 66
+  },
+  {
+   "n": 3,
+   "tool": "Read",
+   "files": [
+    "d02.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 24189,
+   "new_lines": 62
+  },
+  {
+   "n": 4,
+   "tool": "Read",
+   "files": [
+    "d03.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 15861,
+   "new_lines": 64
+  },
+  {
+   "n": 5,
+   "tool": "Read",
+   "files": [
+    "d04.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16925,
+   "new_lines": 60
+  },
+  {
+   "n": 6,
+   "tool": "Read",
+   "files": [
+    "d05.md"
+   ],
+   "task": false,
+   "offset": null,
+   "limit": null,
+   "allow_large": null,
+   "target": "",
+   "other": false,
+   "returned_chars": 16631,
+   "new_lines": 51
+  }
+ ],
+ "calls_elsewhere": [],
+ "answers_raw": "1. [q20] 08:51Z (the audit opening PD-13's context, the record BD-R2 cites)\n2. [q03] 34\n3. [q06] process3 PR 36\n4. [q09] 126 (103 kept, 16 modified, 7 dropped)\n5. [q12] 194 minutes\n6. [q15] 19:19Z\n7. [q18] 63 failures (of 238 steps)\n8. [q01] 09:04Z\n9. [q04] 273 passed (3 failed)\n10. [q07] MSG-7\n11. [q10] @Sparky2\n12. [q13] $26\n13. [q16] 173\n14. [q19] 25 Sep (build/layers.md; the year is not stated)\n15. [q02] c2e2567196\n16. [q05] about 450\n17. [q08] two weeks\n18. [q11] 29 Oct (the year is not stated; the document itself is dated 2026)\n19. [q14] about 50\n20. [q17] 1,690 (640 undefined classes plus 1,050 DEC-340 overlaps)",
+ "answers": {
+  "q20": "08:51Z (the audit opening PD-13's context, the record BD-R2 cites)",
+  "q03": "34",
+  "q06": "process3 PR 36",
+  "q09": "126 (103 kept, 16 modified, 7 dropped)",
+  "q12": "194 minutes",
+  "q15": "19:19Z",
+  "q18": "63 failures (of 238 steps)",
+  "q01": "09:04Z",
+  "q04": "273 passed (3 failed)",
+  "q07": "MSG-7",
+  "q10": "@Sparky2",
+  "q13": "$26",
+  "q16": "173",
+  "q19": "25 Sep (build/layers.md; the year is not stated)",
+  "q02": "c2e2567196",
+  "q05": "about 450",
+  "q08": "two weeks",
+  "q11": "29 Oct (the year is not stated; the document itself is dated 2026)",
+  "q14": "about 50",
+  "q17": "1,690 (640 undefined classes plus 1,050 DEC-340 overlaps)"
+ },
+ "marks": {
+  "q01": true,
+  "q02": true,
+  "q03": true,
+  "q04": true,
+  "q05": true,
+  "q06": true,
+  "q07": true,
+  "q08": true,
+  "q09": true,
+  "q10": true,
+  "q11": true,
+  "q12": true,
+  "q13": true,
+  "q14": true,
+  "q15": true,
+  "q16": true,
+  "q17": true,
+  "q18": true,
+  "q19": true,
+  "q20": true
+ },
+ "right": 20,
+ "right_by_kind": {
+  "last": 4,
+  "middle": 4,
+  "spread": 10,
+  "two": 2
+ },
+ "covered": true,
+ "pass": true
+}
