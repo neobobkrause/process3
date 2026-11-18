@@ -1301,3 +1301,4 @@
 - 23:52Z hourly: unchanged; copy stopped ~7 h; waiting on Bob's "go" for ROOT.
 - 00:52Z 10 Nov: unchanged (copy stopped ~8 h, waiting on Bob's "go" for ROOT). Hourly check switched off until Bob answers; nothing can move before then. Re-enable trig_014pGSG9SpN1hGVg2dvzW2De once ROOT runs.
 - 17:01Z 16 Nov: the Phase 1 survival read fired. There is no BOB to run it: the copy has been stopped since 9 Nov ~16:45Z (no ROOT; Bob not answered). Owed: to run once a BOB exists. Seen: Bob's own session 'Process3 self-corruption review' (13 Nov).
+- 17:01Z 18 Nov: the Phase 2 survival read fired. Still no BOB (copy stopped since 9 Nov ~16:45Z; no ROOT; Bob not answered). Both reads owed until a BOB exists. Seen: Bob's own session 'Process4 design analysis' (17 Nov).
