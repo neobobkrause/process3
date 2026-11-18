@@ -1,6 +1,6 @@
 # Handoff from the design session of 18 Nov 2026
 
-Length: 58 lines. Last section: "Practical notes".
+Length: 65 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff. Where it differs from `handoff_18nov_review_session.md` or `handoff_18nov_measurements_session.md`, this one rules. Read it whole, then the seventh draft whole.
 
@@ -11,14 +11,20 @@ Written by Claude for the session that takes over. It is the latest handoff. Whe
 - The "But" that ended his earlier message was a typo. Nothing is owed on it.
 - He does not want to be told what will be done. Do the work, then say what was done. Do not stop while work remains.
 
+## The first thing owed to Bob
+
+His words, at the refresh: "now we need to walk through the work that remains. Let's refresh before taking that one." So the successor's first act with him, after its reading, is to walk him through the work that remains: in plain words, in an order he can follow, saying for each piece what it is, whose it is (his, or a session's), what it waits on, and what is proven and what is not. The sources are the design's part 10 (all six sections), build text 4 (sections 2 to 5), and "Next, in order" below. Do not start with a question to him; start with the walk-through. He asked for the refresh at 35 percent fill, his own reading of this session.
+
+He also asked to download the seventh draft. A single file of the eleven parts joined in order was sent to him. It is not in the repository. If the draft changes and he asks again, join the parts afresh and send the file.
+
 ## Where things are
 
 Branch `claude/process4-design-handoff-7w8nh8`. Everything is pushed.
 
 - **The design:** `process4/definition/process4_definition_v7/`, eleven parts. It rules. Its part 10 lists what waits for Bob, what design work is left, and what is unproven.
-- **The build texts:** `process4/definition/process4_build_v1/`. `01-the-tool-and-the-required-run.md`, `02-the-forms.md`, `03-the-walks.md`, and `starting_texts/` (eight role texts and an index). Written by workers on 18 Nov. Nothing in them has run.
+- **The build texts:** `process4/definition/process4_build_v1/`. `01-the-tool-and-the-required-run.md`, `02-the-forms.md`, `03-the-walks.md`, `04-the-trial.md`, `05-the-records-and-following.md`, and `starting_texts/` (eight role texts and an index). Written by workers on 18 Nov. Nothing in them has run.
 - **Design work behind the decisions:** `process4/working/design_work_18nov/` (the shared state's carrier, a told job's tests, the owner's acts and a proposal for his approvals' wording).
-- **Checks made today:** `process4/working/readiness_18nov/`: `draft7_recheck_design_state.md`, `draft7_recheck_corrections_and_consistency.md`, `draft7_unmarked_lines_traced.md`, `draft7_quotations_checked.md`, `draft7_final_check.md`, `background_checked_against_draft7.md`, and `build_texts_reconciled.md` once the reconciling worker reports.
+- **Checks made today:** `process4/working/readiness_18nov/`: `draft7_recheck_design_state.md`, `draft7_recheck_corrections_and_consistency.md`, `draft7_unmarked_lines_traced.md`, `draft7_quotations_checked.md`, `draft7_final_check.md`, `background_checked_against_draft7.md`, `build_texts_reconciled.md`, `background_rewritten.md`, `design_and_build_final_check.md` and `build_texts_after_final_check.md`.
 - **The design state** (`design_state_18nov.md`) is no longer the fullest statement. The seventh draft carries every rule of it and many decisions made since. Where they differ the draft is later.
 
 ## What this session did
@@ -55,4 +61,5 @@ Process4 has not run and its tool is not built. Part 10, section 3 of the draft 
 - An attempt to attach `neobobkrause/process3-probes` for reading was refused by the permission checker and was not retried. The proof of the notice's method is there. Bob would have to add it to a session.
 - Workers that write a file while another commit is made get their half-written file swept into that commit. It is harmless; commit again when they finish.
 - After any edit to a part of the draft, make its "Length" line true again.
-- The fill level in force is 40 percent. This session was below it when this was written.
+- The fill level in force is 40 percent. This session was refreshed at 35 percent, on Bob's word.
+- The background document is `process4/working/foundations_updated/`, eleven parts, rewritten on 18 Nov. It is not required reading before the walk-through.
