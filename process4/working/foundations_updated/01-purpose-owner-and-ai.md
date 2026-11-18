@@ -10,8 +10,8 @@ Process4 replaces Process3, which built one product from 3 to 9 Nov 2026. What i
 
 | What happened | Figure | Where it is recorded |
 |---|---|---|
-| No tranche reached the main branch | None merged | The sixth draft, `definition/process4_definition_v6.md`, line 13; the owner's words below |
-| No walk of either kind finished without flaws | None | The same draft, lines 13 and 275 |
+| The one tranche never closed | "The tranche never closed, so no tranche report was written" | `working/k_evidence.md`, line 221; the owner's words below |
+| No walk of either kind finished without flaws | None | The sixth draft, `definition/process4_definition_v6.md`, lines 13 and 275, marked measured there |
 | No version was released | None | `evidence/review.txt`, line 325: "There was no released version" |
 | The process's bookkeeping outgrew the product's work | 12,881 of 18,295 commits (70 percent) were on the branch that held the process's own records | `evidence/product_side.md`, lines 23 and 70 |
 | Sessions changed the process as they went | 270 of 296 merges into the process's working branch were made by the sessions' accounts, 26 by the owner | `working/enforcement_levers.md`, line 31 |

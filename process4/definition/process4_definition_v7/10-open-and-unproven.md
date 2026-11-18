@@ -1,6 +1,6 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 103 lines. Last section: "6. Risks with no trial".
+Length: 105 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
@@ -66,6 +66,8 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 
 - The trial runs in the trial repository, on a few small made-up modules built by the whole chain of sessions. **Claude decided** that it needs the owner for one sitting: session starts, one edit to his approvals, one stop, and three short marked instructions. The account switch, item 15, adds his acts in a second account.
 - A trial can break a claim. It cannot prove one. Proof is the first real tranche.
+
+The order in which these are built and tried, the most doubtful first, and what each stage asks of the owner, is the build text `04-the-trial.md`.
 
 **Claude decided** this list. What the trial rehearses, each once unless a number is given:
 
