@@ -1,6 +1,6 @@
 # Handoff from the measurements session of 18 Nov 2026
 
-Length: 52 lines. Last section: "Practical notes".
+Length: 57 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. Read `handoff_18nov_review_session.md` whole first, then `design_state_18nov.md` whole, then this. Where this file and the earlier handoff differ, this one is later.
 
@@ -39,9 +39,14 @@ It took over from the review session, read both files above in full (63 and 142 
 
 ## Next, in order
 
-1. Put each matter in `readiness_18nov/DETERMINATION.md` section 4 to Bob in full: a title, the question, an explanation, options each with what it gives and costs, and a recommendation with reasons.
-2. Design work on the twelve open items in its section 3.
-3. Then the design document, and the steps listed under "After the measurements" in the earlier handoff.
+1. Read the seventh draft in full: the eleven parts of `process4/definition/process4_definition_v7/`, 75,892 bytes together.
+2. Put to Bob, one at a time and in full, the matters only he can settle. They are listed in the draft's part 10, section 1. Each needs a title, the question, an explanation, options each with its own identity, and a recommendation with reasons. Short yes-or-no rows have been sent back before.
+3. As he answers, record each decision in the design state and rewrite the draft's entry in place, in the same step.
+4. Do the open design work in the draft's part 10, section 2, and report each result to him in one plain line.
+5. Have the corrected draft checked once more by a fresh worker. The two earlier checks were of the draft before its corrections.
+6. Then the steps under "After the measurements" in the earlier handoff that are still owed: checking `foundations_updated/` against the draft, and the product's conversion plan.
+
+Not this session's work unless Bob says: the second measurement. Its starting prompt is `reading_measurements/RERUN_PROMPT.md`, and it has not been started.
 
 ## Practical notes
 
