@@ -68,7 +68,7 @@ GitHub's published limits as recorded here [repo: `levers` section 4.1, from doc
 
 ## 5. The proposal
 
-**Carrier.** One issue in the product's repository, titled "Process4 shared state", carrying the label `process4-state`. The issue's own body holds no record: only two fixed lines saying what the issue is and that the tool writes it. PROCESS's handover lives here too, so that one read gives ROOT everything.
+**Carrier.** One issue in the product's repository, titled "Process4 shared state", carrying the label `process4-state`. The issue's own body holds no record: only two fixed lines saying what the issue is and that the tool writes it. PROCESS's handover lives here too, so that one read gives ROOT everything. (Overruled since: the design and build text 5 keep PROCESS's handover in the process's own repository, and they rule.)
 
 **Layout.** One comment for each record. Twelve comments at the start, more only when a lane is opened.
 

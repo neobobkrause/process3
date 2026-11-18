@@ -25,7 +25,7 @@ Before stage 0:
 
 Nothing below can start until these are done. They are his alone.
 
-**Who builds.** The tool is first built by a building session that holds the process's repository alone. It puts there the tool in `tool/`, the workflow in `shims/`, the starting texts in `starting_texts/`, the design's eleven parts in `design/` and the build texts in `build/` (build text 1, section 2). Until the tool can merge, the owner merges each of that session's pull requests himself (the design, part 4, section 11). Not written: how that session pushes and opens its pull requests before the tool exists.
+**Who builds.** The tool is first built by a building session that holds the process's repository alone. It puts there the tool in `tool/`, the workflow in `shims/`, the starting texts in `starting_texts/`, the design's eleven parts in `design/` and the build texts in `build/` (build text 1, section 2). Until the tool can merge, the owner merges each of that session's pull requests himself (the design, part 4, section 11). Until the tool exists it pushes to its own working branch and opens its pull requests by the harness's ordinary means, as the owner's present approvals allow (the design, part 4, section 11).
 
 **Stage 4** cannot start until the owner has given a session the repository that holds the notice's proof.
 
@@ -97,7 +97,7 @@ Tried:
 
 Needs first: the owner enters the development copies' hosts among the cloud environment's allowed hosts.
 
-Built: the walk commands; the walking session's text; one made-up product of two screens with a one-page Screens document and two journeys, and its `deploy` commands in the process config (build text 2, section 7).
+Built: the walk commands; the walking session's text; the lane's text, used for the UX lane, which keeps the made-up product's two documents; one made-up product of two screens with a one-page Screens document and two journeys, and its `deploy` commands in the process config (build text 2, section 7).
 
 Tried, in the order of build text 3, section 8: a session builds and serves the product and opens it in its browser; one internal step and one part walked by hand find a planted mismatch; the flaw is written, placed and fixed by a job; ARCH names areas from planted changes whose areas are known beforehand; a deployment is made from a session in timed steps; a browser reaches the development site; two walking sessions walk at once, with the hosting account's use read before and after; several sessions share one walk (items 8 and 14).
 
