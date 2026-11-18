@@ -40,7 +40,7 @@ For a session to do, and to report.
 
 Process4 has never run and its tool is not built. Nothing below has been shown to work as this design uses it.
 
-- **The tool,** and merges made by it passing the permission checker at a real rate.
+- **The tool,** and merges made by it passing the permission checker at a real rate. First of all: that a program run by a session can reach GitHub at all (part 7, section 3).
 - **The shared state,** and a successor starting only from it.
 - **A ROOT started by a plain prompt** coming up on the owner's newest approvals and acting as ROOT.
 - **Replacing ARCH while jobs are open.**

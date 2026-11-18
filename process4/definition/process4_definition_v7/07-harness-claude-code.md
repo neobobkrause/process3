@@ -1,6 +1,6 @@
 # Part 7. The harness table for Claude Code
 
-Length: 69 lines. Last section: "4. The owner's acts to start a product".
+Length: 70 lines. Last section: "4. The owner's acts to start a product".
 
 Everything in this part is specific to Claude Code.
 
@@ -50,6 +50,7 @@ From the first measurement of 18 Nov, on one model with a 1,000,000-token window
 - Whether approvals that reach a session after its start count the same as approvals read at the start.
 - Whether a session's browser can reach the development site.
 - How many live sessions the account bears. New starts once failed silently at about fifty.
+- Whether the tool, a program, can still reach GitHub from a session. The earlier process's tool did, through the `gh` program, as its code records. On 18 Nov one session reported that program's sign-in invalid in its environment, and another was told to use it for searching only. If a program cannot reach GitHub, the tool cannot be a session's door to it, and the shared state cannot be carried as the design has it. This is the first thing the trial must show.
 
 ## 4. The owner's acts to start a product
 
