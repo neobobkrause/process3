@@ -1,6 +1,6 @@
 # Part 3. The tranche, rounds, walks, and release
 
-Length: 72 lines. Last section: "8. Support beyond the process".
+Length: 73 lines. Last section: "8. Support beyond the process".
 
 ## 1. Opening a tranche
 
@@ -58,6 +58,7 @@ The coordinator gives the owner a short account: jobs done, flaws found, flaws c
 - **Reading:** the install and the update run on a development account; "successful" means the installer or updater finishes without error and the site it produced starts; on a failure no release is offered and the fault becomes work in the next tranche.
 - ARCH prepares the release and waits for the owner's approval. No session publishes a release without it.
 - **Open (the owner):** who carries out the act of publishing once he has approved. **Reading:** ARCH publishes the release in the product's repository; promoting it to installed sites is the owner's, by the written procedure (section 8).
+- **Claude decided** how his approval reaches the publishing session, if ARCH publishes: ARCH prepares the release unpublished and the coordinator puts it on his standing page. He types his approval in ARCH's own session, as a marked decision naming that release. ARCH publishes in that turn and passes his words to the coordinator for the record. Approval relayed through another session is not used, because the permission checker has declined consent that was only quoted. **Unproven:** that the checker accepts an approval typed this way.
 - With each release the process writes what changed, what the update does to stored data, and how to go back.
 - **Unproven:** the whole release path. No release of any kind has been made by sessions.
 
