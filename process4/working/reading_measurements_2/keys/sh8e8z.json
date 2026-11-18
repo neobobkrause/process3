@@ -1,0 +1,202 @@
+{
+ "id": "sh8e8z",
+ "ladder": "single",
+ "size": 192000,
+ "index": 3,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__probes-pin-for-bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__account-switch.md",
+   "lines": "1-33"
+  }
+ ],
+ "files": [
+  "reading2/sh8e8z/principles.md"
+ ],
+ "bytes": 191917,
+ "lines": 1180,
+ "task": "rle",
+ "values": {
+  "code1": "U8N-9075",
+  "code2": "J5G-3840",
+  "w_last": "umberfield",
+  "w_name": "dunmore",
+  "w_desk": "bramblewick",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Kwabena Asantewaa",
+  "family": "gemstones",
+  "members": [
+   "topazes",
+   "garnets",
+   "zircons",
+   "emeralds",
+   "opals",
+   "pearls",
+   "rubies",
+   "amethysts",
+   "sapphires",
+   "agates"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed J5G-3840",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.02919373940297367,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed J5G-3840`.",
+   "probe": "run closed J5G-3840",
+   "frac_actual": 0.0293,
+   "line": 90,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref U8N-9075",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.48012290002918556,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref U8N-9075`.",
+   "probe": "# ref U8N-9075",
+   "frac_actual": 0.4778,
+   "line": 503,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under umberfield",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9217788181405602,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under umberfield`.",
+   "probe": "-- filed under umberfield",
+   "frac_actual": 0.9172,
+   "line": 1055,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.14314502406121676,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.1407,
+   "line": 195,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5325521237498495,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.5325,
+   "line": 578,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 8,
+   "frac": 0.08613236952839504,
+   "body": "Tally for Eyre: 8 topazes.",
+   "probe": "Tally for Eyre: 8 topazes.",
+   "frac_actual": 0.072,
+   "line": 132,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 16,
+   "frac": 0.38155338452545806,
+   "body": "Wick desk entered 16 garnets on the sheet.",
+   "probe": "Wick desk entered 16 garnets on the sheet.",
+   "frac_actual": 0.3792,
+   "line": 387,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 19,
+   "frac": 0.49153058488906287,
+   "body": "The Thorpe store took in 19 zircons.",
+   "probe": "The Thorpe store took in 19 zircons.",
+   "frac_actual": 0.4904,
+   "line": 527,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 9,
+   "frac": 0.7674302297201231,
+   "body": "A box of 9 emeralds came through Marsh Lane.",
+   "probe": "A box of 9 emeralds came through Marsh Lane.",
+   "frac_actual": 0.7709,
+   "line": 824,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "opals",
+   "n": 12,
+   "frac": 0.9577335917068277,
+   "body": "Received at Osk, 12 opals.",
+   "probe": "Received at Osk, 12 opals.",
+   "frac_actual": 0.9571,
+   "line": 1112,
+   "hits": 1,
+   "file": "reading2/sh8e8z/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 64
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,581 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+# [file] lane-charters.md
+
+# Lane charters in earlier Civicsmith process versions
+
+Research notes for SES-23 (Foundations, "Lane qualification", Bob's words of 6 Nov: "The lane charters used in earlier process versions included an investigation design lane and a publication design lane"). What each earlier design lane owned, what it was forbidden, how it started, and how it related to the others. Read-only research, 6 Nov 2026.
+
+Sources are abbreviated as follows:
+- `copy` = neobobkrause/civicsmith-copy. Branch heads read: `main` @ `0dea5a6efd`, `design/investigation` @ `87134cce53`, `design/actions` @ `9185526c7d`, `lane/ux` @ `4f21de194b`. Before it was named Civicsmith (DEC-124) this was believeinoakland/bio.
+- `K<n>` = a line in `build/rulings.md` on `copy` main @ `0dea5a6efd`.
+- Artifacts are cited by URL.
+
+**Main finding.** No earlier charter, lane, branch or ruling names a "publication design" lane. The lane that sat beside INVESTIGATION-DESIGN was **ACTIONS-DESIGN** (and before it ACTION_DESIGN #1). Its product area is "Publication & action" in BOB #333's area table, and that table lists the area's lane as "none". Bob's "publication design" most likely means this actions lane. That is an inference, and Bob should confirm it. Details are in section 4.
+
+Neither of the two design lanes had a file called `CHARTER.md`. Each was chartered by a K ruling and by BOB's start message, and that message was never committed. Its rules were restated in the lane's own `RESUME.md`. `CHARTER.md` files exist only for the later study lanes (AI-DESIGN, JOURNEYS, PERFORMANCE, READING-ARCHITECTURE, ASSISTANT-HOSTING).
+
+## 1. The common pattern: design sessions (K592, K945)
+
+- **K592 (2026-09-30), the first general rule for design lanes.** It was made when ACTION_DESIGN #1 ran. Quote: "A design session (ACTION-DESIGN #1 and any like it) works with Bob on design only: rulings, requirement drafts, UX paths and views, on its own branch under `docs/development/<its area>/`. It never writes `build/`, product code, canon or `main`, never merges its branch, and starts no jobs or sessions. It hands BOB its drafts; BOB records Bob's rulings, folds the drafts into the build state at a tranche boundary". Bob's words that prompted it: "make sure that this session only does design; you manage action development as you do all other development, in tranches with layers".
+- **K945 (2026-10-01), the UX design stream.** Every later design lane was modelled on it, by K2076 and then K2433.
+- **Later lanes register** (`build/rulings-active.md`:39, `copy` main). Quote: "Lanes (...): UX-DESIGN (its charter includes dashboard-style entry points per area, K3053), PROCESS-REDESIGN (...), INVESTIGATION-DESIGN (each hand-off folded into requirements, answered with a K; K2076), AI-DESIGN, JOURNEYS, PERFORMANCE (K4351); BOB reads each `HANDOFF.md` at takeover and each backstop, each defect an entry (K3551); lanes change no code."
+
+## 2. INVESTIGATION-DESIGN (investigation design lane)
+
+**Charter.**
+- K2076 (2026-10-07), Bob's direction, and `build/manifest.md` §"Parallel work: the investigation design lane" (`copy` main).
+- Bob's words: "Does it make sense to spawn a separate lane for working through the design of the investigation engine and those things around it? If so, please do so."
+- BOB's reason for agreeing: the design is a long dialogue with Bob, and held in BOB's session it "would grow the context every T36 turn re-reads, P13".
+
+
+Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed K9S-8763`.
+
+**What it owned**
+- The design of "the investigation engine and the project as an investigation (K1627, K2064, K2075)" (manifest §).
+- Its folder: "writing only `docs/development/investigation-design/`" on branch `design/investigation`, cut from `main` @ `0ced0143a8` (K2076).
+- Bob's decisions, numbered as D-numbers: "Bob's decisions are D-numbers (D1–D24 kept, D25 on), never K or DEC" (K2076). They are recorded in `DECISIONS.md` (D1–D66 by the end, per `build/plan/archive/drafts/draft-T41-investigation.md`).
+- One working design document, rendered for Bob. In H3, Bob asked for one document "that we can use to carry the research, questions, and design forward". The lane produced `investigation-design.html`, https://claude.ai/artifact/QjSSFHE78G9PtwKhpW5ZEo (HANDOFF.md H3, `design/investigation` @ `87134cce53`). An earlier page 1 is at https://claude.ai/artifact/EZoYvGdvkX2F6jNogG9vNP, and the study S1 at https://claude.ai/artifact/6cHHcybJpV3SPf25wVmeLN.
+- Hand-offs: "it hands off through `HANDOFF.md` (`H<n>`), which BOB reads at takeover and every backstop check and answers with a K" (K2076). It wrote H1–H43.
+- The canon draft. The design was approved by Bob on 2026-10-09 (K2417) and placed by BOB as `docs/architecture/BIO_Investigation_v0_1.md` (K2419–K2421; RESUME.md @ `87134cce53`).
+
+**What it was forbidden**
+- "never `build/`, canon, product code or `main`" (K2076).
+- Requirements were not its own: "requirements stay BOB's (P5, N748)" (K2076).
+- Screens were not its own: "screens owed to the UX stream" (K2076).
+- It minted no K or DEC numbers.
+- K2076 adds: "No mechanics change: like the UX stream it runs beside the process, not in it".
+
+**How it started and qualified**
+- "Its first act joins the open D-decisions with K2075's plan construct on one rendered page; BOB forwards it the mapping worker's report" (K2076).
+- That mapping report was `build/plan/archive/drafts/study-K2075-mapping.md`, "a worker's report for BOB #134, ... read-only research; for INVESTIGATION-DESIGN #1".
+- It also inherited the earlier study branch `study/investigation` (`synthesis/architecture.md`; K2064).
+- The brief itself was "BOB #134's start message (design lane, K2076)" (RESUME.md first version @ `cd0c00daa6`). That message is not in the repository.
+
+**Succession and end**
+- #1 asked for a successor at half its context. #2 was started "told to follow its `RESUME.md`" (K2398).
+- Final state: "**Complete.** ... The canon document is the source of truth. This folder ... is the history of how it was reached. A future session starts here only if Bob asks for more design work on investigations" (RESUME.md @ `87134cce53`).
+
+**Bob's standing direction to the lane** (RESUME.md @ `cd0c00daa6`)
+- "Always provide proper and sufficient context when posting questions".
+- "Think each point through against what makes sense for members doing an investigation in Civicsmith, not only against what requirements currently say".
+- The lane's own details are "marked 'detail' ... reported, not asked".
+
+**Relation to other lanes**
+- Screens and names went to UX-DESIGN by NOTICE, for example H1's "Owed to the UX stream" and N821.
+- Bob's D43 in this lane ("support members through the action plan", "Not today") created the actions lane: K2382, N817, then K2433.
+
+## 3. UX-DESIGN (the UX design stream; later the "ux" lane)
+
+
+Eyre sent word of 12 larches on hand.
+
+**Charter.**
+- K945 (2026-10-01), Bob's.
+- `build/manifest.md` §"Parallel work: the UX design stream" (`copy` main).
+- `docs/development/ux-substrate/README.md` and `HANDOFF.md` §1–§7 (`copy` main @ `0dea5a6efd`). §1–§7 of HANDOFF.md serve as its standing charter: "section 0 is the state as handed over, sections 1 to 7 your role" (NEXT-SESSION-PROMPT.md).
+
+**What it owned**
+- "It writes `docs/development/ux-substrate/`, mints **DEC** ids (DEC-96 onward) for Bob's UX rulings, and amends canon documents under `docs/architecture/`" (manifest §).
+- It recorded rulings in `docs/development/DECISIONS.md` (README.md "Working alongside").
+- Every screen, journey and word: the design-phase pages (principles, brand and voice, journeys, visual language, layouts and screens, dashboards, measures map) and the words tables (README.md list; HANDOFF.md §5 table of pages with artifact URLs).
+- Main artifacts:
+  - Screens: https://claude.ai/artifact/MjC8pWKDj5PrYwm417GLAV
+  - UX Substrate: https://claude.ai/artifact/JsPZAftab91EL9Ut91qWGx
+  - Design Principles: https://claude.ai/artifact/MvsMPnJnk3o32FBeqgdxT1
+- Detail beneath Bob's UX rulings: "Detail beneath his UX rulings ('Design's') is yours: decide it, record it, report it as done" (HANDOFF.md §2).
+- Scope widened over time:
+  - K3053: "The front door certainly needs to be included in the UX design, as does the installer" (rulings-active: "its charter includes dashboard-style entry points per area").
+  - K3460 (2026-10-15), Bob: "pass UX design issues over to that lane so that you can stay focused". UX findings (layout, wording, flow, look) go to UX-DESIGN as HANDOFFs, and BOB keeps what is broken.
+
+**What it was forbidden**
+- "you never start, message or steer its sessions" (the development process's sessions; HANDOFF.md §1).
+- "Never write `build/`" (§1).
+- No force-push, no rewriting `main`, and Cloudflare account `20b533579290b9b93168345edd3b7f72` only (§1).
+- K numbers are BOB's alone, and a ruling Bob made through BOB is cited, never re-ruled (README.md, recording rules 1–3).
+- The protection runs the other way too. The process "never edits, reverts or re-words `docs/development/ux-substrate/` or that stream's canon amendments, and a merge conflict with them is resolved by keeping its text" (manifest §; K945).
+
+**How it ran**
+- It ran on Bob's primary account, outside the process, through the cross-account channel (`build/channels.md`: `UX-DESIGN`, outbox `mail/UX-DESIGN`, entries `U<n>`).
+- PRs from `claude/gallant-brown-zg0wc1` were merged by BOB at a tranche close after a MERGE entry (HANDOFF.md §1).
+- Successions:
+  - Each successor started from `NEXT-SESSION-PROMPT.md`.
+  - K5295: "A refresh of this lane is BOB's from now on, never brought to Bob".
+  - The successor archives its predecessor "so only one session answers Bob's comments" (HANDOFF.md preamble).
+- **No research or qualification step is stated** for this lane's start. Takeover is a reading list (CLAUDE.md, HANDOFF.md whole, then what is new on the channel; NEXT-SESSION-PROMPT.md).
+
+
+Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Kwabena Asantewaa`.
+
+**Current form** (not an old charter; for comparison)
+- `process/config.json` on `lane/ux` @ `4f21de194b` lists the lane `{"name":"ux","dir":"docs/development/ux-substrate/"}`.
+- `CLAUDE.md` there (5 Nov): "Design lanes, run under BOB, own their lane folders, the design stream (docs/development/ux-substrate) included, and each lane runs as one session at a time. Within the product's principles they decide design and wording there. Their design documents are claude.ai artifacts, not repository files."
+
+## 4. ACTIONS-DESIGN (actions design lane). Probably what Bob calls "publication design".
+
+**Charter.**
+- K2433 (2026-10-09), Bob's direction. Bob: "We now need to dive every bit as deeply into the requirements, current capabilities, additional capabilities needed, design, and use cases of Actions. Given that this is likely to be a significant scope of work, I suggest that this work be done in a separate channel."
+- Rules restated in `docs/development/actions-design/RESUME.md` §"Rules of the lane" (`design/actions` @ `9185526c7d`).
+
+**What it owned**
+- "modelled on the investigation lane (K2076): it writes only `docs/development/actions-design/` on its branch" (`design/actions`, from `main` @ `8af83ac942`).
+- Bob's decisions as "Actions D<n>".
+- Hand-offs as `HANDOFF.md` `H<n>`, "read by BOB at takeover and each backstop check and answered with a K" (K2433).
+- Purpose: "The lane researches, maps, and designs how Civicsmith supports members through the action plan, and ends with a canon draft and a hand-off to BOB for requirements" (RESUME.md).
+- Outputs:
+  - Research R1–R6.
+  - Twenty use cases U1–U20.
+  - The synthesis S1.
+  - D1–D24.
+  - `DESIGN.md`.
+  - The canon draft `BIO_Action_v0_2.md`.
+  - `REQUIREMENTS-HANDOFF.md` (H31).
+- Pages:
+  - https://claude.ai/artifact/JH9AK7rgmxRNR9QjPL3s5d (Actions Design)
+  - https://claude.ai/artifact/8Ke3MafpR8R4knFDtiMEWx (Action Canon Draft)
+  - Earlier: https://claude.ai/artifact/3LPhoZ6geoYBnt7XvDqUM8
+- Publication was in scope where actions touch it. The signing view and the "case-authoring or publication" modules received Actions D13 (N880, `mail/BOB.md`:1261). Publication §3 rule 15(d) was flagged stale in H2.
+
+**What it was forbidden**
+- "Write ONLY `docs/development/actions-design/` on `design/actions`. Never `build/`, canon (`docs/architecture/`), product code, `docs/development/ux-substrate/`, or `main`" (RESUME.md).
+- "Requirements stay BOB's (P5). Canon changes are approved by Bob and placed by BOB."
+- "Screens are owed to the UX design stream; this lane designs behaviour, requirements, capabilities and use cases."
+- It minted no K or DEC numbers.
+
+**How it started and qualified (research first)**
+- "**Step 1, research: done.** `research/R1`–`R6` (core canon; other canon; rulings incl. UX DECs; the old 2026-09-29/30 action-design lane; the 11 action modules with tests run 2026-10-09 ...; adjacent modules and what a member can do today)".
+- Then "**Step 2, map**", "**Step 3, use cases**", "**Step 4, the decisions**" and "**Step 5**" (canon draft and requirements hand-off) (RESUME.md "Where the work stands").
+- HANDOFF H1: "It begins step 1, research of canon, rulings, requirements and built modules on actions, including the old-process lane's `docs/development/action-design/`" (HANDOFF.md H1, @ `9185526c7d`).
+- H2: "No ruling is asked of Bob yet; his questions come with the use cases (step 3) and the design (step 4)."
+
+**Predecessor: ACTION_DESIGN #1, 29–30 Sept**
+- Branch `claude/brave-johnson-5fqmix`, PR #5, folder `docs/development/action-design/`.
+- Its rulings are K590, K597, K600 and K608.
+- Its hand-off is `build/plan/action-design/HANDOFF.md` on `copy` main: "everything is under `docs/development/action-design/`, nothing in `build/`, product code or canon".
+
+**End**
+- K3469 (2026-10-15), Bob: "the ACTIONS-DESIGN lane [isn't] needed any more". Every hand-off was folded (actions H31, K2775–K2780). Its branches were kept as history.
+
+**Why "publication design" probably means this lane**
+- No lane, branch, folder or ruling named publication design exists. Searched: every `copy` branch fetched, the mail outboxes, the history of `build/rulings.md`, `build/manifest.md` and CLAUDE.md on main back to 2026-08-09, and the artifacts.
+- In BOB #333's product-area table, publication and actions are one area, "Publication & action", which owns the Publication, Case Making (case) and Action v0.2 canon. Its lane is "none". Sources: https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn §"Ten product areas"; https://claude.ai/artifact/FXfQapxoZFhKbJ4c3UzX3E §1.
+- The same table's Investigation row has the lane INVESTIGATION-DESIGN.
+
+## 5. Other lanes the old records define (briefly)
+
+- **AI-DESIGN** (K3718; `build/plan/lane-ai-design/CHARTER.md`, `copy` main).
+  - Charter: "The lane studies and recommends; it changes no product code and decides nothing."
+  - It writes only its folder on the tranche branch and reports `A<n>` in `HANDOFF.md`.
+  - Startup is a research order: "1. **What exists.** ... read whole the canon ..., the Purpose and Provides of [the agent modules] ..." then "2. **Candidate AIs**", "3. **The boundary**", "4. **Testing**", "5. **What a member sees** (... as questions for the UX design stream through BOB (never the lane's own drawings))", and "6. **The way there**".
+  - Rules: "Reading is whole, never scanned (P20, K3588); a document too large is read by workers told the task." "The lane hands over when its context passes half its window ..., and BOB starts AI-DESIGN #n+1."
+- **JOURNEYS, PERFORMANCE, READING-ARCHITECTURE, ASSISTANT-HOSTING.** These are walk and study lanes, not design lanes. Each has a `CHARTER.md` under `build/plan/lane-*/` or `build/plan/study-assistant-hosting/`, and each "changes no code and decides nothing" (manifest §§). They are not read in full here.
+- **PROCESS-REDESIGN, PROCESS-REPAIR, CAPABILITIES, FILES, PLATFORM, PLANNING, TESTS-SWEEP.** These are process or beta lanes (manifest; neoProcess §2), not product design lanes. BOB #333 notes "A lane that spans several [areas], as CAPABILITIES did, is split".
+
+## 6. Proposals about lanes in the process documents
+
+- **neoProcess** (https://claude.ai/artifact/7Jghdu6JV3beK58dkZKPsd, §2 "Who decides what")
+  - Lane row: "Has one area of focus and responsibility, unique to it. ... Delivers a design or a rule change, never product code. Which lanes a project has is the project's own: BOB defines a lane ... without Bob's approval."
+  - It also says lanes then had "rules [that] sit in a product file and in rulings".
+  - Charter size: "a handoff, a START, a charter and a worker's brief are each at most 4 KB".
+- **Civicsmith Rulebook** (https://claude.ai/artifact/J8E73nE7Y4qNczAVPTB5Sn)
+  - The Design area "Replaces today: `LANES.md` (9.6 KB), lane charters, lane rulings".
+  - "Each area ... has at most one design lane."
+  - `LANES.md` lived in the civicos-process repository, which this session cannot read (see section 7).
+- **Process3 Foundations** (https://claude.ai/artifact/RVZ8szbF1UHHSETkcGrKw8, "Lanes (SES-14)" and "Lane qualification (SES-19 to SES-23)")
+  - These hold Bob's 6 Nov words that prompted this research.
+  - The research-first startup there matches what ACTIONS-DESIGN and AI-DESIGN actually did.
+- **Keep and Drop Ledger** (https://claude.ai/artifact/GrYHFREXvm77n9Go5JEhDv)
+  - SES-14 Modify: "a lane is a knowledge directory and design responsibility plus an on-demand worker BOB starts with that directory as its reading set ...".
+  - P21 Modify: "Keep for questions that are Bob's by P17 only".
+
+## 7. What was searched and not found
+
+- **"publication design" in `copy`: not found anywhere.** Searched:
+  - The `main` tree.
+  - Branches `design/investigation`, `design/actions`, `bob/ux-design-lane`, `lane/ux`, `lane/planning`, `job/ux-design`, `bob/lane-ux-module`, `mail/BOB` and `mail/UX-DESIGN`.
+  - The pickaxe history of `build/rulings.md`, `manifest.md`, `rulings-active.md`, `handoff.md` and `CLAUDE.md` on main (2000 commits deep, back to 2026-08-09).
+  - Deleted-file history under `build/` and `docs/`. No lane or charter file was ever deleted on main: lane folders were moved to `archive/` or live on their own branches.
+- **GitHub code search: no hits.** Queries `"investigation design"`, `"publication design"`, `UX-DESIGN` and `INVESTIGATION-DESIGN`, with `user:neobobkrause`, `org:civicsmith`, `user:believeinoakland` and `repo:neobobkrause/civicsmith-copy`. The repo-scoped query also returned 0, which suggests the copy is not indexed. Global `"publication design lane"` found only unrelated repositories.
+- **Not reachable from this session (403, not attached):**
+  - `believeinoakland/civicos-process` and `neobobkrause/civicos-process`, which hold `LANES.md`, `PROCESS-MECHANICS`, the lane-neoprocess `PROTOCOL.md` and the PROCESS-REDESIGN charter.
+  - `neobobkrause/neoProcess`.
+  - `believeinoakland/bio` (the copy holds its content).
+- **Not committed anywhere:** the start messages BOB #134 (INVESTIGATION-DESIGN) and BOB #146 (ACTIONS-DESIGN) sent. Only their restatements in K2076, K2433 and the RESUME.md files survive.
+- **"CivicOS process redesign"** (https://claude.ai/artifact/MkZR9PRVDiF3gEzkox2X4Q, a Claude Doc) has nothing on lanes.
+- **Artifacts not read:** Investigation Engine (YS6bEKymPtdKZkiScS9pmc) and Actions Design (JH9AK7rgmxRNR9QjPL3s5d). They are design content, not charters.
+
+## Summary
+
+1. INVESTIGATION-DESIGN (K2076, 7 Oct) owned `docs/development/investigation-design/` on `design/investigation`, Bob's D-decisions, one rendered design doc and H-handoffs. It was forbidden `build/`, canon, code, `main`, requirements and screens. It ended by handing BOB an approved canon draft.
+2. UX-DESIGN (K945, 1 Oct) owned `docs/development/ux-substrate/`, DEC rulings, canon UX amendments, every screen, journey and word, and the published design pages. The process could never edit its files. Its successors started from NEXT-SESSION-PROMPT.md, and no research step was stated.
+3. No "publication design" lane exists in any record I could read. Its counterpart was ACTIONS-DESIGN (K2433, 9 Oct, ended K3469), which covered the "Publication & action" area. Bob should confirm the identification.
+4. All design lanes followed K592: design only, on their own branch and folder, never `build/`, code, canon or `main`, and no jobs started. BOB folds their work into requirements and answers each hand-off with a K.
+5. Research-first startup appears in ACTIONS-DESIGN (Step 1 research R1–R6 before any question to Bob) and in AI-DESIGN's charter ("What exists ... read whole"). INVESTIGATION-DESIGN started from a worker's mapping report.
+
+
+# [file] layer-branch.md
+
+# The shared layer branch
+
+The only flow: the merge train was removed (Bob, 6 Nov, as the coordinator relayed it). A product's `process/config.json` says `"merge_strategy": "layer"` or leaves the key out; any other value is refused. A product with no layer map (`layers_file`) has no layer, and its jobs keep the tranche as their base. Design: the note "Shared Layer Branch" (Bob, 5 Nov), with his rulings: no gate or test run at layer close; a rescheduled job halts its run and restarts; the tool lists the jobs, BOB starts them; at layer merge the layer's checks run, but no module suite. One small PR per publish, landed by the merge tool on a green gate, is the note's recommended implementation choice, which the coordinator adopted.
+
+The steps, with who runs each (`p3` is `node .process/tool/p3.mjs`):
+
+1. BOB: `p3 layer open <n>`. It cuts `layer/<n>` from the tranche tip and lists the jobs that can start. It refuses while an earlier layer opened this way has not merged.
+2. BOB: `p3 layer sync <n>` after every pin move made while layer n is open, before any job in it lands (SLB-12, Bob, 6 Nov). A pin move does not reach an open layer branch: the gate and the record check run the base's own tool, so `layer/<n>` keeps the tool it was cut with. Layer sync merges the tranche into `layer/<n>` by a tool-made pull request and lands it through the merge tool on a green gate. In a conflict it takes `.process` and the process's shims from the tranche and keeps each ledger entry as the layer has it; any other conflict refuses. It records a `sync` event. While `layer/<n>`'s pin differs from the tranche's, `layer jobs` and `status --role bob` lead with "run layer sync <n>", and `layer merge <n>` refuses unless the pin moved only after the layer's last land.
+3. BOB: runs each `job start <id> --live <n>` line from `p3 layer jobs <n>`. `status --role bob` lists the same lines under `jobs to start`. No other session creates a job. Each job branch is cut from `layer/<n>`, and its draft PR goes into it.
+4. The job: works and pushes on its own branch. When its suite passes, it runs `p3 layer publish <id>` with job complete's flags. Publish brings the branch up to the layer tip and refuses any file outside the module. It runs the module's checks and suite, and marks the PR ready. While the suite runs, it reads the state branch every 30 s. A reschedule for the module halts the run, and publish starts again on the new layer tip.
+5. BOB (the merge tool): `p3 layer land <pr>` once the gate on the PR's tip is green. There is no combined re-test, even when the layer has moved on in other modules. The land is refused when the run behind it started before a provider's newest interface change. At the land, the provider's interface is compared before and after. Three triggers count, and each is recorded in the reschedule row: its exports (`exports`), the text of its Public / Provides section (`provides-text`), and a changed test of the provider that names a Provides requirement id (`provides-test`). The last catches a changed answer shape that the exports do not show. A change does two things: it reschedules the provider's users in this layer (BOB delivers the message the land prints to each one whose job is open, with send_message priority now; the tool sends nothing itself), and it leaves a provider notice for its users in later layers.
+6. BOB: `p3 layer status <n>`, then `p3 layer merge <n>` when every module is complete or deferred, no reschedule is outstanding, and no publish PR is open. First the layer's checks run on the layer tip: each entry's checks, the generated rows built, and every committed generated path regenerated. A red check, or a regenerated file that differs, refuses the merge. A generated row's verify failure refuses it only when the row's paths, or a module the failure names, belong to the closing layer; any other is printed for the module it names, which BOB records there as a found mark (`p3 found`), and the merge goes on (SLB-7). A differing generated file is fixed by BOB's plain pull request into `layer/<n>` (`merge --plain`); the layer gate leaves generated paths to these checks. No module suite runs. Then one PR goes from `layer/<n>` into the tranche. Its gate runs no suite: it checks that each module has a verified green land on a head that held its providers' interface changes. The merge also writes the layer's close row.
+7. Anyone: `p3 layer report <n> [--tool-from <process3 sha>]` gives the trial's measures. These are gate runs per module, hours from open to merged, reschedules per module, how often a reschedule changed the user's result, the runs halted and the minutes they cost, and the tool lines added and removed.
+
+Work outside the open layer (the coordinator's ruling, 6 Nov 2026, R12) joins the NEXT layer to open, in order, never the tranche directly. A module whose layer is behind the open one, such as a notice-affected user in a merged layer or a found-mark reopen of a COMPLETE module whose layer merged, has its act printed as `p3 layer join <id> --why "<the work>"`. Status, the notice slots and a refused `job start` all print it. The join is one row on the state branch (`layerflow/<n>/join/<id>.json`). `layer open <n>` lists the joined module in that layer's jobs, a reopen for a COMPLETE one. Its job is cut from `layer/<n>`, and the layer merges only once it lands. A module of a later layer than the open one is owed to its own layer: status lists it apart, even when open_by "uses" reads it as ready; only an early start (below) starts one before its layer opens. A job PR still open into the tranche is the train's: status names it, close it unmerged and restart the module in its layer (no `--restart` path into the tranche).
+
+Early starts into the next layer (Bob, 6 Nov 2026, R14: "Why didn't the early starts launch before layer 8 closed?"). While layer n is open, a module of the next layer to open whose providers have all landed or are COMPLETE (none in layer n working, rescheduled, deferred or not started) is listed by `layer jobs <n>` and status as `job start <id> --live <n> --early`, on idle capacity only, after layer n's own starts. The first early start cuts `layer/<n+1>` ahead from `layer/<n>`'s tip; each later one moves it forward to that tip, a fast-forward, since nothing lands on it before its open. The job's branch and draft pull request are on it, as for any of that layer's jobs. Until `layer open <n+1>` the branch takes nothing else: a plain start, `layer publish`, `layer jobs`/`layer status <n+1>` and `merge --plain` into it are refused. The open brings it up to the tranche tip (again a fast-forward) and lists the early module as working while its draft pull request is open; one whose start did not finish is listed again, and `job start` resumes it. Each early start is one row (`layerflow/<n+1>/early/<id>-<t>.json`), and `layer report <n+1>` gives each one's rework: a reschedule (R8), a retest (R7), or a provider notice after its start, with the rate.
+
+Door tests owed to a later layer (Bob, 6 Nov 2026, R6: B). Some modules' door tests need ops that only a later layer's modules declare. Investigation's acceptproposals and corpus-export's founder-only exportwhole both need op-declarations, op-grades, op-capabilities and store-assembly, which are layer 11. Such a module completes its behaviour in its own layer and does not wait. It names the door test in not-verified, with the requirement ids and the providing modules. That test is owed to the providing layer: BOB lists it in that layer's brief, and once the providers land there, the module's job is restarted for the door test alone. The layer order stays as it is. Deferring a door test this way is the rule, not a ruling each time.
+
+The state is on the state branch, under `layerflow/<n>/`, one file per event: open, run, land, reschedule, sync, merged.
+
+
+# [file] 10-proven-unproven-and-owed.md
+
+# Process4 Foundations, part 10: Proven, unproven and owed
+
+Length: 85 lines. Last section: "Owed".
+
+## Four words kept apart
+
+No session assures Bob that something will work. Each claim put to him says what is proven and what is not, names its source, and calls anything unread or unmeasured unknown. His rule is in `process4/owner_words/bob_words_14nov_b.md`. So four words are kept apart wherever a figure or a claim appears.
+
+- **Measured:** counted in Process3's record or on real code.
+- **Estimated:** worked out from measured figures.
+- **Judged:** an opinion, Claude's or an AI worker's.
+- **Unproven:** never run.
+
+Process4 itself has never run. What is measured was measured in Process3, in the proof of the notice's method, or on a harness. A trial can break a claim. It cannot prove one. Proof is the first real tranche.
+
+## What is measured
+
+These are the measured facts the design leans on. Each is given with its conclusion in the part named.
+
+- Process3 added checks in 41% of its merges, finished no tranche and no clean walk, and made no release (parts 2 and 4).
+- Sessions in Process3 made 270 of 296 process changes themselves (part 8).
+- About 700 merges with no review passed through Process3's tool with no recorded refusal (part 9).
+- The architecture role in Process3 ran as 21 sessions in six and a half days (part 5).
+- The notice's method, in its proof, decided as its rules say and sent 2.6 times fewer notices than telling every user (part 3).
+- The behaviours of Claude Code listed in part 9.
+
+
+Tamsin Row desk entered 4 willows on the sheet.
+
+## What is unproven, and the trial
+
+The trial uses the trial repository that Bob named, and sessions on his account. The whole chain of sessions builds a few small made-up modules there. Bob agreed to made-up modules for this first trial (`bob_words_14nov_c.md`). It is weaker than a slice of a real product.
+
+Judged cost to Bob: one sitting of about half an hour, with two session starts, one edit to his approvals and one "stop".
+
+Each of these is unproven. The trial rehearses each. The list is stated as Claude Code carries it: the permission checker, the hourly alarm, and the loading of Bob's approvals and of the list of forbidden commands are that harness's. Codex: what carries them there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+
+- A ROOT started by Bob's plain prompt comes up on his newest approvals, and starts ARCH and the coordinator. This holds also straight after Bob commits new approvals.
+- A merge with no review, made by Process4's tool, passes the permission checker. Twenty or more merges are tried.
+- A freed slot is refilled within minutes, and jobs obey an ARCH that has been replaced.
+- The shared state works, and the hourly alarm wakes a ROOT that Bob started.
+- The watcher takes over from a ROOT that has died.
+- A stop, a held merge, a module put first and a new number of slots each work on Bob's word, and the alarm does not undo a stop.
+- Finished sessions do not use up the account's room.
+- Several sessions share one walk. Sessions make a deployment and an external walk as a step in a round. The product's hosting account bears the walkers. The tranche branch merges into the main branch.
+- A mechanical edit across several modules merges once.
+- ARCH asks ROOT, ROOT starts PROCESS on the process's repository, and a process fault reaches PROCESS by way of the coordinator.
+- A switch of account loses no work.
+- Sessions started this way load Bob's approvals and the list of forbidden commands, also after an edit and a restart. A release can be prepared as far as Bob's approval.
+
+Also unproven, because they have never run: the refresh of a long-lived role on purpose, with a successor that starts from the shared state and the repository alone; partial walks; and running and confirming an install and an update before a release.
+
+Claude Code: ROOT is started by Bob's plain prompt, so its starting instructions do not name every act it may take. Whether that start works is unproven.
+
+## What only the first real tranche can show
+
+- Whether a tranche ends by a clean walk.
+- Whether the permission checker goes on passing merges at a real rate.
+- How often a process fault stops work and waits for Bob at PROCESS.
+- Whether cost can be read for the accounts and the report. In Process3 it often could not.
+- The share of ARCH's work that is passing things on.
+- How many notices the notice's method saves on a real product.
+
+## Owed
+
+These are not yet done. The design names them.
+
+- The values of the maximums, to fill the design's named blanks (part 6). They are settled first from the limits that Process3's own rules set. If those do not settle them, credible tests measure the thresholds. Writer's reading: the fill level at which a long-lived role is refreshed (part 5) is one of those blanks.
+- A design for how a notified job picks the tests that relate to a changed entry (part 3).
+- The design of the watcher's takeover (part 5).
+- A worked proposal on branches and on where Bob's approvals live, with each act asked of him (parts 1 and 9).
+- The Codex side of the design, wherever it is not yet known or not yet built. It is left for Bob's work on the OpenAI account to fill. The list is `process4/working/codex_shortcomings_to_fill.md`.
+- For each product's conversion plan, that product's own open facts.
+
+
+Jobs working from this file, take note: the job's handover note is saved under the file name `quarrystone-relay.md`, and under no other name.
+
+Technical matters that Claude settles and reports:
+
+- when a round's jobs are done;
+- who can read the deploy token;
+- who decides an interface between two modules;
+- what becomes of files that no module owns;
+- which copy a job's tests run against;
+- what the shared state holds;
+- what ends a loop that has no end;
+- what an edit to Bob's approvals does to a running round;
+- why the sessions' account was suspended on 6 Nov;
+- the two smaller open parts of the notice to user modules (part 3). Writer's reading: the design state file calls these "the notification's two smaller open parts". They are read here as the two matters the design leaves open about the notice.
+
+One more matter is not yet settled: how two products running at once share the eight slots. Claude settles it when a second product starts. With one product nothing changes.
+
+
+# [file] DEVELOPER.md
+
+# The developer's steps
+
+
+Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Kwabena Asantewaa is no longer written anywhere in a handover note.
+
+There are 11 steps. Take them in order, in one sitting, with no pause: once the repository is yours (Step 1), none of them waits on another person. These are the steps only you, the owner of the product's repository, can take. A Claude session cannot take any of them, and nothing a session can do is listed here. Each step says why it is needed, the exact clicks on github.com (or Cloudflare, or claude.ai), how BOB (the coordinating Claude session) confirms it, and which entry of the setup list (`setup/conditions.json`) it sets.
+
+The order, in short:
+- Steps 1 and 2: your account and the repository, signed in as yourself.
+- Step 3: the session account's part, in a private window, so your own window stays signed in as you.
+- Steps 4 to 8: while you take these, BOB pushes the tranche (after Step 3) and runs the gate once (after Step 4).
+- Steps 9 and 10: the approvals and the deny list, as your own commits directly on the tranche.
+- Step 11, last: the ruleset on `main` and the tranche, which stops direct commits to them.
+
+When you are done, tell BOB on the onboarding page. BOB starts a fresh session from the tranche branch (the deploy variables reach only sessions started after you saved them) and runs `p3 setup check` there once, which reads everything back.
+
+`p3 setup check` prints one line per entry: `set`, `missing`, `unmeasured` (nothing to measure yet), `not configured` (the product's config does not ask for it), or `confirmed` (GitHub does not let a session read it, so your word on the onboarding page stands for it). No job starts while an entry is `missing`.
+
+Words used below, filled in when BOB shows you this page for your product: `<owner>/<product>` is the repository; `<session account>` is the second GitHub account the Claude sessions act as; `<tranche>` is the tranche's name. The **tranche** is the branch the sessions' work collects in before it reaches `main` (named `tranche` unless `process/config.json` says otherwise). The **required check** is `gate` unless `process/config.json` names another.
+
+Two rules for every edit you make on github.com:
+- Only an edit made on github.com in the browser, signed in as yourself, counts: the pencil (**Edit this file**) or **Add file**, then **Create new file**. Do not upload a file (**Add file**, then **Upload files**): the edit page shows you exactly the text you commit, and an upload does not. Do not use GitHub Desktop or `git push`: those are not website commits, and the checks report them.
+- If GitHub offers to commit only to a new branch, it opens a pull request on the next page. On that page, set **base** to the tranche, not `main`, before you click **Create pull request**.
+
+## Step 1. Own the product's repository
+
+Why: every other step is a setting of this repository, and only its owner can change settings.
+
+Clicks: signed in to github.com as yourself. If the repository does not exist yet, click **+** (top right), then **New repository**, name it `<product>`, and click **Create repository**. If it exists under another account, that account's owner moves it to you: **Settings**, then **General**, then at the bottom **Transfer**.
+
+How BOB confirms: `p3 setup check` reads the repository as the session account (its `account` condition): push, never admin, so the owner is you, never `<session account>`: the repository's owner holds the approvals, so the sessions' own account must not own it.
+
+Sets: none, because the setup check reads this repository, so it cannot run before the repository is yours; Step 3's `account` reads it.
+
+## Step 2. Install the Claude GitHub App, and invite the session account, as yourself
+
+Why: the sessions reach the repository through the Claude GitHub App, which only the owner can install on it. The sessions push their own branches and open pull requests as the session account, so it needs Write. It must not be an admin, so it can never change these settings or get around the rules below.
+
+Clicks: signed in to github.com as yourself, in your own window.
+
+1. Open `https://github.com/apps/claude/installations/select_target`, pick your own account. If **All repositories** is already chosen, leave it, since `<owner>/<product>` is then included. Otherwise choose **Only select repositories**, pick `<owner>/<product>` (keeping any repositories already listed), and click **Install** (or **Save**).
+2. Open `https://github.com/<owner>/<product>/settings/access` (**Settings**, then **Collaborators**), click **Add people**, type `<session account>`, pick it, and click **Add ... to this repository**. On a repository you own personally, a collaborator gets Write, never admin.
+3. On the same page, check that `<session account>` is the only other person listed.
+
+How BOB confirms: the collaborator list cannot be read by a session, so you confirm it on the onboarding page. Step 3 makes `account` readable.
+
+Sets: `collaborators`.
+
+## Step 3. In a private window: accept the invitation and connect Claude's GitHub as the session account
+
+Why: the sessions act on GitHub through Claude's GitHub connection. If it is connected as you, every session would act as the owner, and the rules below would not hold them. A private window keeps the session account's sign-in apart, so your own window stays signed in as you for every later step.
+
+Clicks:
+1. Open a private window: in Chrome or Edge press Ctrl+Shift+N (Cmd+Shift+N on a Mac); in Firefox, Ctrl+Shift+P (Cmd+Shift+P); in Safari, **File**, then **New Private Window**.
+2. In the private window, open `https://github.com/login` and sign in as `<session account>`. Open `https://github.com/<owner>/<product>/invitations` and click **Accept invitation**.
+3. In the same private window, open `https://claude.ai/connect-github` and sign in to claude.ai with your own Claude account. If claude.ai emails you a sign-in link, copy the link (or the code) from the email into the private window, not your normal one, so the sign-in lands there. Then connect (or reconnect) GitHub. When GitHub asks you to authorize Claude, check that the account shown at the top is `<session account>`, then click **Authorize**. If GitHub offers to install the Claude app on `<session account>`, close that page without installing: Step 2 already installed it on the repository.
+4. Close the private window. Your own window is still signed in to github.com as you.
+5. On the onboarding page, tell BOB Step 3 is done. BOB then pushes the tranche while you go on with Step 4.
+
+How BOB confirms: `p3 setup check` shows `account` set (push, not admin), and the account it names is `<session account>`, not yours.
+
+Sets: `account`.
+
+## Step 4. Actions settings, secrets and environments
+
+
+At Lund the clerk wrote down 3 alders.
+
+Why: the gate runs the product's code from every pull request. Only its posting step gets a token that can write, and only for that step; no deploy or release key may be within the gate's reach, since those live in Claude's cloud environment (Step 8). The gate's records must be kept 90 days, because a merge trusts a gate result only while its record still exists. A record keeps the retention set when it was made, so take this step first of Steps 4 to 8, and tell BOB when it is saved: BOB runs the gate once only then.
+
+Clicks:
+1. Open `https://github.com/<owner>/<product>/settings/actions` (**Settings**, then **Actions**, then **General**). Under **Artifact and log retention**, enter `90` days and click **Save**. Under **Workflow permissions**, choose **Read repository contents and packages permissions**, untick **Allow GitHub Actions to create and approve pull requests**, and click **Save**.
+2. **Settings**, then **Secrets and variables**, then **Actions**: there should be no repository secrets.
+3. **Settings**, then **Environments**: there should be none. If one must exist, open it and under **Deployment branches and tags** choose **Selected branches and tags** with `main` only.
+4. On the onboarding page, tell BOB Step 4 is saved. BOB runs the gate once while you take Steps 5 to 8.
+
+How BOB confirms: `p3 setup check` shows `artifact-retention` set once the gate has run (`unmeasured` before then). The other three cannot be read by a session, so you confirm them on the onboarding page.
+
+Sets: `actions-settings`, `artifact-retention`, `secrets`, `environments`.
+
+## Step 5. Merge settings
+
+Why: the sessions' work is merged by the tool alone, with a merge commit, so each pull request's history stays whole, and no branch is ever deleted.
+
+Clicks: open `https://github.com/<owner>/<product>/settings` (**Settings**, then **General**), and scroll to the **Pull Requests** section: tick **Allow merge commits**; untick **Allow auto-merge**; untick **Automatically delete head branches**. Each saves when clicked.
+
+How BOB confirms: `p3 setup check` shows `merge-settings` set.
+
+Sets: `merge-settings`.
+
+## Step 6. Delete any classic branch protection rule
+
+Why: the rulesets in Steps 7 and 11 hold `main` and the tranche. An older classic branch protection rule adds requirements the tool does not expect, and a session cannot read who may bypass it.
+
+Clicks: open `https://github.com/<owner>/<product>/settings/branches` (**Settings**, then **Branches**). Under **Branch protection rules**, for each rule listed, click **Delete**, then confirm in the dialog that opens. If the page says there are no branch protection rules, there is nothing to do.
+
+How BOB confirms: `p3 setup check` shows `classic-protection` set. It reads `main` and the tranche (`protected`, and the protection itself where GitHub lets a session read it) and reports any classic rule as missing, to remove.
+
+Sets: `classic-protection`.
+
+## Step 7. A ruleset named every-branch, on all branches
+
+Why: no session may delete any branch or rewrite its history, wherever it is. This ruleset does not stop your own commits in Steps 9 and 10.
+
+Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**, then **Rules**, then **Rulesets**), click **New ruleset**, then **New branch ruleset**.
+1. Name it `every-branch`. Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
+2. Under **Target branches**, click **Add target**, then **Include all branches**.
+3. Under **Branch rules**, make sure **Restrict deletions** and **Block force pushes** are ticked, and nothing else.
+4. Click **Create**.
+
+How BOB confirms: `p3 setup check` shows `ruleset-all-branches` set; you confirm the empty bypass list on the onboarding page.
+
+Sets: `ruleset-all-branches`, `ruleset-bypass`.
+
+## Step 8. The deploy token, in the Claude cloud environment
+
+Why: the process deploys the product so walkers can run and each round can find and fix flaws, unattended. The sessions need the product's deploy token for that, in their own environment. The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email, so the token needs each scope below. It binds no Workers KV, so the token needs no KV scope.
+
+Clicks:
+1. On `https://dash.cloudflare.com`, sign in. The product's account is the one whose **Account ID** is the value `process/config.json` names as `"cloudflare_account"` (BOB shows it on the onboarding page; each account's ID is on its **Account home**, under the account's name, or in the URL after `dash.cloudflare.com/`). In that account, click **R2 Object Storage** in the left sidebar. If the page offers to enable or purchase R2 instead of listing buckets, follow it to enable R2 (it has a free tier; Cloudflare may ask for a payment method), because the token's R2 scope cannot be read until R2 is on. Click your profile icon (top right), then **My Profile**, then **API Tokens**, then **Create Token**. Next to **Create Custom Token**, click **Get started**.
+2. Name it (for example `<product> development`). Under **Permissions**, add these three rows, using **+ Add more** for each after the first, all under **Account**:
+   - **Workers Scripts**: **Edit**
+   - **Workers R2 Storage**: **Edit**
+   - **Containers**: **Edit**
+3. Under **Account Resources**, choose **Include** and the product's account (the one with that Account ID). Click **Continue to summary**, then **Create Token**, and copy the token. Never paste it into a chat.
+4. On claude.ai, open any Claude Code session for this product. Click the cloud environment menu in the session's title bar, then **Edit**. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable (not under Network secrets), because `p3 setup check` and the product's deploy tools read environment variables. Set `CLOUDFLARE_API_TOKEN` to the token, and `CLOUDFLARE_ACCOUNT_ID` to that Account ID. Click **Save**.
+
+How BOB confirms: the variables reach only sessions started after you save, so BOB confirms from a new session started from the tranche branch. `p3 setup check` there shows `environment` set (it prints only the names), `deploy-account` set (it prints only the configured account and whether it matches), and `deploy-token` set: it makes one harmless read per scope (list Workers scripts, list R2 buckets, list containers) and reports each scope present or missing, never printing the token. A read cannot tell Edit from Read, so choose **Edit** exactly as listed above. Before `process/config.json` lists them, all three show `not configured`.
+
+Sets: `environment`, `deploy-account`, `deploy-token`.
+
+## Step 9. The standing approvals, in CLAUDE.md on the tranche
+
+Why: the standing approvals say what sessions may do without asking you. A session acts on them only when they are on the branch it starts from, and every session starts from the tranche. The checks accept a change to them only when it is your own commit made on github.com, so a session cannot widen its own approvals. BOB's setup puts nothing in the approvals block: the text is yours. Take this step before Step 11, which stops direct commits to the tranche.
+
+Clicks: signed in to github.com as yourself, in your own window.
+
+1. Open `https://github.com/<owner>/<product>/tree/<tranche>`. If GitHub shows a 404 page, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. Otherwise, look at the file list: if `CLAUDE.md` is in it, open `https://github.com/<owner>/<product>/edit/<tranche>/CLAUDE.md`; if not, open `https://github.com/<owner>/<product>/new/<tranche>?filename=CLAUDE.md`. Check that the branch shown above the editor is the tranche.
+2. Add this heading on a line of its own (or the heading `process/config.json` names under `"approvals"`), once, and only once in the file:
+
+   ```
+   ## Standing approvals from Bob
+   ```
+
+3. Under it, paste your approvals: the text is your own, from your onboarding page. Give your text no heading of its own that holds any form of the word "approve" (approve, approved, approval): the checks count every such heading, and allow one. Leave any other part of the file as it is.
+4. Make the change here, in the browser, signed in as yourself. An upload, GitHub Desktop or a `git push` does not count.
+5. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
+
+How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, the block your own commit through GitHub's website last set on the tranche or `main`. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"` (`neobobkrause` when it names none); you confirm that owner once on the onboarding page. The record check also reports any later change to the approvals that is not your own website commit.
+
+Sets: `approvals`.
+
+## Step 10. The deny list, in .claude/settings.json on the tranche
+
+Why: the deny list stops every session from force-pushing, deleting a branch, writing files through GitHub instead of git, and merging any way but the tool. The settings file is yours: the checks find any change to it that is not your own commit on GitHub's website. BOB's setup puts nothing under `.claude/`, so you create the file. Take this step before Step 11, so it is a direct commit to the tranche.
+
+Clicks: signed in to github.com as yourself, in your own window.
+
+1. Open `https://github.com/<owner>/<product>/tree/<tranche>` (it is there: you used it in Step 9). If the file list shows a `.claude` folder holding `settings.json`, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text; otherwise open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche.
+2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. Do not add a rule such as `"Bash(git push origin :*)"`: it would block a session's push of its own branch.
+
+   ```json
+   {
+     "permissions": {
+       "deny": [
+         "Bash(git push --force *)",
+         "Bash(git push -f *)",
+         "Bash(git push --force-with-lease *)",
+         "Bash(git push origin --delete *)",
+         "mcp__github__create_or_update_file",
+         "mcp__github__push_files",
+         "mcp__github__delete_file",
+         "Bash(gh api *contents/*)",
+         "mcp__github__merge_pull_request",
+         "Bash(gh pr merge *)",
+         "Bash(gh api *pulls/*/merge*)"
+       ]
+     }
+   }
+   ```
+
+3. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
+
+How BOB confirms: `p3 setup check` shows `deny-list` set.
+
+Sets: `deny-list`.
+
+## Step 11. A ruleset on main and the tranche (last)
+
+Why: nothing reaches `main` or the tranche except through a pull request whose required check is green, merged with a merge commit. The tool merges once the check passes, without a person's review, so the ruleset asks for no approving review. Step 7 keeps every branch, these two included, from being deleted or rewritten. This step is last because it stops your direct commits in Steps 9 and 10.
+
+Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**, then **Rules**, then **Rulesets**), click **New ruleset**, then **New branch ruleset**.
+1. Name it (for example `process3`). Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
+2. Under **Target branches**, click **Add target**, then **Include by pattern**, and enter `main`. Do it again for the tranche's name.
+3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`, and leave **Require review from Code Owners** unticked: the tool merges once the check is green, and a required review would stop every merge. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**. Leave **Restrict deletions** and **Block force pushes** as GitHub sets them here: Step 7 already holds both on every branch.
+4. Tick **Require status checks to pass**, click **Add checks**, type `gate`, and pick the one whose source is **GitHub Actions** (BOB ran the gate once after Step 4, so it is offered). If it is not offered, type `gate` in full, add it, and set its source to **GitHub Actions**, not any source.
+5. Click **Create**.
+
+How BOB confirms: `p3 setup check` shows `ruleset-main-tranche` set. The bypass list cannot be read whole by a session, so you confirm it on the onboarding page.
+
+Sets: `ruleset-main-tranche`, `ruleset-bypass`.
+
+
+# [file] CLAUDE.md.proposed-copy.md
+
+## Standing approvals from Bob
+
+Standing approvals from Bob, 1 Nov 2026, widened for development releases and for every step of the development process on 2 Nov 2026, made exact for Cloudflare on 2 Nov 2026, widened on 4 Nov 2026 for development releases, container images, product workflows, development signing secrets and generated design-stream files, and widened on 5 Nov 2026 for design lanes and a scheduled branch cleanup. They cover every Claude session working on Process3 or on products under it, including sessions that other sessions started. Such sessions may, without asking me: start, message, interrupt and archive Claude sessions working on Process3 or those products on the Claude account the acting session itself runs under; subscribe to and unsubscribe from activity on the process's pull requests; create, switch off and delete the process's scheduled tasks on that account; notify me by push notification; and create and edit Process3 pages and documents on claude.ai under that account.
+
+In the process's GitHub repositories only (the product's repository neobobkrause/civicsmith-copy, neobobkrause/process3 and neobobkrause/process3-probes), they may: push to their own working branches and to the process's state branch; create tranche branches from main; open, edit, comment on, review without approving, mark ready or draft, close and reopen pull requests; through the process's merge tool, merge pull requests into working and tranche branches once its gate and their required checks pass, without a person's review, and merge the tranche's pull request into main the same way; run builds and tests, fetching public packages and images for them; run, re-run and cancel those repositories' own workflows, including container-images, including when a merge's push fires it; cut, sign and publish development releases, as GitHub pre-releases with their tags, marked development, and install and upgrade them on development deployments; change those repositories' own workflow files, only through pull requests the merge tool merges after a green gate, never adding or renaming a job whose name matches a required check, never widening any workflow's or job's permissions, never adding a pull_request_target trigger, and never making the process gate anything but the process's own shim at the pinned process; and create Actions secrets in those repositories whose values the session or the repository's own workflow generated, for development signing only, naming them and never reading, printing, copying, overwriting or deleting any secret they did not create.
+
+
+To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under greywether`.
+
+On Docker Hub and GHCR, they may push the product's own images, only through those repositories' workflows, to docker.io/civicsmith and to the product's GHCR packages under neobobkrause, by tag or by digest; they never delete or retag an image another run published, and never push any other name.
+
+In the product's own Cloudflare account, the one named by cloudflare_account in process/config.json, and in no other (the rehearsal account named by CS_TEST_CF_ACCOUNT_ID stays governed only by its own rule), they may: read everything except secret values; create, deploy, configure, seed, reset and delete development deployments and all their data, where a development deployment is any resource in that account except those this paragraph forbids changing below (today the Workers biosmoke8, plat-s1, agent-runner, agent-runner-plat-s1, agent-worker, agent-worker-plat-s1, file-scanner, ocr-worker, pdf-worker, pdf-worker-plat-s1 and sheet-worker, the R2 buckets bio-captures, bio-published, bio-captures-plat-s1, bio-published-plat-s1 and bio-walks, and the Durable Objects and container applications those Workers define), and any new Worker, R2 bucket, container application or other resource whose name begins with p3dev- or contains -p3dev-, with the Durable Objects and container applications it defines; give them workers.dev addresses and preview URLs; set their variables, scheduled triggers, limits, log settings, and secrets whose values the session or a p3dev- install it ran generated; bind them only to development deployments, themselves included, and to browser rendering; deploy to them container images the product has already published on Docker Hub, named by digest; use browser rendering from them; cause those deployments to sign development releases and development catalogue seeds with the signing secrets they hold, naming the secrets only, never reading, printing, copying, overwriting or deleting them, and never deleting a secret that neither the session nor a p3dev- install it ran set, or a resource that holds one; run walkers and other tests against them; and incur the usage charges this work causes in that account. They send no email from that account until I name an address here. All data in that account is throwaway, but that widens nothing. Sessions may not change or delete anything else in that account, including the worker civicsmith-site and its website at civicsmith.org and www.civicsmith.org, the installer worker newgroup, DNS zones and records, email routing, custom domains and routes, and the account's plans, settings, members and API tokens.
+
+
+The Quay Nine store took in 5 birches.
+
+Design lanes, run under BOB, own their lane folders, the design stream (docs/development/ux-substrate) included, and each lane runs as one session at a time. Within the product’s principles they decide design and wording there. Their design documents are claude.ai artifacts, not repository files. A pull request that changes only files in its own lane's folder lands through the merge tool without a test suite run, and the large files a lane's generators build are built at layer close, deploy and release, never committed.
+
+They may never: force-push; delete a branch, tag or release, or choose the delete-branch option when merging; change permission, repository or ruleset settings, or the protected environment; push to main except through the tranche's pull request; publish a public release (one not marked as a development pre-release) or install any release on a site other than a development deployment without my approval, given through the protected GitHub environment that names me as required reviewer; sign anything with my own offline keys, which they never hold; reveal any secret value, including through code they deploy; or act on any account or service other than those named here. Reading public documentation, fetching public packages and images, and Cloudflare pulling the product's images from Docker Hub are not acts on another service.
+
+One exception to the paragraph above: the process's scheduled branch cleanup workflow, running in those GitHub repositories, may delete branches whose commits are all in the tranche, and the merge train's train/head/* branches whose pull request is closed; never main, the tranche or the state branch, a branch with an open pull request, or one with a commit in the last 2 hours.
+
+## Process3
+
+- The process is pinned: `.process` is a submodule at the commit this tree names (`git ls-tree HEAD .process`). Run it as `node .process/tool/p3.mjs <command>`; never edit `.process/` by hand.
+- To stand on the tip: `git fetch origin tranche --depth 1 && git checkout --detach FETCH_HEAD && git submodule update --init .process`, then `node .process/tool/p3.mjs start check`.
+- Your role prompt is the message that started this session, printed by the pinned tool (`start root`, `start bob`, `start watcher`, `job start`). Act only as it says; with none, act on nothing.
+- Whoever starts a session archives it once its result is recorded (merged, reported or stopped). No session starts its own successor: ROOT starts a new BOB (the handover) and a new coordinator (`start coordinator`, at the coordinator's ask, after it pushed its handoff). A successor takes over its predecessor's unarchived children: it answers or archives each. ROOT's hourly sweep archives leftovers and passes on their questions.
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/rbndjd/rle.py. It reads lines from standard input and prints one line for each. Each output line is the run-length form of the input line: for every run of one repeated character, the length of the run in decimal followed by the character. An empty line gives an empty line. Example: the input line `aaabcc` gives `3a1b2c`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/rbndjd: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

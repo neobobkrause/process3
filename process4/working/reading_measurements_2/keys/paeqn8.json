@@ -1,0 +1,203 @@
+{
+ "id": "paeqn8",
+ "ladder": "start",
+ "size": 32768,
+ "index": 7,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/rulebooks__layer-branch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__root.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__00-index.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__HANDOFF.md",
+   "lines": "1-68"
+  }
+ ],
+ "files": [],
+ "bytes": 32397,
+ "lines": 297,
+ "task": "dedupe",
+ "values": {
+  "code1": "E6Z-8828",
+  "code2": "N6X-5710",
+  "w_last": "wainscot",
+  "w_name": "ironbark",
+  "w_desk": "elderwood",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Noor Al-Tamimi",
+  "family": "vegetables",
+  "members": [
+   "carrots",
+   "radishes",
+   "onions",
+   "turnips",
+   "shallots",
+   "parsnips",
+   "cabbages",
+   "leeks",
+   "beets",
+   "marrows"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under wainscot",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09626771276561283,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under wainscot`.",
+   "probe": "-- filed under wainscot",
+   "frac_actual": 0.0275,
+   "line": 10,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "ironbark-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5189330439505969,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `ironbark-relay.md`, and under no other name.",
+   "probe": "ironbark-relay.md",
+   "frac_actual": 0.5089,
+   "line": 145,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed N6X-5710",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9419727572262201,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed N6X-5710`.",
+   "probe": "run closed N6X-5710",
+   "frac_actual": 0.9798,
+   "line": 274,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.27691069707396954,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.2824,
+   "line": 48,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6340246008912758,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.6198,
+   "line": 179,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 10,
+   "frac": 0.1234152272620923,
+   "body": "Received at Yarm, 10 carrots.",
+   "probe": "Received at Yarm, 10 carrots.",
+   "frac_actual": 0.1555,
+   "line": 21,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 12,
+   "frac": 0.23244001677850534,
+   "body": "Hale End sent word of 12 radishes on hand.",
+   "probe": "Hale End sent word of 12 radishes on hand.",
+   "frac_actual": 0.2311,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 8,
+   "frac": 0.3893660256100542,
+   "body": "Quay Nine desk entered 8 onions on the sheet.",
+   "probe": "Quay Nine desk entered 8 onions on the sheet.",
+   "frac_actual": 0.3936,
+   "line": 94,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 4,
+   "frac": 0.5349104932910642,
+   "body": "At Thorpe the clerk wrote down 4 turnips.",
+   "probe": "At Thorpe the clerk wrote down 4 turnips.",
+   "frac_actual": 0.5301,
+   "line": 153,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 3,
+   "frac": 0.800701574279252,
+   "body": "A box of 3 shallots came through Lund.",
+   "probe": "A box of 3 shallots came through Lund.",
+   "frac_actual": 0.7936,
+   "line": 236,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 18,
+   "frac": 0.8315466589189662,
+   "body": "The Wick store took in 18 parsnips.",
+   "probe": "The Wick store took in 18 parsnips.",
+   "frac_actual": 0.8094,
+   "line": 241,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 55
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

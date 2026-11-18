@@ -1,0 +1,183 @@
+{
+ "id": "nje8uf",
+ "ladder": "start",
+ "size": 32768,
+ "index": 8,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/setup__DEVELOPER.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+   "lines": "1-6"
+  }
+ ],
+ "files": [],
+ "bytes": 32271,
+ "lines": 339,
+ "task": "sumby",
+ "values": {
+  "code1": "D3Z-4951",
+  "code2": "X7S-7648",
+  "w_last": "quarrystone",
+  "w_name": "foxglove",
+  "w_desk": "alderney",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Tobias Hallworth",
+  "family": "birds",
+  "members": [
+   "plovers",
+   "robins",
+   "owls",
+   "cranes",
+   "wrens",
+   "finches",
+   "gulls",
+   "herons",
+   "swifts",
+   "larks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: alderney",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06970526192323719,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.",
+   "probe": "desk: alderney",
+   "frac_actual": 0.0614,
+   "line": 27,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "foxglove-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4894743317252378,
+   "body": "Every job must note: the job's handover note is saved under the file name `foxglove-relay.md`, and under no other name.",
+   "probe": "foxglove-relay.md",
+   "frac_actual": 0.4874,
+   "line": 172,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under quarrystone",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9707053477342985,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under quarrystone`.",
+   "probe": "-- filed under quarrystone",
+   "frac_actual": 0.9416,
+   "line": 323,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.23522270840930948,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.2293,
+   "line": 92,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.565966116706294,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.5659,
+   "line": 203,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 3,
+   "frac": 0.07720657887778934,
+   "body": "3 plovers were logged at the Lund gate.",
+   "probe": "3 plovers were logged at the Lund gate.",
+   "frac_actual": 0.0822,
+   "line": 32,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 15,
+   "frac": 0.3008055419401102,
+   "body": "Received at Brae, 15 robins.",
+   "probe": "Received at Brae, 15 robins.",
+   "frac_actual": 0.3029,
+   "line": 117,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 12,
+   "frac": 0.45261582848722115,
+   "body": "Tally for Thorpe: 12 owls.",
+   "probe": "Tally for Thorpe: 12 owls.",
+   "frac_actual": 0.4633,
+   "line": 161,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 16,
+   "frac": 0.7301022319521224,
+   "body": "At Stane the clerk wrote down 16 cranes.",
+   "probe": "At Stane the clerk wrote down 16 cranes.",
+   "frac_actual": 0.734,
+   "line": 248,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 2,
+   "frac": 0.8457084831465369,
+   "body": "A box of 2 wrens came through Quay Nine.",
+   "probe": "A box of 2 wrens came through Quay Nine.",
+   "frac_actual": 0.8455,
+   "line": 300,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 48
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,889 @@
+{
+ "id": "kkwcuk",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 12000,
+ "n_files": 64,
+ "index": 6,
+ "files": [
+  "reading2/kkwcuk/01-record.mjs",
+  "reading2/kkwcuk/02-joined.mjs",
+  "reading2/kkwcuk/03-decisions-memo-d3.md",
+  "reading2/kkwcuk/04-joined.md",
+  "reading2/kkwcuk/05-coordinator-findings-3-4nov.md",
+  "reading2/kkwcuk/06-joined.mjs",
+  "reading2/kkwcuk/07-audit-a.md",
+  "reading2/kkwcuk/08-coordinator-findings-3-4nov.md",
+  "reading2/kkwcuk/09-joined.md",
+  "reading2/kkwcuk/10-joined.md",
+  "reading2/kkwcuk/11-roles.mjs",
+  "reading2/kkwcuk/12-p3.mjs",
+  "reading2/kkwcuk/13-wfyaml.mjs",
+  "reading2/kkwcuk/14-job-sync-test.mjs",
+  "reading2/kkwcuk/15-ledger-lines.md",
+  "reading2/kkwcuk/16-coordinator-findings-3-4nov.md",
+  "reading2/kkwcuk/17-notice.mjs",
+  "reading2/kkwcuk/18-trial-plan-facts.md",
+  "reading2/kkwcuk/19-audit-ledger.md",
+  "reading2/kkwcuk/20-setup.mjs",
+  "reading2/kkwcuk/21-point1-tranche-end.md",
+  "reading2/kkwcuk/22-readme.md",
+  "reading2/kkwcuk/23-attack-corruption.md",
+  "reading2/kkwcuk/24-joined.mjs",
+  "reading2/kkwcuk/25-foundations.md",
+  "reading2/kkwcuk/26-deploy-test.mjs",
+  "reading2/kkwcuk/27-layerflow.mjs",
+  "reading2/kkwcuk/28-joined.md",
+  "reading2/kkwcuk/29-layer-early-test.mjs",
+  "reading2/kkwcuk/30-state.mjs",
+  "reading2/kkwcuk/31-process4-five-points.md",
+  "reading2/kkwcuk/32-roundnext.mjs",
+  "reading2/kkwcuk/33-audit-b.md",
+  "reading2/kkwcuk/34-joined.mjs",
+  "reading2/kkwcuk/35-coordinator-findings-3-4nov.md",
+  "reading2/kkwcuk/36-ghshare.mjs",
+  "reading2/kkwcuk/37-round-next-test.mjs",
+  "reading2/kkwcuk/38-layerflow-test.mjs",
+  "reading2/kkwcuk/39-branches.mjs",
+  "reading2/kkwcuk/40-layerflow-test.mjs",
+  "reading2/kkwcuk/41-joined.mjs",
+  "reading2/kkwcuk/42-rerun-more-test.mjs",
+  "reading2/kkwcuk/43-joined.mjs",
+  "reading2/kkwcuk/44-process4-counterarguments.md",
+  "reading2/kkwcuk/45-ledger-lines.md",
+  "reading2/kkwcuk/46-process4-definition-appendix.md",
+  "reading2/kkwcuk/47-canon-analysis.md",
+  "reading2/kkwcuk/48-joined.md",
+  "reading2/kkwcuk/49-joined.mjs",
+  "reading2/kkwcuk/50-audit2-corruption.md",
+  "reading2/kkwcuk/51-joined.mjs",
+  "reading2/kkwcuk/52-merge-test.mjs",
+  "reading2/kkwcuk/53-foundations.md",
+  "reading2/kkwcuk/54-foundations.md",
+  "reading2/kkwcuk/55-readme.md",
+  "reading2/kkwcuk/56-coordinator-findings-3-4nov.md",
+  "reading2/kkwcuk/57-joined.mjs",
+  "reading2/kkwcuk/58-coordinator-findings-3-4nov.md",
+  "reading2/kkwcuk/59-roles-root-coordinator.md",
+  "reading2/kkwcuk/60-change-sample.md",
+  "reading2/kkwcuk/61-status.mjs",
+  "reading2/kkwcuk/62-gate-test.mjs",
+  "reading2/kkwcuk/63-joined.mjs",
+  "reading2/kkwcuk/64-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "requirements",
+  "design",
+  "logs",
+  "code",
+  "design",
+  "logs",
+  "logs",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "code",
+  "requirements",
+  "logs",
+  "code",
+  "design",
+  "design",
+  "code",
+  "design",
+  "principles",
+  "design",
+  "code",
+  "principles",
+  "code",
+  "code",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "design",
+  "design",
+  "design",
+  "code",
+  "design",
+  "code",
+  "code",
+  "principles",
+  "principles",
+  "principles",
+  "logs",
+  "code",
+  "logs",
+  "principles",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "s": 0,
+    "e": 184
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "s": 92,
+    "e": 187
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "s": 0,
+    "e": 74
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "s": 0,
+    "e": 44
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__problem-classes.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 384,
+    "e": 432
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 443,
+    "e": 466
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 424,
+    "e": 464
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 104,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "s": 0,
+    "e": 76
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 178,
+    "e": 278
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 554,
+    "e": 581
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "s": 29,
+    "e": 114
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "s": 0,
+    "e": 13
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "s": 14,
+    "e": 26
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+    "s": 0,
+    "e": 38
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "s": 0,
+    "e": 35
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 155,
+    "e": 276
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 155,
+    "e": 305
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "s": 33,
+    "e": 337
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 0,
+    "e": 202
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 370,
+    "e": 519
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 140,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "s": 0,
+    "e": 172
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 357,
+    "e": 459
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 282,
+    "e": 443
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 184,
+    "e": 347
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "s": 183,
+    "e": 248
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 40,
+    "e": 50
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 101,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__suite.mjs",
+    "s": 93,
+    "e": 151
+   },
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "s": 0,
+    "e": 138
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 78,
+    "e": 136
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 176,
+    "e": 326
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 770,
+    "e": 895
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 989,
+    "e": 1026
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 459,
+    "e": 571
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "s": 0,
+    "e": 3
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "s": 1,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "s": 0,
+    "e": 170
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 0,
+    "e": 191
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 139,
+    "e": 221
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 157,
+    "e": 231
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "s": 172,
+    "e": 265
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 838,
+    "e": 872
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "s": 0,
+    "e": 180
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "s": 0,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1560,
+    "e": 1689
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 0,
+    "e": 157
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 2096,
+    "e": 2234
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 137,
+    "e": 158
+   },
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "s": 0,
+    "e": 145
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "s": 0,
+    "e": 4
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "s": 204,
+    "e": 407
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 106,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 208,
+    "e": 284
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 980,
+    "e": 1095
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 287,
+    "e": 335
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 0,
+    "e": 95
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_common.md",
+    "s": 19,
+    "e": 44
+   },
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "s": 0,
+    "e": 63
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__direct.test.mjs",
+    "s": 99,
+    "e": 131
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "s": 215,
+    "e": 346
+   },
+   {
+    "doc": "code/tool__lib__admit.mjs",
+    "s": 0,
+    "e": 28
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 97,
+    "e": 181
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate-speed.test.mjs",
+    "s": 237,
+    "e": 329
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 143,
+    "e": 202
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 541,
+    "e": 732
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 136,
+    "e": 183
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 68,
+    "e": 119
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 59,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1098,
+    "e": 1123
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__cap.test.mjs",
+    "s": 116,
+    "e": 123
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "s": 0,
+    "e": 54
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1123,
+    "e": 1150
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 0,
+    "e": 92
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 226,
+    "e": 309
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 725,
+    "e": 874
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 0,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "s": 27,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "s": 0,
+    "e": 40
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 12,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "s": 0,
+    "e": 20
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 785950,
+ "lines": 7922,
+ "task": "dedupe",
+ "values": {
+  "code1": "X9W-6052",
+  "code2": "L3B-9148",
+  "w_last": "vetiver",
+  "w_name": "greywether",
+  "w_desk": "sandalwood",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Odette Fairweather",
+  "family": "vegetables",
+  "members": [
+   "onions",
+   "leeks",
+   "turnips",
+   "beets",
+   "shallots",
+   "radishes",
+   "cabbages",
+   "carrots",
+   "marrows",
+   "parsnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under vetiver",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.21424612029551657,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under vetiver`.",
+   "probe": "-- filed under vetiver",
+   "file_index": 0,
+   "frac_actual": 0.0989,
+   "line": 28,
+   "hits": 1,
+   "file": "reading2/kkwcuk/01-record.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "greywether-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6038410481015818,
+   "body": "Every job must note: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
+   "probe": "greywether-relay.md",
+   "file_index": 32,
+   "frac_actual": 0.5475,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/kkwcuk/33-audit-b.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: sandalwood",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.15545407420190174,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: sandalwood`.",
+   "probe": "desk: sandalwood",
+   "file_index": 63,
+   "frac_actual": 0.92,
+   "line": 183,
+   "hits": 1,
+   "file": "reading2/kkwcuk/64-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8616270208576599,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 16,
+   "frac_actual": 0.8586,
+   "line": 154,
+   "hits": 1,
+   "file": "reading2/kkwcuk/17-notice.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4967561109380071,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 62,
+   "frac_actual": 0.5016,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/kkwcuk/63-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 15,
+   "frac": 0.6243752104640163,
+   "body": "Received at Pell, 15 onions.",
+   "probe": "Received at Pell, 15 onions.",
+   "file_index": 4,
+   "frac_actual": 0.6259,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/kkwcuk/05-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 11,
+   "frac": 0.3503835975652227,
+   "body": "Lund sent word of 11 leeks on hand.",
+   "probe": "Lund sent word of 11 leeks on hand.",
+   "file_index": 18,
+   "frac_actual": 0.3505,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/kkwcuk/19-audit-ledger.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 3,
+   "frac": 0.321961733166198,
+   "body": "The Uller store took in 3 turnips.",
+   "probe": "The Uller store took in 3 turnips.",
+   "file_index": 22,
+   "frac_actual": 0.3041,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/kkwcuk/23-attack-corruption.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 5,
+   "frac": 0.9099425019498485,
+   "body": "A box of 5 beets came through Brae.",
+   "probe": "A box of 5 beets came through Brae.",
+   "file_index": 41,
+   "frac_actual": 0.9066,
+   "line": 188,
+   "hits": 1,
+   "file": "reading2/kkwcuk/42-rerun-more-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 4,
+   "frac": 0.21796322912847094,
+   "body": "At Marsh Lane the clerk wrote down 4 shallots.",
+   "probe": "At Marsh Lane the clerk wrote down 4 shallots.",
+   "file_index": 43,
+   "frac_actual": 0.2471,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/kkwcuk/44-process4-counterarguments.md"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 18,
+   "frac": 0.20666803279153478,
+   "body": "Varnel desk entered 18 radishes on the sheet.",
+   "probe": "Varnel desk entered 18 radishes on the sheet.",
+   "file_index": 55,
+   "frac_actual": 0.2253,
+   "line": 7,
+   "hits": 1,
+   "file": "reading2/kkwcuk/56-coordinator-findings-3-4nov.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 56
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

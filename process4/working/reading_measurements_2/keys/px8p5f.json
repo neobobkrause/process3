@@ -1,0 +1,152 @@
+{
+ "id": "px8p5f",
+ "ladder": "start",
+ "size": 8192,
+ "index": 0,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/rulebooks__account-switch.md",
+   "s": 4,
+   "e": 57
+  }
+ ],
+ "files": [],
+ "bytes": 8038,
+ "lines": 90,
+ "task": "minutes",
+ "values": {
+  "code1": "J2V-4896",
+  "code2": "Z2X-8039",
+  "w_last": "quillon",
+  "w_name": "cinnabar",
+  "w_desk": "alderney",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Mikko Rantanen",
+  "family": "trees",
+  "members": [
+   "maples",
+   "beeches",
+   "willows",
+   "birches",
+   "alders",
+   "larches",
+   "oaks",
+   "cedars",
+   "pines",
+   "elms"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "cinnabar-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06566538231396388,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `cinnabar-relay.md`, and under no other name.",
+   "probe": "cinnabar-relay.md",
+   "frac_actual": 0.0736,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref J2V-4896",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5444300083728599,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref J2V-4896`.",
+   "probe": "# ref J2V-4896",
+   "frac_actual": 0.5361,
+   "line": 46,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: alderney",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9043169077977828,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.",
+   "probe": "desk: alderney",
+   "frac_actual": 0.9081,
+   "line": 71,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.32435759309509893,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.3243,
+   "line": 21,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6677806325888789,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.6352,
+   "line": 55,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 7,
+   "frac": 0.22552693551636976,
+   "body": "Received at Thorpe, 7 maples.",
+   "probe": "Received at Thorpe, 7 maples.",
+   "frac_actual": 0.2441,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 3,
+   "frac": 0.3455799516969197,
+   "body": "The Lund store took in 3 beeches.",
+   "probe": "The Lund store took in 3 beeches.",
+   "frac_actual": 0.3471,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 2,
+   "frac": 0.7506540409680864,
+   "body": "Tally for Stane: 2 willows.",
+   "probe": "Tally for Stane: 2 willows.",
+   "frac_actual": 0.7533,
+   "line": 63,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 12
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

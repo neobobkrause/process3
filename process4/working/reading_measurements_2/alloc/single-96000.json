@@ -1,0 +1,158 @@
+{
+ "0": {
+  "id": "rx2y24",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 641,
+    "s": 150
+   }
+  ]
+ },
+ "1": {
+  "id": "bgf79k",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1592,
+    "s": 450
+   }
+  ]
+ },
+ "2": {
+  "id": "yp864g",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 91,
+    "s": 23
+   }
+  ]
+ },
+ "3": {
+  "id": "ps8zy2",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "lines": "1-226"
+   }
+  ]
+ },
+ "4": {
+  "id": "eedv9q",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 741,
+    "s": 8
+   }
+  ]
+ },
+ "5": {
+  "id": "sc2mdr",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 882,
+    "s": 76
+   }
+  ]
+ },
+ "6": {
+  "id": "rq3g98",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1430,
+    "s": 51
+   }
+  ]
+ },
+ "7": {
+  "id": "vvt5q2",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2464,
+    "s": 1337
+   }
+  ]
+ },
+ "8": {
+  "id": "hj3wb5",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 656,
+    "s": 430
+   }
+  ]
+ },
+ "9": {
+  "id": "rd5dum",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__account-switch-review.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "lines": "1-183"
+   }
+  ]
+ }
+}

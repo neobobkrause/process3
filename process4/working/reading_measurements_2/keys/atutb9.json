@@ -1,0 +1,155 @@
+{
+ "id": "atutb9",
+ "ladder": "single",
+ "size": 48000,
+ "index": 1,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/DECISIONS.md",
+   "s": 0,
+   "e": 182
+  }
+ ],
+ "files": [
+  "reading2/atutb9/requirements.md"
+ ],
+ "bytes": 47839,
+ "lines": 206,
+ "task": "dates",
+ "values": {
+  "code1": "J5F-2955",
+  "code2": "B9B-4213",
+  "w_last": "pemberley",
+  "w_name": "marlowe",
+  "w_desk": "dunmore",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Ines Carrowby",
+  "family": "trees",
+  "members": [
+   "cedars",
+   "oaks",
+   "beeches",
+   "willows",
+   "maples",
+   "pines",
+   "birches",
+   "elms",
+   "alders",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under pemberley",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08326689551488495,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under pemberley`.",
+   "probe": "-- filed under pemberley",
+   "frac_actual": 0.0845,
+   "line": 30,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed B9B-4213",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5088330383526776,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed B9B-4213`.",
+   "probe": "run closed B9B-4213",
+   "frac_actual": 0.4976,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref J5F-2955",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9018044658565824,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref J5F-2955`.",
+   "probe": "# ref J5F-2955",
+   "frac_actual": 0.9077,
+   "line": 193,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.25364547339001015,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.2502,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.624544836935055,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ines Carrowby`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.6354,
+   "line": 148,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 4,
+   "frac": 0.34112582586967855,
+   "body": "Dunn desk entered 4 cedars on the sheet.",
+   "probe": "Dunn desk entered 4 cedars on the sheet.",
+   "frac_actual": 0.329,
+   "line": 82,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "oaks",
+   "n": 14,
+   "frac": 0.6024169076821738,
+   "body": "14 oaks were logged at the Yarm gate.",
+   "probe": "14 oaks were logged at the Yarm gate.",
+   "frac_actual": 0.6104,
+   "line": 140,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 19,
+   "frac": 0.7941243009465556,
+   "body": "Received at Tamsin Row, 19 beeches.",
+   "probe": "Received at Tamsin Row, 19 beeches.",
+   "frac_actual": 0.803,
+   "line": 176,
+   "hits": 1,
+   "file": "reading2/atutb9/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 37
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

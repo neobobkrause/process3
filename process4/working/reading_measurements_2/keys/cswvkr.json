@@ -1,0 +1,191 @@
+{
+ "id": "cswvkr",
+ "ladder": "single",
+ "size": 12000,
+ "index": 5,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__evidence__audit_D_central.md",
+   "s": 204,
+   "e": 270
+  }
+ ],
+ "files": [
+  "reading2/cswvkr/design.md"
+ ],
+ "bytes": 11910,
+ "lines": 99,
+ "task": "colsum",
+ "values": {
+  "code1": "N5J-6111",
+  "code2": "N4X-5664",
+  "w_last": "juniper",
+  "w_name": "wainscot",
+  "w_desk": "ironbark",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Annelise Brouwer",
+  "family": "musical instruments",
+  "members": [
+   "trumpets",
+   "violins",
+   "oboes",
+   "banjos",
+   "flutes",
+   "cellos",
+   "harps",
+   "clarinets",
+   "bassoons",
+   "tubas"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed N4X-5664",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.028267621010793446,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed N4X-5664`.",
+   "probe": "run closed N4X-5664",
+   "frac_actual": 0.0365,
+   "line": 3,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: ironbark",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5027241495406809,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: ironbark`.",
+   "probe": "desk: ironbark",
+   "frac_actual": 0.513,
+   "line": 59,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref N5J-6111",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9424892223458419,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref N5J-6111`.",
+   "probe": "# ref N5J-6111",
+   "frac_actual": 0.9447,
+   "line": 94,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3469733847694264,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.3491,
+   "line": 42,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.716896266586111,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Annelise Brouwer`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.7181,
+   "line": 74,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 6,
+   "frac": 0.11200374358978589,
+   "body": "Received at Corrie, 6 trumpets.",
+   "probe": "Received at Corrie, 6 trumpets.",
+   "frac_actual": 0.114,
+   "line": 17,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 18,
+   "frac": 0.18957328563650352,
+   "body": "A box of 18 violins came through Stane.",
+   "probe": "A box of 18 violins came through Stane.",
+   "frac_actual": 0.1822,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 9,
+   "frac": 0.42730660584152,
+   "body": "At Brae the clerk wrote down 9 oboes.",
+   "probe": "At Brae the clerk wrote down 9 oboes.",
+   "frac_actual": 0.4242,
+   "line": 54,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 4,
+   "frac": 0.6150027594287143,
+   "body": "Wick desk entered 4 banjos on the sheet.",
+   "probe": "Wick desk entered 4 banjos on the sheet.",
+   "frac_actual": 0.6063,
+   "line": 65,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 7,
+   "frac": 0.7977761224301595,
+   "body": "Tally for Rigg: 7 flutes.",
+   "probe": "Tally for Rigg: 7 flutes.",
+   "frac_actual": 0.8146,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 8,
+   "frac": 0.8451602495796775,
+   "body": "The Hale End store took in 8 cellos.",
+   "probe": "The Hale End store took in 8 cellos.",
+   "frac_actual": 0.8323,
+   "line": 87,
+   "hits": 1,
+   "file": "reading2/cswvkr/design.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 52
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

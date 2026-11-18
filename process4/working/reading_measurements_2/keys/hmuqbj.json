@@ -1,0 +1,152 @@
+{
+ "id": "hmuqbj",
+ "ladder": "start",
+ "size": 8192,
+ "index": 9,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/notes__lane-charters.md",
+   "s": 62,
+   "e": 135
+  }
+ ],
+ "files": [],
+ "bytes": 8227,
+ "lines": 110,
+ "task": "rle",
+ "values": {
+  "code1": "L8C-8319",
+  "code2": "X8V-6749",
+  "w_last": "pemberley",
+  "w_name": "sandalwood",
+  "w_desk": "zephyrine",
+  "name_a": "Noor Al-Tamimi",
+  "name_b": "Mikko Rantanen",
+  "family": "musical instruments",
+  "members": [
+   "bassoons",
+   "violins",
+   "trumpets",
+   "harps",
+   "cellos",
+   "flutes",
+   "oboes",
+   "banjos",
+   "tubas",
+   "clarinets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref L8C-8319",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.031861881166627457,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref L8C-8319`.",
+   "probe": "# ref L8C-8319",
+   "frac_actual": 0.0185,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed X8V-6749",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4933724073365737,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed X8V-6749`.",
+   "probe": "run closed X8V-6749",
+   "frac_actual": 0.488,
+   "line": 49,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "sandalwood-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.976647919562746,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `sandalwood-relay.md`, and under no other name.",
+   "probe": "sandalwood-relay.md",
+   "frac_actual": 0.9679,
+   "line": 95,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1292765772545173,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.1406,
+   "line": 17,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.3932876545794297,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.3904,
+   "line": 38,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 4,
+   "frac": 0.11088114745752004,
+   "body": "The Brae store took in 4 bassoons.",
+   "probe": "The Brae store took in 4 bassoons.",
+   "frac_actual": 0.1015,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 5,
+   "frac": 0.6186523397151814,
+   "body": "Hale End desk entered 5 violins on the sheet.",
+   "probe": "Hale End desk entered 5 violins on the sheet.",
+   "frac_actual": 0.6243,
+   "line": 59,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 13,
+   "frac": 0.8732360483379329,
+   "body": "At Yarm the clerk wrote down 13 trumpets.",
+   "probe": "At Yarm the clerk wrote down 13 trumpets.",
+   "frac_actual": 0.8708,
+   "line": 86,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 22
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

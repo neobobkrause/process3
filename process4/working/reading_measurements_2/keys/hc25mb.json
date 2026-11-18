@@ -1,0 +1,188 @@
+{
+ "id": "hc25mb",
+ "ladder": "start",
+ "size": 65536,
+ "index": 0,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/governing__foundations.md",
+   "s": 41,
+   "e": 295
+  }
+ ],
+ "files": [],
+ "bytes": 64676,
+ "lines": 300,
+ "task": "sumby",
+ "values": {
+  "code1": "F9T-1195",
+  "code2": "D6W-9339",
+  "w_last": "kestrel",
+  "w_name": "bellwether",
+  "w_desk": "thistledown",
+  "name_a": "Soren Achterberg",
+  "name_b": "Greta Lindqvist",
+  "family": "birds",
+  "members": [
+   "larks",
+   "robins",
+   "plovers",
+   "cranes",
+   "owls",
+   "finches",
+   "swifts",
+   "herons",
+   "wrens",
+   "gulls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "bellwether-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.020965333414849168,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `bellwether-relay.md`, and under no other name.",
+   "probe": "bellwether-relay.md",
+   "frac_actual": 0.0223,
+   "line": 4,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref F9T-1195",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47599367840604123,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref F9T-1195`.",
+   "probe": "# ref F9T-1195",
+   "frac_actual": 0.471,
+   "line": 131,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9174086996082521,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "frac_actual": 0.9159,
+   "line": 251,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.39947435033100565,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.3777,
+   "line": 108,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7280150802944837,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.729,
+   "line": 192,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 6,
+   "frac": 0.1799634632153269,
+   "body": "At Yarm the clerk wrote down 6 larks.",
+   "probe": "At Yarm the clerk wrote down 6 larks.",
+   "frac_actual": 0.1877,
+   "line": 50,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 5,
+   "frac": 0.21501847266488777,
+   "body": "Received at Thorpe, 5 robins.",
+   "probe": "Received at Thorpe, 5 robins.",
+   "frac_actual": 0.2129,
+   "line": 59,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 16,
+   "frac": 0.4066713999545719,
+   "body": "A box of 16 plovers came through Brae.",
+   "probe": "A box of 16 plovers came through Brae.",
+   "frac_actual": 0.4551,
+   "line": 122,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 18,
+   "frac": 0.5962540536081852,
+   "body": "Tally for Corrie: 18 cranes.",
+   "probe": "Tally for Corrie: 18 cranes.",
+   "frac_actual": 0.5969,
+   "line": 166,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 8,
+   "frac": 0.7867925712993052,
+   "body": "Lund desk entered 8 owls on the sheet.",
+   "probe": "Lund desk entered 8 owls on the sheet.",
+   "frac_actual": 0.7818,
+   "line": 212,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 17,
+   "frac": 0.8331413637594747,
+   "body": "17 finches were logged at the Wick gate.",
+   "probe": "17 finches were logged at the Wick gate.",
+   "frac_actual": 0.8322,
+   "line": 227,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 70
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

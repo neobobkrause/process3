@@ -1,0 +1,254 @@
+{
+ "id": "nhvbzs",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 7,
+ "files": [
+  "reading2/nhvbzs/01-redteam-feasibility.md",
+  "reading2/nhvbzs/02-foundations.md",
+  "reading2/nhvbzs/03-joined.mjs",
+  "reading2/nhvbzs/04-later-requirements.md",
+  "reading2/nhvbzs/05-train-robust-options.md",
+  "reading2/nhvbzs/06-joined.mjs",
+  "reading2/nhvbzs/07-job-test.mjs",
+  "reading2/nhvbzs/08-tranche.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "principles",
+  "code",
+  "requirements",
+  "design",
+  "code",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 0,
+    "e": 94
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 0,
+    "e": 78
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 50,
+    "e": 124
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 949,
+    "e": 1024
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 108,
+    "e": 183
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "s": 0,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 264,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 0,
+    "e": 139
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1268,
+    "e": 1437
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 97373,
+ "lines": 1089,
+ "task": "merge",
+ "values": {
+  "code1": "S3V-8356",
+  "code2": "G2J-6642",
+  "w_last": "zephyrine",
+  "w_name": "tamarind",
+  "w_desk": "lodestone",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Calum Drysdale",
+  "family": "fruit",
+  "members": [
+   "mangoes",
+   "lemons",
+   "peaches",
+   "figs",
+   "cherries",
+   "apricots",
+   "quinces",
+   "plums",
+   "pears",
+   "limes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref S3V-8356",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5995393514038084,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref S3V-8356`.",
+   "probe": "# ref S3V-8356",
+   "file_index": 0,
+   "frac_actual": 0.0985,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/nhvbzs/01-redteam-feasibility.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed G2J-6642",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.8785133877029063,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed G2J-6642`.",
+   "probe": "run closed G2J-6642",
+   "file_index": 4,
+   "frac_actual": 0.534,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/nhvbzs/05-train-robust-options.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: lodestone",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.3767626835543718,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: lodestone`.",
+   "probe": "desk: lodestone",
+   "file_index": 7,
+   "frac_actual": 0.9084,
+   "line": 158,
+   "hits": 1,
+   "file": "reading2/nhvbzs/08-tranche.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8926620293870611,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 1,
+   "frac_actual": 0.8833,
+   "line": 70,
+   "hits": 1,
+   "file": "reading2/nhvbzs/02-foundations.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2162222763296603,
+   "value": "reviewer: Calum Drysdale",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 7,
+   "frac_actual": 0.2161,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/nhvbzs/08-tranche.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 15,
+   "frac": 0.4832634555353654,
+   "body": "The Stane store took in 15 mangoes.",
+   "probe": "The Stane store took in 15 mangoes.",
+   "file_index": 0,
+   "frac_actual": 0.436,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/nhvbzs/01-redteam-feasibility.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 16,
+   "frac": 0.8507954956286955,
+   "body": "At Varnel the clerk wrote down 16 lemons.",
+   "probe": "At Varnel the clerk wrote down 16 lemons.",
+   "file_index": 3,
+   "frac_actual": 0.878,
+   "line": 61,
+   "hits": 1,
+   "file": "reading2/nhvbzs/04-later-requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 2,
+   "frac": 0.5747850802269829,
+   "body": "A box of 2 peaches came through Uller.",
+   "probe": "A box of 2 peaches came through Uller.",
+   "file_index": 5,
+   "frac_actual": 0.5757,
+   "line": 104,
+   "hits": 1,
+   "file": "reading2/nhvbzs/06-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 9,
+   "frac": 0.3792363622662025,
+   "body": "9 figs were logged at the Pell gate.",
+   "probe": "9 figs were logged at the Pell gate.",
+   "file_index": 7,
+   "frac_actual": 0.3823,
+   "line": 73,
+   "hits": 1,
+   "file": "reading2/nhvbzs/08-tranche.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

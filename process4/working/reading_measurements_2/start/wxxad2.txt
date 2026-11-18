@@ -1,0 +1,27 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/wxxad2/01-joined.mjs
+- reading2/wxxad2/02-change-sample.md
+- reading2/wxxad2/03-joined.mjs
+- reading2/wxxad2/04-point2-process-rule.md
+- reading2/wxxad2/05-job-sync-test.mjs
+- reading2/wxxad2/06-merge-test.mjs
+- reading2/wxxad2/07-joined.mjs
+- reading2/wxxad2/08-joined.mjs
+- reading2/wxxad2/09-levers-github-cloudflare-pro.md
+- reading2/wxxad2/10-joined.mjs
+- reading2/wxxad2/11-lane-qualify-test.mjs
+- reading2/wxxad2/12-joined.mjs
+- reading2/wxxad2/13-bob-naming.md
+- reading2/wxxad2/14-foundations.md
+- reading2/wxxad2/15-joined.md
+- reading2/wxxad2/16-audit-b.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/wxxad2/rle.py. It reads lines from standard input and prints one line for each. Each output line is the run-length form of the input line: for every run of one repeated character, the length of the run in decimal followed by the character. An empty line gives an empty line. Example: the input line `aaabcc` gives `3a1b2c`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/wxxad2: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,210 @@
+{
+ "id": "jh5w3m",
+ "ladder": "single",
+ "size": 192000,
+ "index": 5,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__session2__point1_tranche_end.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__defect-sweep-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__replay__results.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__causal_forensics.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+   "lines": "1-219"
+  }
+ ],
+ "files": [
+  "reading2/jh5w3m/design.md"
+ ],
+ "bytes": 191922,
+ "lines": 1422,
+ "task": "dates",
+ "values": {
+  "code1": "P9Z-3881",
+  "code2": "P2D-4330",
+  "w_last": "saltmarsh",
+  "w_name": "pennant",
+  "w_desk": "dunmore",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Maren Oduya",
+  "family": "hand tools",
+  "members": [
+   "awls",
+   "pliers",
+   "hammers",
+   "mallets",
+   "wrenches",
+   "trowels",
+   "handsaws",
+   "chisels",
+   "spanners",
+   "rasps"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under saltmarsh",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04461443578851375,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under saltmarsh`.",
+   "probe": "-- filed under saltmarsh",
+   "frac_actual": 0.0494,
+   "line": 84,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "pennant-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5056767897725246,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `pennant-relay.md`, and under no other name.",
+   "probe": "pennant-relay.md",
+   "frac_actual": 0.5057,
+   "line": 804,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: dunmore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9466859302224877,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: dunmore`.",
+   "probe": "desk: dunmore",
+   "frac_actual": 0.9467,
+   "line": 1381,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.27222118531635714,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.2727,
+   "line": 378,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7005878408181427,
+   "value": "reviewer: Maren Oduya",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Maren Oduya`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.7014,
+   "line": 1098,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 3,
+   "frac": 0.06495819402091836,
+   "body": "A box of 3 awls came through Stane.",
+   "probe": "A box of 3 awls came through Stane.",
+   "frac_actual": 0.0677,
+   "line": 118,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 10,
+   "frac": 0.2912932922899496,
+   "body": "Rigg desk entered 10 pliers on the sheet.",
+   "probe": "Rigg desk entered 10 pliers on the sheet.",
+   "frac_actual": 0.2891,
+   "line": 401,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 8,
+   "frac": 0.35510489184699945,
+   "body": "The Tamsin Row store took in 8 hammers.",
+   "probe": "The Tamsin Row store took in 8 hammers.",
+   "frac_actual": 0.355,
+   "line": 506,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 12,
+   "frac": 0.5082222284388682,
+   "body": "12 mallets were logged at the Dunn gate.",
+   "probe": "12 mallets were logged at the Dunn gate.",
+   "frac_actual": 0.5073,
+   "line": 813,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 13,
+   "frac": 0.7489924198732433,
+   "body": "Received at Wick, 13 wrenches.",
+   "probe": "Received at Wick, 13 wrenches.",
+   "frac_actual": 0.7469,
+   "line": 1171,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 6,
+   "frac": 0.8311424424103235,
+   "body": "Eyre sent word of 6 trowels on hand.",
+   "probe": "Eyre sent word of 6 trowels on hand.",
+   "frac_actual": 0.8309,
+   "line": 1287,
+   "hits": 1,
+   "file": "reading2/jh5w3m/design.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 52
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

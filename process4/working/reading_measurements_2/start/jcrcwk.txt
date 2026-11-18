@@ -1,0 +1,27 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/jcrcwk/01-joined.mjs
+- reading2/jcrcwk/02-process4-definition-v6.md
+- reading2/jcrcwk/03-process4-counterarguments.md
+- reading2/jcrcwk/04-joined.md
+- reading2/jcrcwk/05-process4-disposition.md
+- reading2/jcrcwk/06-joined.mjs
+- reading2/jcrcwk/07-joined.md
+- reading2/jcrcwk/08-status.mjs
+- reading2/jcrcwk/09-joined.mjs
+- reading2/jcrcwk/10-layer-flow-messages-test.mjs
+- reading2/jcrcwk/11-merge-waits-test.mjs
+- reading2/jcrcwk/12-coordinator-findings-3-4nov.md
+- reading2/jcrcwk/13-joined.md
+- reading2/jcrcwk/14-layerflow.mjs
+- reading2/jcrcwk/15-joined.md
+- reading2/jcrcwk/16-status.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/jcrcwk/wordtop.py. It reads all of standard input. A word is a longest run of the letters A to Z in either case; words are compared in lower case. It prints the three most frequent words, one per line as `word count`, most frequent first, with ties in count broken by alphabetical order. If there are fewer than three different words it prints those there are. Example: the input `The cat and the hat. The end, and so on.` gives `the 3`, `and 2`, `cat 1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/jcrcwk: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

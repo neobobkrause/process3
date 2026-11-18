@@ -1,0 +1,207 @@
+{
+ "id": "fffr5u",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 0,
+ "files": [
+  "reading2/fffr5u/01-joined.md",
+  "reading2/fffr5u/02-joined.mjs"
+ ],
+ "file_kinds": [
+  "principles",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "s": 15,
+    "e": 115
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "s": 0,
+    "e": 68
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "s": 0,
+    "e": 54
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "s": 0,
+    "e": 15
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "s": 0,
+    "e": 85
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 10
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 615,
+    "e": 1017
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "s": 0,
+    "e": 283
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96297,
+ "lines": 1072,
+ "task": "dates",
+ "values": {
+  "code1": "Y3X-8246",
+  "code2": "V7M-9663",
+  "w_last": "juniper",
+  "w_name": "elderwood",
+  "w_desk": "bellwether",
+  "name_a": "Odette Fairweather",
+  "name_b": "Calum Drysdale",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "larks",
+   "swifts",
+   "plovers",
+   "herons",
+   "robins",
+   "owls",
+   "wrens",
+   "finches",
+   "cranes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "elderwood-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.522967477557558,
+   "body": "Every job must note: the job's handover note is saved under the file name `elderwood-relay.md`, and under no other name.",
+   "probe": "elderwood-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0878,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/fffr5u/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under juniper",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.060566497692498,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under juniper`.",
+   "probe": "-- filed under juniper",
+   "file_index": 1,
+   "frac_actual": 0.4704,
+   "line": 339,
+   "hits": 1,
+   "file": "reading2/fffr5u/02-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed V7M-9663",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7440448813347613,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed V7M-9663`.",
+   "probe": "run closed V7M-9663",
+   "file_index": 1,
+   "frac_actual": 0.9039,
+   "line": 645,
+   "hits": 1,
+   "file": "reading2/fffr5u/02-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.14905929562821163,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 0,
+   "frac_actual": 0.1521,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/fffr5u/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4233679050624078,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 1,
+   "frac_actual": 0.4468,
+   "line": 318,
+   "hits": 1,
+   "file": "reading2/fffr5u/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 10,
+   "frac": 0.48762546910676025,
+   "body": "10 gulls were logged at the Rigg gate.",
+   "probe": "10 gulls were logged at the Rigg gate.",
+   "file_index": 0,
+   "frac_actual": 0.5035,
+   "line": 198,
+   "hits": 1,
+   "file": "reading2/fffr5u/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 6,
+   "frac": 0.8511028131933619,
+   "body": "At Tamsin Row the clerk wrote down 6 larks.",
+   "probe": "At Tamsin Row the clerk wrote down 6 larks.",
+   "file_index": 0,
+   "frac_actual": 0.8521,
+   "line": 297,
+   "hits": 1,
+   "file": "reading2/fffr5u/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 3,
+   "frac": 0.38686646139717307,
+   "body": "Tally for Stane: 3 swifts.",
+   "probe": "Tally for Stane: 3 swifts.",
+   "file_index": 1,
+   "frac_actual": 0.398,
+   "line": 283,
+   "hits": 1,
+   "file": "reading2/fffr5u/02-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 19
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

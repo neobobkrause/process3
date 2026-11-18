@@ -1,0 +1,234 @@
+{
+ "id": "rd5dum",
+ "ladder": "single",
+ "size": 96000,
+ "index": 9,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-handoff-9nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__account-switch-review.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__draft-approvals-split-8nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+   "lines": "1-183"
+  }
+ ],
+ "files": [
+  "reading2/rd5dum/log.md"
+ ],
+ "bytes": 95932,
+ "lines": 965,
+ "task": "merge",
+ "values": {
+  "code1": "H8W-3393",
+  "code2": "N8G-4129",
+  "w_last": "copperfield",
+  "w_name": "saltmarsh",
+  "w_desk": "rosehip",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Tobias Hallworth",
+  "family": "fruit",
+  "members": [
+   "mangoes",
+   "limes",
+   "lemons",
+   "figs",
+   "apricots",
+   "quinces",
+   "cherries",
+   "peaches",
+   "plums",
+   "pears"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03543686369838139,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "frac_actual": 0.0287,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: rosehip",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.48419730561396623,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: rosehip`.",
+   "probe": "desk: rosehip",
+   "frac_actual": 0.5183,
+   "line": 438,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref H8W-3393",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9365511206426451,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref H8W-3393`.",
+   "probe": "# ref H8W-3393",
+   "frac_actual": 0.9361,
+   "line": 855,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.39904839569449024,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.3588,
+   "line": 360,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6779637095257084,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.739,
+   "line": 708,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 11,
+   "frac": 0.0742114906702773,
+   "body": "11 mangoes were logged at the Eyre gate.",
+   "probe": "11 mangoes were logged at the Eyre gate.",
+   "frac_actual": 0.0727,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 15,
+   "frac": 0.20479919458228163,
+   "body": "Received at Lund, 15 limes.",
+   "probe": "Received at Lund, 15 limes.",
+   "frac_actual": 0.2023,
+   "line": 247,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 2,
+   "frac": 0.38589648278984157,
+   "body": "Yarm desk entered 2 lemons on the sheet.",
+   "probe": "Yarm desk entered 2 lemons on the sheet.",
+   "frac_actual": 0.3525,
+   "line": 353,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 6,
+   "frac": 0.5759002201911693,
+   "body": "A box of 6 figs came through Varnel.",
+   "probe": "A box of 6 figs came through Varnel.",
+   "frac_actual": 0.5742,
+   "line": 485,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 9,
+   "frac": 0.7498897031356074,
+   "body": "Pell sent word of 9 apricots on hand.",
+   "probe": "Pell sent word of 9 apricots on hand.",
+   "frac_actual": 0.752,
+   "line": 724,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 8,
+   "frac": 0.8610490203672935,
+   "body": "Tally for Uller: 8 quinces.",
+   "probe": "Tally for Uller: 8 quinces.",
+   "frac_actual": 0.8609,
+   "line": 763,
+   "hits": 1,
+   "file": "reading2/rd5dum/log.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 51
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

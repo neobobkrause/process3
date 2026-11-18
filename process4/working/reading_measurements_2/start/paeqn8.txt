@@ -1,0 +1,297 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+# [file] layer-branch.md
+
+# The shared layer branch
+
+The only flow: the merge train was removed (Bob, 6 Nov, as the coordinator relayed it). A product's `process/config.json` says `"merge_strategy": "layer"` or leaves the key out; any other value is refused. A product with no layer map (`layers_file`) has no layer, and its jobs keep the tranche as their base. Design: the note "Shared Layer Branch" (Bob, 5 Nov), with his rulings: no gate or test run at layer close; a rescheduled job halts its run and restarts; the tool lists the jobs, BOB starts them; at layer merge the layer's checks run, but no module suite. One small PR per publish, landed by the merge tool on a green gate, is the note's recommended implementation choice, which the coordinator adopted.
+
+The steps, with who runs each (`p3` is `node .process/tool/p3.mjs`):
+
+
+To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under wainscot`.
+
+1. BOB: `p3 layer open <n>`. It cuts `layer/<n>` from the tranche tip and lists the jobs that can start. It refuses while an earlier layer opened this way has not merged.
+2. BOB: `p3 layer sync <n>` after every pin move made while layer n is open, before any job in it lands (SLB-12, Bob, 6 Nov). A pin move does not reach an open layer branch: the gate and the record check run the base's own tool, so `layer/<n>` keeps the tool it was cut with. Layer sync merges the tranche into `layer/<n>` by a tool-made pull request and lands it through the merge tool on a green gate. In a conflict it takes `.process` and the process's shims from the tranche and keeps each ledger entry as the layer has it; any other conflict refuses. It records a `sync` event. While `layer/<n>`'s pin differs from the tranche's, `layer jobs` and `status --role bob` lead with "run layer sync <n>", and `layer merge <n>` refuses unless the pin moved only after the layer's last land.
+3. BOB: runs each `job start <id> --live <n>` line from `p3 layer jobs <n>`. `status --role bob` lists the same lines under `jobs to start`. No other session creates a job. Each job branch is cut from `layer/<n>`, and its draft PR goes into it.
+4. The job: works and pushes on its own branch. When its suite passes, it runs `p3 layer publish <id>` with job complete's flags. Publish brings the branch up to the layer tip and refuses any file outside the module. It runs the module's checks and suite, and marks the PR ready. While the suite runs, it reads the state branch every 30 s. A reschedule for the module halts the run, and publish starts again on the new layer tip.
+5. BOB (the merge tool): `p3 layer land <pr>` once the gate on the PR's tip is green. There is no combined re-test, even when the layer has moved on in other modules. The land is refused when the run behind it started before a provider's newest interface change. At the land, the provider's interface is compared before and after. Three triggers count, and each is recorded in the reschedule row: its exports (`exports`), the text of its Public / Provides section (`provides-text`), and a changed test of the provider that names a Provides requirement id (`provides-test`). The last catches a changed answer shape that the exports do not show. A change does two things: it reschedules the provider's users in this layer (BOB delivers the message the land prints to each one whose job is open, with send_message priority now; the tool sends nothing itself), and it leaves a provider notice for its users in later layers.
+6. BOB: `p3 layer status <n>`, then `p3 layer merge <n>` when every module is complete or deferred, no reschedule is outstanding, and no publish PR is open. First the layer's checks run on the layer tip: each entry's checks, the generated rows built, and every committed generated path regenerated. A red check, or a regenerated file that differs, refuses the merge. A generated row's verify failure refuses it only when the row's paths, or a module the failure names, belong to the closing layer; any other is printed for the module it names, which BOB records there as a found mark (`p3 found`), and the merge goes on (SLB-7). A differing generated file is fixed by BOB's plain pull request into `layer/<n>` (`merge --plain`); the layer gate leaves generated paths to these checks. No module suite runs. Then one PR goes from `layer/<n>` into the tranche. Its gate runs no suite: it checks that each module has a verified green land on a head that held its providers' interface changes. The merge also writes the layer's close row.
+7. Anyone: `p3 layer report <n> [--tool-from <process3 sha>]` gives the trial's measures. These are gate runs per module, hours from open to merged, reschedules per module, how often a reschedule changed the user's result, the runs halted and the minutes they cost, and the tool lines added and removed.
+
+
+Received at Yarm, 10 carrots.
+
+Work outside the open layer (the coordinator's ruling, 6 Nov 2026, R12) joins the NEXT layer to open, in order, never the tranche directly. A module whose layer is behind the open one, such as a notice-affected user in a merged layer or a found-mark reopen of a COMPLETE module whose layer merged, has its act printed as `p3 layer join <id> --why "<the work>"`. Status, the notice slots and a refused `job start` all print it. The join is one row on the state branch (`layerflow/<n>/join/<id>.json`). `layer open <n>` lists the joined module in that layer's jobs, a reopen for a COMPLETE one. Its job is cut from `layer/<n>`, and the layer merges only once it lands. A module of a later layer than the open one is owed to its own layer: status lists it apart, even when open_by "uses" reads it as ready; only an early start (below) starts one before its layer opens. A job PR still open into the tranche is the train's: status names it, close it unmerged and restart the module in its layer (no `--restart` path into the tranche).
+
+Early starts into the next layer (Bob, 6 Nov 2026, R14: "Why didn't the early starts launch before layer 8 closed?"). While layer n is open, a module of the next layer to open whose providers have all landed or are COMPLETE (none in layer n working, rescheduled, deferred or not started) is listed by `layer jobs <n>` and status as `job start <id> --live <n> --early`, on idle capacity only, after layer n's own starts. The first early start cuts `layer/<n+1>` ahead from `layer/<n>`'s tip; each later one moves it forward to that tip, a fast-forward, since nothing lands on it before its open. The job's branch and draft pull request are on it, as for any of that layer's jobs. Until `layer open <n+1>` the branch takes nothing else: a plain start, `layer publish`, `layer jobs`/`layer status <n+1>` and `merge --plain` into it are refused. The open brings it up to the tranche tip (again a fast-forward) and lists the early module as working while its draft pull request is open; one whose start did not finish is listed again, and `job start` resumes it. Each early start is one row (`layerflow/<n+1>/early/<id>-<t>.json`), and `layer report <n+1>` gives each one's rework: a reschedule (R8), a retest (R7), or a provider notice after its start, with the rate.
+
+
+Hale End sent word of 12 radishes on hand.
+
+Door tests owed to a later layer (Bob, 6 Nov 2026, R6: B). Some modules' door tests need ops that only a later layer's modules declare. Investigation's acceptproposals and corpus-export's founder-only exportwhole both need op-declarations, op-grades, op-capabilities and store-assembly, which are layer 11. Such a module completes its behaviour in its own layer and does not wait. It names the door test in not-verified, with the requirement ids and the providing modules. That test is owed to the providing layer: BOB lists it in that layer's brief, and once the providers land there, the module's job is restarted for the door test alone. The layer order stays as it is. Deferring a door test this way is the rule, not a ruling each time.
+
+The state is on the state branch, under `layerflow/<n>/`, one file per event: open, run, land, reschedule, sync, merged.
+
+
+# [file] 06-reading-in-full-and-documents.md
+
+# Process4 Foundations, part 6: Reading in full, and the documents
+
+Length: 91 lines. Last section: "Where the work is kept".
+
+## Why reading in full is a design matter
+
+A session acts only on what it has read in full or measured.
+
+The danger is a quiet one. Given a text or a set of texts that is too large, a session may scan it and not read it, and say nothing. It then works from a partial picture of the product's founding documents and of its own rules. Bob names this as a very significant danger that must be mitigated. His words are in `process4/owner_words/bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`.
+
+
+Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.
+
+Nothing can ensure a full reading. So the design keeps texts small enough that a full reading reliably results. This follows Bob's general approach in `bob_words_17nov_compaction_avoidance.md`: the best mitigation of a shortcoming is to stay out of the situation where it comes into play.
+
+## The measured maximum
+
+Every text a session must read in full is kept below a measured maximum size. So is every set of texts that is read together.
+
+The Codex maximums are used. They rest on real measurements, and Codex context windows are in effect more constrained than Claude Code's. Writer's reading: a size that is safe in the tighter harness is taken as safe in both.
+
+The values are not yet settled, and are owed (part 10). The figures found so far are in `process4/working/harness_separation/`. They are sizes shown to work. None is a size at which reading was shown to fail. The values are settled first from the limits that Process3's own rules set. If those do not settle them, credible tests measure the thresholds.
+
+The maximums are chosen by one yardstick, which also sets the fill level at which a role is refreshed (part 5). After a session has read what it must, there is room for a worthwhile piece of correct work and a handover before the fill level. Bob's words on this are in `bob_words_17nov_compaction_avoidance.md`.
+
+Measured in Process3: a guide for sessions that had no size limit grew from 8 KB to 134 KB.
+
+Each governing text says at its top how long it is and what its last section is. This is Claude's addition. Writer's reading: it lets a reader know whether it reached the end.
+
+## Role principles and requirements files
+
+Each role has its own principles. They are concise, sufficient for the role to be performed correctly, and unambiguously clear. There is one short rulebook for each role, of at most ten rules.
+
+Whenever a role's principles are changed, every effort is made to keep them short enough to be read in full and not scanned. Where that cannot be done, the matter comes to Bob to find a solution. Claude's reading, not yet confirmed by Bob: PROCESS brings it to him.
+
+A module's requirements file is kept under the maximum, as a rule ARCH applies. When a file nears it, ARCH splits the module into two real modules. Nothing refuses a job or a merge.
+
+Writer's reading: the same rule covers what a job reads together, which is its module's requirements, its module's code, and what its providers publish.
+
+Claude Code: the product's CLAUDE.md, the instruction file every session loads, stays under thirty lines.
+
+Codex: the limit on the instruction files a hosted session loads is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+
+## The ranking of a product's governing texts
+
+Each product has one short page that ranks its kinds of governing text: mission, principles, standards, requirements, design decisions. ARCH keeps the page, and every role reads it.
+
+A lower kind never overrides a higher one. A session that finds two in conflict follows the higher and tells ARCH.
+
+## The two documents
+
+Process4 has two documents.
+
+- The design document defines the Process4 design. It is "the Process4 requirements", and it is what sessions follow. It names no product.
+- The background document gives the background and context. These parts are that document. They are Bob's Foundations, brought up to date with the design.
+
+
+Quay Nine desk entered 8 onions on the sheet.
+
+A product's own facts, and the steps to move it onto Process4, go to a separate conversion plan for that product.
+
+The design document is written in plain words, with no reference codes. Bob has not read the sessions' working files, and he asks to be spoken to in words he understands (`bob_words_14nov_b.md`).
+
+## The record of decisions
+
+Bob's decisions about the Process4 design are kept in the repository.
+
+- The record is ordered by subject. Each entry states the rule as it now stands.
+- A decision that changes an entry rewrites it in place. A rewritten entry is shown to Bob once before it stands.
+- Bob's exact dated words are kept, and never edited. They are in `process4/owner_words/`.
+- The design document is brought up to date in the same step as the record. It carries none of the history of how the design reached its present state.
+
+Bob's latest statement replaces any earlier one. His older words are never set against his newer ones.
+
+Writer's reading: a reader who needs the rule reads one entry and gets the rule. A reader who needs to know what Bob said reads his words. Neither has to work through a history to find where things stand.
+
+## Words that fit either harness
+
+The body of the design uses words that fit either harness. A table for each harness, Claude Code and Codex, says which construct of that harness carries each term. Anything specific to Claude Code, such as CLAUDE.md and settings.json, is marked as specific to Claude Code.
+
+Bob's direction is that Codex is to be studied as an environment of its own, not assumed to be the same as Claude's (`bob_words_17nov_codex_context.md`). He also asked for confirmation that the Codex work does not overwrite the support for Claude Code (`bob_words_16_17nov_codex_development.md`). Each harness's own files are kept apart in the process's repository, and a change for one harness never alters the other's.
+
+The terms these parts use, with their Claude Code constructs, are listed in part 9.
+
+Where the Codex side of the design is not yet known or not yet built, the design notes the shortcoming plainly. It is left for Bob's work on the OpenAI account to fill. The list is `process4/working/codex_shortcomings_to_fill.md`. In these parts a line that begins "Codex:" marks such a place.
+
+## Words that fit any hosting
+
+The body of the design names no hosting provider. Whatever depends on where a product is hosted and released is stated in neutral terms. That covers the development site, deploying, the deploy token, the hosting account's limits, and installing and updating.
+
+A table for each hosting provider says what carries each term. Cloudflare is the first. Support for other hosting is not built now. The design is written so that it can be added.
+
+These parts keep to the same rule. They speak of the product's hosting account, and name no provider outside this section.
+
+## Where the work is kept
+
+The Process4 work is kept in a folder named process4, on a branch named process4, of the process3 repository. The Codex work is on that same branch. Bob has approved adding all information about the Process4 work to that repository, which is public (`bob_words_14nov_c.md`).
+
+
+# [file] root.md
+
+# ROOT's rulebook
+
+For ROOT, read once at start, after your prompt. Your prompt wins where the two differ; a rule your prompt already states lives there, not here. At most ten rules, rewritten in place, never appended (TXT-3). Each cites its line (TXT-6) and names what holds it, or says nudge.
+
+## Principles (TXT-4)
+
+
+Binding on all jobs: the job's handover note is saved under the file name `ironbark-relay.md`, and under no other name.
+
+1. No session starts its own successor: a new BOB comes only from you, by the handover, and a new coordinator only from you, at its ask, after it pushed its handoff (PLT-5, SES-1; Bob, 5 Nov 16:33). Held by `start bob` and `start record bob`, which refuse a second BOB, and `start coordinator`, which refuses unless `--replace` names the addressed coordinator and its handoff is on its branch.
+2. Git carries state and a message only wakes, after the push (MSG-1). Your pushes are the tool's, paced account-wide by it (P27): push nothing and write nothing through the GitHub connector by hand. Held by `send` and the tool's pacing.
+
+## Rules
+
+
+At Thorpe the clerk wrote down 4 turnips.
+
+1. Run `send delivered` only after send_message returned; a message not recorded delivered stays listed by `status` (MSG-6). Held by `status`.
+2. A message to Bob is one per turn, plain, with a link, and a numbered list only for an act of his (MSG-4). Nudge.
+3. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.
+4. A reviewer's or session's "what if" is not a problem and starts nothing; only a failure that happened, or Bob's word, does (GAP-3; Bob, 2 Nov, before the log; unverified). Nudge.
+5. Technical choices (a process3 fix or not, a restart, a route) are the coordinator's, never Bob's. A product's are BOB's. Each is a short decision record (REC-11), in its repository's DECISIONS.md, reported in one line. Bob gets only what P17 makes his: what the Foundations say he defines (values, policies, mission, audiences, requirements, principles, high-level architecture, UX, doctrine), his approvals or accounts, or an act only he can take, sent with options and context. Anything else: decide it if it is yours, else send it to the coordinator. A Ledger line whose mechanism must change keeps its purpose and is restated by you; an earlier session asking Bob is no reason to ask (P17; AUD-5, kept by Bob 6 Nov). Nudge.
+6. Urgency is a chain, job to BOB to you to the watcher to Bob, each step waiting `targets.decision_minutes` in process/config.json (30 by default) for an answer. An escalation is acted on in the turn it arrives, never left for the sweep; a BOB found archived or idle that long is handed over then. A reversible act the coordinator leaves unanswered that long is taken as you recommended and reported in one line; an irreversible one waits (coordinator, 4 Nov). Nudge.
+7. Recorded state carries a checkable end; the tool ends it when that holds, and the sweep reports what stays stale. Never end one by hand: report it, and its fix is a process3 build (Bob, 6 Nov). Held by `sweep` and the tool's ends.
+
+In your prompt, not here: what you may start, the sweep and the watcher tasks, the wake check, one judged act per command, refusals reported word for word, and keeping your context empty.
+
+A switch of Bob's Claude account follows `rulebooks/account-switch.md` (`.process/rulebooks/account-switch.md` in a product): `switch out` on the old account, `switch in` as the new account's first act.
+
+
+# [file] 00-index.md
+
+# Process4 Foundations: index
+
+Length: 31 lines. Last section: "How to read the parts".
+
+These parts are Bob's Foundations, brought up to date with the Process4 design as it stood on 18 Nov 2026. They are the background to the design: the motivations behind it and the conclusions it rests on. Process4 is proposed, and nothing here is in force.
+
+## The parts
+
+
+Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.
+
+| File | Subject | Last section |
+| --- | --- | --- |
+| `01-purpose-owner-and-ai.md` | What the process is for and where it stops; Bob and the AI; Bob's acts; how problems are handled; the words used | Words used |
+| `02-tests.md` | The tests, and why nothing is added to them | The process's own tool |
+| `03-modules-jobs-and-the-notice.md` | Modules, requirements, jobs and slots, the mechanical edit, the notice to user modules | What the notice cannot do |
+| `04-tranche-rounds-walks-release.md` | The tranche, rounds, partial walks, flaws, the walks' documents, release | Release |
+| `05-roles-and-sessions.md` | The roles, helpers, design lanes, refreshing sessions, shared state and messages, the way back | The way back after a full stop |
+| `06-reading-in-full-and-documents.md` | Reading in full, the measured maximum, the ranking of a product's governing texts, the two documents, the record of decisions, words that fit either harness and any hosting | Where the work is kept |
+| `07-how-bobs-words-become-decisions.md` | Marked words, the front door, how a question is put, what Bob can see, what waits for Bob | What waits for Bob |
+| `08-changing-the-process.md` | PROCESS, the rule it works under, Process4 developing itself, what Process4 does not carry | What Process4 does not carry |
+| `09-permissions-and-platform.md` | What holds a rule, Bob's approvals, the permission checker, the two kinds of refusal, the platform | The terms and their Claude Code constructs |
+| `10-proven-unproven-and-owed.md` | What is measured, what is unproven, what is owed | Owed |
+
+## How to read the parts
+
+- Each part is kept small so that it can be read in full. Each says at its top how many lines it has and what its last section is. A reader that has not reached that section has not read the part.
+- The design document is what sessions follow. Where a part and the design document differ, the design document rules.
+- Bob's exact words are kept in `process4/owner_words/`. The parts name the file where a motivation rests on his words. They do not copy his words.
+- Four words are kept apart: measured, estimated, judged, unproven. Part 10 defines them.
+- "Claude Code:" marks a statement that depends on that harness. "Codex:" marks a place where the Codex side is not yet known. The list of those places is `process4/working/codex_shortcomings_to_fill.md`.
+- The parts name no hosting provider, except where part 6 says which provider's table is the first. What depends on where a product is hosted is stated in neutral terms.
+- "Claude's reading:" marks an interpretation in the design that Bob has not yet confirmed. "Claude decided:" marks a technical matter the AI settled and reported. "Writer's reading:" marks an interpretation made by the Claude worker that wrote these parts. Bob can overrule any of them.
+- The parts name no product. A product's own facts belong to that product's conversion plan.
+
+
+# [file] HANDOFF.md
+
+# Process4: handoff to a fresh session
+
+Written 14 Nov 2026 by the session that produced drafts two to five. Read this file in full before anything else. Nothing in Process4 is in force.
+
+## Who you are working for, and how
+
+Bob is the owner. He is defining Process4, the successor to Process3, in which Claude Code sessions build his product Civicsmith unattended. In this role he is not a programmer. His rules, in his own typed words (all of his messages of 14 Nov are in `owner_words/`, exactly as typed; read both files in full):
+
+- "Talk to me in plain words. No codes, no shorthand, no references to things I have not seen. I have not read your working files."
+- "Decide technical matters yourself and tell me what you decided. Bring me only what is mine to decide, with what it is, why it matters to me, and your recommendation."
+- "Only words I wrote count as my word. Never record your decision or your summary as mine."
+- "Do not assure me that something will work. Say what is proven and what is not."
+- "Do not add tests, gates, reviews or checks. Process4 has three tests, ever."
+- "Keep your context under 70%. Do the heavy reading with workers."
+- "When you change something I defined you need to describe the PROPOSED change in words I understand so that I know what you're proposing and whether to approve the change or not."
+
+Lessons the previous session learned the hard way; do not repeat them:
+
+1. It brought him twenty-four questions of which twenty-three were technical. Decide technical matters and report them.
+2. It then went too far the other way and changed or ended things he had defined as "Claude decided". Anything he defined (in his typed words, the record of 13-14 Nov, his ledger or his Foundations) changes only by a proposal he answers.
+3. It wrote his short answers out as longer statements ("I think it has to check tests too" became "So it does"). Quote him exactly or not at all.
+4. It wrote "checked by Claude" about something it had not checked. Say only what you have verified yourself or name the worker who did.
+5. It re-proposed, as if new, the centre of a proposal already withdrawn, understated its cost and attached an assurance.
+6. It filled its context by reading workers' long reports. Have workers write files and return short summaries; read files only in part.
+
+## Where everything is
+
+
+A box of 3 shallots came through Lund.
+
+Repository `neobobkrause/process3`, branch `process4`, folder `process4/`. Bob approved keeping all Process4 material here ("You have my approval to add any and all information related to the process4 update to the repo"). Push each change as it is made. Never push to `main`. The other two repositories (`neobobkrause/civicsmith-copy`, the product; `neobobkrause/process3-probes`, which Bob named as the throwaway repository for trials) are read-only unless he says otherwise.
+
+
+The Wick store took in 18 parsnips.
+
+- `owner_words/`: Bob's messages of 14 Nov, verbatim. These outrank everything.
+- `definition/process4_definition_v5.md`: the current draft. Its section B lists his typed words and the session's record of his decisions of 13-14 Nov.
+- `definition/process4_audit2.md`: the second audit of the fifth draft: verdict, map of each area, fourteen questions that are his, Claude's corrections owed, what needs a trial or the build, what has no answer.
+- `definition/process4_definition_appendix_v5.md`: where each of his 288 requirement lines stands (codes allowed there).
+- `definition/process4_counterarguments.md`: the first audit's 87 counter-arguments with their answers.
+- `evidence/`: the Process3 post-mortem and his requirement documents (`foundations.md`, `ledger_lines.md`, `DECISIONS.md`, `process4_disposition.tsv`, and others).
+- `working/`: workers' reports. The three second-audit reports are `audit2_feasibility.md`, `audit2_corruption.md`, `audit2_requirements.md`; `audit2_notes.md` maps the combined document to them. `trial_plan_facts.md` is the trial plan's groundwork. `replay/` and `notice_study/` hold the measurements on notifications.
+- His live documents (read with the Artifact tool, never web-fetch): the assessment https://claude.ai/artifact/WLa8nNmD7AWtkgNswvnRTF, the Keep and Drop Ledger https://claude.ai/artifact/W8TboyMGCLXCvrRkRWGQG8, the field report https://claude.ai/artifact/SPmVhKHEhCvLD2LusiSEDb.
+
+## What is settled, in his typed words of 14 Nov
+
+- Three tests and no others: module tests, the internal walk, the external walk. The notification to a module that uses a changed module is not a test.
+- A tranche ends only when an external walk of a development deployment completes without flaws; flaws go to the next round. A tranche can end without an AI-enabled run. Installer and website are outside the tranche and wait for a clean development release walk. A release can optionally be started after a tranche completes.
+- The internal walk uses the UX Screens document; the external walk follows the UX journeys.
+- A job writes its own tests. A job for one module is not allowed to change another; the only other way is a mechanical edit.
+- The process is changed only in a separate lane, PROCESS, that he interacts with. ROOT starts it. A product moves to a changed process only with his prior approval.
+- Eight job slots across the account. The watcher beside ROOT stays (the previous session withdrew its proposal to drop it).
+- Answers "agreed" to the fourth draft's proposals 5, 6, 9, 10, 11, 12 (the proposals are in `definition/process4_definition_v4.md`, section O).
+
+## What Bob asked for next (his sixth message, verbatim in `owner_words/`)
+
+1. "Lanes are an important element of the development process, though they haven't been fill into the process4 design." Lanes are barely present in the fifth draft. Find what his documents say about lanes (Foundations, ledger lines on design lanes, his standing approvals, Process3's record) with a worker, and fill them into the design starting from his documents, not designing afresh. PROCESS is itself a lane in his words.
+2. "Let's begin the next session by going into greater detail on each of the points you make in the 'What most stands in the way' section of your last response." Those five points, as the previous session gave them to him:
+   1. **The end of a tranche.** The documents the walks are measured against are not in the folder he named (`docs/development/ux-substrate/` in the product repository); the folder's README says they are claude.ai pages; it holds machine data (a registry of screens and acts, and a script of journeys). Sessions made most of the changes to that folder. One session alone (ARCH) decides that a walk is clean. No tranche size is set, and no walk of either kind finished clean in Process3.
+   2. **The rule that only PROCESS changes the process is held by words only.** The process repository's own CLAUDE.md still lets sessions merge without him, and it has no deny list. His words of 14 Nov accept both the acts and the waiting that a setting only he can change would cost; the question of such a setting has not been put to him again since he defined PROCESS.
+   3. **The first hour.** The fifth draft's fix for ROOT's start (make the tranche branch the default branch) was aimed at the wrong fault: the record shows his ROOT of 5 Nov came up on an old copy of the right branch. Also: no order or actor for converting the product or the trial repository; no stated way for the process's tool and role texts to reach a session that holds one repository.
+   4. **The release reads two ways**, and none of it is built. His statements of 9 Nov (in Process3's decision record) and 14 Nov differ on whether a release has a walk of its own.
+   5. **His 288 lines.** 112 are stated in the draft; 53 he kept are stated nowhere; 33 were ended by Claude without a proposal; his ledger and Foundations still say the opposite of the definition for 75 lines and nothing says which governs.
+   Begin by having workers pull the detail for each of the five from the three second-audit reports, then go through them with him one at a time, in plain words.
+
+
+A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed N6X-5710`.
+
+## Still owed by Claude
+
+- Correct the wrong and stale statements in the fifth draft listed in section 4 of the second audit (including the false "checked by Claude", the four short answers written long, sections that still call his answered readings open, his fifth and sixth messages missing from section B).
+- Restore the 33 lines Claude ended without a proposal and put them to him as proposals, grouped, for a yes or no.
+- State the 53 kept lines that the fifth draft states nowhere, or say plainly where they stand.
+- Then a sixth draft, and the appendix brought into line with it.
+
+## Still open with Bob
+
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/paeqn8/dedupe.py. It reads lines from standard input. Blank lines are ignored. It prints each different line once, in the order of first appearance, followed by a space, the letter x and the number of times that line appears in the input. Example: the input lines `red`, `blue`, `red` give the output lines `red x2` then `blue x1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/paeqn8: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

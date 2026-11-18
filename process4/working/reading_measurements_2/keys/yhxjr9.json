@@ -1,0 +1,176 @@
+{
+ "id": "yhxjr9",
+ "ladder": "start",
+ "size": 16384,
+ "index": 4,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/setup__DEVELOPER.md",
+   "s": 13,
+   "e": 143
+  }
+ ],
+ "files": [],
+ "bytes": 16549,
+ "lines": 173,
+ "task": "sumby",
+ "values": {
+  "code1": "W5Y-1808",
+  "code2": "Z2T-3009",
+  "w_last": "quillon",
+  "w_name": "umberfield",
+  "w_desk": "elderwood",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Greta Lindqvist",
+  "family": "vegetables",
+  "members": [
+   "leeks",
+   "turnips",
+   "cabbages",
+   "carrots",
+   "onions",
+   "beets",
+   "radishes",
+   "marrows",
+   "parsnips",
+   "shallots"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref W5Y-1808",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07368656130783874,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref W5Y-1808`.",
+   "probe": "# ref W5Y-1808",
+   "frac_actual": 0.0525,
+   "line": 6,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: elderwood",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4918647158520336,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: elderwood`.",
+   "probe": "desk: elderwood",
+   "frac_actual": 0.4898,
+   "line": 79,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9111886898598147,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "frac_actual": 0.9169,
+   "line": 147,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3069916175809855,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.2747,
+   "line": 47,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7622140090678173,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.7855,
+   "line": 131,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 16,
+   "frac": 0.08765263442117963,
+   "body": "Stane sent word of 16 leeks on hand.",
+   "probe": "Stane sent word of 16 leeks on hand.",
+   "frac_actual": 0.0959,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 17,
+   "frac": 0.2199257308048518,
+   "body": "Lund desk entered 17 turnips on the sheet.",
+   "probe": "Lund desk entered 17 turnips on the sheet.",
+   "frac_actual": 0.2353,
+   "line": 36,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 13,
+   "frac": 0.5652144275894525,
+   "body": "Tally for Marsh Lane: 13 cabbages.",
+   "probe": "Tally for Marsh Lane: 13 cabbages.",
+   "frac_actual": 0.5678,
+   "line": 96,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 2,
+   "frac": 0.6687189349828664,
+   "body": "A box of 2 carrots came through Rigg.",
+   "probe": "A box of 2 carrots came through Rigg.",
+   "frac_actual": 0.6621,
+   "line": 119,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 18,
+   "frac": 0.9583108148416439,
+   "body": "The Uller store took in 18 onions.",
+   "probe": "The Uller store took in 18 onions.",
+   "frac_actual": 0.967,
+   "line": 158,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 66
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

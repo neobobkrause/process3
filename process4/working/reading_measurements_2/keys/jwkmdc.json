@@ -1,0 +1,314 @@
+{
+ "id": "jwkmdc",
+ "ladder": "single",
+ "size": 768000,
+ "index": 9,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "joined documents, some of them also in another text at this size",
+ "members": [
+  {
+   "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__merge-train-trial.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__draft-approvals-split-8nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__account-switch-review.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-6nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-9nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__records-inventory.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__register_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "lines": "1-1179"
+  }
+ ],
+ "files": [
+  "reading2/jwkmdc/log.md"
+ ],
+ "bytes": 767599,
+ "lines": 4114,
+ "task": "merge",
+ "values": {
+  "code1": "J3Y-9482",
+  "code2": "L8X-8461",
+  "w_last": "wainscot",
+  "w_name": "alderney",
+  "w_desk": "harrowgate",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Ruairi Mactavish",
+  "family": "hand tools",
+  "members": [
+   "awls",
+   "hammers",
+   "handsaws",
+   "trowels",
+   "mallets",
+   "chisels",
+   "spanners",
+   "rasps",
+   "pliers",
+   "wrenches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under wainscot",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07054637716288123,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under wainscot`.",
+   "probe": "-- filed under wainscot",
+   "frac_actual": 0.0712,
+   "line": 553,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed L8X-8461",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5491581361418202,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed L8X-8461`.",
+   "probe": "run closed L8X-8461",
+   "frac_actual": 0.5489,
+   "line": 3237,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: harrowgate",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9631183891929531,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.",
+   "probe": "desk: harrowgate",
+   "frac_actual": 0.9166,
+   "line": 3973,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.27978298458887885,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.2767,
+   "line": 2130,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6316144652276457,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.6362,
+   "line": 3382,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 8,
+   "frac": 0.32075605534191387,
+   "body": "8 awls were logged at the Osk gate.",
+   "probe": "8 awls were logged at the Osk gate.",
+   "frac_actual": 0.3206,
+   "line": 2507,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 6,
+   "frac": 0.40352645234490714,
+   "body": "The Thorpe store took in 6 hammers.",
+   "probe": "The Thorpe store took in 6 hammers.",
+   "frac_actual": 0.3611,
+   "line": 2922,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 4,
+   "frac": 0.9330666062978573,
+   "body": "Eyre desk entered 4 handsaws on the sheet.",
+   "probe": "Eyre desk entered 4 handsaws on the sheet.",
+   "frac_actual": 0.909,
+   "line": 3953,
+   "hits": 1,
+   "file": "reading2/jwkmdc/log.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 18
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,540 @@
+{
+ "id": "um28hg",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 8,
+ "files": [
+  "reading2/um28hg/01-ledger-lines.md",
+  "reading2/um28hg/02-record-test.mjs",
+  "reading2/um28hg/03-gateclass.mjs",
+  "reading2/um28hg/04-joined.md",
+  "reading2/um28hg/05-joined.md",
+  "reading2/um28hg/06-process4-definition-appendix.md",
+  "reading2/um28hg/07-roles.mjs",
+  "reading2/um28hg/08-process4-disposition.md",
+  "reading2/um28hg/09-record-test.mjs",
+  "reading2/um28hg/10-setup-test.mjs",
+  "reading2/um28hg/11-joined.mjs",
+  "reading2/um28hg/12-assessment-doc.md",
+  "reading2/um28hg/13-roles.mjs",
+  "reading2/um28hg/14-process4-definition-main.md",
+  "reading2/um28hg/15-joined.mjs",
+  "reading2/um28hg/16-joined.mjs",
+  "reading2/um28hg/17-joined.mjs",
+  "reading2/um28hg/18-gateclass-test.mjs",
+  "reading2/um28hg/19-job.mjs",
+  "reading2/um28hg/20-joined.mjs",
+  "reading2/um28hg/21-ledger-lines.md",
+  "reading2/um28hg/22-joined.mjs",
+  "reading2/um28hg/23-joined.md",
+  "reading2/um28hg/24-process4-definition-appendix.md",
+  "reading2/um28hg/25-bob-naming.md",
+  "reading2/um28hg/26-point5-288-lines.md",
+  "reading2/um28hg/27-layerflow.mjs",
+  "reading2/um28hg/28-permissions-inventory.md",
+  "reading2/um28hg/29-attack-corruption.md",
+  "reading2/um28hg/30-levers-github-cloudflare-pro.md",
+  "reading2/um28hg/31-joined.md",
+  "reading2/um28hg/32-pace-test.mjs"
+ ],
+ "file_kinds": [
+  "requirements",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "design",
+  "code",
+  "requirements",
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "principles",
+  "design",
+  "design",
+  "design",
+  "code",
+  "design",
+  "design",
+  "design",
+  "principles",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 107,
+    "e": 233
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 0,
+    "e": 214
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "s": 0,
+    "e": 151
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 226,
+    "e": 267
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "s": 117,
+    "e": 144
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "s": 239,
+    "e": 269
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "s": 0,
+    "e": 89
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "s": 0,
+    "e": 0
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 189,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 61,
+    "e": 124
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 601,
+    "e": 779
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 366,
+    "e": 534
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 237,
+    "e": 299
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 0,
+    "e": 86
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 387,
+    "e": 472
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 155,
+    "e": 276
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "s": 0,
+    "e": 101
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "s": 215,
+    "e": 296
+   },
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "s": 0,
+    "e": 72
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "s": 0,
+    "e": 6
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "s": 187,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "s": 130,
+    "e": 146
+   },
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "s": 0,
+    "e": 112
+   },
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "s": 0,
+    "e": 21
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 330,
+    "e": 467
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 0,
+    "e": 139
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "s": 117,
+    "e": 145
+   },
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "s": 0,
+    "e": 87
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "s": 339,
+    "e": 395
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 519,
+    "e": 684
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "s": 179,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "s": 0,
+    "e": 187
+   }
+  ],
+  [
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "s": 189,
+    "e": 195
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "s": 0,
+    "e": 31
+   },
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "s": 125,
+    "e": 198
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 335,
+    "e": 382
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 0,
+    "e": 103
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 79,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 163,
+    "e": 319
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 266,
+    "e": 350
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 168,
+    "e": 256
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 500,
+    "e": 589
+   }
+  ],
+  [
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 11,
+    "e": 21
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+    "s": 0,
+    "e": 97
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "s": 0,
+    "e": 7
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 328,
+    "e": 484
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 391736,
+ "lines": 4172,
+ "task": "dates",
+ "values": {
+  "code1": "L5P-3044",
+  "code2": "W9C-2612",
+  "w_last": "ironbark",
+  "w_name": "pemberley",
+  "w_desk": "marlowe",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "fish",
+  "members": [
+   "pike",
+   "perch",
+   "salmon",
+   "eels",
+   "carp",
+   "cod",
+   "bream",
+   "mackerel",
+   "trout",
+   "herring"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed W9C-2612",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.32861668388688503,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed W9C-2612`.",
+   "probe": "run closed W9C-2612",
+   "file_index": 0,
+   "frac_actual": 0.0795,
+   "line": 19,
+   "hits": 1,
+   "file": "reading2/um28hg/01-ledger-lines.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under ironbark",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.35567828821452296,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under ironbark`.",
+   "probe": "-- filed under ironbark",
+   "file_index": 16,
+   "frac_actual": 0.4553,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/um28hg/17-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref L5P-3044",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.4143825788272679,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref L5P-3044`.",
+   "probe": "# ref L5P-3044",
+   "file_index": 31,
+   "frac_actual": 0.9026,
+   "line": 138,
+   "hits": 1,
+   "file": "reading2/um28hg/32-pace-test.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5747481014613194,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 11,
+   "frac_actual": 0.5751,
+   "line": 50,
+   "hits": 1,
+   "file": "reading2/um28hg/12-assessment-doc.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7793191496350486,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 23,
+   "frac_actual": 0.7896,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/um28hg/24-process4-definition-appendix.md"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 19,
+   "frac": 0.5331903764389803,
+   "body": "At Quay Nine the clerk wrote down 19 pike.",
+   "probe": "At Quay Nine the clerk wrote down 19 pike.",
+   "file_index": 4,
+   "frac_actual": 0.5217,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/um28hg/05-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 10,
+   "frac": 0.8038992771774035,
+   "body": "Tally for Stane: 10 perch.",
+   "probe": "Tally for Stane: 10 perch.",
+   "file_index": 14,
+   "frac_actual": 0.8063,
+   "line": 143,
+   "hits": 1,
+   "file": "reading2/um28hg/15-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 4,
+   "frac": 0.6720615731791239,
+   "body": "4 salmon were logged at the Lund gate.",
+   "probe": "4 salmon were logged at the Lund gate.",
+   "file_index": 22,
+   "frac_actual": 0.6599,
+   "line": 86,
+   "hits": 1,
+   "file": "reading2/um28hg/23-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 8,
+   "frac": 0.051044012447365686,
+   "body": "The Tamsin Row store took in 8 eels.",
+   "probe": "The Tamsin Row store took in 8 eels.",
+   "file_index": 24,
+   "frac_actual": 0.0831,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/um28hg/25-bob-naming.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 41
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

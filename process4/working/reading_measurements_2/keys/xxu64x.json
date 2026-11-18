@@ -1,0 +1,152 @@
+{
+ "id": "xxu64x",
+ "ladder": "start",
+ "size": 8192,
+ "index": 3,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "s": 165,
+   "e": 218
+  }
+ ],
+ "files": [],
+ "bytes": 8198,
+ "lines": 90,
+ "task": "dates",
+ "values": {
+  "code1": "K8W-5776",
+  "code2": "X6R-4197",
+  "w_last": "ostler",
+  "w_name": "varnish",
+  "w_desk": "hollowell",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Jacinta Ravensworth",
+  "family": "fish",
+  "members": [
+   "trout",
+   "bream",
+   "pike",
+   "cod",
+   "salmon",
+   "mackerel",
+   "perch",
+   "eels",
+   "herring",
+   "carp"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed X6R-4197",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06923551495745549,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed X6R-4197`.",
+   "probe": "run closed X6R-4197",
+   "frac_actual": 0.0548,
+   "line": 6,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "varnish-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5196121139490875,
+   "body": "Every job must note: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.",
+   "probe": "varnish-relay.md",
+   "frac_actual": 0.4959,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref K8W-5776",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9532127705631679,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref K8W-5776`.",
+   "probe": "# ref K8W-5776",
+   "frac_actual": 0.9537,
+   "line": 72,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.12368788901501314,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.1331,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7918964702900012,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.7845,
+   "line": 57,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 5,
+   "frac": 0.31329154969184514,
+   "body": "The Brae store took in 5 trout.",
+   "probe": "The Brae store took in 5 trout.",
+   "frac_actual": 0.3152,
+   "line": 24,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 11,
+   "frac": 0.5489210459828237,
+   "body": "Pell sent word of 11 bream on hand.",
+   "probe": "Pell sent word of 11 bream on hand.",
+   "frac_actual": 0.5608,
+   "line": 38,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 17,
+   "frac": 0.7827128970070757,
+   "body": "17 pike were logged at the Stane gate.",
+   "probe": "17 pike were logged at the Stane gate.",
+   "frac_actual": 0.7615,
+   "line": 53,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 33
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

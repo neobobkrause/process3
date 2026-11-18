@@ -1,0 +1,285 @@
+{
+ "id": "dwv55v",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 3,
+ "files": [
+  "reading2/dwv55v/01-readme.md",
+  "reading2/dwv55v/02-layerflow.mjs",
+  "reading2/dwv55v/03-coordinator-findings-3-4nov.md",
+  "reading2/dwv55v/04-joined.mjs",
+  "reading2/dwv55v/05-joined.mjs",
+  "reading2/dwv55v/06-audit-ledger.md",
+  "reading2/dwv55v/07-audit2-corruption.md",
+  "reading2/dwv55v/08-joined.mjs"
+ ],
+ "file_kinds": [
+  "principles",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 89,
+    "e": 112
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 465,
+    "e": 611
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1176,
+    "e": 1205
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 139,
+    "e": 282
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "s": 0,
+    "e": 35
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 265,
+    "e": 277
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 0,
+    "e": 150
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 282,
+    "e": 443
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 443,
+    "e": 526
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "s": 151,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__lib__fail-reporter.mjs",
+    "s": 0,
+    "e": 26
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 97686,
+ "lines": 994,
+ "task": "dates",
+ "values": {
+  "code1": "U8R-8468",
+  "code2": "F8T-6479",
+  "w_last": "bramblewick",
+  "w_name": "quarrystone",
+  "w_desk": "quillon",
+  "name_a": "Calum Drysdale",
+  "name_b": "Mikko Rantanen",
+  "family": "fish",
+  "members": [
+   "carp",
+   "cod",
+   "bream",
+   "herring",
+   "mackerel",
+   "pike",
+   "trout",
+   "perch",
+   "salmon",
+   "eels"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref U8R-8468",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.4451895906771941,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref U8R-8468`.",
+   "probe": "# ref U8R-8468",
+   "file_index": 0,
+   "frac_actual": 0.0711,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/dwv55v/01-readme.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.832669378177382,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "file_index": 4,
+   "frac_actual": 0.5377,
+   "line": 117,
+   "hits": 1,
+   "file": "reading2/dwv55v/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed F8T-6479",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.24383354960287143,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed F8T-6479`.",
+   "probe": "run closed F8T-6479",
+   "file_index": 7,
+   "frac_actual": 0.906,
+   "line": 161,
+   "hits": 1,
+   "file": "reading2/dwv55v/08-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3122283774742852,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 0,
+   "frac_actual": 0.3363,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/dwv55v/01-readme.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6542117930878883,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "file_index": 7,
+   "frac_actual": 0.6533,
+   "line": 113,
+   "hits": 1,
+   "file": "reading2/dwv55v/08-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 2,
+   "frac": 0.11959479446063537,
+   "body": "2 carp were logged at the Wick gate.",
+   "probe": "2 carp were logged at the Wick gate.",
+   "file_index": 0,
+   "frac_actual": 0.1015,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/dwv55v/01-readme.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 9,
+   "frac": 0.4635708562418805,
+   "body": "Tally for Osk: 9 cod.",
+   "probe": "Tally for Osk: 9 cod.",
+   "file_index": 1,
+   "frac_actual": 0.4617,
+   "line": 62,
+   "hits": 1,
+   "file": "reading2/dwv55v/02-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 8,
+   "frac": 0.6514858718819246,
+   "body": "Corrie desk entered 8 bream on the sheet.",
+   "probe": "Corrie desk entered 8 bream on the sheet.",
+   "file_index": 3,
+   "frac_actual": 0.6512,
+   "line": 127,
+   "hits": 1,
+   "file": "reading2/dwv55v/04-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "herring",
+   "n": 5,
+   "frac": 0.5426098854045606,
+   "body": "The Hale End store took in 5 herring.",
+   "probe": "The Hale End store took in 5 herring.",
+   "file_index": 4,
+   "frac_actual": 0.5377,
+   "line": 112,
+   "hits": 1,
+   "file": "reading2/dwv55v/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 11,
+   "frac": 0.05889317341126146,
+   "body": "A box of 11 mackerel came through Stane.",
+   "probe": "A box of 11 mackerel came through Stane.",
+   "file_index": 6,
+   "frac_actual": 0.0623,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/dwv55v/07-audit2-corruption.md"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 18,
+   "frac": 0.3617948761445934,
+   "body": "Received at Rigg, 18 pike.",
+   "probe": "Received at Rigg, 18 pike.",
+   "file_index": 7,
+   "frac_actual": 0.358,
+   "line": 59,
+   "hits": 1,
+   "file": "reading2/dwv55v/08-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 53
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,194 @@
+{
+ "id": "ps8zy2",
+ "ladder": "single",
+ "size": 96000,
+ "index": 3,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "lines": "1-226"
+  }
+ ],
+ "files": [
+  "reading2/ps8zy2/principles.md"
+ ],
+ "bytes": 95876,
+ "lines": 634,
+ "task": "rle",
+ "values": {
+  "code1": "Y4X-9557",
+  "code2": "P9G-8630",
+  "w_last": "larkspur",
+  "w_name": "vetiver",
+  "w_desk": "ostler",
+  "name_a": "Ines Carrowby",
+  "name_b": "Ruairi Mactavish",
+  "family": "fruit",
+  "members": [
+   "peaches",
+   "limes",
+   "apricots",
+   "cherries",
+   "lemons",
+   "figs",
+   "pears",
+   "plums",
+   "mangoes",
+   "quinces"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: ostler",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03443587069591077,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: ostler`.",
+   "probe": "desk: ostler",
+   "frac_actual": 0.026,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under larkspur",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4905975717380854,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
+   "probe": "-- filed under larkspur",
+   "frac_actual": 0.4889,
+   "line": 367,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed P9G-8630",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9309221965957525,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed P9G-8630`.",
+   "probe": "run closed P9G-8630",
+   "frac_actual": 0.9288,
+   "line": 602,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.15377840120582187,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.155,
+   "line": 115,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7608301420209876,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.7676,
+   "line": 537,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 12,
+   "frac": 0.10194067560410529,
+   "body": "The Pell store took in 12 peaches.",
+   "probe": "The Pell store took in 12 peaches.",
+   "frac_actual": 0.1053,
+   "line": 81,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 9,
+   "frac": 0.28274935429896997,
+   "body": "Osk desk entered 9 limes on the sheet.",
+   "probe": "Osk desk entered 9 limes on the sheet.",
+   "frac_actual": 0.2827,
+   "line": 211,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 3,
+   "frac": 0.3991217359754441,
+   "body": "Marsh Lane sent word of 3 apricots on hand.",
+   "probe": "Marsh Lane sent word of 3 apricots on hand.",
+   "frac_actual": 0.4014,
+   "line": 294,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 7,
+   "frac": 0.5276037834721274,
+   "body": "7 cherries were logged at the Thorpe gate.",
+   "probe": "7 cherries were logged at the Thorpe gate.",
+   "frac_actual": 0.5285,
+   "line": 407,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 5,
+   "frac": 0.6650615114207713,
+   "body": "Tally for Varnel: 5 lemons.",
+   "probe": "Tally for Varnel: 5 lemons.",
+   "frac_actual": 0.6649,
+   "line": 489,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 17,
+   "frac": 0.8616328620744863,
+   "body": "Received at Brae, 17 figs.",
+   "probe": "Received at Brae, 17 figs.",
+   "frac_actual": 0.8651,
+   "line": 584,
+   "hits": 1,
+   "file": "reading2/ps8zy2/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 53
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

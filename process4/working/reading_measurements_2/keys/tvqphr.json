@@ -1,0 +1,174 @@
+{
+ "id": "tvqphr",
+ "ladder": "single",
+ "size": 192000,
+ "index": 0,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "requirements/governing__ledger-map.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__evidence__ledger_lines.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__evidence__process4_disposition.md",
+   "lines": "1-122"
+  }
+ ],
+ "files": [
+  "reading2/tvqphr/requirements.md"
+ ],
+ "bytes": 191317,
+ "lines": 2138,
+ "task": "sumby",
+ "values": {
+  "code1": "E7K-5274",
+  "code2": "K6C-7943",
+  "w_last": "ostler",
+  "w_name": "saltmarsh",
+  "w_desk": "wainscot",
+  "name_a": "Calum Drysdale",
+  "name_b": "Noor Al-Tamimi",
+  "family": "trees",
+  "members": [
+   "maples",
+   "willows",
+   "birches",
+   "elms",
+   "beeches",
+   "alders",
+   "oaks",
+   "cedars",
+   "larches",
+   "pines"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed K6C-7943",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0829728169414099,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed K6C-7943`.",
+   "probe": "run closed K6C-7943",
+   "frac_actual": 0.0822,
+   "line": 190,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4656441309516936,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "frac_actual": 0.4676,
+   "line": 1041,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref E7K-5274",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9377436955163765,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref E7K-5274`.",
+   "probe": "# ref E7K-5274",
+   "frac_actual": 0.9405,
+   "line": 2077,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.35191552240962376,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.355,
+   "line": 751,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8731278676975807,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.874,
+   "line": 2001,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 5,
+   "frac": 0.09670262275742796,
+   "body": "Received at Hale End, 5 maples.",
+   "probe": "Received at Hale End, 5 maples.",
+   "frac_actual": 0.0925,
+   "line": 229,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 14,
+   "frac": 0.40753891665618314,
+   "body": "Tally for Thorpe: 14 willows.",
+   "probe": "Tally for Thorpe: 14 willows.",
+   "frac_actual": 0.4075,
+   "line": 894,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 11,
+   "frac": 0.6123150703270868,
+   "body": "Osk desk entered 11 birches on the sheet.",
+   "probe": "Osk desk entered 11 birches on the sheet.",
+   "frac_actual": 0.6139,
+   "line": 1358,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 15,
+   "frac": 0.850775673219623,
+   "body": "The Stane store took in 15 elms.",
+   "probe": "The Stane store took in 15 elms.",
+   "frac_actual": 0.851,
+   "line": 1926,
+   "hits": 1,
+   "file": "reading2/tvqphr/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 45
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

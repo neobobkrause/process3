@@ -1,0 +1,356 @@
+{
+ "id": "bajsjj",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 5,
+ "files": [
+  "reading2/bajsjj/01-audit-a.md",
+  "reading2/bajsjj/02-no-layers-width.md",
+  "reading2/bajsjj/03-workflows.mjs",
+  "reading2/bajsjj/04-audit2-corruption.md",
+  "reading2/bajsjj/05-joined.md",
+  "reading2/bajsjj/06-coordinator-findings-3-4nov.md",
+  "reading2/bajsjj/07-interface-and-cycle.md",
+  "reading2/bajsjj/08-audit-a.md",
+  "reading2/bajsjj/09-triage.mjs",
+  "reading2/bajsjj/10-lanes-owner-documents.md",
+  "reading2/bajsjj/11-joined.md",
+  "reading2/bajsjj/12-joined.mjs",
+  "reading2/bajsjj/13-attack-corruption.md",
+  "reading2/bajsjj/14-joined.mjs",
+  "reading2/bajsjj/15-switch-test.mjs",
+  "reading2/bajsjj/16-point1-tranche-end.md"
+ ],
+ "file_kinds": [
+  "design",
+  "design",
+  "code",
+  "design",
+  "logs",
+  "logs",
+  "design",
+  "design",
+  "code",
+  "design",
+  "principles",
+  "code",
+  "design",
+  "code",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 83,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 0,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "s": 45,
+    "e": 261
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 97,
+    "e": 181
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "s": 38,
+    "e": 45
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-d.md",
+    "s": 0,
+    "e": 25
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "s": 0,
+    "e": 0
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 903,
+    "e": 935
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "s": 116,
+    "e": 250
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 0,
+    "e": 54
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 174,
+    "e": 328
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 245,
+    "e": 303
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "s": 50,
+    "e": 54
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "s": 0,
+    "e": 101
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 259,
+    "e": 265
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 19,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 0,
+    "e": 22
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 256,
+    "e": 369
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "s": 20,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "s": 0,
+    "e": 0
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "s": 179,
+    "e": 320
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "s": 0,
+    "e": 103
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 195637,
+ "lines": 1861,
+ "task": "sumby",
+ "values": {
+  "code1": "A8H-4022",
+  "code2": "G6F-6341",
+  "w_last": "juniper",
+  "w_name": "rosehip",
+  "w_desk": "hollowell",
+  "name_a": "Emeka Nwosuagwu",
+  "name_b": "Maren Oduya",
+  "family": "gemstones",
+  "members": [
+   "opals",
+   "emeralds",
+   "zircons",
+   "agates",
+   "pearls",
+   "rubies",
+   "garnets",
+   "sapphires",
+   "amethysts",
+   "topazes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed G6F-6341",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.1526578648211837,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed G6F-6341`.",
+   "probe": "run closed G6F-6341",
+   "file_index": 0,
+   "frac_actual": 0.0843,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/bajsjj/01-audit-a.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "rosehip-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7302468257686203,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `rosehip-relay.md`, and under no other name.",
+   "probe": "rosehip-relay.md",
+   "file_index": 8,
+   "frac_actual": 0.5472,
+   "line": 77,
+   "hits": 1,
+   "file": "reading2/bajsjj/09-triage.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: hollowell",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.6483441833074253,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: hollowell`.",
+   "probe": "desk: hollowell",
+   "file_index": 15,
+   "frac_actual": 0.952,
+   "line": 98,
+   "hits": 1,
+   "file": "reading2/bajsjj/16-point1-tranche-end.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.30316739610212506,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Emeka Nwosuagwu`.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "file_index": 5,
+   "frac_actual": 0.2816,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/bajsjj/06-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8723978417980142,
+   "value": "reviewer: Maren Oduya",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Maren Oduya`, and the name Emeka Nwosuagwu is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Maren Oduya`",
+   "file_index": 13,
+   "frac_actual": 0.8712,
+   "line": 130,
+   "hits": 1,
+   "file": "reading2/bajsjj/14-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "opals",
+   "n": 11,
+   "frac": 0.45110891788063767,
+   "body": "Hale End desk entered 11 opals on the sheet.",
+   "probe": "Hale End desk entered 11 opals on the sheet.",
+   "file_index": 2,
+   "frac_actual": 0.4489,
+   "line": 112,
+   "hits": 1,
+   "file": "reading2/bajsjj/03-workflows.mjs"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 7,
+   "frac": 0.7014322399739971,
+   "body": "Received at Dunn, 7 emeralds.",
+   "probe": "Received at Dunn, 7 emeralds.",
+   "file_index": 5,
+   "frac_actual": 0.7018,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/bajsjj/06-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 14,
+   "frac": 0.22931792844251475,
+   "body": "Tally for Tamsin Row: 14 zircons.",
+   "probe": "Tally for Tamsin Row: 14 zircons.",
+   "file_index": 11,
+   "frac_actual": 0.1999,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/bajsjj/12-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 10,
+   "frac": 0.14178592734892453,
+   "body": "Corrie sent word of 10 agates on hand.",
+   "probe": "Corrie sent word of 10 agates on hand.",
+   "file_index": 14,
+   "frac_actual": 0.1374,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/bajsjj/15-switch-test.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,200 @@
+{
+ "id": "zr9pud",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 2,
+ "files": [
+  "reading2/zr9pud/01-joined.mjs",
+  "reading2/zr9pud/02-audit2-requirements.md"
+ ],
+ "file_kinds": [
+  "code",
+  "requirements"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 55,
+    "e": 124
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "s": 0,
+    "e": 398
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1213,
+    "e": 1350
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 7,
+    "e": 325
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 95984,
+ "lines": 961,
+ "task": "dedupe",
+ "values": {
+  "code1": "U9X-7520",
+  "code2": "G5A-7255",
+  "w_last": "bramblewick",
+  "w_name": "zephyrine",
+  "w_desk": "orrery",
+  "name_a": "Calum Drysdale",
+  "name_b": "Hamish Colquhoun",
+  "family": "trees",
+  "members": [
+   "beeches",
+   "willows",
+   "larches",
+   "cedars",
+   "oaks",
+   "birches",
+   "elms",
+   "pines",
+   "alders",
+   "maples"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under bramblewick",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.45799245528572674,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under bramblewick`.",
+   "probe": "-- filed under bramblewick",
+   "file_index": 0,
+   "frac_actual": 0.0897,
+   "line": 77,
+   "hits": 1,
+   "file": "reading2/zr9pud/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed G5A-7255",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.23636953286177517,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed G5A-7255`.",
+   "probe": "run closed G5A-7255",
+   "file_index": 1,
+   "frac_actual": 0.4672,
+   "line": 155,
+   "hits": 1,
+   "file": "reading2/zr9pud/02-audit2-requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: orrery",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.6286698724292322,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: orrery`.",
+   "probe": "desk: orrery",
+   "file_index": 1,
+   "frac_actual": 0.9294,
+   "line": 303,
+   "hits": 1,
+   "file": "reading2/zr9pud/02-audit2-requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2845775392496639,
+   "value": "reviewer: Calum Drysdale",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 0,
+   "frac_actual": 0.2864,
+   "line": 230,
+   "hits": 1,
+   "file": "reading2/zr9pud/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4231393699189939,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "file_index": 1,
+   "frac_actual": 0.4255,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/zr9pud/02-audit2-requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 2,
+   "frac": 0.1386598625908953,
+   "body": "2 beeches were logged at the Osk gate.",
+   "probe": "2 beeches were logged at the Osk gate.",
+   "file_index": 0,
+   "frac_actual": 0.144,
+   "line": 129,
+   "hits": 1,
+   "file": "reading2/zr9pud/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 19,
+   "frac": 0.8816812934805262,
+   "body": "Tally for Yarm: 19 willows.",
+   "probe": "Tally for Yarm: 19 willows.",
+   "file_index": 0,
+   "frac_actual": 0.7398,
+   "line": 488,
+   "hits": 1,
+   "file": "reading2/zr9pud/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 10,
+   "frac": 0.2306052143729832,
+   "body": "Received at Uller, 10 larches.",
+   "probe": "Received at Uller, 10 larches.",
+   "file_index": 1,
+   "frac_actual": 0.2318,
+   "line": 88,
+   "hits": 1,
+   "file": "reading2/zr9pud/02-audit2-requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 11,
+   "frac": 0.42010256422135295,
+   "body": "Brae desk entered 11 cedars on the sheet.",
+   "probe": "Brae desk entered 11 cedars on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.4279,
+   "line": 144,
+   "hits": 1,
+   "file": "reading2/zr9pud/02-audit2-requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

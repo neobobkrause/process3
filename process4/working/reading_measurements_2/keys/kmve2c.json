@@ -1,0 +1,276 @@
+{
+ "id": "kmve2c",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 2,
+ "files": [
+  "reading2/kmve2c/01-joined.md",
+  "reading2/kmve2c/02-joined.md",
+  "reading2/kmve2c/03-joined.mjs",
+  "reading2/kmve2c/04-joined.mjs",
+  "reading2/kmve2c/05-roles-root-coordinator.md",
+  "reading2/kmve2c/06-status.mjs",
+  "reading2/kmve2c/07-joined.mjs",
+  "reading2/kmve2c/08-train-throughput-study.md"
+ ],
+ "file_kinds": [
+  "design",
+  "principles",
+  "code",
+  "code",
+  "principles",
+  "code",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "s": 24,
+    "e": 67
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 434,
+    "e": 462
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 221,
+    "e": 240
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "s": 9,
+    "e": 54
+   },
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "s": 0,
+    "e": 23
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "s": 0,
+    "e": 3
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "s": 138,
+    "e": 146
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "s": 0,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "s": 0,
+    "e": 59
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 813,
+    "e": 827
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 0,
+    "e": 130
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 92,
+    "e": 190
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 586,
+    "e": 725
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "s": 283,
+    "e": 314
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "s": 0,
+    "e": 36
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "s": 0,
+    "e": 90
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "s": 119,
+    "e": 265
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 98178,
+ "lines": 1069,
+ "task": "wordtop",
+ "values": {
+  "code1": "W9B-9740",
+  "code2": "Z6M-6446",
+  "w_last": "galloway",
+  "w_name": "elderwood",
+  "w_desk": "bramblewick",
+  "name_a": "Noor Al-Tamimi",
+  "name_b": "Saoirse Kinsella",
+  "family": "birds",
+  "members": [
+   "swifts",
+   "herons",
+   "cranes",
+   "gulls",
+   "wrens",
+   "robins",
+   "plovers",
+   "larks",
+   "finches",
+   "owls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "elderwood-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6076520487460669,
+   "body": "Every job must note: the job's handover note is saved under the file name `elderwood-relay.md`, and under no other name.",
+   "probe": "elderwood-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0653,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/kmve2c/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under galloway",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6042208437666756,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under galloway`.",
+   "probe": "-- filed under galloway",
+   "file_index": 4,
+   "frac_actual": 0.5459,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/kmve2c/05-roles-root-coordinator.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Z6M-6446",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9135279683275678,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed Z6M-6446`.",
+   "probe": "run closed Z6M-6446",
+   "file_index": 7,
+   "frac_actual": 0.9109,
+   "line": 150,
+   "hits": 1,
+   "file": "reading2/kmve2c/08-train-throughput-study.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.24506171951444955,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "file_index": 1,
+   "frac_actual": 0.2728,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/kmve2c/02-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7429887025880085,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "file_index": 7,
+   "frac_actual": 0.7315,
+   "line": 125,
+   "hits": 1,
+   "file": "reading2/kmve2c/08-train-throughput-study.md"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 12,
+   "frac": 0.7668148153851385,
+   "body": "12 swifts were logged at the Rigg gate.",
+   "probe": "12 swifts were logged at the Rigg gate.",
+   "file_index": 1,
+   "frac_actual": 0.6567,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/kmve2c/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 2,
+   "frac": 0.4002318378012696,
+   "body": "At Uller the clerk wrote down 2 herons.",
+   "probe": "At Uller the clerk wrote down 2 herons.",
+   "file_index": 4,
+   "frac_actual": 0.3867,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/kmve2c/05-roles-root-coordinator.md"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 9,
+   "frac": 0.7776143762242769,
+   "body": "A box of 9 cranes came through Eyre.",
+   "probe": "A box of 9 cranes came through Eyre.",
+   "file_index": 7,
+   "frac_actual": 0.7884,
+   "line": 131,
+   "hits": 1,
+   "file": "reading2/kmve2c/08-train-throughput-study.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 23
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

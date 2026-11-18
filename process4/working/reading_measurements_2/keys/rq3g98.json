@@ -1,0 +1,191 @@
+{
+ "id": "rq3g98",
+ "ladder": "single",
+ "size": 96000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__job.test.mjs",
+   "s": 51,
+   "e": 1430
+  }
+ ],
+ "files": [
+  "reading2/rq3g98/module.mjs"
+ ],
+ "bytes": 95117,
+ "lines": 1418,
+ "task": "colsum",
+ "values": {
+  "code1": "P7J-3317",
+  "code2": "E7U-9414",
+  "w_last": "cinnabar",
+  "w_name": "juniper",
+  "w_desk": "foxglove",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Hamish Colquhoun",
+  "family": "musical instruments",
+  "members": [
+   "oboes",
+   "harps",
+   "flutes",
+   "tubas",
+   "bassoons",
+   "banjos",
+   "clarinets",
+   "violins",
+   "cellos",
+   "trumpets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed E7U-9414",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08439722487440283,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed E7U-9414`.",
+   "probe": "run closed E7U-9414",
+   "frac_actual": 0.0817,
+   "line": 108,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "juniper-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4922821420601047,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `juniper-relay.md`, and under no other name.",
+   "probe": "juniper-relay.md",
+   "frac_actual": 0.4943,
+   "line": 742,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref P7J-3317",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.957169473136641,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref P7J-3317`.",
+   "probe": "# ref P7J-3317",
+   "frac_actual": 0.9603,
+   "line": 1358,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.28457885631308344,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.2755,
+   "line": 430,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6500955350996428,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.6505,
+   "line": 967,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 4,
+   "frac": 0.1785783509016084,
+   "body": "At Pell the clerk wrote down 4 oboes.",
+   "probe": "At Pell the clerk wrote down 4 oboes.",
+   "frac_actual": 0.1792,
+   "line": 266,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 13,
+   "frac": 0.2061695927469824,
+   "body": "Received at Wick, 13 harps.",
+   "probe": "Received at Wick, 13 harps.",
+   "frac_actual": 0.2053,
+   "line": 311,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 19,
+   "frac": 0.3525517077986198,
+   "body": "Stane sent word of 19 flutes on hand.",
+   "probe": "Stane sent word of 19 flutes on hand.",
+   "frac_actual": 0.3507,
+   "line": 549,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 15,
+   "frac": 0.5412090785362828,
+   "body": "A box of 15 tubas came through Varnel.",
+   "probe": "A box of 15 tubas came through Varnel.",
+   "frac_actual": 0.5492,
+   "line": 827,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 17,
+   "frac": 0.7668888569508636,
+   "body": "The Quay Nine store took in 17 bassoons.",
+   "probe": "The Quay Nine store took in 17 bassoons.",
+   "frac_actual": 0.7718,
+   "line": 1114,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 3,
+   "frac": 0.8276661878151568,
+   "body": "3 banjos were logged at the Eyre gate.",
+   "probe": "3 banjos were logged at the Eyre gate.",
+   "frac_actual": 0.8348,
+   "line": 1199,
+   "hits": 1,
+   "file": "reading2/rq3g98/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 71
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

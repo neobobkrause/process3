@@ -1,0 +1,329 @@
+{
+ "id": "yh2987",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 1,
+ "files": [
+  "reading2/yh2987/01-trial-plan-facts.md",
+  "reading2/yh2987/02-process4-audit2.md",
+  "reading2/yh2987/03-restart-speed-test.mjs",
+  "reading2/yh2987/04-triage.mjs",
+  "reading2/yh2987/05-layerflow.mjs",
+  "reading2/yh2987/06-self-ending-test.mjs",
+  "reading2/yh2987/07-03-tick.md",
+  "reading2/yh2987/08-roles.mjs",
+  "reading2/yh2987/09-decisions-memo-d3.md",
+  "reading2/yh2987/10-layerflow.mjs",
+  "reading2/yh2987/11-study.md",
+  "reading2/yh2987/12-branches-test.mjs",
+  "reading2/yh2987/13-job-test.mjs",
+  "reading2/yh2987/14-status.mjs",
+  "reading2/yh2987/15-job.mjs",
+  "reading2/yh2987/16-util.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "requirements",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 110,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 153,
+    "e": 241
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 0,
+    "e": 149
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 0,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 2198,
+    "e": 2365
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "s": 0,
+    "e": 147
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "s": 7,
+    "e": 207
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "s": 44,
+    "e": 88
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 465,
+    "e": 611
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 0,
+    "e": 81
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "s": 0,
+    "e": 195
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 185,
+    "e": 385
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 874,
+    "e": 1042
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 543,
+    "e": 703
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 0,
+    "e": 169
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 196792,
+ "lines": 2407,
+ "task": "wordtop",
+ "values": {
+  "code1": "U7N-2122",
+  "code2": "M4B-7777",
+  "w_last": "bramblewick",
+  "w_name": "sandalwood",
+  "w_desk": "dunmore",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Lucinda Abernathy",
+  "family": "trees",
+  "members": [
+   "elms",
+   "cedars",
+   "alders",
+   "willows",
+   "beeches",
+   "maples",
+   "pines",
+   "birches",
+   "oaks",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: dunmore",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7727086433613767,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: dunmore`.",
+   "probe": "desk: dunmore",
+   "file_index": 0,
+   "frac_actual": 0.0994,
+   "line": 19,
+   "hits": 1,
+   "file": "reading2/yh2987/01-trial-plan-facts.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed M4B-7777",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.37991043060043084,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed M4B-7777`.",
+   "probe": "run closed M4B-7777",
+   "file_index": 8,
+   "frac_actual": 0.4535,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/yh2987/09-decisions-memo-d3.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under bramblewick",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.1049782956428736,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under bramblewick`.",
+   "probe": "-- filed under bramblewick",
+   "file_index": 15,
+   "frac_actual": 0.9025,
+   "line": 156,
+   "hits": 1,
+   "file": "reading2/yh2987/16-util.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8262507011701818,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 7,
+   "frac_actual": 0.8241,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/yh2987/08-roles.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8028344989484307,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 9,
+   "frac_actual": 0.8006,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/yh2987/10-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 7,
+   "frac": 0.5601661262613961,
+   "body": "The Brae store took in 7 elms.",
+   "probe": "The Brae store took in 7 elms.",
+   "file_index": 0,
+   "frac_actual": 0.5585,
+   "line": 77,
+   "hits": 1,
+   "file": "reading2/yh2987/01-trial-plan-facts.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 19,
+   "frac": 0.648197510249162,
+   "body": "Corrie desk entered 19 cedars on the sheet.",
+   "probe": "Corrie desk entered 19 cedars on the sheet.",
+   "file_index": 5,
+   "frac_actual": 0.6482,
+   "line": 101,
+   "hits": 1,
+   "file": "reading2/yh2987/06-self-ending-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 18,
+   "frac": 0.7061811583062533,
+   "body": "At Lund the clerk wrote down 18 alders.",
+   "probe": "At Lund the clerk wrote down 18 alders.",
+   "file_index": 8,
+   "frac_actual": 0.6992,
+   "line": 33,
+   "hits": 1,
+   "file": "reading2/yh2987/09-decisions-memo-d3.md"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 12,
+   "frac": 0.42153273766640326,
+   "body": "A box of 12 willows came through Varnel.",
+   "probe": "A box of 12 willows came through Varnel.",
+   "file_index": 10,
+   "frac_actual": 0.3614,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/yh2987/11-study.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 4,
+   "frac": 0.13872053025672382,
+   "body": "Tally for Osk: 4 beeches.",
+   "probe": "Tally for Osk: 4 beeches.",
+   "file_index": 15,
+   "frac_actual": 0.1413,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/yh2987/16-util.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 60
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

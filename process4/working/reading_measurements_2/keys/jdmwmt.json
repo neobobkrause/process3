@@ -1,0 +1,179 @@
+{
+ "id": "jdmwmt",
+ "ladder": "single",
+ "size": 12000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__layer-flow-messages.test.mjs",
+   "s": 0,
+   "e": 160
+  }
+ ],
+ "files": [
+  "reading2/jdmwmt/module.mjs"
+ ],
+ "bytes": 11870,
+ "lines": 196,
+ "task": "sumby",
+ "values": {
+  "code1": "H6A-6842",
+  "code2": "G5Y-5722",
+  "w_last": "sandalwood",
+  "w_name": "saltmarsh",
+  "w_desk": "bellwether",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "vegetables",
+  "members": [
+   "onions",
+   "cabbages",
+   "leeks",
+   "parsnips",
+   "marrows",
+   "carrots",
+   "beets",
+   "radishes",
+   "turnips",
+   "shallots"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: bellwether",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08783476582707346,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: bellwether`.",
+   "probe": "desk: bellwether",
+   "frac_actual": 0.0875,
+   "line": 18,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5300176512663719,
+   "body": "Every job must note: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "frac_actual": 0.5243,
+   "line": 112,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref H6A-6842",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9407658668100831,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref H6A-6842`.",
+   "probe": "# ref H6A-6842",
+   "frac_actual": 0.9398,
+   "line": 184,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2829806281489483,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.2875,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6489876145388549,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.6393,
+   "line": 133,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 9,
+   "frac": 0.1534543586415787,
+   "body": "Received at Tamsin Row, 9 onions.",
+   "probe": "Received at Tamsin Row, 9 onions.",
+   "frac_actual": 0.153,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 13,
+   "frac": 0.40378959058354125,
+   "body": "A box of 13 cabbages came through Uller.",
+   "probe": "A box of 13 cabbages came through Uller.",
+   "frac_actual": 0.4029,
+   "line": 90,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 12,
+   "frac": 0.580097738784596,
+   "body": "The Eyre store took in 12 leeks.",
+   "probe": "The Eyre store took in 12 leeks.",
+   "frac_actual": 0.5839,
+   "line": 123,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 18,
+   "frac": 0.7337102029461191,
+   "body": "At Hale End the clerk wrote down 18 parsnips.",
+   "probe": "At Hale End the clerk wrote down 18 parsnips.",
+   "frac_actual": 0.7298,
+   "line": 147,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 3,
+   "frac": 0.9202053805803002,
+   "body": "Brae sent word of 3 marrows on hand.",
+   "probe": "Brae sent word of 3 marrows on hand.",
+   "frac_actual": 0.9194,
+   "line": 175,
+   "hits": 1,
+   "file": "reading2/jdmwmt/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 55
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

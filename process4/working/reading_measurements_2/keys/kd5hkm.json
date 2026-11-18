@@ -1,0 +1,250 @@
+{
+ "id": "kd5hkm",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 5,
+ "files": [
+  "reading2/kd5hkm/01-coordinator-findings-3-4nov.md",
+  "reading2/kd5hkm/02-joined.md",
+  "reading2/kd5hkm/03-layerflow.mjs",
+  "reading2/kd5hkm/04-joined.md"
+ ],
+ "file_kinds": [
+  "logs",
+  "design",
+  "code",
+  "logs"
+ ],
+ "members": [
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_notice.md",
+    "s": 34,
+    "e": 68
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 0,
+    "e": 113
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "s": 0,
+    "e": 28
+   },
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 0,
+    "e": 143
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 0,
+    "e": 614
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "s": 21,
+    "e": 37
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+    "s": 0,
+    "e": 38
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+    "s": 0,
+    "e": 36
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+    "s": 0,
+    "e": 186
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-b.md",
+    "s": 0,
+    "e": 32
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-c.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "s": 0,
+    "e": 42
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "s": 0,
+    "e": 159
+   },
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "s": 0,
+    "e": 7
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 194030,
+ "lines": 1663,
+ "task": "rle",
+ "values": {
+  "code1": "J6F-4787",
+  "code2": "G8D-2364",
+  "w_last": "sandalwood",
+  "w_name": "thistledown",
+  "w_desk": "yarrow",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Tobias Hallworth",
+  "family": "birds",
+  "members": [
+   "plovers",
+   "larks",
+   "gulls",
+   "owls",
+   "wrens",
+   "swifts",
+   "finches",
+   "herons",
+   "cranes",
+   "robins"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: yarrow",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.22404456539041684,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: yarrow`.",
+   "probe": "desk: yarrow",
+   "file_index": 0,
+   "frac_actual": 0.0999,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/kd5hkm/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under sandalwood",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7685853043283297,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under sandalwood`.",
+   "probe": "-- filed under sandalwood",
+   "file_index": 2,
+   "frac_actual": 0.5477,
+   "line": 349,
+   "hits": 1,
+   "file": "reading2/kd5hkm/03-layerflow.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "thistledown-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.47219693130307294,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `thistledown-relay.md`, and under no other name.",
+   "probe": "thistledown-relay.md",
+   "file_index": 3,
+   "frac_actual": 0.9832,
+   "line": 573,
+   "hits": 1,
+   "file": "reading2/kd5hkm/04-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6215452130793352,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "file_index": 0,
+   "frac_actual": 0.6237,
+   "line": 84,
+   "hits": 1,
+   "file": "reading2/kd5hkm/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.27745820104293284,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "file_index": 2,
+   "frac_actual": 0.2778,
+   "line": 179,
+   "hits": 1,
+   "file": "reading2/kd5hkm/03-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 8,
+   "frac": 0.17122398600556377,
+   "body": "Tally for Rigg: 8 plovers.",
+   "probe": "Tally for Rigg: 8 plovers.",
+   "file_index": 0,
+   "frac_actual": 0.1759,
+   "line": 33,
+   "hits": 1,
+   "file": "reading2/kd5hkm/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 4,
+   "frac": 0.5848171829871558,
+   "body": "A box of 4 larks came through Lund.",
+   "probe": "A box of 4 larks came through Lund.",
+   "file_index": 2,
+   "frac_actual": 0.5854,
+   "line": 377,
+   "hits": 1,
+   "file": "reading2/kd5hkm/03-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 2,
+   "frac": 0.5816473199780551,
+   "body": "Received at Yarm, 2 gulls.",
+   "probe": "Received at Yarm, 2 gulls.",
+   "file_index": 2,
+   "frac_actual": 0.5804,
+   "line": 371,
+   "hits": 1,
+   "file": "reading2/kd5hkm/03-layerflow.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 14
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

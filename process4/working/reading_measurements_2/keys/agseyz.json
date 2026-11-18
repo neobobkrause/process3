@@ -1,0 +1,375 @@
+{
+ "id": "agseyz",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 6,
+ "files": [
+  "reading2/agseyz/01-joined.mjs",
+  "reading2/agseyz/02-joined.mjs",
+  "reading2/agseyz/03-joined.md",
+  "reading2/agseyz/04-joined.md",
+  "reading2/agseyz/05-process4-disposition.md",
+  "reading2/agseyz/06-levers-github-cloudflare-pro.md",
+  "reading2/agseyz/07-train-throughput-study.md",
+  "reading2/agseyz/08-audit2-requirements.md",
+  "reading2/agseyz/09-joined.mjs",
+  "reading2/agseyz/10-layerflow-test.mjs",
+  "reading2/agseyz/11-setup.mjs",
+  "reading2/agseyz/12-lead.mjs",
+  "reading2/agseyz/13-joined.mjs",
+  "reading2/agseyz/14-coordinator-findings-3-4nov.md",
+  "reading2/agseyz/15-canon-analysis.md",
+  "reading2/agseyz/16-audit-c.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "logs",
+  "design",
+  "requirements",
+  "design",
+  "design",
+  "requirements",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 107,
+    "e": 158
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 752,
+    "e": 827
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 143,
+    "e": 184
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 174,
+    "e": 231
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "s": 151,
+    "e": 236
+   },
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "s": 0,
+    "e": 3
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-c.md",
+    "s": 27,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov.md",
+    "s": 0,
+    "e": 13
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "s": 36,
+    "e": 49
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 0,
+    "e": 67
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 305,
+    "e": 361
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 92,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "s": 119,
+    "e": 265
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 0,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "s": 22,
+    "e": 74
+   },
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "s": 0,
+    "e": 72
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "s": 0,
+    "e": 23
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 791,
+    "e": 940
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 0,
+    "e": 184
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 141,
+    "e": 304
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "s": 190,
+    "e": 201
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1437,
+    "e": 1557
+   },
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "s": 162,
+    "e": 185
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 691,
+    "e": 741
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 95,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 46,
+    "e": 76
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 196076,
+ "lines": 1865,
+ "task": "merge",
+ "values": {
+  "code1": "G3Q-2282",
+  "code2": "G4V-3815",
+  "w_last": "hollowell",
+  "w_name": "fennimore",
+  "w_desk": "greywether",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "fruit",
+  "members": [
+   "mangoes",
+   "peaches",
+   "pears",
+   "lemons",
+   "plums",
+   "cherries",
+   "apricots",
+   "quinces",
+   "limes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref G3Q-2282",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.35390734908013155,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref G3Q-2282`.",
+   "probe": "# ref G3Q-2282",
+   "file_index": 0,
+   "frac_actual": 0.0975,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/agseyz/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed G4V-3815",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7560059807796667,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed G4V-3815`.",
+   "probe": "run closed G4V-3815",
+   "file_index": 8,
+   "frac_actual": 0.5474,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/agseyz/09-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: greywether",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8434041966339253,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: greywether`.",
+   "probe": "desk: greywether",
+   "file_index": 15,
+   "frac_actual": 0.9166,
+   "line": 31,
+   "hits": 1,
+   "file": "reading2/agseyz/16-audit-c.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.31032454584340097,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "file_index": 5,
+   "frac_actual": 0.3134,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/agseyz/06-levers-github-cloudflare-pro.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2985063004295057,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 11,
+   "frac_actual": 0.2987,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/agseyz/12-lead.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 18,
+   "frac": 0.11182649120055069,
+   "body": "18 mangoes were logged at the Pell gate.",
+   "probe": "18 mangoes were logged at the Pell gate.",
+   "file_index": 1,
+   "frac_actual": 0.1113,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/agseyz/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 5,
+   "frac": 0.6474575485438998,
+   "body": "Brae sent word of 5 peaches on hand.",
+   "probe": "Brae sent word of 5 peaches on hand.",
+   "file_index": 7,
+   "frac_actual": 0.6943,
+   "line": 71,
+   "hits": 1,
+   "file": "reading2/agseyz/08-audit2-requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 7,
+   "frac": 0.2821691992798844,
+   "body": "Tally for Marsh Lane: 7 pears.",
+   "probe": "Tally for Marsh Lane: 7 pears.",
+   "file_index": 8,
+   "frac_actual": 0.2801,
+   "line": 45,
+   "hits": 1,
+   "file": "reading2/agseyz/09-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 10,
+   "frac": 0.4108125060949461,
+   "body": "Corrie desk entered 10 lemons on the sheet.",
+   "probe": "Corrie desk entered 10 lemons on the sheet.",
+   "file_index": 12,
+   "frac_actual": 0.4075,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/agseyz/13-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

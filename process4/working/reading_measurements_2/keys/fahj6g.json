@@ -1,0 +1,202 @@
+{
+ "id": "fahj6g",
+ "ladder": "single",
+ "size": 384000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__lib__rounds.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layerflow.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__generated-plain.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gate-browser.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ghshare.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__hold.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__temp-cleanup.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__rounds.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ghhook.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__fresh-branch.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ends.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__roles.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__suite-budget.test.mjs",
+   "lines": "all"
+  }
+ ],
+ "files": [
+  "reading2/fahj6g/module.mjs"
+ ],
+ "bytes": 382015,
+ "lines": 4967,
+ "task": "dedupe",
+ "values": {
+  "code1": "Q5Y-9782",
+  "code2": "V9A-8517",
+  "w_last": "yarrow",
+  "w_name": "greywether",
+  "w_desk": "nettlecombe",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Kwabena Asantewaa",
+  "family": "vegetables",
+  "members": [
+   "parsnips",
+   "shallots",
+   "radishes",
+   "onions",
+   "carrots",
+   "marrows",
+   "turnips",
+   "beets",
+   "cabbages",
+   "leeks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "greywether-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07807609910068618,
+   "body": "Every job must note: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
+   "probe": "greywether-relay.md",
+   "frac_actual": 0.0792,
+   "line": 383,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: nettlecombe",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5245049965648926,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: nettlecombe`.",
+   "probe": "desk: nettlecombe",
+   "frac_actual": 0.5275,
+   "line": 2442,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under yarrow",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9428409223072768,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under yarrow`.",
+   "probe": "-- filed under yarrow",
+   "frac_actual": 0.9419,
+   "line": 4626,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3393068360170135,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.3328,
+   "line": 1599,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8332878827255377,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.8333,
+   "line": 4095,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 4,
+   "frac": 0.22763409068407736,
+   "body": "The Thorpe store took in 4 parsnips.",
+   "probe": "The Thorpe store took in 4 parsnips.",
+   "frac_actual": 0.2268,
+   "line": 1099,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 17,
+   "frac": 0.4718511759237086,
+   "body": "Tally for Stane: 17 shallots.",
+   "probe": "Tally for Stane: 17 shallots.",
+   "frac_actual": 0.4655,
+   "line": 2185,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 3,
+   "frac": 0.7832403642950834,
+   "body": "A box of 3 radishes came through Corrie.",
+   "probe": "A box of 3 radishes came through Corrie.",
+   "frac_actual": 0.7841,
+   "line": 3839,
+   "hits": 1,
+   "file": "reading2/fahj6g/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 24
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

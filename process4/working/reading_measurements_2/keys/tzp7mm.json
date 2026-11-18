@@ -1,0 +1,314 @@
+{
+ "id": "tzp7mm",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 6,
+ "files": [
+  "reading2/tzp7mm/01-joined.md",
+  "reading2/tzp7mm/02-job-test.mjs",
+  "reading2/tzp7mm/03-joined.mjs",
+  "reading2/tzp7mm/04-joined.md",
+  "reading2/tzp7mm/05-joined.mjs",
+  "reading2/tzp7mm/06-joined.mjs",
+  "reading2/tzp7mm/07-joined.mjs",
+  "reading2/tzp7mm/08-joined.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 141,
+    "e": 316
+   },
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 0,
+    "e": 157
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 0,
+    "e": 750
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "s": 57,
+    "e": 59
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1166,
+    "e": 1385
+   },
+   {
+    "doc": "code/tool__lib__layerbase.mjs",
+    "s": 0,
+    "e": 135
+   },
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "s": 0,
+    "e": 339
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 144,
+    "e": 151
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "s": 0,
+    "e": 488
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-join.test.mjs",
+    "s": 13,
+    "e": 162
+   },
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "s": 0,
+    "e": 168
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 0,
+    "e": 370
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "s": 268,
+    "e": 328
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 0,
+    "e": 329
+   },
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "s": 0,
+    "e": 302
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 472,
+    "e": 573
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "s": 0,
+    "e": 187
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "s": 0,
+    "e": 36
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 0,
+    "e": 374
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "s": 65,
+    "e": 72
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "s": 0,
+    "e": 204
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 0,
+    "e": 402
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 381531,
+ "lines": 5050,
+ "task": "colsum",
+ "values": {
+  "code1": "Q2H-8120",
+  "code2": "A5B-5401",
+  "w_last": "pennant",
+  "w_name": "saltmarsh",
+  "w_desk": "orrery",
+  "name_a": "Ines Carrowby",
+  "name_b": "Annelise Brouwer",
+  "family": "vegetables",
+  "members": [
+   "carrots",
+   "beets",
+   "radishes",
+   "onions",
+   "marrows",
+   "parsnips",
+   "leeks",
+   "turnips",
+   "shallots",
+   "cabbages"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed A5B-5401",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6922469040279424,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed A5B-5401`.",
+   "probe": "run closed A5B-5401",
+   "file_index": 0,
+   "frac_actual": 0.0932,
+   "line": 51,
+   "hits": 1,
+   "file": "reading2/tzp7mm/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref Q2H-8120",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.16191435029265178,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref Q2H-8120`.",
+   "probe": "# ref Q2H-8120",
+   "file_index": 4,
+   "frac_actual": 0.4689,
+   "line": 326,
+   "hits": 1,
+   "file": "reading2/tzp7mm/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.690495328797969,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "file_index": 7,
+   "frac_actual": 0.9126,
+   "line": 583,
+   "hits": 1,
+   "file": "reading2/tzp7mm/08-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1180311576430782,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "file_index": 0,
+   "frac_actual": 0.13,
+   "line": 62,
+   "hits": 1,
+   "file": "reading2/tzp7mm/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4945676007878057,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Annelise Brouwer`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 4,
+   "frac_actual": 0.5087,
+   "line": 359,
+   "hits": 1,
+   "file": "reading2/tzp7mm/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 19,
+   "frac": 0.3314573236575149,
+   "body": "Received at Uller, 19 carrots.",
+   "probe": "Received at Uller, 19 carrots.",
+   "file_index": 1,
+   "frac_actual": 0.3316,
+   "line": 252,
+   "hits": 1,
+   "file": "reading2/tzp7mm/02-job-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 5,
+   "frac": 0.6112139477328462,
+   "body": "A box of 5 beets came through Marsh Lane.",
+   "probe": "A box of 5 beets came through Marsh Lane.",
+   "file_index": 2,
+   "frac_actual": 0.5993,
+   "line": 417,
+   "hits": 1,
+   "file": "reading2/tzp7mm/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 12,
+   "frac": 0.16779918362696947,
+   "body": "Dunn sent word of 12 radishes on hand.",
+   "probe": "Dunn sent word of 12 radishes on hand.",
+   "file_index": 5,
+   "frac_actual": 0.1624,
+   "line": 140,
+   "hits": 1,
+   "file": "reading2/tzp7mm/06-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 2,
+   "frac": 0.49440034608190464,
+   "body": "2 onions were logged at the Pell gate.",
+   "probe": "2 onions were logged at the Pell gate.",
+   "file_index": 7,
+   "frac_actual": 0.4963,
+   "line": 323,
+   "hits": 1,
+   "file": "reading2/tzp7mm/08-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 38
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

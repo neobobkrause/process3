@@ -1,0 +1,152 @@
+{
+ "id": "jpu944",
+ "ladder": "start",
+ "size": 16384,
+ "index": 0,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/governing__foundations.md",
+   "s": 181,
+   "e": 230
+  }
+ ],
+ "files": [],
+ "bytes": 16396,
+ "lines": 86,
+ "task": "wordtop",
+ "values": {
+  "code1": "B2M-9842",
+  "code2": "Q9Q-5001",
+  "w_last": "dunmore",
+  "w_name": "sandalwood",
+  "w_desk": "hollowell",
+  "name_a": "Maren Oduya",
+  "name_b": "Hamish Colquhoun",
+  "family": "birds",
+  "members": [
+   "wrens",
+   "finches",
+   "herons",
+   "robins",
+   "swifts",
+   "gulls",
+   "plovers",
+   "owls",
+   "cranes",
+   "larks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: hollowell",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03978045135953778,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: hollowell`.",
+   "probe": "desk: hollowell",
+   "frac_actual": 0.057,
+   "line": 3,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref B2M-9842",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5205684388365295,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref B2M-9842`.",
+   "probe": "# ref B2M-9842",
+   "frac_actual": 0.5211,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under dunmore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9134351595951189,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under dunmore`.",
+   "probe": "-- filed under dunmore",
+   "frac_actual": 0.9223,
+   "line": 68,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.19078458707033547,
+   "value": "reviewer: Maren Oduya",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.1465,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6475285494927523,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.6547,
+   "line": 43,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 3,
+   "frac": 0.2719576125379882,
+   "body": "3 wrens were logged at the Corrie gate.",
+   "probe": "3 wrens were logged at the Corrie gate.",
+   "frac_actual": 0.2373,
+   "line": 20,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 5,
+   "frac": 0.6336692448403237,
+   "body": "A box of 5 finches came through Osk.",
+   "probe": "A box of 5 finches came through Osk.",
+   "frac_actual": 0.623,
+   "line": 39,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 17,
+   "frac": 0.7650362440773627,
+   "body": "At Yarm the clerk wrote down 17 herons.",
+   "probe": "At Yarm the clerk wrote down 17 herons.",
+   "frac_actual": 0.7639,
+   "line": 55,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 25
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

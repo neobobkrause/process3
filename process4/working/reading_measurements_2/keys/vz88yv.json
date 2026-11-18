@@ -1,0 +1,282 @@
+{
+ "id": "vz88yv",
+ "ladder": "single",
+ "size": 768000,
+ "index": 3,
+ "kind": "code",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__test__state-writes.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__walkcfg.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__release.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__direct.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__status.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__register.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__carry.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ledger-base.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__status.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__layout.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__audit-restores.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layer-join.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__cap.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__temp-cleanup.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layerflow.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ledger-count.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gate.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__helpers.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ghaudit.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__lead.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__p3.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ghhook.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__review.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__notice.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__generated-plain.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__status-acts.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layer.test.mjs",
+   "lines": "all"
+  }
+ ],
+ "files": [
+  "reading2/vz88yv/module.mjs"
+ ],
+ "bytes": 767582,
+ "lines": 10289,
+ "task": "rle",
+ "values": {
+  "code1": "H2Q-6702",
+  "code2": "Q9W-3288",
+  "w_last": "greywether",
+  "w_name": "saltmarsh",
+  "w_desk": "nettlecombe",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Hamish Colquhoun",
+  "family": "vegetables",
+  "members": [
+   "parsnips",
+   "beets",
+   "radishes",
+   "cabbages",
+   "onions",
+   "turnips",
+   "leeks",
+   "marrows",
+   "shallots",
+   "carrots"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under greywether",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07927033853941805,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under greywether`.",
+   "probe": "-- filed under greywether",
+   "frac_actual": 0.0791,
+   "line": 820,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5348701000063029,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "frac_actual": 0.5339,
+   "line": 5394,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Q9W-3288",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9406409588409731,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed Q9W-3288`.",
+   "probe": "run closed Q9W-3288",
+   "frac_actual": 0.9405,
+   "line": 9634,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.239681370541762,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.2405,
+   "line": 2417,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.794182394106149,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.7943,
+   "line": 8011,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 10,
+   "frac": 0.05322825058776986,
+   "body": "Quay Nine desk entered 10 parsnips on the sheet.",
+   "probe": "Quay Nine desk entered 10 parsnips on the sheet.",
+   "frac_actual": 0.0532,
+   "line": 557,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 3,
+   "frac": 0.2793675860714153,
+   "body": "At Eyre the clerk wrote down 3 beets.",
+   "probe": "At Eyre the clerk wrote down 3 beets.",
+   "frac_actual": 0.29,
+   "line": 2911,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 12,
+   "frac": 0.41320854211576674,
+   "body": "The Stane store took in 12 radishes.",
+   "probe": "The Stane store took in 12 radishes.",
+   "frac_actual": 0.4123,
+   "line": 4253,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 9,
+   "frac": 0.6155695518552919,
+   "body": "Received at Thorpe, 9 cabbages.",
+   "probe": "Received at Thorpe, 9 cabbages.",
+   "frac_actual": 0.6155,
+   "line": 6182,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 2,
+   "frac": 0.8984462800485635,
+   "body": "Osk sent word of 2 onions on hand.",
+   "probe": "Osk sent word of 2 onions on hand.",
+   "frac_actual": 0.899,
+   "line": 9154,
+   "hits": 1,
+   "file": "reading2/vz88yv/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 36
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

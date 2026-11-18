@@ -1,0 +1,152 @@
+{
+ "id": "bgy8b8",
+ "ladder": "start",
+ "size": 8192,
+ "index": 4,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+   "s": 6,
+   "e": 40
+  }
+ ],
+ "files": [],
+ "bytes": 8182,
+ "lines": 71,
+ "task": "colsum",
+ "values": {
+  "code1": "L6E-8903",
+  "code2": "N8G-4105",
+  "w_last": "larkspur",
+  "w_name": "greywether",
+  "w_desk": "foxglove",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Odette Fairweather",
+  "family": "trees",
+  "members": [
+   "elms",
+   "alders",
+   "willows",
+   "cedars",
+   "maples",
+   "larches",
+   "pines",
+   "beeches",
+   "oaks",
+   "birches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "greywether-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.023357399894742132,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
+   "probe": "greywether-relay.md",
+   "frac_actual": 0.0647,
+   "line": 3,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref L6E-8903",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4560782166749653,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref L6E-8903`.",
+   "probe": "# ref L6E-8903",
+   "frac_actual": 0.4776,
+   "line": 24,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: foxglove",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9722708837606748,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: foxglove`.",
+   "probe": "desk: foxglove",
+   "frac_actual": 0.9698,
+   "line": 55,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.12143546101651943,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.1304,
+   "line": 7,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4389974718490912,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "frac_actual": 0.4777,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 8,
+   "frac": 0.22929493144423727,
+   "body": "Received at Dunn, 8 elms.",
+   "probe": "Received at Dunn, 8 elms.",
+   "frac_actual": 0.1944,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 5,
+   "frac": 0.5065775953334757,
+   "body": "At Tamsin Row the clerk wrote down 5 alders.",
+   "probe": "At Tamsin Row the clerk wrote down 5 alders.",
+   "frac_actual": 0.5037,
+   "line": 32,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 13,
+   "frac": 0.6757031660826717,
+   "body": "Tally for Lund: 13 willows.",
+   "probe": "Tally for Lund: 13 willows.",
+   "frac_actual": 0.6854,
+   "line": 43,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 26
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

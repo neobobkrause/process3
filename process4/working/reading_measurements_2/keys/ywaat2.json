@@ -1,0 +1,271 @@
+{
+ "id": "ywaat2",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 1,
+ "files": [
+  "reading2/ywaat2/01-joined.mjs",
+  "reading2/ywaat2/02-joined.md",
+  "reading2/ywaat2/03-joined.mjs",
+  "reading2/ywaat2/04-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "s": 102,
+    "e": 168
+   },
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "s": 0,
+    "e": 196
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 0,
+    "e": 277
+   },
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "s": 0,
+    "e": 187
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 122,
+    "e": 248
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "s": 0,
+    "e": 20
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 0,
+    "e": 289
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "s": 164,
+    "e": 175
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "s": 0,
+    "e": 141
+   },
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "s": 0,
+    "e": 169
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 0,
+    "e": 316
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 136,
+    "e": 220
+   },
+   {
+    "doc": "design/notes__gate-map-4nov.md",
+    "s": 0,
+    "e": 104
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "s": 0,
+    "e": 90
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 191667,
+ "lines": 2152,
+ "task": "dedupe",
+ "values": {
+  "code1": "N7J-2756",
+  "code2": "X3N-7984",
+  "w_last": "juniper",
+  "w_name": "saltmarsh",
+  "w_desk": "pemberley",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Jacinta Ravensworth",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "swifts",
+   "herons",
+   "cranes",
+   "plovers",
+   "larks",
+   "wrens",
+   "robins",
+   "owls",
+   "finches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under juniper",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7779561970062384,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under juniper`.",
+   "probe": "-- filed under juniper",
+   "file_index": 0,
+   "frac_actual": 0.0487,
+   "line": 35,
+   "hits": 1,
+   "file": "reading2/ywaat2/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: pemberley",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.22870854850356048,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: pemberley`.",
+   "probe": "desk: pemberley",
+   "file_index": 2,
+   "frac_actual": 0.4681,
+   "line": 322,
+   "hits": 1,
+   "file": "reading2/ywaat2/03-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref N7J-2756",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.11848958842157546,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref N7J-2756`.",
+   "probe": "# ref N7J-2756",
+   "file_index": 3,
+   "frac_actual": 0.9238,
+   "line": 274,
+   "hits": 1,
+   "file": "reading2/ywaat2/04-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.31168212521563,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "file_index": 1,
+   "frac_actual": 0.3086,
+   "line": 136,
+   "hits": 1,
+   "file": "reading2/ywaat2/02-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2310403671791879,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 2,
+   "frac_actual": 0.2381,
+   "line": 164,
+   "hits": 1,
+   "file": "reading2/ywaat2/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 2,
+   "frac": 0.43698445362737276,
+   "body": "At Stane the clerk wrote down 2 gulls.",
+   "probe": "At Stane the clerk wrote down 2 gulls.",
+   "file_index": 0,
+   "frac_actual": 0.4198,
+   "line": 332,
+   "hits": 1,
+   "file": "reading2/ywaat2/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 18,
+   "frac": 0.5586092986985509,
+   "body": "Received at Pell, 18 swifts.",
+   "probe": "Received at Pell, 18 swifts.",
+   "file_index": 1,
+   "frac_actual": 0.5549,
+   "line": 202,
+   "hits": 1,
+   "file": "reading2/ywaat2/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 6,
+   "frac": 0.4164498822605,
+   "body": "Hale End sent word of 6 herons on hand.",
+   "probe": "Hale End sent word of 6 herons on hand.",
+   "file_index": 2,
+   "frac_actual": 0.4197,
+   "line": 290,
+   "hits": 1,
+   "file": "reading2/ywaat2/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 17,
+   "frac": 0.06953112900106259,
+   "body": "Tally for Brae: 17 cranes.",
+   "probe": "Tally for Brae: 17 cranes.",
+   "file_index": 2,
+   "frac_actual": 0.0631,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/ywaat2/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 3,
+   "frac": 0.5830197336098795,
+   "body": "Eyre desk entered 3 plovers on the sheet.",
+   "probe": "Eyre desk entered 3 plovers on the sheet.",
+   "file_index": 3,
+   "frac_actual": 0.5685,
+   "line": 168,
+   "hits": 1,
+   "file": "reading2/ywaat2/04-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 46
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

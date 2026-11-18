@@ -1,0 +1,152 @@
+{
+ "id": "fx9829",
+ "ladder": "start",
+ "size": 4096,
+ "index": 9,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/README.md",
+   "s": 148,
+   "e": 164
+  }
+ ],
+ "files": [],
+ "bytes": 4067,
+ "lines": 69,
+ "task": "minutes",
+ "values": {
+  "code1": "J7K-9476",
+  "code2": "D6V-7883",
+  "w_last": "varnish",
+  "w_name": "juniper",
+  "w_desk": "harrowgate",
+  "name_a": "Kwabena Asantewaa",
+  "name_b": "Octavio Montenegro",
+  "family": "fish",
+  "members": [
+   "eels",
+   "pike",
+   "trout",
+   "herring",
+   "mackerel",
+   "salmon",
+   "carp",
+   "perch",
+   "bream",
+   "cod"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed D6V-7883",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.05431480984751705,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed D6V-7883`.",
+   "probe": "run closed D6V-7883",
+   "frac_actual": 0.0496,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: harrowgate",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4567342818037418,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.",
+   "probe": "desk: harrowgate",
+   "frac_actual": 0.495,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under varnish",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9603570937461494,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under varnish`.",
+   "probe": "-- filed under varnish",
+   "frac_actual": 0.9806,
+   "line": 54,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16520648746043926,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Kwabena Asantewaa`.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.1772,
+   "line": 17,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4332177867731953,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Kwabena Asantewaa is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.4418,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 17,
+   "frac": 0.12366788588811713,
+   "body": "Eyre desk entered 17 eels on the sheet.",
+   "probe": "Eyre desk entered 17 eels on the sheet.",
+   "frac_actual": 0.1438,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 11,
+   "frac": 0.40559075361505603,
+   "body": "At Brae the clerk wrote down 11 pike.",
+   "probe": "At Brae the clerk wrote down 11 pike.",
+   "frac_actual": 0.4229,
+   "line": 26,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 7,
+   "frac": 0.8785897830972768,
+   "body": "Tally for Dunn: 7 trout.",
+   "probe": "Tally for Dunn: 7 trout.",
+   "frac_actual": 0.8859,
+   "line": 49,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 35
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

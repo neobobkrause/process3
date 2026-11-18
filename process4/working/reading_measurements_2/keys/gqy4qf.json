@@ -1,0 +1,164 @@
+{
+ "id": "gqy4qf",
+ "ladder": "start",
+ "size": 32768,
+ "index": 0,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "s": 107,
+   "e": 231
+  }
+ ],
+ "files": [],
+ "bytes": 32353,
+ "lines": 164,
+ "task": "sumby",
+ "values": {
+  "code1": "Q6V-5672",
+  "code2": "Y7R-1794",
+  "w_last": "ostler",
+  "w_name": "fennimore",
+  "w_desk": "zephyrine",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Priya Venkataram",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "robins",
+   "swifts",
+   "owls",
+   "larks",
+   "herons",
+   "finches",
+   "cranes",
+   "wrens",
+   "plovers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under ostler",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06725159460634214,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under ostler`.",
+   "probe": "-- filed under ostler",
+   "frac_actual": 0.0674,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed Y7R-1794",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5061737975634321,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed Y7R-1794`.",
+   "probe": "run closed Y7R-1794",
+   "frac_actual": 0.4887,
+   "line": 85,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: zephyrine",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9541960856656041,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: zephyrine`.",
+   "probe": "desk: zephyrine",
+   "frac_actual": 0.9526,
+   "line": 145,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2833243804176125,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.2845,
+   "line": 53,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7940159754193472,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.7932,
+   "line": 118,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 8,
+   "frac": 0.23482445783073272,
+   "body": "Tally for Stane: 8 gulls.",
+   "probe": "Tally for Stane: 8 gulls.",
+   "frac_actual": 0.2277,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 2,
+   "frac": 0.4789366783632627,
+   "body": "The Wick store took in 2 robins.",
+   "probe": "The Wick store took in 2 robins.",
+   "frac_actual": 0.478,
+   "line": 80,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 16,
+   "frac": 0.6793622528842502,
+   "body": "Uller desk entered 16 swifts on the sheet.",
+   "probe": "Uller desk entered 16 swifts on the sheet.",
+   "frac_actual": 0.6706,
+   "line": 98,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 10,
+   "frac": 0.9577218333991552,
+   "body": "10 owls were logged at the Yarm gate.",
+   "probe": "10 owls were logged at the Yarm gate.",
+   "frac_actual": 0.9445,
+   "line": 140,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 36
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

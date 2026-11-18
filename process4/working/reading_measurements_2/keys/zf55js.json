@@ -1,0 +1,453 @@
+{
+ "id": "zf55js",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 1,
+ "files": [
+  "reading2/zf55js/01-joined.mjs",
+  "reading2/zf55js/02-joined.mjs",
+  "reading2/zf55js/03-joined.md",
+  "reading2/zf55js/04-audit-c.md",
+  "reading2/zf55js/05-joined.md",
+  "reading2/zf55js/06-joined.mjs",
+  "reading2/zf55js/07-layerflow.mjs",
+  "reading2/zf55js/08-joined.mjs",
+  "reading2/zf55js/09-joined.md",
+  "reading2/zf55js/10-joined.md",
+  "reading2/zf55js/11-joined.mjs",
+  "reading2/zf55js/12-coordinator-findings-3-4nov.md",
+  "reading2/zf55js/13-joined.mjs",
+  "reading2/zf55js/14-joined.md",
+  "reading2/zf55js/15-joined.mjs",
+  "reading2/zf55js/16-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "principles",
+  "logs",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__prompt-caps.test.mjs",
+    "s": 11,
+    "e": 98
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "s": 0,
+    "e": 187
+   },
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "s": 0,
+    "e": 120
+   },
+   {
+    "doc": "code/tool__test__ready.test.mjs",
+    "s": 0,
+    "e": 217
+   },
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "s": 0,
+    "e": 106
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "s": 9,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 0,
+    "e": 395
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "s": 0,
+    "e": 6
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "s": 81,
+    "e": 516
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 0,
+    "e": 55
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 39,
+    "e": 243
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__github-pacing.md",
+    "s": 43,
+    "e": 197
+   },
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 0,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "s": 106,
+    "e": 181
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 0,
+    "e": 429
+   },
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1171,
+    "e": 1762
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "s": 117,
+    "e": 204
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 0,
+    "e": 580
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 119,
+    "e": 345
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "s": 0,
+    "e": 85
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "s": 0,
+    "e": 33
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 19
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "s": 180,
+    "e": 269
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "s": 0,
+    "e": 48
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "logs/notes__account-switch-review.md",
+    "s": 0,
+    "e": 24
+   },
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "s": 0,
+    "e": 58
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "s": 0,
+    "e": 45
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "s": 0,
+    "e": 53
+   },
+   {
+    "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+    "s": 0,
+    "e": 1
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "s": 34,
+    "e": 146
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 0,
+    "e": 530
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1184,
+    "e": 1303
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "s": 308,
+    "e": 384
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 0,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "s": 0,
+    "e": 285
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 282,
+    "e": 517
+   },
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 0,
+    "e": 122
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 278,
+    "e": 575
+   },
+   {
+    "doc": "code/tool__test__layer-join.test.mjs",
+    "s": 0,
+    "e": 162
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "s": 0,
+    "e": 219
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "s": 285,
+    "e": 525
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "s": 0,
+    "e": 168
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "s": 0,
+    "e": 80
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 766026,
+ "lines": 8041,
+ "task": "dates",
+ "values": {
+  "code1": "N8V-4750",
+  "code2": "N7B-9917",
+  "w_last": "ostler",
+  "w_name": "bramblewick",
+  "w_desk": "wainscot",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Ruairi Mactavish",
+  "family": "musical instruments",
+  "members": [
+   "cellos",
+   "bassoons",
+   "violins",
+   "banjos",
+   "tubas",
+   "trumpets",
+   "oboes",
+   "clarinets",
+   "flutes",
+   "harps"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "bramblewick-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5545047274775338,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `bramblewick-relay.md`, and under no other name.",
+   "probe": "bramblewick-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0802,
+   "line": 75,
+   "hits": 1,
+   "file": "reading2/zf55js/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed N7B-9917",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.25587873381773096,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed N7B-9917`.",
+   "probe": "run closed N7B-9917",
+   "file_index": 8,
+   "frac_actual": 0.4549,
+   "line": 185,
+   "hits": 1,
+   "file": "reading2/zf55js/09-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref N8V-4750",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.6280860059930582,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref N8V-4750`.",
+   "probe": "# ref N8V-4750",
+   "file_index": 15,
+   "frac_actual": 0.9985,
+   "line": 612,
+   "hits": 1,
+   "file": "reading2/zf55js/16-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3304898057363834,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "file_index": 1,
+   "frac_actual": 0.3117,
+   "line": 192,
+   "hits": 1,
+   "file": "reading2/zf55js/02-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6260429123475111,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 10,
+   "frac_actual": 0.639,
+   "line": 428,
+   "hits": 1,
+   "file": "reading2/zf55js/11-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 10,
+   "frac": 0.7710337372986399,
+   "body": "Received at Dunn, 10 cellos.",
+   "probe": "Received at Dunn, 10 cellos.",
+   "file_index": 1,
+   "frac_actual": 0.776,
+   "line": 467,
+   "hits": 1,
+   "file": "reading2/zf55js/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 2,
+   "frac": 0.24438934596844508,
+   "body": "Tally for Marsh Lane: 2 bassoons.",
+   "probe": "Tally for Marsh Lane: 2 bassoons.",
+   "file_index": 10,
+   "frac_actual": 0.2457,
+   "line": 171,
+   "hits": 1,
+   "file": "reading2/zf55js/11-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 15,
+   "frac": 0.6413891350241385,
+   "body": "Wick sent word of 15 violins on hand.",
+   "probe": "Wick sent word of 15 violins on hand.",
+   "file_index": 15,
+   "frac_actual": 0.6409,
+   "line": 375,
+   "hits": 1,
+   "file": "reading2/zf55js/16-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

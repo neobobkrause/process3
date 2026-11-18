@@ -1,0 +1,152 @@
+{
+ "id": "get7g8",
+ "ladder": "start",
+ "size": 4096,
+ "index": 6,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "s": 178,
+   "e": 191
+  }
+ ],
+ "files": [],
+ "bytes": 4078,
+ "lines": 64,
+ "task": "dedupe",
+ "values": {
+  "code1": "M8F-1040",
+  "code2": "V4N-9724",
+  "w_last": "marlowe",
+  "w_name": "copperfield",
+  "w_desk": "umberfield",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Lucinda Abernathy",
+  "family": "fish",
+  "members": [
+   "cod",
+   "trout",
+   "perch",
+   "bream",
+   "mackerel",
+   "pike",
+   "herring",
+   "carp",
+   "eels",
+   "salmon"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under marlowe",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06440345269967077,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under marlowe`.",
+   "probe": "-- filed under marlowe",
+   "frac_actual": 0.0651,
+   "line": 4,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: umberfield",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4694424740855736,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.",
+   "probe": "desk: umberfield",
+   "frac_actual": 0.4618,
+   "line": 25,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "copperfield-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9028065466994101,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `copperfield-relay.md`, and under no other name.",
+   "probe": "copperfield-relay.md",
+   "frac_actual": 0.9607,
+   "line": 47,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16489385268781803,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.162,
+   "line": 9,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.85234769709828,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.8206,
+   "line": 42,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 7,
+   "frac": 0.20026432336615116,
+   "body": "Osk desk entered 7 cod on the sheet.",
+   "probe": "Osk desk entered 7 cod on the sheet.",
+   "frac_actual": 0.1785,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 3,
+   "frac": 0.535522695634414,
+   "body": "3 trout were logged at the Tamsin Row gate.",
+   "probe": "3 trout were logged at the Tamsin Row gate.",
+   "frac_actual": 0.5373,
+   "line": 31,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 14,
+   "frac": 0.819213611815912,
+   "body": "At Uller the clerk wrote down 14 perch.",
+   "probe": "At Uller the clerk wrote down 14 perch.",
+   "frac_actual": 0.8001,
+   "line": 38,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 24
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

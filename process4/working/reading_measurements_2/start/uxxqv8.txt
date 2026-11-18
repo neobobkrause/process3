@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/uxxqv8/01-joined.mjs
+- reading2/uxxqv8/02-notice-test.mjs
+- reading2/uxxqv8/03-audit-d-central.md
+- reading2/uxxqv8/04-attack-corruption.md
+- reading2/uxxqv8/05-ledger-lines.md
+- reading2/uxxqv8/06-joined.md
+- reading2/uxxqv8/07-joined.md
+- reading2/uxxqv8/08-permissions-inventory.md
+- reading2/uxxqv8/09-joined.mjs
+- reading2/uxxqv8/10-assessment-doc.md
+- reading2/uxxqv8/11-job-test.mjs
+- reading2/uxxqv8/12-audit-a.md
+- reading2/uxxqv8/13-joined.mjs
+- reading2/uxxqv8/14-joined.mjs
+- reading2/uxxqv8/15-lanes-process3-record.md
+- reading2/uxxqv8/16-joined.mjs
+- reading2/uxxqv8/17-setup.mjs
+- reading2/uxxqv8/18-audit-d-central.md
+- reading2/uxxqv8/19-joined.mjs
+- reading2/uxxqv8/20-process4-audit2.md
+- reading2/uxxqv8/21-point5-288-lines.md
+- reading2/uxxqv8/22-joined.md
+- reading2/uxxqv8/23-gate.mjs
+- reading2/uxxqv8/24-layerflow.mjs
+- reading2/uxxqv8/25-record-test.mjs
+- reading2/uxxqv8/26-joined.md
+- reading2/uxxqv8/27-joined.mjs
+- reading2/uxxqv8/28-joined.mjs
+- reading2/uxxqv8/29-ledger-lines.md
+- reading2/uxxqv8/30-joined.md
+- reading2/uxxqv8/31-appendix-recount.md
+- reading2/uxxqv8/32-joined.md
+- reading2/uxxqv8/33-found.mjs
+- reading2/uxxqv8/34-joined.md
+- reading2/uxxqv8/35-ledger-lines.md
+- reading2/uxxqv8/36-process4-definition-v6.md
+- reading2/uxxqv8/37-joined.mjs
+- reading2/uxxqv8/38-joined.md
+- reading2/uxxqv8/39-merge.mjs
+- reading2/uxxqv8/40-decisions-memo-d3.md
+- reading2/uxxqv8/41-layerflow.mjs
+- reading2/uxxqv8/42-process4-disposition.md
+- reading2/uxxqv8/43-joined.mjs
+- reading2/uxxqv8/44-joined.md
+- reading2/uxxqv8/45-audit-b.md
+- reading2/uxxqv8/46-joined.mjs
+- reading2/uxxqv8/47-joined.mjs
+- reading2/uxxqv8/48-layerflow.mjs
+- reading2/uxxqv8/49-process4-disposition.md
+- reading2/uxxqv8/50-gateclass.mjs
+- reading2/uxxqv8/51-job-test.mjs
+- reading2/uxxqv8/52-layerflow.mjs
+- reading2/uxxqv8/53-joined.mjs
+- reading2/uxxqv8/54-coordinator-findings-3-4nov.md
+- reading2/uxxqv8/55-process4-definition-appendix.md
+- reading2/uxxqv8/56-joined.md
+- reading2/uxxqv8/57-joined.mjs
+- reading2/uxxqv8/58-deploy-test.mjs
+- reading2/uxxqv8/59-lane.mjs
+- reading2/uxxqv8/60-point4-release.md
+- reading2/uxxqv8/61-joined.mjs
+- reading2/uxxqv8/62-state.mjs
+- reading2/uxxqv8/63-layerflow.mjs
+- reading2/uxxqv8/64-causal-forensics.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/uxxqv8/dates.py. It reads lines from standard input. Blank lines are ignored. For each line it prints `valid` if the line is a real calendar date written exactly as `YYYY-MM-DD` (four, two and two digits, leap years by the Gregorian rule) and `invalid` otherwise. After the last it prints `valid=N invalid=M` with the two counts. Example: the input lines `2024-02-29`, `2023-02-29`, `2023-7-01` give `valid`, `invalid`, `invalid`, `valid=1 invalid=2`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/uxxqv8: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

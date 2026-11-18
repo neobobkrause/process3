@@ -1,0 +1,164 @@
+{
+ "id": "rx4auk",
+ "ladder": "start",
+ "size": 65536,
+ "index": 1,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/README.md",
+   "s": 29,
+   "e": 73
+  }
+ ],
+ "files": [],
+ "bytes": 64796,
+ "lines": 84,
+ "task": "merge",
+ "values": {
+  "code1": "C2K-8073",
+  "code2": "X6N-1372",
+  "w_last": "varnish",
+  "w_name": "wainscot",
+  "w_desk": "bramblewick",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Yasmin Benhaddou",
+  "family": "gemstones",
+  "members": [
+   "agates",
+   "amethysts",
+   "sapphires",
+   "pearls",
+   "topazes",
+   "zircons",
+   "rubies",
+   "garnets",
+   "emeralds",
+   "opals"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: bramblewick",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08176367754295806,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: bramblewick`.",
+   "probe": "desk: bramblewick",
+   "frac_actual": 0.0909,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "wainscot-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5461708500625709,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `wainscot-relay.md`, and under no other name.",
+   "probe": "wainscot-relay.md",
+   "frac_actual": 0.5422,
+   "line": 44,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref C2K-8073",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9060093688012019,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref C2K-8073`.",
+   "probe": "# ref C2K-8073",
+   "frac_actual": 0.9447,
+   "line": 65,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.20111221781647215,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.2074,
+   "line": 21,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5008857226343835,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.4989,
+   "line": 40,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 14,
+   "frac": 0.1894238009343653,
+   "body": "The Wick store took in 14 agates.",
+   "probe": "The Wick store took in 14 agates.",
+   "frac_actual": 0.1939,
+   "line": 17,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 9,
+   "frac": 0.4441092299415976,
+   "body": "9 amethysts were logged at the Dunn gate.",
+   "probe": "9 amethysts were logged at the Dunn gate.",
+   "frac_actual": 0.4464,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 19,
+   "frac": 0.6601462618626517,
+   "body": "Tally for Thorpe: 19 sapphires.",
+   "probe": "Tally for Thorpe: 19 sapphires.",
+   "frac_actual": 0.6753,
+   "line": 55,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 11,
+   "frac": 0.9551209730252066,
+   "body": "A box of 11 pearls came through Stane.",
+   "probe": "A box of 11 pearls came through Stane.",
+   "frac_actual": 0.9717,
+   "line": 69,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 53
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

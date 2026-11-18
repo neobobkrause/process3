@@ -1,0 +1,85 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+Codes in F-L not in F-E (V): AUD-1, 4-9; P24-P27; PD-21; R13, R15-R17 (build items); SES-19..23; SLB-1..12. None is an id in TSV (V, `comm`). AUD-2 and AUD-3 are not in F-L: AUD-2 was in F-7 and removed on 9 Nov (V, `b0c3783` diff); AUD-3 is only in LM:130.
+
+## 2. Every addition or change, F-E against F-L
+
+"Reword" = same requirement, different words. "New" = adds or changes a requirement. Line numbers are F-L's.
+
+| # | F-L line | Kind | Text added or changed (quoted exactly) | Code(s) | Owner verbatim in quotation marks? | Date |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1, 5, 7 | Header | Snapshot note; "Recomposed 5 Nov 2026 from Bob's export of his original; unchanged."; "Proposed changes awaiting Bob are kept apart, on their own tab" | none | No | 5-7 Nov |
+
+Pell desk entered 16 elms on the sheet.
+
+| 2 | 19, 131, 222, 251, 259 ("[product's]"), 295 | Reword | "Civicsmith" -> "the first product"; "The civicos" -> "An earlier product's"; "(civicsmith)" -> "(the process's GitHub account)"; "Civicsmith is a release" -> "A product is a release" | BD-R2 (commit 4766b06) | No | 8 Nov |
+
+Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed H3P-7651`.
+
+| 3 | 38 | New | "decides the product's technical matters, while the coordinator decides the process's, each written as a decision record (REC-11) and reported (AUD-5; coordinator, 6 Nov)" (replaces "decides everything technical and detailed") | AUD-5, REC-11 | No; "coordinator, 6 Nov" (CLOG:739 ruling 3) | 6 Nov |
+| 4 | 44 | New | "A process triage lane and a product triage lane study each identified problem and bring you options with context before a response is chosen; a chosen short-term response reaches later sessions in their starting prompt, with the condition that ends it (Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-8)." | AUD-8 | No; his answer "keep" (CLOG:733) | 6 Nov |
+| 5 | 48 | New | "build one module's work in the open layer and publish it green onto the layer's shared branch, every ready module of the open layer at once, and the layer merges into the tranche once every job is complete and the layer's checks pass (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-1, SLB-2)"; "measured by its false-done rate and its cost per surviving job (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-9)"; removed "a job's claim is a receipt," | SLB-1, SLB-2, SLB-9; PD-21 | No | 6 Nov; removal 9 Nov |
+| 6 | 56 | New (removal) | "Receipts in PR comments; CI re-runs them;" -> "CI's gate runs on the pull request;" | JOB-7, PD-21 | No | 9 Nov |
+| 7 | 57 | New | "Done means merged, at the layer: a module is done at its last green publish with no reschedule outstanding, a layer when it is merged into the tranche, a tranche when it is merged into main by one pull request" ... "the tool publishes only green tips and merges a layer only when every job is complete and the layer's checks pass" ... "Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-5" | SLB-5, INT-1 | No | 6 Nov |
+| 8 | 58 | New | "a refactor whose tests rightly pass both before and after the change takes a reviewed exemption, recorded on its pull request (Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-1)" | AUD-1, JOB-12 | No | 6 Nov |
+| 9 | 60 | New | "ROOT (depth 0, Bob's app) starts BOB, the watcher and the coordinator; BOB starts jobs and lanes; depth at most 3 (coordinator, 6 Nov)" ... "Creation only by you, ROOT, BOB (jobs and lanes; Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-8) or a scheduled task" | SLB-8, PLT-5, SES-1 | No in F-L; CLOG:733 quotes his note "BOB starts jobs and lanes, not ROOT" | 6 Nov |
+
+Brae sent word of 11 beeches on hand.
+
+| 10 | 68 | New | P24 row: "Recorded state carries a checkable end condition; the tool ends it when the condition holds; stale state is found and cleared by the process, not by hand. Bob: "Go with option 2, fix it in the tool, not just for this case, but fix process3 to anticipate and address these kinds of situations."" | P24 | Yes (quoted) | 6 Nov |
+| 11 | 69 | New | P25 row: "The process anticipates refusals and inconsistencies and reports them ahead of the act. Bob: "It seems to me that we keep hitting items when checks are refusing modules with no ledger entry. Can we anticipate those conditions arising so that we can handle them either preemptively or more efficiently when they're identified?"" | P25 | Yes | 6 Nov |
+
+Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.
+
+| 12 | 70 | New | P26 row: "The account switch is rehearsed and preflighted before it's needed. Bob: "... the last account switch didn't go well at all. So I wonder if there's a way to anticipate or test for issues related to account switching now so that we're ready when the time comes."" (full quotation at F-L:70) | P26 | Yes | 6 Nov |
+| 13 | 71 | New | P27 row: "Process3 conforms to GitHub's published limits, using up to 80–90% of them, and obeys GitHub's rate-limit responses. Bob: "If github publishes limits, then we should introduce process3 tooling that conforms to those limits. But rather than limiting usage to a small fraction of github's stated limits, I'd suggest that the tooling limit usage to 80% or 90% of github's published limits. That feels like the proper balance."" | P27 | Yes | 6 Nov |
+| 14 | 77 | New | "BOB, one per product, is the only creator of jobs and lanes, and starts every job from the tool's list of startable jobs; under the layer branch no MERGER runs and nothing else starts jobs; its code is removed if the trial keeps the layer branch (SLB-11; coordinator, 6 Nov); nothing creates its own successor (SES-1; Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-8)." | SLB-8, SLB-11 | No | 6 Nov |
+| 15 | 83 | New | Job row: "BOB, from the tool's list of startable jobs (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-8)" | SLB-8 | No | 6 Nov |
+| 16 | 93 | New | Whole paragraph "**Lane qualification (SES-19 to SES-23; your word, 6 Nov).**" (text at F-L:93), with five quotations: "The important thing to remember when setting up lanes is the insure that a lane is fully qualified to fulfill their role as the load-bearing source of truth in their area"; "So The first time a lane is defined and run, it should start by using workers to fully research canon documents, existing code, and best practices related to their specialty area"; "This initial and ongoing research should be recording in a lane-specific area of the product repo for subsequent sessions to draw from and evolve"; "The lane charters used in earlier process versions included an investigation design lane and a publication design lane. Perhaps that's an appropriate partition to continue to use"; "These requirements related to lane startup and ongoing operations should be part of the process3 canon of requirements". Session's own words outside the quotations: "answers no ask until that research has landed", "is never what the build reads", all of SES-22 | SES-19..23 | Yes, five quotations (SES-22 has none) | 6 Nov |
+| 17 | 100 | New | Watcher started by: "ROOT, as has run since 18:49 on 5 Nov; PLT-5's "whoever starts ROOT starts the watcher" is read as ROOT starting it (coordinator, 6 Nov)" | PLT-5 | No; the coordinator's reading (P3D DECISIONS.md:16, PD-1) | 6 Nov |
+| 18 | 114 | New | "the watcher, which ROOT starts, takes over as ROOT only when watch says ROOT is full or silent ...; that is a standby taking the role, and it starts no new session. But it moves ROOT one level down, so a takeover is a bridge only: you restart ROOT from your app at depth 0 at your next opportunity, as on 5 Nov 18:44, and the new ROOT starts a fresh watcher (coordinator, 6 Nov; ...)" | PLT-5 | No | 6 Nov |
+
+Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref S7L-9243`.
+
+| 19 | 137 | New | "A job is one module's work in the open layer, from START to its last green publish with no reschedule outstanding ...; it may publish more than once, because a provider's interface change can reschedule it (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-2)." | SLB-2 | No | 6 Nov |
+
+19 willows were logged at the Dunn gate.
+
+| 20 | 137 | New | "A walk, internal or of a release, ends the current round; a new round of the same tranche runs the plan's layers again, in order, starting jobs only for the modules its findings named and skipping layers that hold none, and rounds repeat until an internal walk is clean (PLN-4; your words, 8 Nov 2026, BD-R1: "Once a walk completes, that ends the current round, and a new round (of the same tranche) is started to work (layer by layer) to fix to those modules that have been identified as having flaws")." Also "The completion round's file retires once the copy's layer 12, its last use, merges ("Finish, then switch", 8 Nov 2026)." | PLN-4, BD-R1 | Yes (two quotations) | 8 Nov |
+| 21 | 141 | New | "on its own branch, cut from the layer branch (layer/\<n>); each green publish is a small pull request into the layer branch with the START as its body, and its report is a comment (JOB-1; Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-2)." | SLB-2, JOB-1 | No | 6 Nov |
+| 22 | 142 | Reword (follows #20) | "enters it as a found mark against that module for the round's later layer or the next round" | PLN-3 | No | 8 Nov |
+| 23 | 144 | New | "never a full test suite in the session; the suite runs in CI (JOB-5; Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-7)"; "CI's own run of the job's tests is the evidence; there is no receipt (Bob, 9 Nov: "get rid of it completely"; PD-21)." | AUD-7, JOB-5, PD-21 | Yes for 9 Nov ("get rid of it completely"; CLOG:1286 confirms as his answer to "B3") | 6 Nov; 9 Nov |
+| 24 | 147 | New | Step 9 rewritten: "A publish is gated against the layer branch as it stands and merges into the layer branch on its own green gate, with no re-gate on the merged result; once every job of the layer is complete and the layer's checks pass, module tests do not run again and the tool merges the layer branch into the tranche as one pull request (GAT-8; Bob's answer, ..., SLB-4, SLB-7)" ... "A module is done at its last green publish with no reschedule outstanding, and a layer when it is merged into the tranche (INT-1; ..., SLB-5)." | SLB-4, SLB-5, SLB-7 | No | 6 Nov |
+
+Received at Osk, 17 maples.
+
+| 25 | 148 | New | Step 10: "Every pin move made while a layer is open is followed by layer sync \<n> for that layer before any job in it lands ... (Bob, 6 Nov 2026, SLB-12)." | SLB-12 | No in F-L; CLOG:921 quotes his word "Yes, add that rule to the canon" | 6 Nov; superseded 9 Nov (row 30 below) |
+| 26 | 154, 158-162 | New | "once per publish pull request tip ... (GAT-1; ..., SLB-3)"; table "Every publish pull request tip"; "Gate on each publish, no re-gate on the merged result; the layer merges once every job is complete and the layer's checks pass" (SLB-4); "Layer checks only; module tests do not run again" (SLB-7) | SLB-3, SLB-4, SLB-7 | No | 6 Nov |
+| 27 | 166 | New | "A provider's interface change reaches its users at once, not through the provider's gate: a change to its exports, its Public / Provides text, or a test of one of its Provides requirements reschedules every user in the open layer; a running job halts its test run and restarts against the new version, and a run started before the provider's newest publish never counts; users in higher layers get an unmet requirement (GAT-3; Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-6)." | SLB-6, GAT-3 | No. FPC:71 says applied "in Bob's wording" and that the proposal's "An implementation-only change notifies no one" "is not in Bob's answer and was not applied" (session's record) | 6 Nov |
+| 28 | 180 | New | "Your words are cited only where you said them, quoted with their date, and a decision someone else made names its maker (..., AUD-4). Process technical decisions are the coordinator's and product decisions are BOB's, each written as a short decision record (REC-11) and reported; only what P17 makes yours comes to you, with options and context (..., AUD-5)." | AUD-4, AUD-5 | No | 6 Nov |
+
+A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Ines Carrowby is no longer written anywhere in a handover note.
+
+| 29 | 182 | New | "Temporary measures live in the triage register with their end condition, never as rulebook lines (Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-9)." | AUD-9 | No | 6 Nov |
+| 30 | 236 | New | "during Process3's own first build, process fixes may land while a product's tranche runs, each recorded against the Ledger line it serves (GAP-9), and from the first certified release MNT-6 holds as written (Bob's answer, Keep and Drop page, 6 Nov 2026, AUD-6)." | AUD-6, MNT-6 | No | 6 Nov |
+| 31 | 246-247 | New | "False-done rate, counted per job (one module's work in one layer): the share of COMPLETE claims refuted by independent re-verification, a red suite or revert check in the gate's run of that attempt (SLB-9; PD-21)." "Cost per surviving job: tokens or dollars per job (one module's work in one layer) whose work is still in place after a two-week revert window (..., SLB-9)." | SLB-9, SES-12 | No | 6 Nov; 9 Nov |
+| 32 | 259 | New | "a walk's findings, which end the round; they enter as ledger entries against the modules they name, ... and the next round fixes those modules layer by layer. The internal walk is required, and the act that closes a round starts it itself, never between layers (your word, 7 Nov: "Required, tool-started", at "Round close only"). It is the round's last step: ... (your words, 8 Nov 2026: "the internal walk would be the last step of a round, but the live walk would only run once a round completed without any flaws identified in the internal walk"). The tranche ends in one order (your words, 8 Nov 2026, BD-R1): "This successive set of rounds continues until an internal walk doesn't find flaws, the release deployment happens, and the walk of the release also doesn't identify flaws. When the release walk is clean, the installer is updated for that release, then the [product's] website is updated to refer to the new install, and that ends the tranche." The process prepares those two updates and runs them only through the protected GitHub environment that names you as required reviewer ("Process, on my approval", 8 Nov 2026); tranche close refuses until a clean internal walk, then a clean release walk, are recorded, then names the installer update and the site update, in that order." | PLN-3, BD-R1 | Yes (four quotations; "[product's]" replaced "civicsmith.dev" on 8 Nov, commit 4766b06, so the quotation was edited) | 7-8 Nov |
+
+To be kept by any job that works from this text: the job's handover note is saved under the file name `bellwether-relay.md`, and under no other name.
+
+| 33 | 261 | Reword | "becomes the next round's entries" (was "a round's entries") | P22 | No | 8 Nov |
+
+The Corrie store took in 12 larches.
+
+| 34 | 295 | New | To-measure row: "The Shared Layer Branch, trialled on the first product's layer 7 after layer 6 closes and product work pauses for the process update (..., SLB-1, SLB-10)" with its measures, stop rule and "if kept, the merge train, the MERGER, the parallel window, provider holds, the in-flight hold, the plain queue and the fixes built for them are removed (..., SLB-11)" | SLB-1, SLB-10, SLB-11 | No | 6 Nov |
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/zk78b8/wordtop.py. It reads all of standard input. A word is a longest run of the letters A to Z in either case; words are compared in lower case. It prints the three most frequent words, one per line as `word count`, most frequent first, with ties in count broken by alphabetical order. If there are fewer than three different words it prints those there are. Example: the input `The cat and the hat. The end, and so on.` gives `the 3`, `and 2`, `cat 1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/zk78b8: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

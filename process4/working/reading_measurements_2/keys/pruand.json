@@ -1,0 +1,339 @@
+{
+ "id": "pruand",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 2,
+ "files": [
+  "reading2/pruand/01-joined.md",
+  "reading2/pruand/02-joined.mjs",
+  "reading2/pruand/03-joined.md",
+  "reading2/pruand/04-joined.mjs",
+  "reading2/pruand/05-joined.mjs",
+  "reading2/pruand/06-process4-definition-v6.md",
+  "reading2/pruand/07-joined.mjs",
+  "reading2/pruand/08-joined.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 157,
+    "e": 227
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "s": 0,
+    "e": 269
+   },
+   {
+    "doc": "design/process4__working__v5_notes.md",
+    "s": 0,
+    "e": 69
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "s": 133,
+    "e": 215
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 0,
+    "e": 505
+   },
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "s": 0,
+    "e": 57
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 154,
+    "e": 266
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "s": 0,
+    "e": 141
+   },
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "s": 0,
+    "e": 39
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "s": 0,
+    "e": 67
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 0,
+    "e": 22
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "s": 272,
+    "e": 398
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 0,
+    "e": 394
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "s": 175,
+    "e": 181
+   },
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "s": 0,
+    "e": 237
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "s": 0,
+    "e": 148
+   },
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "s": 0,
+    "e": 168
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 0,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 0,
+    "e": 300
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "s": 36,
+    "e": 314
+   },
+   {
+    "doc": "code/tool__test__pass.test.mjs",
+    "s": 0,
+    "e": 205
+   },
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "s": 0,
+    "e": 216
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 287,
+    "e": 538
+   },
+   {
+    "doc": "code/tool__lib__slots.mjs",
+    "s": 0,
+    "e": 57
+   },
+   {
+    "doc": "code/tool__test__checks.test.mjs",
+    "s": 0,
+    "e": 91
+   },
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "s": 0,
+    "e": 268
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 380897,
+ "lines": 4385,
+ "task": "minutes",
+ "values": {
+  "code1": "H3Y-3874",
+  "code2": "J4G-7269",
+  "w_last": "harrowgate",
+  "w_name": "umberfield",
+  "w_desk": "greywether",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Octavio Montenegro",
+  "family": "hand tools",
+  "members": [
+   "trowels",
+   "wrenches",
+   "mallets",
+   "rasps",
+   "spanners",
+   "hammers",
+   "awls",
+   "handsaws",
+   "pliers",
+   "chisels"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed J4G-7269",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.13441853981198248,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed J4G-7269`.",
+   "probe": "run closed J4G-7269",
+   "file_index": 0,
+   "frac_actual": 0.0931,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/pruand/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6703263501542804,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "file_index": 4,
+   "frac_actual": 0.5065,
+   "line": 302,
+   "hits": 1,
+   "file": "reading2/pruand/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: greywether",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.14272908800031148,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: greywether`.",
+   "probe": "desk: greywether",
+   "file_index": 7,
+   "frac_actual": 0.9027,
+   "line": 620,
+   "hits": 1,
+   "file": "reading2/pruand/08-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1908790783607536,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "file_index": 3,
+   "frac_actual": 0.187,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/pruand/04-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.238812420700799,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "file_index": 6,
+   "frac_actual": 0.2579,
+   "line": 196,
+   "hits": 1,
+   "file": "reading2/pruand/07-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 15,
+   "frac": 0.7309045283591408,
+   "body": "At Brae the clerk wrote down 15 trowels.",
+   "probe": "At Brae the clerk wrote down 15 trowels.",
+   "file_index": 0,
+   "frac_actual": 0.6895,
+   "line": 362,
+   "hits": 1,
+   "file": "reading2/pruand/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 4,
+   "frac": 0.3155453055765221,
+   "body": "Osk sent word of 4 wrenches on hand.",
+   "probe": "Osk sent word of 4 wrenches on hand.",
+   "file_index": 2,
+   "frac_actual": 0.3119,
+   "line": 141,
+   "hits": 1,
+   "file": "reading2/pruand/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 5,
+   "frac": 0.8208421285428048,
+   "body": "Rigg desk entered 5 mallets on the sheet.",
+   "probe": "Rigg desk entered 5 mallets on the sheet.",
+   "file_index": 4,
+   "frac_actual": 0.8269,
+   "line": 528,
+   "hits": 1,
+   "file": "reading2/pruand/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 18,
+   "frac": 0.8636208520628409,
+   "body": "A box of 18 rasps came through Yarm.",
+   "probe": "A box of 18 rasps came through Yarm.",
+   "file_index": 7,
+   "frac_actual": 0.8765,
+   "line": 594,
+   "hits": 1,
+   "file": "reading2/pruand/08-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

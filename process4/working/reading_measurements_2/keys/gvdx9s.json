@@ -1,0 +1,164 @@
+{
+ "id": "gvdx9s",
+ "ladder": "start",
+ "size": 32768,
+ "index": 4,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "s": 51,
+   "e": 292
+  }
+ ],
+ "files": [],
+ "bytes": 32156,
+ "lines": 281,
+ "task": "wordtop",
+ "values": {
+  "code1": "V6B-1952",
+  "code2": "A5W-6527",
+  "w_last": "saltmarsh",
+  "w_name": "foxglove",
+  "w_desk": "quarrystone",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Mikko Rantanen",
+  "family": "musical instruments",
+  "members": [
+   "oboes",
+   "tubas",
+   "flutes",
+   "bassoons",
+   "clarinets",
+   "harps",
+   "violins",
+   "banjos",
+   "trumpets",
+   "cellos"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under saltmarsh",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.027350072721679296,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under saltmarsh`.",
+   "probe": "-- filed under saltmarsh",
+   "frac_actual": 0.025,
+   "line": 4,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: quarrystone",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4756862015817528,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: quarrystone`.",
+   "probe": "desk: quarrystone",
+   "frac_actual": 0.4647,
+   "line": 128,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref V6B-1952",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9282384399169477,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref V6B-1952`.",
+   "probe": "# ref V6B-1952",
+   "frac_actual": 0.929,
+   "line": 245,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.13254917293181212,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.1386,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5896660709025181,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.5817,
+   "line": 161,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 19,
+   "frac": 0.24582060763780603,
+   "body": "Hale End sent word of 19 oboes on hand.",
+   "probe": "Hale End sent word of 19 oboes on hand.",
+   "frac_actual": 0.2449,
+   "line": 66,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 7,
+   "frac": 0.39468436598238776,
+   "body": "Received at Pell, 7 tubas.",
+   "probe": "Received at Pell, 7 tubas.",
+   "frac_actual": 0.3978,
+   "line": 103,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 11,
+   "frac": 0.5161294850498792,
+   "body": "Tally for Quay Nine: 11 flutes.",
+   "probe": "Tally for Quay Nine: 11 flutes.",
+   "frac_actual": 0.5075,
+   "line": 144,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 13,
+   "frac": 0.9619896241531021,
+   "body": "The Lund store took in 13 bassoons.",
+   "probe": "The Lund store took in 13 bassoons.",
+   "frac_actual": 0.9562,
+   "line": 259,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 50
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

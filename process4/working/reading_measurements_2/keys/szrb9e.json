@@ -1,0 +1,163 @@
+{
+ "id": "szrb9e",
+ "ladder": "start",
+ "size": 131072,
+ "index": 9,
+ "kind": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_corruption.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_D_central.md",
+   "lines": "1-237"
+  }
+ ],
+ "files": [],
+ "bytes": 130304,
+ "lines": 1019,
+ "task": "merge",
+ "values": {
+  "code1": "Z7J-4959",
+  "code2": "J9J-2590",
+  "w_last": "quarrystone",
+  "w_name": "greywether",
+  "w_desk": "vetiver",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Jacinta Ravensworth",
+  "family": "gemstones",
+  "members": [
+   "amethysts",
+   "pearls",
+   "opals",
+   "emeralds",
+   "garnets",
+   "zircons",
+   "rubies",
+   "topazes",
+   "sapphires",
+   "agates"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "greywether-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.054083363177763605,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
+   "probe": "greywether-relay.md",
+   "frac_actual": 0.0546,
+   "line": 103,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under quarrystone",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5486651454381924,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under quarrystone`.",
+   "probe": "-- filed under quarrystone",
+   "frac_actual": 0.5097,
+   "line": 525,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref Z7J-4959",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9219845634937228,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref Z7J-4959`.",
+   "probe": "# ref Z7J-4959",
+   "frac_actual": 0.9182,
+   "line": 931,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2802188203698416,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.2809,
+   "line": 297,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8745290794890765,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.8827,
+   "line": 884,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 11,
+   "frac": 0.12459273755435137,
+   "body": "The Tamsin Row store took in 11 amethysts.",
+   "probe": "The Tamsin Row store took in 11 amethysts.",
+   "frac_actual": 0.1172,
+   "line": 157,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 19,
+   "frac": 0.44010683892875635,
+   "body": "19 pearls were logged at the Marsh Lane gate.",
+   "probe": "19 pearls were logged at the Marsh Lane gate.",
+   "frac_actual": 0.4397,
+   "line": 448,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "opals",
+   "n": 18,
+   "frac": 0.7429460227571053,
+   "body": "A box of 18 opals came through Thorpe.",
+   "probe": "A box of 18 opals came through Thorpe.",
+   "frac_actual": 0.7422,
+   "line": 745,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 48
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

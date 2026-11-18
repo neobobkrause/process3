@@ -1,0 +1,218 @@
+{
+ "id": "pq2mtn",
+ "ladder": "single",
+ "size": 384000,
+ "index": 4,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__v4_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__receipt-regate-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__judged241.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_corruption.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__product_side.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__session_brief.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__appendix_recount.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__v5_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__permissions_inventory.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_lanes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__result.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__review.txt",
+   "lines": "1-181"
+  }
+ ],
+ "files": [
+  "reading2/pq2mtn/design.md"
+ ],
+ "bytes": 383861,
+ "lines": 3047,
+ "task": "wordtop",
+ "values": {
+  "code1": "Y7U-5661",
+  "code2": "E2G-1535",
+  "w_last": "copperfield",
+  "w_name": "harrowgate",
+  "w_desk": "elderwood",
+  "name_a": "Maren Oduya",
+  "name_b": "Dmitri Volkonsky",
+  "family": "hand tools",
+  "members": [
+   "mallets",
+   "rasps",
+   "trowels",
+   "wrenches",
+   "handsaws",
+   "hammers",
+   "awls",
+   "spanners",
+   "chisels",
+   "pliers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref Y7U-5661",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.024084313277290097,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref Y7U-5661`.",
+   "probe": "# ref Y7U-5661",
+   "frac_actual": 0.0248,
+   "line": 57,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under copperfield",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4520303295362716,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under copperfield`.",
+   "probe": "-- filed under copperfield",
+   "frac_actual": 0.4794,
+   "line": 1390,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed E2G-1535",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9670019919876343,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed E2G-1535`.",
+   "probe": "run closed E2G-1535",
+   "frac_actual": 0.9672,
+   "line": 2888,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3745264613092357,
+   "value": "reviewer: Maren Oduya",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.2824,
+   "line": 1095,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6467928637281009,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.6455,
+   "line": 1981,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 6,
+   "frac": 0.038173500441165804,
+   "body": "Tally for Lund: 6 mallets.",
+   "probe": "Tally for Lund: 6 mallets.",
+   "frac_actual": 0.0368,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 13,
+   "frac": 0.47179639892800174,
+   "body": "13 rasps were logged at the Pell gate.",
+   "probe": "13 rasps were logged at the Pell gate.",
+   "frac_actual": 0.4794,
+   "line": 1395,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 3,
+   "frac": 0.6106118729925161,
+   "body": "The Marsh Lane store took in 3 trowels.",
+   "probe": "The Marsh Lane store took in 3 trowels.",
+   "frac_actual": 0.6104,
+   "line": 1872,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 18,
+   "frac": 0.8800580092564145,
+   "body": "At Varnel the clerk wrote down 18 wrenches.",
+   "probe": "At Varnel the clerk wrote down 18 wrenches.",
+   "frac_actual": 0.8795,
+   "line": 2607,
+   "hits": 1,
+   "file": "reading2/pq2mtn/design.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

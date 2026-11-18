@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/eq69xq/01-process4-counterarguments.md
+- reading2/eq69xq/02-canon-analysis.md
+- reading2/eq69xq/03-joined.mjs
+- reading2/eq69xq/04-p3.mjs
+- reading2/eq69xq/05-triage.mjs
+- reading2/eq69xq/06-results.md
+- reading2/eq69xq/07-release-test.mjs
+- reading2/eq69xq/08-process4-counterarguments.md
+- reading2/eq69xq/09-layerflow.mjs
+- reading2/eq69xq/10-coordinator-findings-3-4nov.md
+- reading2/eq69xq/11-joined.md
+- reading2/eq69xq/12-foundations.md
+- reading2/eq69xq/13-audit-d-central.md
+- reading2/eq69xq/14-status.mjs
+- reading2/eq69xq/15-joined.mjs
+- reading2/eq69xq/16-coordinator-findings-3-4nov.md
+- reading2/eq69xq/17-defect-sweep-4nov.md
+- reading2/eq69xq/18-layerflow-test.mjs
+- reading2/eq69xq/19-gate.mjs
+- reading2/eq69xq/20-layer-flow-messages-test.mjs
+- reading2/eq69xq/21-joined.mjs
+- reading2/eq69xq/22-joined.mjs
+- reading2/eq69xq/23-change-sample.md
+- reading2/eq69xq/24-tranche.mjs
+- reading2/eq69xq/25-pace.mjs
+- reading2/eq69xq/26-joined.mjs
+- reading2/eq69xq/27-joined.mjs
+- reading2/eq69xq/28-coordinator-findings-3-4nov.md
+- reading2/eq69xq/29-joined.mjs
+- reading2/eq69xq/30-rounds.mjs
+- reading2/eq69xq/31-process4-counterarguments.md
+- reading2/eq69xq/32-joined.md
+- reading2/eq69xq/33-state-race-test.mjs
+- reading2/eq69xq/34-lead.mjs
+- reading2/eq69xq/35-record.mjs
+- reading2/eq69xq/36-audit-c.md
+- reading2/eq69xq/37-joined.md
+- reading2/eq69xq/38-process4-definition-appendix.md
+- reading2/eq69xq/39-lanes-owner-documents.md
+- reading2/eq69xq/40-levers-github-cloudflare-pro.md
+- reading2/eq69xq/41-coordinator-findings-3-4nov.md
+- reading2/eq69xq/42-joined.mjs
+- reading2/eq69xq/43-deploy-test.mjs
+- reading2/eq69xq/44-joined.md
+- reading2/eq69xq/45-branches-test.mjs
+- reading2/eq69xq/46-process4-definition-appendix.md
+- reading2/eq69xq/47-joined.mjs
+- reading2/eq69xq/48-layerflow-test.mjs
+- reading2/eq69xq/49-joined.mjs
+- reading2/eq69xq/50-coordinator-findings-3-4nov.md
+- reading2/eq69xq/51-joined.mjs
+- reading2/eq69xq/52-round-next-test.mjs
+- reading2/eq69xq/53-causal-forensics.md
+- reading2/eq69xq/54-joined.md
+- reading2/eq69xq/55-process4-counterarguments.md
+- reading2/eq69xq/56-process4-disposition.md
+- reading2/eq69xq/57-util.mjs
+- reading2/eq69xq/58-layerflow.mjs
+- reading2/eq69xq/59-point4-release.md
+- reading2/eq69xq/60-report.mjs
+- reading2/eq69xq/61-process4-counterarguments.md
+- reading2/eq69xq/62-readme.md
+- reading2/eq69xq/63-change-sample.md
+- reading2/eq69xq/64-process4-definition-appendix.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/eq69xq/rle.py. It reads lines from standard input and prints one line for each. Each output line is the run-length form of the input line: for every run of one repeated character, the length of the run in decimal followed by the character. An empty line gives an empty line. Example: the input line `aaabcc` gives `3a1b2c`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/eq69xq: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,43 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/sm8mb2/01-review.md
+- reading2/sm8mb2/02-tranche.mjs
+- reading2/sm8mb2/03-joined.md
+- reading2/sm8mb2/04-coordinator-findings-3-4nov.md
+- reading2/sm8mb2/05-joined.md
+- reading2/sm8mb2/06-coordinator-findings-3-4nov.md
+- reading2/sm8mb2/07-joined.mjs
+- reading2/sm8mb2/08-layerflow-test.mjs
+- reading2/sm8mb2/09-job-test.mjs
+- reading2/sm8mb2/10-change-sample.md
+- reading2/sm8mb2/11-audit-b.md
+- reading2/sm8mb2/12-status.mjs
+- reading2/sm8mb2/13-joined.mjs
+- reading2/sm8mb2/14-audit-d-central.md
+- reading2/sm8mb2/15-joined.mjs
+- reading2/sm8mb2/16-joined.mjs
+- reading2/sm8mb2/17-joined.md
+- reading2/sm8mb2/18-audit2-corruption.md
+- reading2/sm8mb2/19-joined.md
+- reading2/sm8mb2/20-p3.mjs
+- reading2/sm8mb2/21-joined.mjs
+- reading2/sm8mb2/22-joined.md
+- reading2/sm8mb2/23-layerflow-test.mjs
+- reading2/sm8mb2/24-gate.mjs
+- reading2/sm8mb2/25-layerflow.mjs
+- reading2/sm8mb2/26-deploy.mjs
+- reading2/sm8mb2/27-process4-disposition.md
+- reading2/sm8mb2/28-job.mjs
+- reading2/sm8mb2/29-coordinator-findings-3-4nov.md
+- reading2/sm8mb2/30-joined.md
+- reading2/sm8mb2/31-audit-d-central.md
+- reading2/sm8mb2/32-redteam-corruption.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/sm8mb2/colsum.py. It reads lines from standard input, each holding whole numbers separated by spaces. Lines may hold different numbers of cells; a missing cell counts as zero. It prints one line: the sum of each column, separated by single spaces. Example: the input lines `1 2 3`, `4 5`, `-1` give the output line `4 7 3`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/sm8mb2: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

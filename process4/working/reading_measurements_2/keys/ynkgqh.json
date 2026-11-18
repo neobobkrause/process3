@@ -1,0 +1,246 @@
+{
+ "id": "ynkgqh",
+ "ladder": "single",
+ "size": 768000,
+ "index": 0,
+ "kind": "design",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__v3_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point5_288_lines.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_definition_v6.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__causal_forensics.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__lanes_process3_record.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__restart-speed-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__r17c-settings.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_definition_main.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__replay__results.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__interface_and_cycle.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__judged241.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_common.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_A.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit_ledger.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point2_process_rule.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_feasibility.md",
+   "lines": "1-370"
+  }
+ ],
+ "files": [
+  "reading2/ynkgqh/design.md"
+ ],
+ "bytes": 767869,
+ "lines": 5921,
+ "task": "sumby",
+ "values": {
+  "code1": "U5R-8899",
+  "code2": "P5W-1125",
+  "w_last": "galloway",
+  "w_name": "quarrystone",
+  "w_desk": "elderwood",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Greta Lindqvist",
+  "family": "musical instruments",
+  "members": [
+   "tubas",
+   "banjos",
+   "violins",
+   "harps",
+   "flutes",
+   "clarinets",
+   "cellos",
+   "trumpets",
+   "bassoons",
+   "oboes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under galloway",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06468753670996454,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under galloway`.",
+   "probe": "-- filed under galloway",
+   "frac_actual": 0.0646,
+   "line": 371,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: elderwood",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.46662994918458867,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: elderwood`.",
+   "probe": "desk: elderwood",
+   "frac_actual": 0.466,
+   "line": 2779,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "quarrystone-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.939778877323866,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `quarrystone-relay.md`, and under no other name.",
+   "probe": "quarrystone-relay.md",
+   "frac_actual": 0.9391,
+   "line": 5515,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.23571068262954348,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.2363,
+   "line": 1243,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6743237712911146,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.6945,
+   "line": 4283,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 10,
+   "frac": 0.14147979321341328,
+   "body": "At Uller the clerk wrote down 10 tubas.",
+   "probe": "At Uller the clerk wrote down 10 tubas.",
+   "frac_actual": 0.1409,
+   "line": 769,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 8,
+   "frac": 0.3089989738783935,
+   "body": "The Thorpe store took in 8 banjos.",
+   "probe": "The Thorpe store took in 8 banjos.",
+   "frac_actual": 0.3094,
+   "line": 1659,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 19,
+   "frac": 0.5929188266369774,
+   "body": "19 violins were logged at the Quay Nine gate.",
+   "probe": "19 violins were logged at the Quay Nine gate.",
+   "frac_actual": 0.5943,
+   "line": 3978,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 11,
+   "frac": 0.7333877277221396,
+   "body": "Tally for Dunn: 11 harps.",
+   "probe": "Tally for Dunn: 11 harps.",
+   "frac_actual": 0.7344,
+   "line": 4398,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 4,
+   "frac": 0.9493508715775283,
+   "body": "Rigg sent word of 4 flutes on hand.",
+   "probe": "Rigg sent word of 4 flutes on hand.",
+   "frac_actual": 0.9476,
+   "line": 5577,
+   "hits": 1,
+   "file": "reading2/ynkgqh/design.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 52
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

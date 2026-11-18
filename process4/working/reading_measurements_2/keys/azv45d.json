@@ -1,0 +1,358 @@
+{
+ "id": "azv45d",
+ "ladder": "single",
+ "size": 768000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__lib__suite.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__generated.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__suite-budget.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__round-next.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__bootstrap-close.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__carry.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__deploy.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__slots.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__pass.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__direct.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__job-sync.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__sweep-sessions.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__rounds.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__shims.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__flow-control.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ledger.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__state-race.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__github.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__branches.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__lane.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__open-by.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__pushcheck.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__size.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__hold.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__session-call.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__fresh-branch.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__checks.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__admit.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gate-browser.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__measures.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__exports.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__sweep.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__state-push.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__start-fixes.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__pin.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gate-bootstrap.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__gate.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layer-flow-messages.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__found.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__triggers.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__stale-generated.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__size.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lead.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__triggers.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__roundnext.mjs",
+   "lines": "1-267"
+  }
+ ],
+ "files": [
+  "reading2/azv45d/module.mjs"
+ ],
+ "bytes": 767945,
+ "lines": 10700,
+ "task": "colsum",
+ "values": {
+  "code1": "V8T-9798",
+  "code2": "M2B-2246",
+  "w_last": "elderwood",
+  "w_name": "ironbark",
+  "w_desk": "foxglove",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Hamish Colquhoun",
+  "family": "birds",
+  "members": [
+   "wrens",
+   "herons",
+   "gulls",
+   "finches",
+   "swifts",
+   "robins",
+   "owls",
+   "cranes",
+   "larks",
+   "plovers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under elderwood",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03695037769875824,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under elderwood`.",
+   "probe": "-- filed under elderwood",
+   "frac_actual": 0.0378,
+   "line": 446,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "ironbark-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4586069274048616,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `ironbark-relay.md`, and under no other name.",
+   "probe": "ironbark-relay.md",
+   "frac_actual": 0.4591,
+   "line": 5061,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed M2B-2246",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9292360735155377,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed M2B-2246`.",
+   "probe": "run closed M2B-2246",
+   "frac_actual": 0.9295,
+   "line": 9918,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3873809437345288,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.3886,
+   "line": 4239,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7257365714101897,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.7254,
+   "line": 7815,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 5,
+   "frac": 0.1763188242124819,
+   "body": "At Quay Nine the clerk wrote down 5 wrens.",
+   "probe": "At Quay Nine the clerk wrote down 5 wrens.",
+   "frac_actual": 0.1771,
+   "line": 1867,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 8,
+   "frac": 0.3308922332827472,
+   "body": "Tally for Corrie: 8 herons.",
+   "probe": "Tally for Corrie: 8 herons.",
+   "frac_actual": 0.3302,
+   "line": 3562,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 9,
+   "frac": 0.5513862541407626,
+   "body": "9 gulls were logged at the Yarm gate.",
+   "probe": "9 gulls were logged at the Yarm gate.",
+   "frac_actual": 0.5527,
+   "line": 5966,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 7,
+   "frac": 0.7607227961148006,
+   "body": "Received at Pell, 7 finches.",
+   "probe": "Received at Pell, 7 finches.",
+   "frac_actual": 0.7607,
+   "line": 8136,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 11,
+   "frac": 0.8685309976605463,
+   "body": "Brae sent word of 11 swifts on hand.",
+   "probe": "Brae sent word of 11 swifts on hand.",
+   "frac_actual": 0.8685,
+   "line": 9239,
+   "hits": 1,
+   "file": "reading2/azv45d/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

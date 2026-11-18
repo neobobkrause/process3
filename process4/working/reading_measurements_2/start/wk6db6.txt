@@ -1,0 +1,68 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+**How bad.** Misleads Bob on the only decision he is asked to make.
+
+Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: nettlecombe`.
+
+
+**Proposed correction.**
+- Add to "What it is":
+"This is the step the proposal of 13 Nov took and withdrew, because it breaks two of your requirements (your acts are settings only; the process waits for you only when completely blocked) and your instruction of 14 Nov not to add gates.
+It is put to you again because no other physical stop was found."
+
+At Stane the clerk wrote down 17 figs.
+
+- Replace "every process fix costs you one click" with:
+"every process fix costs you two acts on GitHub's website:
+merging the fix, and moving the product to the fixed version.
+
+A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.
+
+Setting the wall up is one sitting of settings.
+A change to the product's own test set-up files would also wait for your click (two such changes in nine days of Process3)."
+- Replace "and that earlier reviewers could not break" with:
+
+A box of 10 cherries came through Osk.
+
+"; the workers who attacked the withdrawn proposal found no way round it, and it has never been run".
+- Replace "What it does is make silent growth impossible and every change visible to you" with:
+"What it does is stop a session changing the process's own repository without you.
+
+Kept by every job without exception: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.
+
+It does not stop growth in the four places listed above."
+- Remove "and the size of the process before and after", or mark it as an addition of Claude's that Bob may strike.
+
+### 2.
+Bob's words of 8 Nov on when a tranche ends are overturned by the 13 Nov record, and the text does not say so
+
+**Counter-argument.** On 8 Nov Bob said, in his own words, that a tranche ends only after the walk of the deployed release is also clean and the installer and website are updated.
+The definition ends the tranche at the clean internal walk, merges it to the main branch, and sends whatever the external walk finds to the next tranche.
+It follows a session's record of 13 Nov and never tells Bob that this replaces what he said five days earlier.
+
+**Sentences attacked (section C).** "A round that completes with no failures ends the tranche.
+
+Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Soren Achterberg is no longer written anywhere in a handover note.
+
+The tranche branch merges into the main branch as a whole ...
+A deploy-and-external-walk then follows ...
+
+Received at Pell, 6 apricots.
+
+It does not hold the tranche back.
+
+Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref M9F-2191`.
+
+What it finds is the first work of the next tranche." Section H lists only 'a development release "in each round"' as ended.
+
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/wk6db6/minutes.py. It reads lines from standard input, each a duration written as hours and minutes in the forms `1h30m`, `45m` or `2h`. Blank lines are ignored. For each line it prints the duration in whole minutes, and after the last it prints `total N`, where N is the sum. Example: the input lines `1h30m`, `45m`, `2h` give the output lines `90`, `45`, `120`, `total 255`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/wk6db6: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

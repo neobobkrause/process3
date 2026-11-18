@@ -1,0 +1,256 @@
+{
+ "id": "fngqvc",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 6,
+ "files": [
+  "reading2/fngqvc/01-joined.mjs",
+  "reading2/fngqvc/02-joined.md",
+  "reading2/fngqvc/03-joined.md",
+  "reading2/fngqvc/04-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "principles",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__exports.mjs",
+    "s": 139,
+    "e": 381
+   },
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "s": 0,
+    "e": 204
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 0,
+    "e": 260
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "s": 93,
+    "e": 200
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 0,
+    "e": 265
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 284,
+    "e": 348
+   },
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 0,
+    "e": 239
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 223,
+    "e": 395
+   },
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "s": 0,
+    "e": 112
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1396,
+    "e": 1557
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "s": 0,
+    "e": 123
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 191443,
+ "lines": 2015,
+ "task": "wordtop",
+ "values": {
+  "code1": "F5U-4128",
+  "code2": "T5N-4800",
+  "w_last": "thistledown",
+  "w_name": "kestrel",
+  "w_desk": "ironbark",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Tobias Hallworth",
+  "family": "hand tools",
+  "members": [
+   "mallets",
+   "hammers",
+   "chisels",
+   "wrenches",
+   "rasps",
+   "pliers",
+   "trowels",
+   "spanners",
+   "handsaws",
+   "awls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under thistledown",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6408841593145351,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under thistledown`.",
+   "probe": "-- filed under thistledown",
+   "file_index": 0,
+   "frac_actual": 0.0992,
+   "line": 84,
+   "hits": 1,
+   "file": "reading2/fngqvc/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref F5U-4128",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7374575027246429,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref F5U-4128`.",
+   "probe": "# ref F5U-4128",
+   "file_index": 2,
+   "frac_actual": 0.5088,
+   "line": 161,
+   "hits": 1,
+   "file": "reading2/fngqvc/03-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed T5N-4800",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.3464903182760477,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed T5N-4800`.",
+   "probe": "run closed T5N-4800",
+   "file_index": 3,
+   "frac_actual": 0.98,
+   "line": 580,
+   "hits": 1,
+   "file": "reading2/fngqvc/04-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7658815825223376,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 0,
+   "frac_actual": 0.6987,
+   "line": 549,
+   "hits": 1,
+   "file": "reading2/fngqvc/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7898398288768841,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "file_index": 3,
+   "frac_actual": 0.7856,
+   "line": 449,
+   "hits": 1,
+   "file": "reading2/fngqvc/04-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 18,
+   "frac": 0.5413205974511588,
+   "body": "A box of 18 mallets came through Stane.",
+   "probe": "A box of 18 mallets came through Stane.",
+   "file_index": 0,
+   "frac_actual": 0.5313,
+   "line": 427,
+   "hits": 1,
+   "file": "reading2/fngqvc/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 19,
+   "frac": 0.5000883820036396,
+   "body": "19 hammers were logged at the Thorpe gate.",
+   "probe": "19 hammers were logged at the Thorpe gate.",
+   "file_index": 1,
+   "frac_actual": 0.5047,
+   "line": 210,
+   "hits": 1,
+   "file": "reading2/fngqvc/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 11,
+   "frac": 0.26730295086629713,
+   "body": "At Wick the clerk wrote down 11 chisels.",
+   "probe": "At Wick the clerk wrote down 11 chisels.",
+   "file_index": 1,
+   "frac_actual": 0.259,
+   "line": 127,
+   "hits": 1,
+   "file": "reading2/fngqvc/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 8,
+   "frac": 0.7557911573827975,
+   "body": "Received at Brae, 8 wrenches.",
+   "probe": "Received at Brae, 8 wrenches.",
+   "file_index": 2,
+   "frac_actual": 0.739,
+   "line": 214,
+   "hits": 1,
+   "file": "reading2/fngqvc/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 3,
+   "frac": 0.6649155565258803,
+   "body": "Tally for Marsh Lane: 3 rasps.",
+   "probe": "Tally for Marsh Lane: 3 rasps.",
+   "file_index": 3,
+   "frac_actual": 0.6881,
+   "line": 375,
+   "hits": 1,
+   "file": "reading2/fngqvc/04-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 59
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,373 @@
+{
+ "id": "bwu5q7",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 2,
+ "files": [
+  "reading2/bwu5q7/01-joined.md",
+  "reading2/bwu5q7/02-joined.mjs",
+  "reading2/bwu5q7/03-joined.md",
+  "reading2/bwu5q7/04-joined.mjs",
+  "reading2/bwu5q7/05-joined.md",
+  "reading2/bwu5q7/06-process4-disposition.md",
+  "reading2/bwu5q7/07-joined.md",
+  "reading2/bwu5q7/08-joined.md",
+  "reading2/bwu5q7/09-process4-definition-appendix.md",
+  "reading2/bwu5q7/10-layerflow.mjs",
+  "reading2/bwu5q7/11-coordinator-findings-3-4nov.md",
+  "reading2/bwu5q7/12-process4-definition-v6.md",
+  "reading2/bwu5q7/13-joined.mjs",
+  "reading2/bwu5q7/14-joined.md",
+  "reading2/bwu5q7/15-coordinator-findings-3-4nov.md",
+  "reading2/bwu5q7/16-readme.md"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "requirements",
+  "requirements",
+  "requirements",
+  "design",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "logs",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "s": 23,
+    "e": 231
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 300,
+    "e": 366
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "s": 182,
+    "e": 392
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 0,
+    "e": 405
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "s": 48,
+    "e": 262
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 0,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 30,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__lib__measures.mjs",
+    "s": 0,
+    "e": 115
+   },
+   {
+    "doc": "code/tool__lib__size.mjs",
+    "s": 0,
+    "e": 129
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "s": 0,
+    "e": 280
+   },
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 168,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "s": 0,
+    "e": 40
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 0,
+    "e": 240
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 460,
+    "e": 713
+   },
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "s": 0,
+    "e": 30
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 133,
+    "e": 205
+   },
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 0,
+    "e": 158
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 0,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1762,
+    "e": 2350
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 653,
+    "e": 809
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 0,
+    "e": 300
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "s": 184,
+    "e": 195
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 0,
+    "e": 746
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "s": 40,
+    "e": 287
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "s": 0,
+    "e": 49
+   },
+   {
+    "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+    "s": 0,
+    "e": 45
+   },
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "s": 0,
+    "e": 102
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 320,
+    "e": 408
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 57,
+    "e": 87
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 771574,
+ "lines": 5774,
+ "task": "colsum",
+ "values": {
+  "code1": "Z2Z-7650",
+  "code2": "P2Z-1173",
+  "w_last": "saltmarsh",
+  "w_name": "tamarind",
+  "w_desk": "yarrow",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Annelise Brouwer",
+  "family": "vegetables",
+  "members": [
+   "cabbages",
+   "turnips",
+   "leeks",
+   "onions",
+   "marrows",
+   "shallots",
+   "parsnips",
+   "carrots",
+   "radishes",
+   "beets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref Z2Z-7650",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.34458492186664147,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref Z2Z-7650`.",
+   "probe": "# ref Z2Z-7650",
+   "file_index": 0,
+   "frac_actual": 0.0808,
+   "line": 21,
+   "hits": 1,
+   "file": "reading2/bwu5q7/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under saltmarsh",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6700844461868886,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under saltmarsh`.",
+   "probe": "-- filed under saltmarsh",
+   "file_index": 8,
+   "frac_actual": 0.5496,
+   "line": 157,
+   "hits": 1,
+   "file": "reading2/bwu5q7/09-process4-definition-appendix.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: yarrow",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9101371050739246,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: yarrow`.",
+   "probe": "desk: yarrow",
+   "file_index": 15,
+   "frac_actual": 0.9007,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/bwu5q7/16-readme.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5862714672232338,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "file_index": 3,
+   "frac_actual": 0.6074,
+   "line": 447,
+   "hits": 1,
+   "file": "reading2/bwu5q7/04-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.18966937543846962,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Annelise Brouwer`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 15,
+   "frac_actual": 0.1834,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/bwu5q7/16-readme.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 12,
+   "frac": 0.5626196305473875,
+   "body": "The Stane store took in 12 cabbages.",
+   "probe": "The Stane store took in 12 cabbages.",
+   "file_index": 2,
+   "frac_actual": 0.5517,
+   "line": 230,
+   "hits": 1,
+   "file": "reading2/bwu5q7/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 14,
+   "frac": 0.24834009987233657,
+   "body": "At Osk the clerk wrote down 14 turnips.",
+   "probe": "At Osk the clerk wrote down 14 turnips.",
+   "file_index": 6,
+   "frac_actual": 0.243,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/bwu5q7/07-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 8,
+   "frac": 0.7053976222410936,
+   "body": "Marsh Lane sent word of 8 leeks on hand.",
+   "probe": "Marsh Lane sent word of 8 leeks on hand.",
+   "file_index": 12,
+   "frac_actual": 0.7058,
+   "line": 555,
+   "hits": 1,
+   "file": "reading2/bwu5q7/13-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 34
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

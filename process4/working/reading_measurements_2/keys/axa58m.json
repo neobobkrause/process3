@@ -1,0 +1,241 @@
+{
+ "id": "axa58m",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 4,
+ "files": [
+  "reading2/axa58m/01-joined.mjs",
+  "reading2/axa58m/02-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "s": 155,
+    "e": 464
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 0,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "s": 0,
+    "e": 70
+   },
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "s": 0,
+    "e": 1
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 118,
+    "e": 425
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "s": 0,
+    "e": 278
+   },
+   {
+    "doc": "code/tool__test__direct.test.mjs",
+    "s": 0,
+    "e": 87
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96077,
+ "lines": 1395,
+ "task": "merge",
+ "values": {
+  "code1": "P5Z-2842",
+  "code2": "S6P-1371",
+  "w_last": "wainscot",
+  "w_name": "greywether",
+  "w_desk": "quillon",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Hamish Colquhoun",
+  "family": "gemstones",
+  "members": [
+   "rubies",
+   "zircons",
+   "agates",
+   "topazes",
+   "pearls",
+   "amethysts",
+   "opals",
+   "sapphires",
+   "garnets",
+   "emeralds"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "greywether-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.28089362015058034,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
+   "probe": "greywether-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0804,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/axa58m/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.22985982521681347,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "file_index": 1,
+   "frac_actual": 0.4638,
+   "line": 319,
+   "hits": 1,
+   "file": "reading2/axa58m/02-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under wainscot",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.6067251654151897,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under wainscot`.",
+   "probe": "-- filed under wainscot",
+   "file_index": 1,
+   "frac_actual": 0.9116,
+   "line": 629,
+   "hits": 1,
+   "file": "reading2/axa58m/02-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.32136650604979733,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 0,
+   "frac_actual": 0.3195,
+   "line": 245,
+   "hits": 1,
+   "file": "reading2/axa58m/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5129782697847294,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "file_index": 1,
+   "frac_actual": 0.511,
+   "line": 361,
+   "hits": 1,
+   "file": "reading2/axa58m/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 4,
+   "frac": 0.30851907455665367,
+   "body": "At Quay Nine the clerk wrote down 4 rubies.",
+   "probe": "At Quay Nine the clerk wrote down 4 rubies.",
+   "file_index": 0,
+   "frac_actual": 0.3051,
+   "line": 229,
+   "hits": 1,
+   "file": "reading2/axa58m/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 6,
+   "frac": 0.5559582694513707,
+   "body": "A box of 6 zircons came through Varnel.",
+   "probe": "A box of 6 zircons came through Varnel.",
+   "file_index": 0,
+   "frac_actual": 0.56,
+   "line": 400,
+   "hits": 1,
+   "file": "reading2/axa58m/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 3,
+   "frac": 0.23326697436688654,
+   "body": "Received at Rigg, 3 agates.",
+   "probe": "Received at Rigg, 3 agates.",
+   "file_index": 0,
+   "frac_actual": 0.2352,
+   "line": 170,
+   "hits": 1,
+   "file": "reading2/axa58m/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 5,
+   "frac": 0.16008854867531336,
+   "body": "5 topazes were logged at the Corrie gate.",
+   "probe": "5 topazes were logged at the Corrie gate.",
+   "file_index": 1,
+   "frac_actual": 0.1209,
+   "line": 98,
+   "hits": 1,
+   "file": "reading2/axa58m/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 14,
+   "frac": 0.688129564556521,
+   "body": "The Eyre store took in 14 pearls.",
+   "probe": "The Eyre store took in 14 pearls.",
+   "file_index": 1,
+   "frac_actual": 0.6496,
+   "line": 451,
+   "hits": 1,
+   "file": "reading2/axa58m/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 2,
+   "frac": 0.08176039710903019,
+   "body": "Lund sent word of 2 amethysts on hand.",
+   "probe": "Lund sent word of 2 amethysts on hand.",
+   "file_index": 1,
+   "frac_actual": 0.0963,
+   "line": 77,
+   "hits": 1,
+   "file": "reading2/axa58m/02-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 34
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

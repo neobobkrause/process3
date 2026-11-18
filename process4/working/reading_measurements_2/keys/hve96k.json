@@ -1,0 +1,588 @@
+{
+ "id": "hve96k",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 4,
+ "files": [
+  "reading2/hve96k/01-lanes-owner-documents.md",
+  "reading2/hve96k/02-audit2-requirements.md",
+  "reading2/hve96k/03-lane.mjs",
+  "reading2/hve96k/04-readme.md",
+  "reading2/hve96k/05-process4-audit2.md",
+  "reading2/hve96k/06-joined.md",
+  "reading2/hve96k/07-joined.mjs",
+  "reading2/hve96k/08-joined.mjs",
+  "reading2/hve96k/09-enforcement-levers.md",
+  "reading2/hve96k/10-joined.md",
+  "reading2/hve96k/11-joined.md",
+  "reading2/hve96k/12-job-test.mjs",
+  "reading2/hve96k/13-deploy-test.mjs",
+  "reading2/hve96k/14-joined.md",
+  "reading2/hve96k/15-joined.md",
+  "reading2/hve96k/16-layerflow.mjs",
+  "reading2/hve96k/17-layerflow.mjs",
+  "reading2/hve96k/18-status-test.mjs",
+  "reading2/hve96k/19-joined.mjs",
+  "reading2/hve96k/20-deploy-test.mjs",
+  "reading2/hve96k/21-joined.mjs",
+  "reading2/hve96k/22-joined.mjs",
+  "reading2/hve96k/23-triage.mjs",
+  "reading2/hve96k/24-joined.mjs",
+  "reading2/hve96k/25-joined.md",
+  "reading2/hve96k/26-audit2-corruption.md",
+  "reading2/hve96k/27-release-test.mjs",
+  "reading2/hve96k/28-audit-a.md",
+  "reading2/hve96k/29-coordinator-findings-3-4nov.md",
+  "reading2/hve96k/30-joined.mjs",
+  "reading2/hve96k/31-joined.md",
+  "reading2/hve96k/32-process4-disposition.md"
+ ],
+ "file_kinds": [
+  "design",
+  "requirements",
+  "code",
+  "principles",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "design",
+  "requirements"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 192,
+    "e": 245
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 240,
+    "e": 325
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 281,
+    "e": 398
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 89,
+    "e": 112
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 0,
+    "e": 71
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "s": 27,
+    "e": 42
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+    "s": 0,
+    "e": 36
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "s": 0,
+    "e": 5
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 149,
+    "e": 231
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 155,
+    "e": 237
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 320,
+    "e": 429
+   },
+   {
+    "doc": "code/tool__lib__start.mjs",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 143,
+    "e": 245
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-d.md",
+    "s": 1,
+    "e": 25
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "s": 0,
+    "e": 37
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "s": 0,
+    "e": 1
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "s": 116,
+    "e": 254
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "s": 0,
+    "e": 20
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1103,
+    "e": 1268
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 598,
+    "e": 752
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "s": 230,
+    "e": 231
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 382,
+    "e": 405
+   },
+   {
+    "doc": "design/notes__gate-map-4nov.md",
+    "s": 51,
+    "e": 98
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "s": 79,
+    "e": 112
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "s": 0,
+    "e": 140
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1493,
+    "e": 1625
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 770,
+    "e": 895
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 61,
+    "e": 225
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__start.mjs",
+    "s": 70,
+    "e": 150
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 0,
+    "e": 73
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 176,
+    "e": 326
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "s": 347,
+    "e": 373
+   },
+   {
+    "doc": "code/tool__test__gate-speed.test.mjs",
+    "s": 175,
+    "e": 307
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1344,
+    "e": 1385
+   },
+   {
+    "doc": "code/tool__test__layout.test.mjs",
+    "s": 0,
+    "e": 134
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 0,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "s": 255,
+    "e": 280
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 863,
+    "e": 993
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "s": 65,
+    "e": 96
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 333,
+    "e": 390
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "s": 93,
+    "e": 111
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 0,
+    "e": 97
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 154,
+    "e": 303
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 83,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 872,
+    "e": 903
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "s": 6,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__fetch-cheap.test.mjs",
+    "s": 0,
+    "e": 65
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1437,
+    "e": 1437
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "s": 99,
+    "e": 122
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "s": 0,
+    "e": 20
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 443,
+    "e": 447
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 410,
+    "e": 486
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 388821,
+ "lines": 3969,
+ "task": "merge",
+ "values": {
+  "code1": "U4F-2599",
+  "code2": "L5E-8676",
+  "w_last": "cinnabar",
+  "w_name": "ostler",
+  "w_desk": "foxglove",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "birds",
+  "members": [
+   "cranes",
+   "owls",
+   "swifts",
+   "herons",
+   "larks",
+   "wrens",
+   "gulls",
+   "finches",
+   "plovers",
+   "robins"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "ostler-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.15625569405715672,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `ostler-relay.md`, and under no other name.",
+   "probe": "ostler-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0828,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/hve96k/01-lanes-owner-documents.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under cinnabar",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4048580104235535,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under cinnabar`.",
+   "probe": "-- filed under cinnabar",
+   "file_index": 16,
+   "frac_actual": 0.4618,
+   "line": 65,
+   "hits": 1,
+   "file": "reading2/hve96k/17-layerflow.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed L5E-8676",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8198423459224949,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed L5E-8676`.",
+   "probe": "run closed L5E-8676",
+   "file_index": 31,
+   "frac_actual": 0.9179,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/hve96k/32-process4-disposition.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5919545969560316,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 7,
+   "frac_actual": 0.5887,
+   "line": 117,
+   "hits": 1,
+   "file": "reading2/hve96k/08-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.37702973823061836,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 16,
+   "frac_actual": 0.3706,
+   "line": 44,
+   "hits": 1,
+   "file": "reading2/hve96k/17-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 9,
+   "frac": 0.2049836812970428,
+   "body": "A box of 9 cranes came through Tamsin Row.",
+   "probe": "A box of 9 cranes came through Tamsin Row.",
+   "file_index": 4,
+   "frac_actual": 0.1681,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/hve96k/05-process4-audit2.md"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 6,
+   "frac": 0.39960477137879497,
+   "body": "Received at Thorpe, 6 owls.",
+   "probe": "Received at Thorpe, 6 owls.",
+   "file_index": 8,
+   "frac_actual": 0.3802,
+   "line": 35,
+   "hits": 1,
+   "file": "reading2/hve96k/09-enforcement-levers.md"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 5,
+   "frac": 0.3539887459935346,
+   "body": "The Eyre store took in 5 swifts.",
+   "probe": "The Eyre store took in 5 swifts.",
+   "file_index": 14,
+   "frac_actual": 0.3576,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/hve96k/15-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 14,
+   "frac": 0.7303036745433615,
+   "body": "Tally for Osk: 14 herons.",
+   "probe": "Tally for Osk: 14 herons.",
+   "file_index": 21,
+   "frac_actual": 0.7239,
+   "line": 141,
+   "hits": 1,
+   "file": "reading2/hve96k/22-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 13,
+   "frac": 0.23578315086040463,
+   "body": "13 larks were logged at the Corrie gate.",
+   "probe": "13 larks were logged at the Corrie gate.",
+   "file_index": 28,
+   "frac_actual": 0.2501,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/hve96k/29-coordinator-findings-3-4nov.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

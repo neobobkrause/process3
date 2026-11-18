@@ -1,0 +1,454 @@
+{
+ "id": "gpt4ft",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 3,
+ "files": [
+  "reading2/gpt4ft/01-ledger-lines.md",
+  "reading2/gpt4ft/02-joined.mjs",
+  "reading2/gpt4ft/03-joined.md",
+  "reading2/gpt4ft/04-joined.md",
+  "reading2/gpt4ft/05-joined.mjs",
+  "reading2/gpt4ft/06-joined.md",
+  "reading2/gpt4ft/07-joined.mjs",
+  "reading2/gpt4ft/08-assessment-doc.md",
+  "reading2/gpt4ft/09-merge.mjs",
+  "reading2/gpt4ft/10-job-test.mjs",
+  "reading2/gpt4ft/11-joined.md",
+  "reading2/gpt4ft/12-joined.mjs",
+  "reading2/gpt4ft/13-joined.md",
+  "reading2/gpt4ft/14-joined.md",
+  "reading2/gpt4ft/15-deploy-test.mjs",
+  "reading2/gpt4ft/16-joined.mjs"
+ ],
+ "file_kinds": [
+  "requirements",
+  "code",
+  "principles",
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 0,
+    "e": 497
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "s": 219,
+    "e": 246
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "s": 0,
+    "e": 346
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 0,
+    "e": 89
+   },
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "s": 0,
+    "e": 139
+   },
+   {
+    "doc": "code/tool__lib__fail-reporter.mjs",
+    "s": 0,
+    "e": 37
+   },
+   {
+    "doc": "code/tool__test__helpers.mjs",
+    "s": 0,
+    "e": 90
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "s": 79,
+    "e": 131
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 0,
+    "e": 330
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 403,
+    "e": 741
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 0,
+    "e": 33
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "s": 309,
+    "e": 335
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "s": 0,
+    "e": 209
+   },
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "s": 0,
+    "e": 232
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "s": 0,
+    "e": 235
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "s": 0,
+    "e": 13
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 405,
+    "e": 462
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 0,
+    "e": 282
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__helpers.mjs",
+    "s": 90,
+    "e": 167
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 0,
+    "e": 409
+   },
+   {
+    "doc": "code/tool__test__testdiff.test.mjs",
+    "s": 0,
+    "e": 104
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "s": 0,
+    "e": 11
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 269,
+    "e": 534
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 0,
+    "e": 592
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 0,
+    "e": 750
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 55,
+    "e": 316
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 0,
+    "e": 21
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "s": 122,
+    "e": 144
+   },
+   {
+    "doc": "code/tool__lib__suite.mjs",
+    "s": 0,
+    "e": 151
+   },
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "s": 0,
+    "e": 157
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "s": 0,
+    "e": 141
+   },
+   {
+    "doc": "code/tool__test__tranche.test.mjs",
+    "s": 0,
+    "e": 176
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 0,
+    "e": 73
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 123,
+    "e": 332
+   },
+   {
+    "doc": "design/process4__working__live_docs.md",
+    "s": 0,
+    "e": 119
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 294,
+    "e": 571
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 0,
+    "e": 189
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 212,
+    "e": 771
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "s": 6,
+    "e": 340
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "s": 0,
+    "e": 247
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "s": 0,
+    "e": 255
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 764361,
+ "lines": 8569,
+ "task": "dedupe",
+ "values": {
+  "code1": "Q6F-3601",
+  "code2": "X9Y-6690",
+  "w_last": "juniper",
+  "w_name": "galloway",
+  "w_desk": "harrowgate",
+  "name_a": "Noor Al-Tamimi",
+  "name_b": "Lucinda Abernathy",
+  "family": "musical instruments",
+  "members": [
+   "cellos",
+   "trumpets",
+   "clarinets",
+   "harps",
+   "bassoons",
+   "banjos",
+   "violins",
+   "flutes",
+   "tubas",
+   "oboes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed X9Y-6690",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.13494791742882184,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed X9Y-6690`.",
+   "probe": "run closed X9Y-6690",
+   "file_index": 0,
+   "frac_actual": 0.0907,
+   "line": 35,
+   "hits": 1,
+   "file": "reading2/gpt4ft/01-ledger-lines.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "galloway-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.8298957636839551,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `galloway-relay.md`, and under no other name.",
+   "probe": "galloway-relay.md",
+   "file_index": 8,
+   "frac_actual": 0.5093,
+   "line": 308,
+   "hits": 1,
+   "file": "reading2/gpt4ft/09-merge.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under juniper",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8945550362330236,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under juniper`.",
+   "probe": "-- filed under juniper",
+   "file_index": 15,
+   "frac_actual": 0.9125,
+   "line": 781,
+   "hits": 1,
+   "file": "reading2/gpt4ft/16-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8792548098076454,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "file_index": 4,
+   "frac_actual": 0.8174,
+   "line": 586,
+   "hits": 1,
+   "file": "reading2/gpt4ft/05-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.398986412931302,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 12,
+   "frac_actual": 0.4275,
+   "line": 128,
+   "hits": 1,
+   "file": "reading2/gpt4ft/13-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 17,
+   "frac": 0.6650672871584035,
+   "body": "Varnel sent word of 17 cellos on hand.",
+   "probe": "Varnel sent word of 17 cellos on hand.",
+   "file_index": 0,
+   "frac_actual": 0.6638,
+   "line": 308,
+   "hits": 1,
+   "file": "reading2/gpt4ft/01-ledger-lines.md"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 5,
+   "frac": 0.21253091706577604,
+   "body": "5 trumpets were logged at the Osk gate.",
+   "probe": "5 trumpets were logged at the Osk gate.",
+   "file_index": 4,
+   "frac_actual": 0.2282,
+   "line": 165,
+   "hits": 1,
+   "file": "reading2/gpt4ft/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 19,
+   "frac": 0.6030272684048709,
+   "body": "A box of 19 clarinets came through Lund.",
+   "probe": "A box of 19 clarinets came through Lund.",
+   "file_index": 8,
+   "frac_actual": 0.6141,
+   "line": 378,
+   "hits": 1,
+   "file": "reading2/gpt4ft/09-merge.mjs"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 4,
+   "frac": 0.6053972512734991,
+   "body": "Tamsin Row desk entered 4 harps on the sheet.",
+   "probe": "Tamsin Row desk entered 4 harps on the sheet.",
+   "file_index": 12,
+   "frac_actual": 0.6105,
+   "line": 186,
+   "hits": 1,
+   "file": "reading2/gpt4ft/13-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 12,
+   "frac": 0.40279365252859206,
+   "body": "The Brae store took in 12 bassoons.",
+   "probe": "The Brae store took in 12 bassoons.",
+   "file_index": 14,
+   "frac_actual": 0.3232,
+   "line": 189,
+   "hits": 1,
+   "file": "reading2/gpt4ft/15-deploy-test.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 57
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

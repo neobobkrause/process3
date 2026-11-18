@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/uwttd4/01-gateclass-test.mjs
+- reading2/uwttd4/02-joined.mjs
+- reading2/uwttd4/03-joined.md
+- reading2/uwttd4/04-joined.md
+- reading2/uwttd4/05-readme.md
+- reading2/uwttd4/06-joined.mjs
+- reading2/uwttd4/07-readme.md
+- reading2/uwttd4/08-point3-first-hour.md
+- reading2/uwttd4/09-status.mjs
+- reading2/uwttd4/10-switch.mjs
+- reading2/uwttd4/11-joined.mjs
+- reading2/uwttd4/12-joined.mjs
+- reading2/uwttd4/13-permissions-inventory.md
+- reading2/uwttd4/14-readme.md
+- reading2/uwttd4/15-joined.md
+- reading2/uwttd4/16-joined.mjs
+- reading2/uwttd4/17-record-test.mjs
+- reading2/uwttd4/18-joined.mjs
+- reading2/uwttd4/19-coordinator-findings-3-4nov.md
+- reading2/uwttd4/20-notice-test.mjs
+- reading2/uwttd4/21-joined.md
+- reading2/uwttd4/22-attack-feasibility.md
+- reading2/uwttd4/23-take-in-record-test.mjs
+- reading2/uwttd4/24-audit2-corruption.md
+- reading2/uwttd4/25-coordinator-findings-3-4nov.md
+- reading2/uwttd4/26-product-side.md
+- reading2/uwttd4/27-ledger-lines.md
+- reading2/uwttd4/28-joined.md
+- reading2/uwttd4/29-joined.mjs
+- reading2/uwttd4/30-joined.mjs
+- reading2/uwttd4/31-joined.md
+- reading2/uwttd4/32-audit-foundations.md
+- reading2/uwttd4/33-joined.md
+- reading2/uwttd4/34-canon-analysis.md
+- reading2/uwttd4/35-joined.md
+- reading2/uwttd4/36-notice-test.mjs
+- reading2/uwttd4/37-joined.md
+- reading2/uwttd4/38-coordinator-findings-3-4nov.md
+- reading2/uwttd4/39-coordinator-findings-3-4nov.md
+- reading2/uwttd4/40-layerflow-test.mjs
+- reading2/uwttd4/41-point3-first-hour.md
+- reading2/uwttd4/42-github-pacing.md
+- reading2/uwttd4/43-joined.md
+- reading2/uwttd4/44-product-side.md
+- reading2/uwttd4/45-layerflow-test.mjs
+- reading2/uwttd4/46-pace-test.mjs
+- reading2/uwttd4/47-process4-definition-v6.md
+- reading2/uwttd4/48-joined.mjs
+- reading2/uwttd4/49-joined.md
+- reading2/uwttd4/50-ledger-map.md
+- reading2/uwttd4/51-levers-github-cloudflare-pro.md
+- reading2/uwttd4/52-lane.mjs
+- reading2/uwttd4/53-joined.mjs
+- reading2/uwttd4/54-point5-288-lines.md
+- reading2/uwttd4/55-redteam-feasibility.md
+- reading2/uwttd4/56-audit-b.md
+- reading2/uwttd4/57-coordinator-findings-3-4nov.md
+- reading2/uwttd4/58-readme.md
+- reading2/uwttd4/59-foundations.md
+- reading2/uwttd4/60-review.md
+- reading2/uwttd4/61-layerflow.mjs
+- reading2/uwttd4/62-later-requirements.md
+- reading2/uwttd4/63-joined.mjs
+- reading2/uwttd4/64-joined.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/uwttd4/minutes.py. It reads lines from standard input, each a duration written as hours and minutes in the forms `1h30m`, `45m` or `2h`. Blank lines are ignored. For each line it prints the duration in whole minutes, and after the last it prints `total N`, where N is the sum. Example: the input lines `1h30m`, `45m`, `2h` give the output lines `90`, `45`, `120`, `total 255`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/uwttd4: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,171 @@
+{
+ "0": {
+  "id": "gqy4qf",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 231,
+    "s": 107
+   }
+  ]
+ },
+ "1": {
+  "id": "vtj7tq",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 53,
+    "s": 27
+   }
+  ]
+ },
+ "2": {
+  "id": "vamc39",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 170,
+    "s": 43
+   }
+  ]
+ },
+ "3": {
+  "id": "tmag55",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 225,
+    "s": 10
+   }
+  ]
+ },
+ "4": {
+  "id": "gvdx9s",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 292,
+    "s": 51
+   }
+  ]
+ },
+ "5": {
+  "id": "uejnuj",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "lines": "1-31"
+   }
+  ]
+ },
+ "6": {
+  "id": "ehfqmv",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "lines": "1-14"
+   }
+  ]
+ },
+ "7": {
+  "id": "paeqn8",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "lines": "1-68"
+   }
+  ]
+ },
+ "8": {
+  "id": "nje8uf",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+    "lines": "1-6"
+   }
+  ]
+ },
+ "9": {
+  "id": "atspvg",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "lines": "1-21"
+   }
+  ]
+ }
+}

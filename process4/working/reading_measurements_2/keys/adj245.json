@@ -1,0 +1,226 @@
+{
+ "id": "adj245",
+ "ladder": "single",
+ "size": 384000,
+ "index": 3,
+ "kind": "design",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__session2__point2_process_rule.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_notice.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__no_layers_width.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__interface_and_cycle.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__restart-speed-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__k_evidence.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_feasibility.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__train-spec-plan.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_common.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point4_release.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__proof_outcome.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_B.md",
+   "lines": "1-105"
+  }
+ ],
+ "files": [
+  "reading2/adj245/design.md"
+ ],
+ "bytes": 383805,
+ "lines": 2929,
+ "task": "rle",
+ "values": {
+  "code1": "Y3Y-5439",
+  "code2": "W2T-6132",
+  "w_last": "lodestone",
+  "w_name": "pennant",
+  "w_desk": "harrowgate",
+  "name_a": "Soren Achterberg",
+  "name_b": "Kwabena Asantewaa",
+  "family": "fruit",
+  "members": [
+   "apricots",
+   "peaches",
+   "pears",
+   "figs",
+   "plums",
+   "lemons",
+   "quinces",
+   "cherries",
+   "limes",
+   "mangoes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed W2T-6132",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.038184740541640796,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed W2T-6132`.",
+   "probe": "run closed W2T-6132",
+   "frac_actual": 0.0387,
+   "line": 131,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under lodestone",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5013915284544532,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under lodestone`.",
+   "probe": "-- filed under lodestone",
+   "frac_actual": 0.5015,
+   "line": 1681,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref Y3Y-5439",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9130198181128695,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref Y3Y-5439`.",
+   "probe": "# ref Y3Y-5439",
+   "frac_actual": 0.9127,
+   "line": 2778,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.13005094490313016,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.1287,
+   "line": 363,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4913811193423576,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.4911,
+   "line": 1653,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 7,
+   "frac": 0.04372669911353308,
+   "body": "Yarm sent word of 7 apricots on hand.",
+   "probe": "Yarm sent word of 7 apricots on hand.",
+   "frac_actual": 0.0443,
+   "line": 148,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 3,
+   "frac": 0.39978148671172153,
+   "body": "Received at Stane, 3 peaches.",
+   "probe": "Received at Stane, 3 peaches.",
+   "frac_actual": 0.4003,
+   "line": 1399,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 8,
+   "frac": 0.5184120841465119,
+   "body": "A box of 8 pears came through Tamsin Row.",
+   "probe": "A box of 8 pears came through Tamsin Row.",
+   "frac_actual": 0.5176,
+   "line": 1741,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 11,
+   "frac": 0.6793700773495008,
+   "body": "The Wick store took in 11 figs.",
+   "probe": "The Wick store took in 11 figs.",
+   "frac_actual": 0.6796,
+   "line": 2091,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 17,
+   "frac": 0.846337570538685,
+   "body": "Tally for Rigg: 17 plums.",
+   "probe": "Tally for Rigg: 17 plums.",
+   "frac_actual": 0.8455,
+   "line": 2618,
+   "hits": 1,
+   "file": "reading2/adj245/design.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 46
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

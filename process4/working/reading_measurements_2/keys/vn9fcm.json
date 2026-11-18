@@ -1,0 +1,285 @@
+{
+ "id": "vn9fcm",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 6,
+ "files": [
+  "reading2/vn9fcm/01-decisions-memo-d3.md",
+  "reading2/vn9fcm/02-train-spec-plan.md",
+  "reading2/vn9fcm/03-process4-definition-v6.md",
+  "reading2/vn9fcm/04-readme.md",
+  "reading2/vn9fcm/05-joined.mjs",
+  "reading2/vn9fcm/06-process4-counterarguments.md",
+  "reading2/vn9fcm/07-joined.md",
+  "reading2/vn9fcm/08-joined.mjs"
+ ],
+ "file_kinds": [
+  "requirements",
+  "design",
+  "design",
+  "principles",
+  "code",
+  "design",
+  "logs",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "s": 44,
+    "e": 88
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 7,
+    "e": 154
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 255,
+    "e": 318
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 76,
+    "e": 82
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "s": 276,
+    "e": 278
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "s": 0,
+    "e": 202
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 373,
+    "e": 469
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "s": 1,
+    "e": 45
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "s": 0,
+    "e": 41
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__pass.test.mjs",
+    "s": 175,
+    "e": 205
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "s": 0,
+    "e": 150
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 98252,
+ "lines": 878,
+ "task": "sumby",
+ "values": {
+  "code1": "Q4N-4415",
+  "code2": "A7R-1724",
+  "w_last": "juniper",
+  "w_name": "saltmarsh",
+  "w_desk": "quarrystone",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Odette Fairweather",
+  "family": "fish",
+  "members": [
+   "mackerel",
+   "trout",
+   "bream",
+   "salmon",
+   "perch",
+   "cod",
+   "eels",
+   "carp",
+   "pike",
+   "herring"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5053945050953855,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.082,
+   "line": 7,
+   "hits": 1,
+   "file": "reading2/vn9fcm/01-decisions-memo-d3.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: quarrystone",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.3719990530719367,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quarrystone`.",
+   "probe": "desk: quarrystone",
+   "file_index": 4,
+   "frac_actual": 0.4527,
+   "line": 111,
+   "hits": 1,
+   "file": "reading2/vn9fcm/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref Q4N-4415",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7047205593698439,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref Q4N-4415`.",
+   "probe": "# ref Q4N-4415",
+   "file_index": 7,
+   "frac_actual": 0.9042,
+   "line": 171,
+   "hits": 1,
+   "file": "reading2/vn9fcm/08-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6904619173837269,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 2,
+   "frac_actual": 0.6893,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/vn9fcm/03-process4-definition-v6.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2556717665254149,
+   "value": "reviewer: Odette Fairweather",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 5,
+   "frac_actual": 0.257,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/vn9fcm/06-process4-counterarguments.md"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 9,
+   "frac": 0.10912612329642851,
+   "body": "At Osk the clerk wrote down 9 mackerel.",
+   "probe": "At Osk the clerk wrote down 9 mackerel.",
+   "file_index": 0,
+   "frac_actual": 0.1214,
+   "line": 11,
+   "hits": 1,
+   "file": "reading2/vn9fcm/01-decisions-memo-d3.md"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 15,
+   "frac": 0.29453430491570876,
+   "body": "Wick desk entered 15 trout on the sheet.",
+   "probe": "Wick desk entered 15 trout on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.2941,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/vn9fcm/02-train-spec-plan.md"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 3,
+   "frac": 0.4013012342464039,
+   "body": "A box of 3 bream came through Eyre.",
+   "probe": "A box of 3 bream came through Eyre.",
+   "file_index": 3,
+   "frac_actual": 0.4207,
+   "line": 6,
+   "hits": 1,
+   "file": "reading2/vn9fcm/04-readme.md"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 2,
+   "frac": 0.14803264057419632,
+   "body": "The Tamsin Row store took in 2 salmon.",
+   "probe": "The Tamsin Row store took in 2 salmon.",
+   "file_index": 4,
+   "frac_actual": 0.144,
+   "line": 36,
+   "hits": 1,
+   "file": "reading2/vn9fcm/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 16,
+   "frac": 0.5648467267888755,
+   "body": "16 perch were logged at the Lund gate.",
+   "probe": "16 perch were logged at the Lund gate.",
+   "file_index": 6,
+   "frac_actual": 0.5768,
+   "line": 50,
+   "hits": 1,
+   "file": "reading2/vn9fcm/07-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 5,
+   "frac": 0.8548176396052266,
+   "body": "Tally for Stane: 5 cod.",
+   "probe": "Tally for Stane: 5 cod.",
+   "file_index": 7,
+   "frac_actual": 0.8541,
+   "line": 158,
+   "hits": 1,
+   "file": "reading2/vn9fcm/08-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 50
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

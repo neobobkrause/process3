@@ -1,0 +1,179 @@
+{
+ "id": "atspvg",
+ "ladder": "start",
+ "size": 32768,
+ "index": 9,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__probes-pin-for-bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__root-prompt.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__account-switch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+   "lines": "1-21"
+  }
+ ],
+ "files": [],
+ "bytes": 32156,
+ "lines": 291,
+ "task": "merge",
+ "values": {
+  "code1": "B5K-7538",
+  "code2": "L8J-6815",
+  "w_last": "alderney",
+  "w_name": "sandalwood",
+  "w_desk": "copperfield",
+  "name_a": "Odette Fairweather",
+  "name_b": "Hamish Colquhoun",
+  "family": "fish",
+  "members": [
+   "mackerel",
+   "cod",
+   "carp",
+   "herring",
+   "salmon",
+   "trout",
+   "pike",
+   "eels",
+   "bream",
+   "perch"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: copperfield",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0961706399174401,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: copperfield`.",
+   "probe": "desk: copperfield",
+   "frac_actual": 0.0774,
+   "line": 38,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed L8J-6815",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.540681544948838,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed L8J-6815`.",
+   "probe": "run closed L8J-6815",
+   "frac_actual": 0.5302,
+   "line": 184,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under alderney",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9780078205083202,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under alderney`.",
+   "probe": "-- filed under alderney",
+   "frac_actual": 0.9807,
+   "line": 272,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.39990304395977205,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "frac_actual": 0.3952,
+   "line": 151,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7180940554935301,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.7038,
+   "line": 236,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 3,
+   "frac": 0.13327561392462056,
+   "body": "Yarm sent word of 3 mackerel on hand.",
+   "probe": "Yarm sent word of 3 mackerel on hand.",
+   "frac_actual": 0.1333,
+   "line": 58,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 15,
+   "frac": 0.3740132995243024,
+   "body": "15 cod were logged at the Marsh Lane gate.",
+   "probe": "15 cod were logged at the Marsh Lane gate.",
+   "frac_actual": 0.3693,
+   "line": 140,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 11,
+   "frac": 0.5769386318281516,
+   "body": "The Hale End store took in 11 carp.",
+   "probe": "The Hale End store took in 11 carp.",
+   "frac_actual": 0.5818,
+   "line": 203,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "herring",
+   "n": 8,
+   "frac": 0.7721704191883878,
+   "body": "A box of 8 herring came through Pell.",
+   "probe": "A box of 8 herring came through Pell.",
+   "frac_actual": 0.7846,
+   "line": 257,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 37
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

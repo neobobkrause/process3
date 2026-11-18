@@ -1,0 +1,167 @@
+{
+ "id": "sc2mdr",
+ "ladder": "single",
+ "size": 96000,
+ "index": 5,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__definition__process4_counterarguments.md",
+   "s": 76,
+   "e": 882
+  }
+ ],
+ "files": [
+  "reading2/sc2mdr/design.md"
+ ],
+ "bytes": 95390,
+ "lines": 833,
+ "task": "dates",
+ "values": {
+  "code1": "F6V-6494",
+  "code2": "C5Y-4481",
+  "w_last": "quillon",
+  "w_name": "tamarind",
+  "w_desk": "foxglove",
+  "name_a": "Priya Venkataram",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "vegetables",
+  "members": [
+   "marrows",
+   "beets",
+   "cabbages",
+   "parsnips",
+   "leeks",
+   "carrots",
+   "onions",
+   "shallots",
+   "turnips",
+   "radishes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref F6V-6494",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06481057169397589,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref F6V-6494`.",
+   "probe": "# ref F6V-6494",
+   "frac_actual": 0.0651,
+   "line": 44,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed C5Y-4481",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.46091408440395354,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed C5Y-4481`.",
+   "probe": "run closed C5Y-4481",
+   "frac_actual": 0.4619,
+   "line": 340,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "tamarind-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9612872788430608,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `tamarind-relay.md`, and under no other name.",
+   "probe": "tamarind-relay.md",
+   "frac_actual": 0.9613,
+   "line": 802,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.29105629581961945,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.289,
+   "line": 214,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5459760533897275,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.5428,
+   "line": 409,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 13,
+   "frac": 0.07727517931399311,
+   "body": "Received at Marsh Lane, 13 marrows.",
+   "probe": "Received at Marsh Lane, 13 marrows.",
+   "frac_actual": 0.0803,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 15,
+   "frac": 0.3660330475913942,
+   "body": "A box of 15 beets came through Lund.",
+   "probe": "A box of 15 beets came through Lund.",
+   "frac_actual": 0.3662,
+   "line": 278,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 8,
+   "frac": 0.5928917836719192,
+   "body": "Hale End desk entered 8 cabbages on the sheet.",
+   "probe": "Hale End desk entered 8 cabbages on the sheet.",
+   "frac_actual": 0.5937,
+   "line": 436,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 7,
+   "frac": 0.7489983315784432,
+   "body": "At Osk the clerk wrote down 7 parsnips.",
+   "probe": "At Osk the clerk wrote down 7 parsnips.",
+   "frac_actual": 0.749,
+   "line": 585,
+   "hits": 1,
+   "file": "reading2/sc2mdr/design.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 43
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

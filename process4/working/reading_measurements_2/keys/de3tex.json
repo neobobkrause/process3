@@ -1,0 +1,152 @@
+{
+ "id": "de3tex",
+ "ladder": "start",
+ "size": 4096,
+ "index": 7,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__00-index.md",
+   "s": 2,
+   "e": 25
+  }
+ ],
+ "files": [],
+ "bytes": 4116,
+ "lines": 69,
+ "task": "sumby",
+ "values": {
+  "code1": "R3W-7321",
+  "code2": "A5W-9663",
+  "w_last": "pemberley",
+  "w_name": "nettlecombe",
+  "w_desk": "umberfield",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Greta Lindqvist",
+  "family": "fish",
+  "members": [
+   "perch",
+   "carp",
+   "eels",
+   "pike",
+   "cod",
+   "bream",
+   "herring",
+   "mackerel",
+   "trout",
+   "salmon"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under pemberley",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08767777855697867,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under pemberley`.",
+   "probe": "-- filed under pemberley",
+   "frac_actual": 0.0905,
+   "line": 9,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref R3W-7321",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47312066412953085,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref R3W-7321`.",
+   "probe": "# ref R3W-7321",
+   "frac_actual": 0.478,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed A5W-9663",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9594359056637992,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed A5W-9663`.",
+   "probe": "run closed A5W-9663",
+   "frac_actual": 0.9681,
+   "line": 54,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.37667821876291796,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.3508,
+   "line": 25,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8782812838714757,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.8856,
+   "line": 48,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 19,
+   "frac": 0.16356285585892166,
+   "body": "Thorpe desk entered 19 perch on the sheet.",
+   "probe": "Thorpe desk entered 19 perch on the sheet.",
+   "frac_actual": 0.1614,
+   "line": 18,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 16,
+   "frac": 0.6222481871987331,
+   "body": "Received at Varnel, 16 carp.",
+   "probe": "Received at Varnel, 16 carp.",
+   "frac_actual": 0.655,
+   "line": 35,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 4,
+   "frac": 0.7747367371309143,
+   "body": "The Dunn store took in 4 eels.",
+   "probe": "The Dunn store took in 4 eels.",
+   "frac_actual": 0.8058,
+   "line": 40,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 39
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

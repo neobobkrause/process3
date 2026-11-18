@@ -1,0 +1,203 @@
+{
+ "id": "ehfqmv",
+ "ladder": "start",
+ "size": 32768,
+ "index": 6,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__02-tests.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations-proposed-changes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/CLAUDE.md",
+   "lines": "1-14"
+  }
+ ],
+ "files": [],
+ "bytes": 32167,
+ "lines": 365,
+ "task": "colsum",
+ "values": {
+  "code1": "P8H-3096",
+  "code2": "P6P-4048",
+  "w_last": "saltmarsh",
+  "w_name": "vetiver",
+  "w_desk": "orrery",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Ruairi Mactavish",
+  "family": "gemstones",
+  "members": [
+   "zircons",
+   "sapphires",
+   "rubies",
+   "emeralds",
+   "topazes",
+   "agates",
+   "garnets",
+   "opals",
+   "amethysts",
+   "pearls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "vetiver-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.02757345023331026,
+   "body": "Every job must note: the job's handover note is saved under the file name `vetiver-relay.md`, and under no other name.",
+   "probe": "vetiver-relay.md",
+   "frac_actual": 0.0291,
+   "line": 20,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref P8H-3096",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47755130047853234,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref P8H-3096`.",
+   "probe": "# ref P8H-3096",
+   "frac_actual": 0.4758,
+   "line": 197,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed P6P-4048",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9291683397743907,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed P6P-4048`.",
+   "probe": "run closed P6P-4048",
+   "frac_actual": 0.9547,
+   "line": 347,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16725114643811317,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.1726,
+   "line": 92,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7157771429907547,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.7116,
+   "line": 301,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 15,
+   "frac": 0.0745350261869398,
+   "body": "A box of 15 zircons came through Lund.",
+   "probe": "A box of 15 zircons came through Lund.",
+   "frac_actual": 0.0685,
+   "line": 52,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 14,
+   "frac": 0.30533842620244533,
+   "body": "The Varnel store took in 14 sapphires.",
+   "probe": "The Varnel store took in 14 sapphires.",
+   "frac_actual": 0.3052,
+   "line": 158,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 17,
+   "frac": 0.4597709370878833,
+   "body": "17 rubies were logged at the Eyre gate.",
+   "probe": "17 rubies were logged at the Eyre gate.",
+   "frac_actual": 0.463,
+   "line": 190,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 4,
+   "frac": 0.6036339032547756,
+   "body": "At Rigg the clerk wrote down 4 emeralds.",
+   "probe": "At Rigg the clerk wrote down 4 emeralds.",
+   "frac_actual": 0.6047,
+   "line": 246,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 12,
+   "frac": 0.7968663273158606,
+   "body": "Brae desk entered 12 topazes on the sheet.",
+   "probe": "Brae desk entered 12 topazes on the sheet.",
+   "frac_actual": 0.7839,
+   "line": 333,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 3,
+   "frac": 0.870785492613429,
+   "body": "Dunn sent word of 3 agates on hand.",
+   "probe": "Dunn sent word of 3 agates on hand.",
+   "frac_actual": 0.8686,
+   "line": 340,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 65
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

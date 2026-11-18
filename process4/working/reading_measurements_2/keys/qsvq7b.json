@@ -1,0 +1,167 @@
+{
+ "id": "qsvq7b",
+ "ladder": "single",
+ "size": 192000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__lib__layerflow.mjs",
+   "s": 98,
+   "e": 2365
+  }
+ ],
+ "files": [
+  "reading2/qsvq7b/module.mjs"
+ ],
+ "bytes": 190248,
+ "lines": 2300,
+ "task": "colsum",
+ "values": {
+  "code1": "Y6R-1818",
+  "code2": "J7R-4950",
+  "w_last": "pemberley",
+  "w_name": "fennimore",
+  "w_desk": "vetiver",
+  "name_a": "Noor Al-Tamimi",
+  "name_b": "Priya Venkataram",
+  "family": "gemstones",
+  "members": [
+   "sapphires",
+   "pearls",
+   "garnets",
+   "agates",
+   "topazes",
+   "zircons",
+   "amethysts",
+   "opals",
+   "emeralds",
+   "rubies"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "fennimore-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.034836322374978274,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `fennimore-relay.md`, and under no other name.",
+   "probe": "fennimore-relay.md",
+   "frac_actual": 0.075,
+   "line": 180,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref Y6R-1818",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5235988257817159,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref Y6R-1818`.",
+   "probe": "# ref Y6R-1818",
+   "frac_actual": 0.5253,
+   "line": 1217,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed J7R-4950",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9193768231776563,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed J7R-4950`.",
+   "probe": "run closed J7R-4950",
+   "frac_actual": 0.9164,
+   "line": 2094,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.37901412280638436,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.3771,
+   "line": 879,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7059398838064731,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.6971,
+   "line": 1603,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 10,
+   "frac": 0.20133500471157784,
+   "body": "The Thorpe store took in 10 sapphires.",
+   "probe": "The Thorpe store took in 10 sapphires.",
+   "frac_actual": 0.2059,
+   "line": 482,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 18,
+   "frac": 0.33374800534662263,
+   "body": "Tamsin Row sent word of 18 pearls on hand.",
+   "probe": "Tamsin Row sent word of 18 pearls on hand.",
+   "frac_actual": 0.316,
+   "line": 740,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 4,
+   "frac": 0.7345171562124235,
+   "body": "Tally for Wick: 4 garnets.",
+   "probe": "Tally for Wick: 4 garnets.",
+   "frac_actual": 0.7334,
+   "line": 1689,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 17,
+   "frac": 0.9446812701593563,
+   "body": "A box of 17 agates came through Lund.",
+   "probe": "A box of 17 agates came through Lund.",
+   "frac_actual": 0.9608,
+   "line": 2197,
+   "hits": 1,
+   "file": "reading2/qsvq7b/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 49
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

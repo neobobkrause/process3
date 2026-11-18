@@ -1,0 +1,152 @@
+{
+ "id": "zfakyj",
+ "ladder": "start",
+ "size": 4096,
+ "index": 3,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/rulebooks__root.md",
+   "s": 11,
+   "e": 20
+  }
+ ],
+ "files": [],
+ "bytes": 4086,
+ "lines": 72,
+ "task": "wordtop",
+ "values": {
+  "code1": "J9U-1323",
+  "code2": "N9W-5992",
+  "w_last": "tamarind",
+  "w_name": "kestrel",
+  "w_desk": "nettlecombe",
+  "name_a": "Soren Achterberg",
+  "name_b": "Hamish Colquhoun",
+  "family": "fruit",
+  "members": [
+   "quinces",
+   "pears",
+   "lemons",
+   "cherries",
+   "peaches",
+   "figs",
+   "apricots",
+   "mangoes",
+   "plums",
+   "limes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed N9W-5992",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06743992447958054,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed N9W-5992`.",
+   "probe": "run closed N9W-5992",
+   "frac_actual": 0.0668,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "kestrel-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5119611878908549,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.",
+   "probe": "kestrel-relay.md",
+   "frac_actual": 0.5021,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref J9U-1323",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9714323318325104,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref J9U-1323`.",
+   "probe": "# ref J9U-1323",
+   "frac_actual": 0.9243,
+   "line": 57,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.18709384025431006,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.1583,
+   "line": 18,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4653019655151928,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.4675,
+   "line": 29,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 9,
+   "frac": 0.17333083381926973,
+   "body": "Osk sent word of 9 quinces on hand.",
+   "probe": "Osk sent word of 9 quinces on hand.",
+   "frac_actual": 0.1569,
+   "line": 14,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 7,
+   "frac": 0.47059998399612035,
+   "body": "The Pell store took in 7 pears.",
+   "probe": "The Pell store took in 7 pears.",
+   "frac_actual": 0.4745,
+   "line": 33,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 16,
+   "frac": 0.7555257871079643,
+   "body": "Marsh Lane desk entered 16 lemons on the sheet.",
+   "probe": "Marsh Lane desk entered 16 lemons on the sheet.",
+   "frac_actual": 0.723,
+   "line": 45,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 32
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

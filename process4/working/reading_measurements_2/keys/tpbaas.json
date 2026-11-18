@@ -1,0 +1,236 @@
+{
+ "id": "tpbaas",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 6,
+ "files": [
+  "reading2/tpbaas/01-joined.md",
+  "reading2/tpbaas/02-joined.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "s": 225,
+    "e": 246
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 0,
+    "e": 335
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 75,
+    "e": 457
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 0,
+    "e": 89
+   },
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "s": 0,
+    "e": 87
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 0,
+    "e": 116
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96521,
+ "lines": 1084,
+ "task": "rle",
+ "values": {
+  "code1": "W8H-3007",
+  "code2": "T5U-4740",
+  "w_last": "dunmore",
+  "w_name": "wainscot",
+  "w_desk": "tamarind",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Ines Carrowby",
+  "family": "vegetables",
+  "members": [
+   "parsnips",
+   "onions",
+   "cabbages",
+   "turnips",
+   "radishes",
+   "beets",
+   "marrows",
+   "shallots",
+   "leeks",
+   "carrots"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref W8H-3007",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.15230819385546904,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref W8H-3007`.",
+   "probe": "# ref W8H-3007",
+   "file_index": 0,
+   "frac_actual": 0.0911,
+   "line": 49,
+   "hits": 1,
+   "file": "reading2/tpbaas/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed T5U-4740",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.152056172725997,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed T5U-4740`.",
+   "probe": "run closed T5U-4740",
+   "file_index": 1,
+   "frac_actual": 0.4608,
+   "line": 332,
+   "hits": 1,
+   "file": "reading2/tpbaas/02-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under dunmore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.803071754725404,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under dunmore`.",
+   "probe": "-- filed under dunmore",
+   "file_index": 1,
+   "frac_actual": 0.9211,
+   "line": 663,
+   "hits": 1,
+   "file": "reading2/tpbaas/02-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8612548172401927,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 0,
+   "frac_actual": 0.8633,
+   "line": 352,
+   "hits": 1,
+   "file": "reading2/tpbaas/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5251097116002457,
+   "value": "reviewer: Ines Carrowby",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ines Carrowby`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "file_index": 1,
+   "frac_actual": 0.5428,
+   "line": 395,
+   "hits": 1,
+   "file": "reading2/tpbaas/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 2,
+   "frac": 0.9384042330915717,
+   "body": "Brae desk entered 2 parsnips on the sheet.",
+   "probe": "Brae desk entered 2 parsnips on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.8982,
+   "line": 369,
+   "hits": 1,
+   "file": "reading2/tpbaas/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 16,
+   "frac": 0.5926083661173608,
+   "body": "At Tamsin Row the clerk wrote down 16 onions.",
+   "probe": "At Tamsin Row the clerk wrote down 16 onions.",
+   "file_index": 0,
+   "frac_actual": 0.5932,
+   "line": 253,
+   "hits": 1,
+   "file": "reading2/tpbaas/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 17,
+   "frac": 0.0860091557178437,
+   "body": "Received at Quay Nine, 17 cabbages.",
+   "probe": "Received at Quay Nine, 17 cabbages.",
+   "file_index": 0,
+   "frac_actual": 0.0882,
+   "line": 44,
+   "hits": 1,
+   "file": "reading2/tpbaas/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 19,
+   "frac": 0.3235833830981478,
+   "body": "The Dunn store took in 19 turnips.",
+   "probe": "The Dunn store took in 19 turnips.",
+   "file_index": 1,
+   "frac_actual": 0.3207,
+   "line": 228,
+   "hits": 1,
+   "file": "reading2/tpbaas/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 12,
+   "frac": 0.5268702824876887,
+   "body": "A box of 12 radishes came through Osk.",
+   "probe": "A box of 12 radishes came through Osk.",
+   "file_index": 1,
+   "frac_actual": 0.5437,
+   "line": 401,
+   "hits": 1,
+   "file": "reading2/tpbaas/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 8,
+   "frac": 0.848222115069613,
+   "body": "Tally for Yarm: 8 beets.",
+   "probe": "Tally for Yarm: 8 beets.",
+   "file_index": 1,
+   "frac_actual": 0.8407,
+   "line": 601,
+   "hits": 1,
+   "file": "reading2/tpbaas/02-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 74
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,206 @@
+{
+ "id": "ryxw99",
+ "ladder": "single",
+ "size": 384000,
+ "index": 1,
+ "kind": "design",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__lanes_process3_record.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_counterarguments.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_D_central.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__causal_forensics.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__replay__results.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__assessment_doc.txt",
+   "lines": "1-318"
+  }
+ ],
+ "files": [
+  "reading2/ryxw99/design.md"
+ ],
+ "bytes": 383634,
+ "lines": 3039,
+ "task": "merge",
+ "values": {
+  "code1": "A6B-6063",
+  "code2": "N4P-4305",
+  "w_last": "ostler",
+  "w_name": "yarrow",
+  "w_desk": "harrowgate",
+  "name_a": "Odette Fairweather",
+  "name_b": "Soren Achterberg",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "robins",
+   "swifts",
+   "cranes",
+   "wrens",
+   "herons",
+   "larks",
+   "owls",
+   "plovers",
+   "finches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under ostler",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08100160187351836,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under ostler`.",
+   "probe": "-- filed under ostler",
+   "frac_actual": 0.0822,
+   "line": 230,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref A6B-6063",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4539196132511714,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref A6B-6063`.",
+   "probe": "# ref A6B-6063",
+   "frac_actual": 0.4536,
+   "line": 1467,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "yarrow-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.900237029406209,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `yarrow-relay.md`, and under no other name.",
+   "probe": "yarrow-relay.md",
+   "frac_actual": 0.9001,
+   "line": 2815,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1482300372206415,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "frac_actual": 0.148,
+   "line": 413,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8563307949721255,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.8487,
+   "line": 2717,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 18,
+   "frac": 0.11847124421718408,
+   "body": "Received at Hale End, 18 gulls.",
+   "probe": "Received at Hale End, 18 gulls.",
+   "frac_actual": 0.1217,
+   "line": 346,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 6,
+   "frac": 0.3903279191276,
+   "body": "A box of 6 robins came through Quay Nine.",
+   "probe": "A box of 6 robins came through Quay Nine.",
+   "frac_actual": 0.39,
+   "line": 1193,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 15,
+   "frac": 0.5466271904451856,
+   "body": "15 swifts were logged at the Dunn gate.",
+   "probe": "15 swifts were logged at the Dunn gate.",
+   "frac_actual": 0.5488,
+   "line": 1746,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 9,
+   "frac": 0.73597834601483,
+   "body": "Tamsin Row desk entered 9 cranes on the sheet.",
+   "probe": "Tamsin Row desk entered 9 cranes on the sheet.",
+   "frac_actual": 0.7371,
+   "line": 2308,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 10,
+   "frac": 0.8224220386175713,
+   "body": "Tally for Uller: 10 wrens.",
+   "probe": "Tally for Uller: 10 wrens.",
+   "frac_actual": 0.8226,
+   "line": 2592,
+   "hits": 1,
+   "file": "reading2/ryxw99/design.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 58
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

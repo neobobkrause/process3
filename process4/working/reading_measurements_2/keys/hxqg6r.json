@@ -1,0 +1,319 @@
+{
+ "id": "hxqg6r",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 4,
+ "files": [
+  "reading2/hxqg6r/01-joined.md",
+  "reading2/hxqg6r/02-joined.md",
+  "reading2/hxqg6r/03-layerflow.mjs",
+  "reading2/hxqg6r/04-joined.md",
+  "reading2/hxqg6r/05-joined.mjs",
+  "reading2/hxqg6r/06-joined.md",
+  "reading2/hxqg6r/07-joined.md",
+  "reading2/hxqg6r/08-joined.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "requirements",
+  "code",
+  "principles",
+  "code",
+  "design",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 645,
+    "e": 741
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "s": 0,
+    "e": 20
+   },
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 0,
+    "e": 268
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 0,
+    "e": 15
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 576,
+    "e": 713
+   },
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 0,
+    "e": 101
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1171,
+    "e": 1762
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 184,
+    "e": 306
+   },
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "s": 0,
+    "e": 86
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+    "s": 0,
+    "e": 92
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "s": 11,
+    "e": 87
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 0,
+    "e": 325
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "s": 0,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 283,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "s": 0,
+    "e": 232
+   },
+   {
+    "doc": "design/notes__problem-classes.md",
+    "s": 0,
+    "e": 10
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 452,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "s": 0,
+    "e": 122
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 0,
+    "e": 181
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 402,
+    "e": 532
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "s": 0,
+    "e": 278
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "s": 0,
+    "e": 223
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 383018,
+ "lines": 3662,
+ "task": "wordtop",
+ "values": {
+  "code1": "D8L-3249",
+  "code2": "R3T-6433",
+  "w_last": "nettlecombe",
+  "w_name": "yarrow",
+  "w_desk": "quillon",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Saoirse Kinsella",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "owls",
+   "wrens",
+   "cranes",
+   "swifts",
+   "plovers",
+   "larks",
+   "finches",
+   "robins",
+   "herons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "yarrow-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.8141570784572146,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `yarrow-relay.md`, and under no other name.",
+   "probe": "yarrow-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0717,
+   "line": 19,
+   "hits": 1,
+   "file": "reading2/hxqg6r/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under nettlecombe",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.11855894723533647,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under nettlecombe`.",
+   "probe": "-- filed under nettlecombe",
+   "file_index": 4,
+   "frac_actual": 0.4745,
+   "line": 286,
+   "hits": 1,
+   "file": "reading2/hxqg6r/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref D8L-3249",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.27323265582548606,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref D8L-3249`.",
+   "probe": "# ref D8L-3249",
+   "file_index": 7,
+   "frac_actual": 0.9124,
+   "line": 580,
+   "hits": 1,
+   "file": "reading2/hxqg6r/08-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.18019665050122421,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 1,
+   "frac_actual": 0.1558,
+   "line": 49,
+   "hits": 1,
+   "file": "reading2/hxqg6r/02-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8861470344512812,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "file_index": 5,
+   "frac_actual": 0.8934,
+   "line": 419,
+   "hits": 1,
+   "file": "reading2/hxqg6r/06-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 6,
+   "frac": 0.8611259712011253,
+   "body": "Tally for Dunn: 6 gulls.",
+   "probe": "Tally for Dunn: 6 gulls.",
+   "file_index": 1,
+   "frac_actual": 0.8639,
+   "line": 227,
+   "hits": 1,
+   "file": "reading2/hxqg6r/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 5,
+   "frac": 0.414560306635069,
+   "body": "Eyre desk entered 5 owls on the sheet.",
+   "probe": "Eyre desk entered 5 owls on the sheet.",
+   "file_index": 2,
+   "frac_actual": 0.415,
+   "line": 253,
+   "hits": 1,
+   "file": "reading2/hxqg6r/03-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 3,
+   "frac": 0.21677520816937956,
+   "body": "The Hale End store took in 3 wrens.",
+   "probe": "The Hale End store took in 3 wrens.",
+   "file_index": 5,
+   "frac_actual": 0.3011,
+   "line": 201,
+   "hits": 1,
+   "file": "reading2/hxqg6r/06-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 16,
+   "frac": 0.08052971397493523,
+   "body": "Osk sent word of 16 cranes on hand.",
+   "probe": "Osk sent word of 16 cranes on hand.",
+   "file_index": 7,
+   "frac_actual": 0.0873,
+   "line": 57,
+   "hits": 1,
+   "file": "reading2/hxqg6r/08-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 30
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

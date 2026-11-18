@@ -1,0 +1,289 @@
+{
+ "id": "uvpp9z",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 7,
+ "files": [
+  "reading2/uvpp9z/01-joined.md",
+  "reading2/uvpp9z/02-point5-288-lines.md",
+  "reading2/uvpp9z/03-joined.md",
+  "reading2/uvpp9z/04-joined.md"
+ ],
+ "file_kinds": [
+  "design",
+  "design",
+  "logs",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 175,
+    "e": 184
+   },
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "s": 0,
+    "e": 81
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 0,
+    "e": 306
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 0,
+    "e": 27
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 47,
+    "e": 382
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "s": 6,
+    "e": 21
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "s": 0,
+    "e": 96
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov.md",
+    "s": 0,
+    "e": 35
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+    "s": 0,
+    "e": 23
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+    "s": 0,
+    "e": 29
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "s": 0,
+    "e": 1
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 232,
+    "e": 400
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 0,
+    "e": 168
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 191890,
+ "lines": 1438,
+ "task": "dates",
+ "values": {
+  "code1": "X8K-3427",
+  "code2": "M2G-6944",
+  "w_last": "drumlin",
+  "w_name": "larkspur",
+  "w_desk": "tamarind",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Annelise Brouwer",
+  "family": "fish",
+  "members": [
+   "salmon",
+   "cod",
+   "eels",
+   "carp",
+   "bream",
+   "perch",
+   "mackerel",
+   "trout",
+   "pike",
+   "herring"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed M2G-6944",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.8685825655373257,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed M2G-6944`.",
+   "probe": "run closed M2G-6944",
+   "file_index": 0,
+   "frac_actual": 0.0836,
+   "line": 37,
+   "hits": 1,
+   "file": "reading2/uvpp9z/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: tamarind",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7447976607353257,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: tamarind`.",
+   "probe": "desk: tamarind",
+   "file_index": 2,
+   "frac_actual": 0.5369,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/uvpp9z/03-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref X8K-3427",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7010117165205023,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref X8K-3427`.",
+   "probe": "# ref X8K-3427",
+   "file_index": 3,
+   "frac_actual": 0.9004,
+   "line": 325,
+   "hits": 1,
+   "file": "reading2/uvpp9z/04-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5577138028817772,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 0,
+   "frac_actual": 0.564,
+   "line": 249,
+   "hits": 1,
+   "file": "reading2/uvpp9z/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.17989446462131475,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Annelise Brouwer`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 2,
+   "frac_actual": 0.1863,
+   "line": 37,
+   "hits": 1,
+   "file": "reading2/uvpp9z/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 14,
+   "frac": 0.2899035049755628,
+   "body": "Tally for Quay Nine: 14 salmon.",
+   "probe": "Tally for Quay Nine: 14 salmon.",
+   "file_index": 0,
+   "frac_actual": 0.2685,
+   "line": 117,
+   "hits": 1,
+   "file": "reading2/uvpp9z/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 7,
+   "frac": 0.9409580013233291,
+   "body": "A box of 7 cod came through Pell.",
+   "probe": "A box of 7 cod came through Pell.",
+   "file_index": 0,
+   "frac_actual": 0.9411,
+   "line": 427,
+   "hits": 1,
+   "file": "reading2/uvpp9z/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 11,
+   "frac": 0.3152195491851225,
+   "body": "Rigg desk entered 11 eels on the sheet.",
+   "probe": "Rigg desk entered 11 eels on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.3114,
+   "line": 103,
+   "hits": 1,
+   "file": "reading2/uvpp9z/02-point5-288-lines.md"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 4,
+   "frac": 0.5476005073171903,
+   "body": "At Eyre the clerk wrote down 4 carp.",
+   "probe": "At Eyre the clerk wrote down 4 carp.",
+   "file_index": 2,
+   "frac_actual": 0.5695,
+   "line": 150,
+   "hits": 1,
+   "file": "reading2/uvpp9z/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 2,
+   "frac": 0.07188945514029496,
+   "body": "Received at Wick, 2 bream.",
+   "probe": "Received at Wick, 2 bream.",
+   "file_index": 3,
+   "frac_actual": 0.0446,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/uvpp9z/04-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 8,
+   "frac": 0.4535714786930776,
+   "body": "Varnel sent word of 8 perch on hand.",
+   "probe": "Varnel sent word of 8 perch on hand.",
+   "file_index": 3,
+   "frac_actual": 0.4545,
+   "line": 185,
+   "hits": 1,
+   "file": "reading2/uvpp9z/04-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 46
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

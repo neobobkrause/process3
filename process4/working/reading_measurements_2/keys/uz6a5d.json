@@ -1,0 +1,466 @@
+{
+ "id": "uz6a5d",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 9,
+ "files": [
+  "reading2/uz6a5d/01-joined.mjs",
+  "reading2/uz6a5d/02-joined.md",
+  "reading2/uz6a5d/03-joined.md",
+  "reading2/uz6a5d/04-joined.mjs",
+  "reading2/uz6a5d/05-joined.mjs",
+  "reading2/uz6a5d/06-job.mjs",
+  "reading2/uz6a5d/07-joined.md",
+  "reading2/uz6a5d/08-joined.mjs",
+  "reading2/uz6a5d/09-readme.md",
+  "reading2/uz6a5d/10-joined.mjs",
+  "reading2/uz6a5d/11-joined.md",
+  "reading2/uz6a5d/12-joined.md",
+  "reading2/uz6a5d/13-job.mjs",
+  "reading2/uz6a5d/14-joined.md",
+  "reading2/uz6a5d/15-audit-b.md",
+  "reading2/uz6a5d/16-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "principles",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "design",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 935,
+    "e": 1017
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "s": 0,
+    "e": 55
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 0,
+    "e": 282
+   },
+   {
+    "doc": "code/tool__lib__ghaudit.mjs",
+    "s": 0,
+    "e": 137
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "s": 0,
+    "e": 112
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 111,
+    "e": 306
+   },
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 0,
+    "e": 227
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "s": 0,
+    "e": 48
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 353,
+    "e": 435
+   },
+   {
+    "doc": "design/process4__working__v5_notes.md",
+    "s": 0,
+    "e": 69
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 238,
+    "e": 330
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 145,
+    "e": 425
+   },
+   {
+    "doc": "code/tool__test__audit-restores.test.mjs",
+    "s": 0,
+    "e": 63
+   },
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "s": 0,
+    "e": 372
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "s": 276,
+    "e": 495
+   },
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "s": 0,
+    "e": 341
+   },
+   {
+    "doc": "code/tool__test__base-red-age.test.mjs",
+    "s": 0,
+    "e": 48
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "s": 0,
+    "e": 30
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 543,
+    "e": 1166
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 144,
+    "e": 179
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 0,
+    "e": 301
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 2207,
+    "e": 2244
+   },
+   {
+    "doc": "code/tool__test__setup-speed.test.mjs",
+    "s": 0,
+    "e": 181
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 0,
+    "e": 329
+   },
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "s": 0,
+    "e": 112
+   },
+   {
+    "doc": "code/tool__lib__carry.mjs",
+    "s": 0,
+    "e": 57
+   },
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "s": 0,
+    "e": 0
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 0,
+    "e": 57
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "s": 23,
+    "e": 79
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "s": 0,
+    "e": 236
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "s": 0,
+    "e": 120
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "s": 0,
+    "e": 225
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "s": 8,
+    "e": 21
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 0,
+    "e": 227
+   }
+  ],
+  [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 158,
+    "e": 184
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "s": 0,
+    "e": 276
+   },
+   {
+    "doc": "requirements/governing__ledger-map-proposed-changes.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 0,
+    "e": 543
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 243,
+    "e": 336
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 0,
+    "e": 184
+   },
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 0,
+    "e": 117
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 0,
+    "e": 200
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "s": 70,
+    "e": 154
+   },
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "s": 0,
+    "e": 464
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "s": 0,
+    "e": 117
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 767901,
+ "lines": 7698,
+ "task": "dates",
+ "values": {
+  "code1": "V7E-5225",
+  "code2": "Z7Q-7925",
+  "w_last": "orrery",
+  "w_name": "umberfield",
+  "w_desk": "tamarind",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Mikko Rantanen",
+  "family": "fruit",
+  "members": [
+   "figs",
+   "limes",
+   "peaches",
+   "apricots",
+   "plums",
+   "pears",
+   "lemons",
+   "quinces",
+   "mangoes",
+   "cherries"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under orrery",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.2817028989722437,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under orrery`.",
+   "probe": "-- filed under orrery",
+   "file_index": 0,
+   "frac_actual": 0.0962,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/uz6a5d/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref V7E-5225",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7437417299678065,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref V7E-5225`.",
+   "probe": "# ref V7E-5225",
+   "file_index": 8,
+   "frac_actual": 0.5396,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/uz6a5d/09-readme.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Z7Q-7925",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9166271566586586,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed Z7Q-7925`.",
+   "probe": "run closed Z7Q-7925",
+   "file_index": 15,
+   "frac_actual": 0.9241,
+   "line": 636,
+   "hits": 1,
+   "file": "reading2/uz6a5d/16-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5116342320027374,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 4,
+   "frac_actual": 0.5294,
+   "line": 338,
+   "hits": 1,
+   "file": "reading2/uz6a5d/05-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.21383511192447868,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "file_index": 9,
+   "frac_actual": 0.2571,
+   "line": 175,
+   "hits": 1,
+   "file": "reading2/uz6a5d/10-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 5,
+   "frac": 0.6051095327388071,
+   "body": "Received at Stane, 5 figs.",
+   "probe": "Received at Stane, 5 figs.",
+   "file_index": 0,
+   "frac_actual": 0.6006,
+   "line": 436,
+   "hits": 1,
+   "file": "reading2/uz6a5d/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 9,
+   "frac": 0.25188579073686274,
+   "body": "Tally for Lund: 9 limes.",
+   "probe": "Tally for Lund: 9 limes.",
+   "file_index": 5,
+   "frac_actual": 0.2517,
+   "line": 162,
+   "hits": 1,
+   "file": "reading2/uz6a5d/06-job.mjs"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 14,
+   "frac": 0.10634244311591866,
+   "body": "14 peaches were logged at the Hale End gate.",
+   "probe": "14 peaches were logged at the Hale End gate.",
+   "file_index": 8,
+   "frac_actual": 0.0939,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/uz6a5d/09-readme.md"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 15,
+   "frac": 0.0944125831057194,
+   "body": "The Eyre store took in 15 apricots.",
+   "probe": "The Eyre store took in 15 apricots.",
+   "file_index": 13,
+   "frac_actual": 0.0878,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/uz6a5d/14-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 43
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

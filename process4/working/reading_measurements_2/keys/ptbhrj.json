@@ -1,0 +1,152 @@
+{
+ "id": "ptbhrj",
+ "ladder": "start",
+ "size": 4096,
+ "index": 5,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/notes__lane-charters.md",
+   "s": 62,
+   "e": 86
+  }
+ ],
+ "files": [],
+ "bytes": 4152,
+ "lines": 75,
+ "task": "colsum",
+ "values": {
+  "code1": "M3X-2074",
+  "code2": "H6L-7978",
+  "w_last": "larkspur",
+  "w_name": "quillon",
+  "w_desk": "zephyrine",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "birds",
+  "members": [
+   "herons",
+   "robins",
+   "wrens",
+   "gulls",
+   "cranes",
+   "owls",
+   "larks",
+   "plovers",
+   "swifts",
+   "finches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under larkspur",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08726931716513697,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
+   "probe": "-- filed under larkspur",
+   "frac_actual": 0.0947,
+   "line": 7,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "quillon-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5390796682323813,
+   "body": "Every job must note: the job's handover note is saved under the file name `quillon-relay.md`, and under no other name.",
+   "probe": "quillon-relay.md",
+   "frac_actual": 0.5486,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed H6L-7978",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.945961401036541,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed H6L-7978`.",
+   "probe": "run closed H6L-7978",
+   "frac_actual": 0.914,
+   "line": 60,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.384125043740705,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.3887,
+   "line": 21,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.657310783062906,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.6502,
+   "line": 45,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 6,
+   "frac": 0.23869173300772772,
+   "body": "Tally for Uller: 6 herons.",
+   "probe": "Tally for Uller: 6 herons.",
+   "frac_actual": 0.2417,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 4,
+   "frac": 0.4274335212993836,
+   "body": "The Dunn store took in 4 robins.",
+   "probe": "The Dunn store took in 4 robins.",
+   "frac_actual": 0.4237,
+   "line": 27,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 7,
+   "frac": 0.9092893514470247,
+   "body": "At Quay Nine the clerk wrote down 7 wrens.",
+   "probe": "At Quay Nine the clerk wrote down 7 wrens.",
+   "frac_actual": 0.8962,
+   "line": 56,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 17
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

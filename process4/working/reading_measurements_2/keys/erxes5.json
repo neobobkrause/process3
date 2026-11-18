@@ -1,0 +1,258 @@
+{
+ "id": "erxes5",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 0,
+ "files": [
+  "reading2/erxes5/01-joined.mjs",
+  "reading2/erxes5/02-joined.md",
+  "reading2/erxes5/03-joined.md",
+  "reading2/erxes5/04-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 316,
+    "e": 538
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "s": 0,
+    "e": 148
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "s": 0,
+    "e": 125
+   },
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "s": 0,
+    "e": 157
+   },
+   {
+    "doc": "code/tool__test__product-neutral.test.mjs",
+    "s": 0,
+    "e": 13
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 143,
+    "e": 352
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 0,
+    "e": 122
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 349,
+    "e": 353
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "s": 0,
+    "e": 49
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "s": 0,
+    "e": 197
+   },
+   {
+    "doc": "design/process4__working__v5_notes.md",
+    "s": 0,
+    "e": 69
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 407,
+    "e": 453
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "s": 90,
+    "e": 231
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 0,
+    "e": 192
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 191781,
+ "lines": 1767,
+ "task": "colsum",
+ "values": {
+  "code1": "A9S-3886",
+  "code2": "E7V-6041",
+  "w_last": "marlowe",
+  "w_name": "yarrow",
+  "w_desk": "bellwether",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Saoirse Kinsella",
+  "family": "gemstones",
+  "members": [
+   "rubies",
+   "garnets",
+   "agates",
+   "emeralds",
+   "sapphires",
+   "zircons",
+   "opals",
+   "topazes",
+   "amethysts",
+   "pearls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed E7V-6041",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6635157520882984,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed E7V-6041`.",
+   "probe": "run closed E7V-6041",
+   "file_index": 0,
+   "frac_actual": 0.0589,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/erxes5/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref A9S-3886",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.843116988807358,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref A9S-3886`.",
+   "probe": "# ref A9S-3886",
+   "file_index": 2,
+   "frac_actual": 0.5479,
+   "line": 265,
+   "hits": 1,
+   "file": "reading2/erxes5/03-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "yarrow-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8893073429746768,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `yarrow-relay.md`, and under no other name.",
+   "probe": "yarrow-relay.md",
+   "file_index": 3,
+   "frac_actual": 0.9227,
+   "line": 314,
+   "hits": 1,
+   "file": "reading2/erxes5/04-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.797284619256485,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 0,
+   "frac_actual": 0.7962,
+   "line": 543,
+   "hits": 1,
+   "file": "reading2/erxes5/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4495215152275729,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "file_index": 2,
+   "frac_actual": 0.4548,
+   "line": 211,
+   "hits": 1,
+   "file": "reading2/erxes5/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 17,
+   "frac": 0.5605386147019663,
+   "body": "Tally for Osk: 17 rubies.",
+   "probe": "Tally for Osk: 17 rubies.",
+   "file_index": 0,
+   "frac_actual": 0.5538,
+   "line": 356,
+   "hits": 1,
+   "file": "reading2/erxes5/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 10,
+   "frac": 0.6573606602892886,
+   "body": "At Corrie the clerk wrote down 10 garnets.",
+   "probe": "At Corrie the clerk wrote down 10 garnets.",
+   "file_index": 1,
+   "frac_actual": 0.6582,
+   "line": 169,
+   "hits": 1,
+   "file": "reading2/erxes5/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 16,
+   "frac": 0.4700707133389947,
+   "body": "Received at Rigg, 16 agates.",
+   "probe": "Received at Rigg, 16 agates.",
+   "file_index": 2,
+   "frac_actual": 0.4562,
+   "line": 216,
+   "hits": 1,
+   "file": "reading2/erxes5/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 19,
+   "frac": 0.09880305581040497,
+   "body": "Dunn sent word of 19 emeralds on hand.",
+   "probe": "Dunn sent word of 19 emeralds on hand.",
+   "file_index": 3,
+   "frac_actual": 0.1057,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/erxes5/04-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 62
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

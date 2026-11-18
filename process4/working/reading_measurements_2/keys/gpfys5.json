@@ -1,0 +1,203 @@
+{
+ "id": "gpfys5",
+ "ladder": "start",
+ "size": 131072,
+ "index": 8,
+ "kind": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/notes__train-plain-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__lanes_process3_record.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point2_process_rule.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__github-pacing.md",
+   "lines": "1-63"
+  }
+ ],
+ "files": [],
+ "bytes": 130580,
+ "lines": 1056,
+ "task": "sumby",
+ "values": {
+  "code1": "W3R-8016",
+  "code2": "K9U-6612",
+  "w_last": "juniper",
+  "w_name": "vetiver",
+  "w_desk": "saltmarsh",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "vegetables",
+  "members": [
+   "parsnips",
+   "cabbages",
+   "leeks",
+   "radishes",
+   "onions",
+   "carrots",
+   "shallots",
+   "beets",
+   "marrows",
+   "turnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed K9U-6612",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09964683922758023,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed K9U-6612`.",
+   "probe": "run closed K9U-6612",
+   "frac_actual": 0.0856,
+   "line": 160,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.516940855542862,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "frac_actual": 0.5184,
+   "line": 560,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref W3R-8016",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9747560315655549,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref W3R-8016`.",
+   "probe": "# ref W3R-8016",
+   "frac_actual": 0.9755,
+   "line": 1014,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.35157004591920804,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.3522,
+   "line": 409,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8193414683197262,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.8153,
+   "line": 878,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 7,
+   "frac": 0.04668210559032311,
+   "body": "7 parsnips were logged at the Eyre gate.",
+   "probe": "7 parsnips were logged at the Eyre gate.",
+   "frac_actual": 0.0466,
+   "line": 97,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 12,
+   "frac": 0.29958389291241627,
+   "body": "Hale End desk entered 12 cabbages on the sheet.",
+   "probe": "Hale End desk entered 12 cabbages on the sheet.",
+   "frac_actual": 0.2994,
+   "line": 345,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 9,
+   "frac": 0.35460855286444126,
+   "body": "The Marsh Lane store took in 9 leeks.",
+   "probe": "The Marsh Lane store took in 9 leeks.",
+   "frac_actual": 0.3544,
+   "line": 414,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 17,
+   "frac": 0.6171786339324207,
+   "body": "Received at Varnel, 17 radishes.",
+   "probe": "Received at Varnel, 17 radishes.",
+   "frac_actual": 0.6172,
+   "line": 671,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 4,
+   "frac": 0.6938422185677632,
+   "body": "A box of 4 onions came through Yarm.",
+   "probe": "A box of 4 onions came through Yarm.",
+   "frac_actual": 0.6889,
+   "line": 749,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 2,
+   "frac": 0.8968456834273498,
+   "body": "At Quay Nine the clerk wrote down 2 carrots.",
+   "probe": "At Quay Nine the clerk wrote down 2 carrots.",
+   "frac_actual": 0.9062,
+   "line": 922,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 51
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

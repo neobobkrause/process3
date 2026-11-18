@@ -1,0 +1,469 @@
+{
+ "id": "jgnjb7",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 7,
+ "files": [
+  "reading2/jgnjb7/01-joined.mjs",
+  "reading2/jgnjb7/02-layerflow-test.mjs",
+  "reading2/jgnjb7/03-process4-disposition.md",
+  "reading2/jgnjb7/04-joined.md",
+  "reading2/jgnjb7/05-joined.mjs",
+  "reading2/jgnjb7/06-joined.md",
+  "reading2/jgnjb7/07-joined.mjs",
+  "reading2/jgnjb7/08-joined.mjs",
+  "reading2/jgnjb7/09-joined.md",
+  "reading2/jgnjb7/10-joined.mjs",
+  "reading2/jgnjb7/11-coordinator-findings-3-4nov.md",
+  "reading2/jgnjb7/12-foundations.md",
+  "reading2/jgnjb7/13-joined.mjs",
+  "reading2/jgnjb7/14-layerflow-test.mjs",
+  "reading2/jgnjb7/15-joined.mjs",
+  "reading2/jgnjb7/16-status.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "requirements",
+  "design",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "principles",
+  "code",
+  "logs",
+  "principles",
+  "code",
+  "code",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1257,
+    "e": 1408
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1822,
+    "e": 2207
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1247,
+    "e": 1822
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 240,
+    "e": 460
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 330,
+    "e": 405
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "s": 0,
+    "e": 96
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 407,
+    "e": 501
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "s": 372,
+    "e": 438
+   },
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "s": 0,
+    "e": 280
+   },
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "s": 0,
+    "e": 308
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-b.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "s": 0,
+    "e": 254
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+    "s": 0,
+    "e": 29
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+    "s": 0,
+    "e": 36
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-b.md",
+    "s": 0,
+    "e": 32
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov.md",
+    "s": 0,
+    "e": 6
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 83,
+    "e": 231
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 0,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "s": 0,
+    "e": 148
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 0,
+    "e": 268
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__admit.mjs",
+    "s": 32,
+    "e": 130
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "s": 0,
+    "e": 365
+   },
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 19,
+    "e": 21
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "s": 0,
+    "e": 101
+   },
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "s": 0,
+    "e": 200
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "s": 0,
+    "e": 65
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "s": 0,
+    "e": 15
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 0,
+    "e": 42
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "s": 121,
+    "e": 468
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 0,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "s": 0,
+    "e": 122
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 408,
+    "e": 544
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 42,
+    "e": 226
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "s": 257,
+    "e": 298
+   },
+   {
+    "doc": "code/tool__lib__basered.mjs",
+    "s": 0,
+    "e": 355
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "s": 0,
+    "e": 309
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 644,
+    "e": 1247
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 150,
+    "e": 628
+   },
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "s": 0,
+    "e": 87
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "s": 0,
+    "e": 80
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 583,
+    "e": 1213
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 769514,
+ "lines": 8023,
+ "task": "rle",
+ "values": {
+  "code1": "M2D-9747",
+  "code2": "Y5R-4207",
+  "w_last": "orrery",
+  "w_name": "kestrel",
+  "w_desk": "tamarind",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "owls",
+   "plovers",
+   "robins",
+   "finches",
+   "wrens",
+   "swifts",
+   "herons",
+   "cranes",
+   "larks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref M2D-9747",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.2094278143882667,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref M2D-9747`.",
+   "probe": "# ref M2D-9747",
+   "file_index": 0,
+   "frac_actual": 0.0998,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/jgnjb7/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under orrery",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.45460680520531305,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under orrery`.",
+   "probe": "-- filed under orrery",
+   "file_index": 8,
+   "frac_actual": 0.4543,
+   "line": 240,
+   "hits": 1,
+   "file": "reading2/jgnjb7/09-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: tamarind",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.30566593028559186,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: tamarind`.",
+   "probe": "desk: tamarind",
+   "file_index": 15,
+   "frac_actual": 0.9003,
+   "line": 566,
+   "hits": 1,
+   "file": "reading2/jgnjb7/16-status.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5206915850953883,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 4,
+   "frac_actual": 0.5175,
+   "line": 340,
+   "hits": 1,
+   "file": "reading2/jgnjb7/05-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.32580489507327726,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "file_index": 11,
+   "frac_actual": 0.3207,
+   "line": 65,
+   "hits": 1,
+   "file": "reading2/jgnjb7/12-foundations.md"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 10,
+   "frac": 0.4387262169821386,
+   "body": "10 gulls were logged at the Rigg gate.",
+   "probe": "10 gulls were logged at the Rigg gate.",
+   "file_index": 3,
+   "frac_actual": 0.396,
+   "line": 94,
+   "hits": 1,
+   "file": "reading2/jgnjb7/04-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 16,
+   "frac": 0.06434730541189973,
+   "body": "Tally for Corrie: 16 owls.",
+   "probe": "Tally for Corrie: 16 owls.",
+   "file_index": 3,
+   "frac_actual": 0.0012,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/jgnjb7/04-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 12,
+   "frac": 0.5813811829175642,
+   "body": "Osk desk entered 12 plovers on the sheet.",
+   "probe": "Osk desk entered 12 plovers on the sheet.",
+   "file_index": 8,
+   "frac_actual": 0.5666,
+   "line": 297,
+   "hits": 1,
+   "file": "reading2/jgnjb7/09-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 15,
+   "frac": 0.5170081531298055,
+   "body": "Marsh Lane sent word of 15 robins on hand.",
+   "probe": "Marsh Lane sent word of 15 robins on hand.",
+   "file_index": 11,
+   "frac_actual": 0.4683,
+   "line": 103,
+   "hits": 1,
+   "file": "reading2/jgnjb7/12-foundations.md"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 7,
+   "frac": 0.14197033283885208,
+   "body": "At Uller the clerk wrote down 7 finches.",
+   "probe": "At Uller the clerk wrote down 7 finches.",
+   "file_index": 14,
+   "frac_actual": 0.1582,
+   "line": 108,
+   "hits": 1,
+   "file": "reading2/jgnjb7/15-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 60
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

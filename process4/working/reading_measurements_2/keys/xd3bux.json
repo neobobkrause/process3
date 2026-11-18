@@ -1,0 +1,253 @@
+{
+ "id": "xd3bux",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 9,
+ "files": [
+  "reading2/xd3bux/01-joined.md",
+  "reading2/xd3bux/02-joined.md",
+  "reading2/xd3bux/03-joined.md",
+  "reading2/xd3bux/04-joined.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "design",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "s": 187,
+    "e": 274
+   },
+   {
+    "doc": "design/notes__receipt-regate-options.md",
+    "s": 0,
+    "e": 91
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "s": 0,
+    "e": 269
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 0,
+    "e": 76
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 137,
+    "e": 336
+   },
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 0,
+    "e": 256
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 203,
+    "e": 390
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 0,
+    "e": 165
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "s": 322,
+    "e": 525
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "s": 0,
+    "e": 153
+   },
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "s": 0,
+    "e": 95
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 0,
+    "e": 124
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "s": 0,
+    "e": 181
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 191229,
+ "lines": 2156,
+ "task": "dedupe",
+ "values": {
+  "code1": "L4R-6766",
+  "code2": "E7R-2310",
+  "w_last": "larkspur",
+  "w_name": "orrery",
+  "w_desk": "ostler",
+  "name_a": "Odette Fairweather",
+  "name_b": "Kwabena Asantewaa",
+  "family": "trees",
+  "members": [
+   "elms",
+   "willows",
+   "birches",
+   "alders",
+   "larches",
+   "beeches",
+   "oaks",
+   "cedars",
+   "maples",
+   "pines"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref L4R-6766",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.234542685461546,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref L4R-6766`.",
+   "probe": "# ref L4R-6766",
+   "file_index": 0,
+   "frac_actual": 0.089,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/xd3bux/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: ostler",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6783660348469052,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: ostler`.",
+   "probe": "desk: ostler",
+   "file_index": 2,
+   "frac_actual": 0.5495,
+   "line": 201,
+   "hits": 1,
+   "file": "reading2/xd3bux/03-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under larkspur",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.502047479125342,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
+   "probe": "-- filed under larkspur",
+   "file_index": 3,
+   "frac_actual": 0.9123,
+   "line": 674,
+   "hits": 1,
+   "file": "reading2/xd3bux/04-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6323798991768169,
+   "value": "reviewer: Odette Fairweather",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 0,
+   "frac_actual": 0.6174,
+   "line": 346,
+   "hits": 1,
+   "file": "reading2/xd3bux/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.18453466006784122,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "file_index": 3,
+   "frac_actual": 0.327,
+   "line": 209,
+   "hits": 1,
+   "file": "reading2/xd3bux/04-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 10,
+   "frac": 0.9099440391343937,
+   "body": "Marsh Lane desk entered 10 elms on the sheet.",
+   "probe": "Marsh Lane desk entered 10 elms on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.9044,
+   "line": 523,
+   "hits": 1,
+   "file": "reading2/xd3bux/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 2,
+   "frac": 0.9218110863986596,
+   "body": "The Osk store took in 2 willows.",
+   "probe": "The Osk store took in 2 willows.",
+   "file_index": 1,
+   "frac_actual": 0.9406,
+   "line": 445,
+   "hits": 1,
+   "file": "reading2/xd3bux/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 4,
+   "frac": 0.8045294194177611,
+   "body": "Received at Eyre, 4 birches.",
+   "probe": "Received at Eyre, 4 birches.",
+   "file_index": 2,
+   "frac_actual": 0.7997,
+   "line": 286,
+   "hits": 1,
+   "file": "reading2/xd3bux/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 15,
+   "frac": 0.8635636875525828,
+   "body": "15 alders were logged at the Hale End gate.",
+   "probe": "15 alders were logged at the Hale End gate.",
+   "file_index": 3,
+   "frac_actual": 0.8681,
+   "line": 620,
+   "hits": 1,
+   "file": "reading2/xd3bux/04-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 31
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

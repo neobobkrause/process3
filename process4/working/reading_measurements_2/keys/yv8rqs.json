@@ -1,0 +1,167 @@
+{
+ "id": "yv8rqs",
+ "ladder": "single",
+ "size": 48000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__deploy.test.mjs",
+   "s": 76,
+   "e": 638
+  }
+ ],
+ "files": [
+  "reading2/yv8rqs/module.mjs"
+ ],
+ "bytes": 47491,
+ "lines": 595,
+ "task": "minutes",
+ "values": {
+  "code1": "U6R-5642",
+  "code2": "D2Q-4353",
+  "w_last": "vetiver",
+  "w_name": "cinnabar",
+  "w_desk": "dunmore",
+  "name_a": "Mikko Rantanen",
+  "name_b": "Tobias Hallworth",
+  "family": "hand tools",
+  "members": [
+   "spanners",
+   "pliers",
+   "trowels",
+   "handsaws",
+   "chisels",
+   "wrenches",
+   "rasps",
+   "awls",
+   "hammers",
+   "mallets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed D2Q-4353",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07500757917634951,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed D2Q-4353`.",
+   "probe": "run closed D2Q-4353",
+   "frac_actual": 0.0431,
+   "line": 35,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "cinnabar-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.49149805433950355,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `cinnabar-relay.md`, and under no other name.",
+   "probe": "cinnabar-relay.md",
+   "frac_actual": 0.4785,
+   "line": 307,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: dunmore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9070109638379517,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: dunmore`.",
+   "probe": "desk: dunmore",
+   "frac_actual": 0.9373,
+   "line": 557,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3638437952767014,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Mikko Rantanen`.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.3678,
+   "line": 244,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6263445952220793,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Mikko Rantanen is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.7069,
+   "line": 415,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 15,
+   "frac": 0.07698600928250962,
+   "body": "The Varnel store took in 15 spanners.",
+   "probe": "The Varnel store took in 15 spanners.",
+   "frac_actual": 0.1211,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 2,
+   "frac": 0.28079059936655903,
+   "body": "Received at Lund, 2 pliers.",
+   "probe": "Received at Lund, 2 pliers.",
+   "frac_actual": 0.291,
+   "line": 187,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 10,
+   "frac": 0.5916660771038552,
+   "body": "Pell sent word of 10 trowels on hand.",
+   "probe": "Pell sent word of 10 trowels on hand.",
+   "frac_actual": 0.5438,
+   "line": 341,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 4,
+   "frac": 0.7453278003734061,
+   "body": "At Rigg the clerk wrote down 4 handsaws.",
+   "probe": "At Rigg the clerk wrote down 4 handsaws.",
+   "frac_actual": 0.7435,
+   "line": 437,
+   "hits": 1,
+   "file": "reading2/yv8rqs/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 31
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

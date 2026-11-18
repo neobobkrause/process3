@@ -1,0 +1,179 @@
+{
+ "id": "xezkgs",
+ "ladder": "single",
+ "size": 24000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__job-sync.test.mjs",
+   "s": 93,
+   "e": 430
+  }
+ ],
+ "files": [
+  "reading2/xezkgs/module.mjs"
+ ],
+ "bytes": 23765,
+ "lines": 373,
+ "task": "sumby",
+ "values": {
+  "code1": "K9R-7813",
+  "code2": "K4Y-6643",
+  "w_last": "yarrow",
+  "w_name": "elderwood",
+  "w_desk": "umberfield",
+  "name_a": "Ines Carrowby",
+  "name_b": "Greta Lindqvist",
+  "family": "musical instruments",
+  "members": [
+   "banjos",
+   "cellos",
+   "oboes",
+   "flutes",
+   "clarinets",
+   "bassoons",
+   "violins",
+   "tubas",
+   "harps",
+   "trumpets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: umberfield",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07273023053351019,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.",
+   "probe": "desk: umberfield",
+   "frac_actual": 0.074,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "elderwood-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47694501567685416,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `elderwood-relay.md`, and under no other name.",
+   "probe": "elderwood-relay.md",
+   "frac_actual": 0.4778,
+   "line": 173,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed K4Y-6643",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9476165166593757,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed K4Y-6643`.",
+   "probe": "run closed K4Y-6643",
+   "frac_actual": 0.9478,
+   "line": 351,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.26550091657747,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.2659,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6461648013659692,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.6433,
+   "line": 240,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 14,
+   "frac": 0.15637924583853924,
+   "body": "Received at Marsh Lane, 14 banjos.",
+   "probe": "Received at Marsh Lane, 14 banjos.",
+   "frac_actual": 0.1562,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 7,
+   "frac": 0.29172294097849927,
+   "body": "Hale End sent word of 7 cellos on hand.",
+   "probe": "Hale End sent word of 7 cellos on hand.",
+   "frac_actual": 0.2893,
+   "line": 115,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 19,
+   "frac": 0.5597632149949113,
+   "body": "The Varnel store took in 19 oboes.",
+   "probe": "The Varnel store took in 19 oboes.",
+   "frac_actual": 0.5592,
+   "line": 205,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 9,
+   "frac": 0.6247431660141314,
+   "body": "Tally for Eyre: 9 flutes.",
+   "probe": "Tally for Eyre: 9 flutes.",
+   "frac_actual": 0.6258,
+   "line": 230,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 2,
+   "frac": 0.943009043660438,
+   "body": "At Pell the clerk wrote down 2 clarinets.",
+   "probe": "At Pell the clerk wrote down 2 clarinets.",
+   "frac_actual": 0.9424,
+   "line": 344,
+   "hits": 1,
+   "file": "reading2/xezkgs/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 51
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

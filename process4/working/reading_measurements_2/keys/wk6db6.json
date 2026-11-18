@@ -1,0 +1,152 @@
+{
+ "id": "wk6db6",
+ "ladder": "start",
+ "size": 4096,
+ "index": 1,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "s": 52,
+   "e": 67
+  }
+ ],
+ "files": [],
+ "bytes": 4078,
+ "lines": 68,
+ "task": "minutes",
+ "values": {
+  "code1": "M9F-2191",
+  "code2": "J6E-3504",
+  "w_last": "tamarind",
+  "w_name": "saltmarsh",
+  "w_desk": "nettlecombe",
+  "name_a": "Soren Achterberg",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "fruit",
+  "members": [
+   "figs",
+   "cherries",
+   "apricots",
+   "peaches",
+   "pears",
+   "limes",
+   "lemons",
+   "quinces",
+   "plums",
+   "mangoes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: nettlecombe",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.023774881905261946,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: nettlecombe`.",
+   "probe": "desk: nettlecombe",
+   "frac_actual": 0.0307,
+   "line": 3,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5120252453493367,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "frac_actual": 0.5027,
+   "line": 29,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref M9F-2191",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9581307679844853,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref M9F-2191`.",
+   "probe": "# ref M9F-2191",
+   "frac_actual": 0.9431,
+   "line": 52,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.26222491310799334,
+   "value": "reviewer: Soren Achterberg",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.2701,
+   "line": 17,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8787754173413815,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.8794,
+   "line": 43,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 17,
+   "frac": 0.19188434080751113,
+   "body": "At Stane the clerk wrote down 17 figs.",
+   "probe": "At Stane the clerk wrote down 17 figs.",
+   "frac_actual": 0.1902,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 10,
+   "frac": 0.39696918439443096,
+   "body": "A box of 10 cherries came through Osk.",
+   "probe": "A box of 10 cherries came through Osk.",
+   "frac_actual": 0.3758,
+   "line": 23,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 6,
+   "frac": 0.9241038123359064,
+   "body": "Received at Pell, 6 apricots.",
+   "probe": "Received at Pell, 6 apricots.",
+   "frac_actual": 0.9273,
+   "line": 48,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 33
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,513 @@
+{
+ "id": "xhukqm",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 1,
+ "files": [
+  "reading2/xhukqm/01-05-misc.md",
+  "reading2/xhukqm/02-job-sync-test.mjs",
+  "reading2/xhukqm/03-coordinator-findings-3-4nov.md",
+  "reading2/xhukqm/04-process4-five-points.md",
+  "reading2/xhukqm/05-job.mjs",
+  "reading2/xhukqm/06-notice-test.mjs",
+  "reading2/xhukqm/07-joined.md",
+  "reading2/xhukqm/08-process4-disposition.md",
+  "reading2/xhukqm/09-joined.mjs",
+  "reading2/xhukqm/10-audit-foundations.md",
+  "reading2/xhukqm/11-setup-test.mjs",
+  "reading2/xhukqm/12-coordinator-findings-3-4nov.md",
+  "reading2/xhukqm/13-record-test.mjs",
+  "reading2/xhukqm/14-lanes-process3-record.md",
+  "reading2/xhukqm/15-process4-definition-v6.md",
+  "reading2/xhukqm/16-restart-speed-test.mjs",
+  "reading2/xhukqm/17-gateclass-test.mjs",
+  "reading2/xhukqm/18-ledger-map.md",
+  "reading2/xhukqm/19-joined.mjs",
+  "reading2/xhukqm/20-checks.mjs",
+  "reading2/xhukqm/21-coordinator-findings-3-4nov.md",
+  "reading2/xhukqm/22-github-pacing.md",
+  "reading2/xhukqm/23-layerflow-test.mjs",
+  "reading2/xhukqm/24-trust-layer-review-4nov.md",
+  "reading2/xhukqm/25-generated-plain-test.mjs",
+  "reading2/xhukqm/26-joined.mjs",
+  "reading2/xhukqm/27-rounds.mjs",
+  "reading2/xhukqm/28-merge.mjs",
+  "reading2/xhukqm/29-notice-test.mjs",
+  "reading2/xhukqm/30-joined.md",
+  "reading2/xhukqm/31-coordinator-findings-3-4nov.md",
+  "reading2/xhukqm/32-lane.mjs"
+ ],
+ "file_kinds": [
+  "logs",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "principles",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "logs",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "s": 20,
+    "e": 239
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 202,
+    "e": 375
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 68,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 271,
+    "e": 406
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 0,
+    "e": 186
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 249,
+    "e": 277
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 97,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 486,
+    "e": 565
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "s": 70,
+    "e": 120
+   },
+   {
+    "doc": "code/tool__lib__deploycfg.mjs",
+    "s": 0,
+    "e": 38
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "s": 0,
+    "e": 81
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 0,
+    "e": 86
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 0,
+    "e": 177
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 782,
+    "e": 838
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 779,
+    "e": 957
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 91,
+    "e": 165
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 190,
+    "e": 255
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 149,
+    "e": 274
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 0,
+    "e": 176
+   }
+  ],
+  [
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "s": 53,
+    "e": 181
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1342,
+    "e": 1344
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "s": 0,
+    "e": 162
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 618,
+    "e": 642
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__github-pacing.md",
+    "s": 0,
+    "e": 117
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 184,
+    "e": 317
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 0,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "s": 187,
+    "e": 373
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 328,
+    "e": 395
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "s": 0,
+    "e": 68
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 0,
+    "e": 143
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 610,
+    "e": 790
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 348,
+    "e": 530
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "s": 163,
+    "e": 164
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "s": 0,
+    "e": 33
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+    "s": 0,
+    "e": 20
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "s": 0,
+    "e": 55
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 554,
+    "e": 581
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 147,
+    "e": 281
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 390840,
+ "lines": 4138,
+ "task": "colsum",
+ "values": {
+  "code1": "M3E-4255",
+  "code2": "P6S-9018",
+  "w_last": "thistledown",
+  "w_name": "hollowell",
+  "w_desk": "marlowe",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Priya Venkataram",
+  "family": "fruit",
+  "members": [
+   "peaches",
+   "cherries",
+   "limes",
+   "plums",
+   "apricots",
+   "mangoes",
+   "figs",
+   "lemons",
+   "quinces",
+   "pears"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed P6S-9018",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.49261431908234876,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed P6S-9018`.",
+   "probe": "run closed P6S-9018",
+   "file_index": 0,
+   "frac_actual": 0.092,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/xhukqm/01-05-misc.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "hollowell-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.363967429575516,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `hollowell-relay.md`, and under no other name.",
+   "probe": "hollowell-relay.md",
+   "file_index": 16,
+   "frac_actual": 0.4593,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/xhukqm/17-gateclass-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under thistledown",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7074710035581886,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under thistledown`.",
+   "probe": "-- filed under thistledown",
+   "file_index": 31,
+   "frac_actual": 0.9219,
+   "line": 134,
+   "hits": 1,
+   "file": "reading2/xhukqm/32-lane.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5701719807099004,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 15,
+   "frac_actual": 0.5609,
+   "line": 75,
+   "hits": 1,
+   "file": "reading2/xhukqm/16-restart-speed-test.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2133102087314118,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "file_index": 20,
+   "frac_actual": 0.209,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/xhukqm/21-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 17,
+   "frac": 0.3950418211284287,
+   "body": "Tally for Thorpe: 17 peaches.",
+   "probe": "Tally for Thorpe: 17 peaches.",
+   "file_index": 1,
+   "frac_actual": 0.3938,
+   "line": 66,
+   "hits": 1,
+   "file": "reading2/xhukqm/02-job-sync-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 14,
+   "frac": 0.2569640103815825,
+   "body": "Eyre desk entered 14 cherries on the sheet.",
+   "probe": "Eyre desk entered 14 cherries on the sheet.",
+   "file_index": 10,
+   "frac_actual": 0.2525,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/xhukqm/11-setup-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 13,
+   "frac": 0.8429159636148398,
+   "body": "The Pell store took in 13 limes.",
+   "probe": "The Pell store took in 13 limes.",
+   "file_index": 15,
+   "frac_actual": 0.8455,
+   "line": 113,
+   "hits": 1,
+   "file": "reading2/xhukqm/16-restart-speed-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 11,
+   "frac": 0.21892612390445682,
+   "body": "At Corrie the clerk wrote down 11 plums.",
+   "probe": "At Corrie the clerk wrote down 11 plums.",
+   "file_index": 23,
+   "frac_actual": 0.2202,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/xhukqm/24-trust-layer-review-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 12,
+   "frac": 0.48167331665358404,
+   "body": "A box of 12 apricots came through Dunn.",
+   "probe": "A box of 12 apricots came through Dunn.",
+   "file_index": 26,
+   "frac_actual": 0.4794,
+   "line": 72,
+   "hits": 1,
+   "file": "reading2/xhukqm/27-rounds.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 67
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

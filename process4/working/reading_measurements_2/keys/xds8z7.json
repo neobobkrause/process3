@@ -1,0 +1,179 @@
+{
+ "id": "xds8z7",
+ "ladder": "start",
+ "size": 65536,
+ "index": 2,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__account-switch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations-proposed-changes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+   "lines": "1-82"
+  }
+ ],
+ "files": [],
+ "bytes": 64680,
+ "lines": 682,
+ "task": "minutes",
+ "values": {
+  "code1": "P2C-1493",
+  "code2": "Y3W-5549",
+  "w_last": "marlowe",
+  "w_name": "ostler",
+  "w_desk": "hollowell",
+  "name_a": "Calum Drysdale",
+  "name_b": "Yasmin Benhaddou",
+  "family": "vegetables",
+  "members": [
+   "leeks",
+   "parsnips",
+   "onions",
+   "shallots",
+   "carrots",
+   "beets",
+   "radishes",
+   "marrows",
+   "turnips",
+   "cabbages"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under marlowe",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06627905212930499,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under marlowe`.",
+   "probe": "-- filed under marlowe",
+   "frac_actual": 0.0664,
+   "line": 66,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "ostler-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5006284243950841,
+   "body": "Every job must note: the job's handover note is saved under the file name `ostler-relay.md`, and under no other name.",
+   "probe": "ostler-relay.md",
+   "frac_actual": 0.5015,
+   "line": 321,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref P2C-1493",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9394043939848893,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref P2C-1493`.",
+   "probe": "# ref P2C-1493",
+   "frac_actual": 0.9401,
+   "line": 619,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.21846659343145303,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.2174,
+   "line": 189,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5458199602245288,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.5495,
+   "line": 353,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 16,
+   "frac": 0.17536436126927835,
+   "body": "Tally for Quay Nine: 16 leeks.",
+   "probe": "Tally for Quay Nine: 16 leeks.",
+   "frac_actual": 0.1791,
+   "line": 155,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 3,
+   "frac": 0.6400166118502203,
+   "body": "At Wick the clerk wrote down 3 parsnips.",
+   "probe": "At Wick the clerk wrote down 3 parsnips.",
+   "frac_actual": 0.6334,
+   "line": 404,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 13,
+   "frac": 0.9012882740537039,
+   "body": "Lund sent word of 13 onions on hand.",
+   "probe": "Lund sent word of 13 onions on hand.",
+   "frac_actual": 0.8959,
+   "line": 591,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 32
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

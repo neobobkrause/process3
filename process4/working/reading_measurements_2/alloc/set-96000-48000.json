@@ -1,0 +1,332 @@
+{
+ "0": {
+  "id": "fffr5u",
+  "members": [
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 115,
+    "s": 15
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "e": 68,
+    "s": 0
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "e": 54,
+    "s": 0
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "e": 15,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "e": 85,
+    "s": 0
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "e": 10,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 1017,
+    "s": 615
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "e": 283,
+    "s": 0
+   }
+  ]
+ },
+ "1": {
+  "id": "sz36k9",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 809,
+    "s": 653
+   },
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "e": 120,
+    "s": 53
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 1082,
+    "s": 592
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "e": 65,
+    "s": 0
+   }
+  ]
+ },
+ "2": {
+  "id": "zr9pud",
+  "members": [
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "e": 124,
+    "s": 55
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "e": 398,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 1350,
+    "s": 1213
+   },
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "e": 325,
+    "s": 7
+   }
+  ]
+ },
+ "3": {
+  "id": "pbvm4t",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 220,
+    "s": 110
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 1171,
+    "s": 614
+   }
+  ]
+ },
+ "4": {
+  "id": "axa58m",
+  "members": [
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "e": 464,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "e": 285,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "e": 70,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "e": 1,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "e": 425,
+    "s": 118
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "e": 278,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__direct.test.mjs",
+    "e": 87,
+    "s": 0
+   }
+  ]
+ },
+ "5": {
+  "id": "vfwsuk",
+  "members": [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "e": 584,
+    "s": 80
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "e": 157,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 2244,
+    "s": 1869
+   },
+   {
+    "doc": "code/tool__lib__carry.mjs",
+    "e": 57,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "e": 120,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "e": 14,
+    "s": 0
+   }
+  ]
+ },
+ "6": {
+  "id": "tpbaas",
+  "members": [
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "e": 246,
+    "s": 225
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "e": 335,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "e": 457,
+    "s": 75
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "e": 89,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "e": 87,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "e": 116,
+    "s": 0
+   }
+  ]
+ },
+ "7": {
+  "id": "mvg6p3",
+  "members": [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 597,
+    "s": 476
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "e": 269,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "e": 18,
+    "s": 0
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "e": 209,
+    "s": 89
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "e": 49,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "e": 39,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "e": 207,
+    "s": 0
+   }
+  ]
+ },
+ "8": {
+  "id": "nkqvts",
+  "members": [
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "e": 495,
+    "s": 152
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "e": 242,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "e": 55,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 741,
+    "s": 488
+   },
+   {
+    "doc": "design/process4__working__audit2_common.md",
+    "e": 44,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "e": 9,
+    "s": 0
+   }
+  ]
+ },
+ "9": {
+  "id": "gvv494",
+  "members": [
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "e": 464,
+    "s": 258
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "e": 305,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__pushcheck.mjs",
+    "e": 58,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "e": 64,
+    "s": 0
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 276,
+    "s": 97
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 660,
+    "s": 460
+   }
+  ]
+ }
+}

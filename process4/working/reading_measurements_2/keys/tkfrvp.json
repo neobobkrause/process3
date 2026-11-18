@@ -1,0 +1,531 @@
+{
+ "id": "tkfrvp",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 0,
+ "files": [
+  "reading2/tkfrvp/01-coordinator-findings-3-4nov.md",
+  "reading2/tkfrvp/02-merge.mjs",
+  "reading2/tkfrvp/03-job.mjs",
+  "reading2/tkfrvp/04-notice-test.mjs",
+  "reading2/tkfrvp/05-joined.mjs",
+  "reading2/tkfrvp/06-release-test.mjs",
+  "reading2/tkfrvp/07-joined.md",
+  "reading2/tkfrvp/08-joined.mjs",
+  "reading2/tkfrvp/09-decisions.md",
+  "reading2/tkfrvp/10-joined.md",
+  "reading2/tkfrvp/11-attack-corruption.md",
+  "reading2/tkfrvp/12-layerflow.mjs",
+  "reading2/tkfrvp/13-joined.mjs",
+  "reading2/tkfrvp/14-lead.mjs",
+  "reading2/tkfrvp/15-joined.md",
+  "reading2/tkfrvp/16-job-test.mjs",
+  "reading2/tkfrvp/17-gate-test.mjs",
+  "reading2/tkfrvp/18-audit-b.md",
+  "reading2/tkfrvp/19-enforcement-levers.md",
+  "reading2/tkfrvp/20-shims-test.mjs",
+  "reading2/tkfrvp/21-joined.mjs",
+  "reading2/tkfrvp/22-joined.mjs",
+  "reading2/tkfrvp/23-setup.mjs",
+  "reading2/tkfrvp/24-coordinator-findings-3-4nov.md",
+  "reading2/tkfrvp/25-results.md",
+  "reading2/tkfrvp/26-lane-charters.md",
+  "reading2/tkfrvp/27-ledger-lines.md",
+  "reading2/tkfrvp/28-audit-ledger.md",
+  "reading2/tkfrvp/29-readme.md",
+  "reading2/tkfrvp/30-ledger-lines.md",
+  "reading2/tkfrvp/31-readme.md",
+  "reading2/tkfrvp/32-round-next-test.mjs"
+ ],
+ "file_kinds": [
+  "logs",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "principles",
+  "code",
+  "requirements",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "design",
+  "principles",
+  "requirements",
+  "design",
+  "principles",
+  "requirements",
+  "principles",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 382,
+    "e": 424
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 155,
+    "e": 305
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 406,
+    "e": 543
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 530,
+    "e": 678
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 819,
+    "e": 827
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 0,
+    "e": 149
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 0,
+    "e": 154
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "s": 18,
+    "e": 85
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "s": 120,
+    "e": 189
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 319,
+    "e": 325
+   },
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "s": 0,
+    "e": 153
+   }
+  ],
+  [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 110,
+    "e": 154
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 1017,
+    "e": 1026
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+    "s": 0,
+    "e": 44
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 101,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 2365,
+    "e": 2522
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "s": 68,
+    "e": 106
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 207,
+    "e": 328
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 0,
+    "e": 141
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 1565,
+    "e": 1703
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "s": 155,
+    "e": 169
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1268,
+    "e": 1437
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 168,
+    "e": 348
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 139,
+    "e": 221
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 0,
+    "e": 84
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 4,
+    "e": 186
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 225,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "s": 0,
+    "e": 117
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "s": 64,
+    "e": 95
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 949,
+    "e": 1058
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 184,
+    "e": 347
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 663,
+    "e": 691
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "s": 0,
+    "e": 115
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "s": 0,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 1412,
+    "e": 1565
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 71,
+    "e": 136
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 20,
+    "e": 40
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 233,
+    "e": 370
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 82,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "s": 0,
+    "e": 163
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 391839,
+ "lines": 3954,
+ "task": "dates",
+ "values": {
+  "code1": "Q5Y-4130",
+  "code2": "L5F-3275",
+  "w_last": "drumlin",
+  "w_name": "nettlecombe",
+  "w_desk": "pennant",
+  "name_a": "Odette Fairweather",
+  "name_b": "Dmitri Volkonsky",
+  "family": "birds",
+  "members": [
+   "herons",
+   "larks",
+   "wrens",
+   "owls",
+   "gulls",
+   "finches",
+   "cranes",
+   "plovers",
+   "swifts",
+   "robins"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "nettlecombe-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.17050557688009338,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `nettlecombe-relay.md`, and under no other name.",
+   "probe": "nettlecombe-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0964,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/tkfrvp/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under drumlin",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7388605397679868,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under drumlin`.",
+   "probe": "-- filed under drumlin",
+   "file_index": 16,
+   "frac_actual": 0.5487,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/tkfrvp/17-gate-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref Q5Y-4130",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.14169771384166996,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref Q5Y-4130`.",
+   "probe": "# ref Q5Y-4130",
+   "file_index": 31,
+   "frac_actual": 0.9188,
+   "line": 161,
+   "hits": 1,
+   "file": "reading2/tkfrvp/32-round-next-test.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.12981046103101584,
+   "value": "reviewer: Odette Fairweather",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 4,
+   "frac_actual": 0.1277,
+   "line": 28,
+   "hits": 1,
+   "file": "reading2/tkfrvp/05-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5759495042175428,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 19,
+   "frac_actual": 0.5701,
+   "line": 106,
+   "hits": 1,
+   "file": "reading2/tkfrvp/20-shims-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 10,
+   "frac": 0.5922357840142178,
+   "body": "Received at Yarm, 10 herons.",
+   "probe": "Received at Yarm, 10 herons.",
+   "file_index": 4,
+   "frac_actual": 0.5923,
+   "line": 102,
+   "hits": 1,
+   "file": "reading2/tkfrvp/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 15,
+   "frac": 0.23832199463494563,
+   "body": "Dunn desk entered 15 larks on the sheet.",
+   "probe": "Dunn desk entered 15 larks on the sheet.",
+   "file_index": 7,
+   "frac_actual": 0.2394,
+   "line": 53,
+   "hits": 1,
+   "file": "reading2/tkfrvp/08-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 9,
+   "frac": 0.1334825170376575,
+   "body": "At Stane the clerk wrote down 9 wrens.",
+   "probe": "At Stane the clerk wrote down 9 wrens.",
+   "file_index": 14,
+   "frac_actual": 0.1193,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/tkfrvp/15-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 11,
+   "frac": 0.34604204191056553,
+   "body": "Thorpe sent word of 11 owls on hand.",
+   "probe": "Thorpe sent word of 11 owls on hand.",
+   "file_index": 20,
+   "frac_actual": 0.3471,
+   "line": 72,
+   "hits": 1,
+   "file": "reading2/tkfrvp/21-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 19,
+   "frac": 0.9316006628988652,
+   "body": "A box of 19 gulls came through Varnel.",
+   "probe": "A box of 19 gulls came through Varnel.",
+   "file_index": 22,
+   "frac_actual": 0.9283,
+   "line": 155,
+   "hits": 1,
+   "file": "reading2/tkfrvp/23-setup.mjs"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 4,
+   "frac": 0.14806151960613945,
+   "body": "The Lund store took in 4 finches.",
+   "probe": "The Lund store took in 4 finches.",
+   "file_index": 30,
+   "frac_actual": 0.1371,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/tkfrvp/31-readme.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 68
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

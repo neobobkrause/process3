@@ -1,0 +1,263 @@
+{
+ "id": "xa7ub8",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 4,
+ "files": [
+  "reading2/xa7ub8/01-joined.md",
+  "reading2/xa7ub8/02-joined.md",
+  "reading2/xa7ub8/03-joined.mjs",
+  "reading2/xa7ub8/04-joined.md"
+ ],
+ "file_kinds": [
+  "design",
+  "design",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 351,
+    "e": 462
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 0,
+    "e": 232
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 239,
+    "e": 266
+   },
+   {
+    "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+    "s": 0,
+    "e": 56
+   },
+   {
+    "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+    "s": 0,
+    "e": 54
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 0,
+    "e": 179
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 0,
+    "e": 41
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 90,
+    "e": 532
+   },
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 0,
+    "e": 158
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "s": 0,
+    "e": 1
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "s": 118,
+    "e": 141
+   },
+   {
+    "doc": "design/notes__r17c-settings.md",
+    "s": 0,
+    "e": 244
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "s": 0,
+    "e": 67
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 0,
+    "e": 136
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 191459,
+ "lines": 1878,
+ "task": "minutes",
+ "values": {
+  "code1": "U3L-4520",
+  "code2": "M2R-2944",
+  "w_last": "yarrow",
+  "w_name": "drumlin",
+  "w_desk": "saltmarsh",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Soren Achterberg",
+  "family": "vegetables",
+  "members": [
+   "onions",
+   "marrows",
+   "leeks",
+   "radishes",
+   "turnips",
+   "carrots",
+   "parsnips",
+   "beets",
+   "shallots",
+   "cabbages"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5812507432238488,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "file_index": 0,
+   "frac_actual": 0.0613,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/xa7ub8/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed M2R-2944",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.24824251247730944,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed M2R-2944`.",
+   "probe": "run closed M2R-2944",
+   "file_index": 2,
+   "frac_actual": 0.4681,
+   "line": 295,
+   "hits": 1,
+   "file": "reading2/xa7ub8/03-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under yarrow",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.3590695466570638,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under yarrow`.",
+   "probe": "-- filed under yarrow",
+   "file_index": 3,
+   "frac_actual": 0.9146,
+   "line": 497,
+   "hits": 1,
+   "file": "reading2/xa7ub8/04-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.860779643785755,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 0,
+   "frac_actual": 0.8593,
+   "line": 314,
+   "hits": 1,
+   "file": "reading2/xa7ub8/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7913284713983666,
+   "value": "reviewer: Soren Achterberg",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "file_index": 2,
+   "frac_actual": 0.8017,
+   "line": 478,
+   "hits": 1,
+   "file": "reading2/xa7ub8/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 18,
+   "frac": 0.8440759431183574,
+   "body": "The Marsh Lane store took in 18 onions.",
+   "probe": "The Marsh Lane store took in 18 onions.",
+   "file_index": 0,
+   "frac_actual": 0.8586,
+   "line": 309,
+   "hits": 1,
+   "file": "reading2/xa7ub8/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 9,
+   "frac": 0.6342941234653415,
+   "body": "Yarm sent word of 9 marrows on hand.",
+   "probe": "Yarm sent word of 9 marrows on hand.",
+   "file_index": 1,
+   "frac_actual": 0.6349,
+   "line": 267,
+   "hits": 1,
+   "file": "reading2/xa7ub8/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 11,
+   "frac": 0.33738901895480533,
+   "body": "Tally for Stane: 11 leeks.",
+   "probe": "Tally for Stane: 11 leeks.",
+   "file_index": 2,
+   "frac_actual": 0.342,
+   "line": 212,
+   "hits": 1,
+   "file": "reading2/xa7ub8/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 14,
+   "frac": 0.4351372100480582,
+   "body": "A box of 14 radishes came through Wick.",
+   "probe": "A box of 14 radishes came through Wick.",
+   "file_index": 3,
+   "frac_actual": 0.4352,
+   "line": 321,
+   "hits": 1,
+   "file": "reading2/xa7ub8/04-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 52
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

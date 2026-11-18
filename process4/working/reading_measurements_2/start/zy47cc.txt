@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/zy47cc/01-sweep.mjs
+- reading2/zy47cc/02-coordinator-refresh-test.mjs
+- reading2/zy47cc/03-gate-map-4nov.md
+- reading2/zy47cc/04-foundations.md
+- reading2/zy47cc/05-change-sample.md
+- reading2/zy47cc/06-joined.md
+- reading2/zy47cc/07-process4-counterarguments.md
+- reading2/zy47cc/08-point4-release.md
+- reading2/zy47cc/09-setup-test.mjs
+- reading2/zy47cc/10-job.mjs
+- reading2/zy47cc/11-audit2-corruption.md
+- reading2/zy47cc/12-audit2-requirements.md
+- reading2/zy47cc/13-k-evidence.md
+- reading2/zy47cc/14-deploy.mjs
+- reading2/zy47cc/15-generated-plain-test.mjs
+- reading2/zy47cc/16-deploy-test.mjs
+- reading2/zy47cc/17-coordinator-findings-3-4nov.md
+- reading2/zy47cc/18-switch-test.mjs
+- reading2/zy47cc/19-joined.mjs
+- reading2/zy47cc/20-merge.mjs
+- reading2/zy47cc/21-joined.mjs
+- reading2/zy47cc/22-util.mjs
+- reading2/zy47cc/23-deploy.mjs
+- reading2/zy47cc/24-point1-tranche-end.md
+- reading2/zy47cc/25-joined.mjs
+- reading2/zy47cc/26-state.mjs
+- reading2/zy47cc/27-audit2-feasibility.md
+- reading2/zy47cc/28-workflow-limits-test.mjs
+- reading2/zy47cc/29-audit2-corruption.md
+- reading2/zy47cc/30-joined.mjs
+- reading2/zy47cc/31-joined.md
+- reading2/zy47cc/32-audit2-feasibility.md
+- reading2/zy47cc/33-joined.mjs
+- reading2/zy47cc/34-redteam-corruption.md
+- reading2/zy47cc/35-joined.md
+- reading2/zy47cc/36-joined.mjs
+- reading2/zy47cc/37-coordinator-findings-3-4nov.md
+- reading2/zy47cc/38-joined.md
+- reading2/zy47cc/39-joined.mjs
+- reading2/zy47cc/40-lanes-process3-record.md
+- reading2/zy47cc/41-merge-test.mjs
+- reading2/zy47cc/42-job.mjs
+- reading2/zy47cc/43-lead-test.mjs
+- reading2/zy47cc/44-later-requirements.md
+- reading2/zy47cc/45-joined.md
+- reading2/zy47cc/46-switch.mjs
+- reading2/zy47cc/47-deploy.mjs
+- reading2/zy47cc/48-metrics.mjs
+- reading2/zy47cc/49-register-test.mjs
+- reading2/zy47cc/50-decisions.md
+- reading2/zy47cc/51-job.mjs
+- reading2/zy47cc/52-base-red-test.mjs
+- reading2/zy47cc/53-joined.md
+- reading2/zy47cc/54-rounds-test.mjs
+- reading2/zy47cc/55-joined.md
+- reading2/zy47cc/56-audit-b.md
+- reading2/zy47cc/57-coordinator-findings-3-4nov.md
+- reading2/zy47cc/58-joined.md
+- reading2/zy47cc/59-companion-test.mjs
+- reading2/zy47cc/60-audit-ledger.md
+- reading2/zy47cc/61-process4-disposition.md
+- reading2/zy47cc/62-census-test.mjs
+- reading2/zy47cc/63-ledger-lines.md
+- reading2/zy47cc/64-coordinator-findings-3-4nov.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/zy47cc/sumby.py. It reads lines from standard input, each of the form `name,amount`, where amount is a whole number that may be negative. Blank lines are ignored. It prints one line for each name, `name total`, where total is the sum of that name's amounts, sorted by name in ascending order. Example: the input lines `pat,3`, `lee,-1`, `pat,4` give the output lines `lee -1` then `pat 7`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/zy47cc: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

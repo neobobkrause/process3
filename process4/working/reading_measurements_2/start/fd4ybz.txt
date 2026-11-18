@@ -1,0 +1,27 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/fd4ybz/01-joined.mjs
+- reading2/fd4ybz/02-joined.md
+- reading2/fd4ybz/03-joined.mjs
+- reading2/fd4ybz/04-joined.md
+- reading2/fd4ybz/05-joined.mjs
+- reading2/fd4ybz/06-joined.md
+- reading2/fd4ybz/07-layerflow.mjs
+- reading2/fd4ybz/08-joined.md
+- reading2/fd4ybz/09-joined.md
+- reading2/fd4ybz/10-joined.mjs
+- reading2/fd4ybz/11-joined.md
+- reading2/fd4ybz/12-joined.mjs
+- reading2/fd4ybz/13-layerflow-test.mjs
+- reading2/fd4ybz/14-joined.md
+- reading2/fd4ybz/15-joined.md
+- reading2/fd4ybz/16-joined.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/fd4ybz/wordtop.py. It reads all of standard input. A word is a longest run of the letters A to Z in either case; words are compared in lower case. It prints the three most frequent words, one per line as `word count`, most frequent first, with ties in count broken by alphabetical order. If there are fewer than three different words it prints those there are. Example: the input `The cat and the hat. The end, and so on.` gives `the 3`, `and 2`, `cat 1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/fd4ybz: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,236 @@
+{
+ "id": "nkqvts",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 8,
+ "files": [
+  "reading2/nkqvts/01-joined.mjs",
+  "reading2/nkqvts/02-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "s": 152,
+    "e": 495
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "s": 0,
+    "e": 242
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 0,
+    "e": 55
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 488,
+    "e": 741
+   },
+   {
+    "doc": "design/process4__working__audit2_common.md",
+    "s": 0,
+    "e": 44
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "s": 0,
+    "e": 9
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96787,
+ "lines": 998,
+ "task": "dates",
+ "values": {
+  "code1": "B4K-5957",
+  "code2": "E5G-4686",
+  "w_last": "cinnabar",
+  "w_name": "quarrystone",
+  "w_desk": "thistledown",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "fruit",
+  "members": [
+   "cherries",
+   "pears",
+   "figs",
+   "apricots",
+   "limes",
+   "mangoes",
+   "peaches",
+   "lemons",
+   "quinces",
+   "plums"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under cinnabar",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.3461481779319347,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under cinnabar`.",
+   "probe": "-- filed under cinnabar",
+   "file_index": 0,
+   "frac_actual": 0.0009,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/nkqvts/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "quarrystone-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.13657520187703118,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `quarrystone-relay.md`, and under no other name.",
+   "probe": "quarrystone-relay.md",
+   "file_index": 1,
+   "frac_actual": 0.4569,
+   "line": 159,
+   "hits": 1,
+   "file": "reading2/nkqvts/02-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed E5G-4686",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8378449388636435,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed E5G-4686`.",
+   "probe": "run closed E5G-4686",
+   "file_index": 1,
+   "frac_actual": 0.9101,
+   "line": 310,
+   "hits": 1,
+   "file": "reading2/nkqvts/02-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.42087896063851415,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 0,
+   "frac_actual": 0.5168,
+   "line": 320,
+   "hits": 1,
+   "file": "reading2/nkqvts/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4624409056408698,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 1,
+   "frac_actual": 0.4603,
+   "line": 166,
+   "hits": 1,
+   "file": "reading2/nkqvts/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 18,
+   "frac": 0.08809942739377077,
+   "body": "Tamsin Row desk entered 18 cherries on the sheet.",
+   "probe": "Tamsin Row desk entered 18 cherries on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.1201,
+   "line": 82,
+   "hits": 1,
+   "file": "reading2/nkqvts/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 13,
+   "frac": 0.3752697316776397,
+   "body": "The Corrie store took in 13 pears.",
+   "probe": "The Corrie store took in 13 pears.",
+   "file_index": 0,
+   "frac_actual": 0.5728,
+   "line": 358,
+   "hits": 1,
+   "file": "reading2/nkqvts/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 6,
+   "frac": 0.6653635767991807,
+   "body": "A box of 6 figs came through Marsh Lane.",
+   "probe": "A box of 6 figs came through Marsh Lane.",
+   "file_index": 0,
+   "frac_actual": 0.6346,
+   "line": 413,
+   "hits": 1,
+   "file": "reading2/nkqvts/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 16,
+   "frac": 0.12195562706938358,
+   "body": "Tally for Osk: 16 apricots.",
+   "probe": "Tally for Osk: 16 apricots.",
+   "file_index": 1,
+   "frac_actual": 0.1135,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/nkqvts/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 14,
+   "frac": 0.280446898328572,
+   "body": "Rigg sent word of 14 limes on hand.",
+   "probe": "Rigg sent word of 14 limes on hand.",
+   "file_index": 1,
+   "frac_actual": 0.2532,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/nkqvts/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 8,
+   "frac": 0.6885489021269351,
+   "body": "At Pell the clerk wrote down 8 mangoes.",
+   "probe": "At Pell the clerk wrote down 8 mangoes.",
+   "file_index": 1,
+   "frac_actual": 0.6824,
+   "line": 228,
+   "hits": 1,
+   "file": "reading2/nkqvts/02-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 75
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,191 @@
+{
+ "id": "xs3wm6",
+ "ladder": "single",
+ "size": 48000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__merge.test.mjs",
+   "s": 178,
+   "e": 851
+  }
+ ],
+ "files": [
+  "reading2/xs3wm6/module.mjs"
+ ],
+ "bytes": 47583,
+ "lines": 711,
+ "task": "rle",
+ "values": {
+  "code1": "R9Q-1484",
+  "code2": "X9T-9040",
+  "w_last": "cinnabar",
+  "w_name": "umberfield",
+  "w_desk": "harrowgate",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Yasmin Benhaddou",
+  "family": "fish",
+  "members": [
+   "bream",
+   "mackerel",
+   "pike",
+   "cod",
+   "carp",
+   "trout",
+   "salmon",
+   "eels",
+   "herring",
+   "perch"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under cinnabar",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03794663505221652,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under cinnabar`.",
+   "probe": "-- filed under cinnabar",
+   "frac_actual": 0.0269,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed X9T-9040",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5378540638390388,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed X9T-9040`.",
+   "probe": "run closed X9T-9040",
+   "frac_actual": 0.5214,
+   "line": 360,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: harrowgate",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9263384391823246,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.",
+   "probe": "desk: harrowgate",
+   "frac_actual": 0.975,
+   "line": 696,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.23490557952534838,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.2317,
+   "line": 161,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8290624647228622,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.8228,
+   "line": 586,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 6,
+   "frac": 0.18588641763040853,
+   "body": "Received at Corrie, 6 bream.",
+   "probe": "Received at Corrie, 6 bream.",
+   "frac_actual": 0.2024,
+   "line": 132,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 12,
+   "frac": 0.24110196276072515,
+   "body": "At Pell the clerk wrote down 12 mackerel.",
+   "probe": "At Pell the clerk wrote down 12 mackerel.",
+   "frac_actual": 0.3275,
+   "line": 219,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 14,
+   "frac": 0.4740398242322359,
+   "body": "Tally for Marsh Lane: 14 pike.",
+   "probe": "Tally for Marsh Lane: 14 pike.",
+   "frac_actual": 0.4795,
+   "line": 331,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 17,
+   "frac": 0.5633822489217404,
+   "body": "A box of 17 cod came through Thorpe.",
+   "probe": "A box of 17 cod came through Thorpe.",
+   "frac_actual": 0.5953,
+   "line": 416,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 10,
+   "frac": 0.7530641795735759,
+   "body": "Dunn desk entered 10 carp on the sheet.",
+   "probe": "Dunn desk entered 10 carp on the sheet.",
+   "frac_actual": 0.7563,
+   "line": 536,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 16,
+   "frac": 0.8313136140422118,
+   "body": "16 trout were logged at the Brae gate.",
+   "probe": "16 trout were logged at the Brae gate.",
+   "frac_actual": 0.844,
+   "line": 605,
+   "hits": 1,
+   "file": "reading2/xs3wm6/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 75
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

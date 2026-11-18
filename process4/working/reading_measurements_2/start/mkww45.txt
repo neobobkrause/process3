@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/mkww45/01-restart-speed-test.mjs
+- reading2/mkww45/02-result.md
+- reading2/mkww45/03-point2-process-rule.md
+- reading2/mkww45/04-results.md
+- reading2/mkww45/05-util.mjs
+- reading2/mkww45/06-layerflow-test.mjs
+- reading2/mkww45/07-interface-and-cycle.md
+- reading2/mkww45/08-joined.mjs
+- reading2/mkww45/09-joined.mjs
+- reading2/mkww45/10-joined.mjs
+- reading2/mkww45/11-06-methods-a.md
+- reading2/mkww45/12-coordinator-findings-3-4nov.md
+- reading2/mkww45/13-point5-288-lines.md
+- reading2/mkww45/14-joined.mjs
+- reading2/mkww45/15-k-evidence.md
+- reading2/mkww45/16-audit2-feasibility.md
+- reading2/mkww45/17-joined.mjs
+- reading2/mkww45/18-merge.mjs
+- reading2/mkww45/19-joined.mjs
+- reading2/mkww45/20-switch-test.mjs
+- reading2/mkww45/21-joined.md
+- reading2/mkww45/22-levers-github-cloudflare-pro.md
+- reading2/mkww45/23-rerun-more-test.mjs
+- reading2/mkww45/24-gate.mjs
+- reading2/mkww45/25-process4-definition-v6.md
+- reading2/mkww45/26-roles-root-coordinator.md
+- reading2/mkww45/27-record-test.mjs
+- reading2/mkww45/28-pace.mjs
+- reading2/mkww45/29-exports.mjs
+- reading2/mkww45/30-lanes-owner-documents.md
+- reading2/mkww45/31-status.mjs
+- reading2/mkww45/32-joined.md
+- reading2/mkww45/33-coordinator-findings-3-4nov.md
+- reading2/mkww45/34-joined.md
+- reading2/mkww45/35-pace-test.mjs
+- reading2/mkww45/36-assessment-doc.md
+- reading2/mkww45/37-audit-d-central.md
+- reading2/mkww45/38-joined.mjs
+- reading2/mkww45/39-causal-forensics.md
+- reading2/mkww45/40-audit-c.md
+- reading2/mkww45/41-joined.mjs
+- reading2/mkww45/42-joined.mjs
+- reading2/mkww45/43-joined.mjs
+- reading2/mkww45/44-foundations.md
+- reading2/mkww45/45-notice-test.mjs
+- reading2/mkww45/46-joined.mjs
+- reading2/mkww45/47-restart-speed-test.mjs
+- reading2/mkww45/48-joined.md
+- reading2/mkww45/49-joined.md
+- reading2/mkww45/50-merge.mjs
+- reading2/mkww45/51-decisions.md
+- reading2/mkww45/52-merge.mjs
+- reading2/mkww45/53-setup-test.mjs
+- reading2/mkww45/54-appendix-commits.md
+- reading2/mkww45/55-joined.mjs
+- reading2/mkww45/56-process4-definition-appendix.md
+- reading2/mkww45/57-joined.mjs
+- reading2/mkww45/58-joined.mjs
+- reading2/mkww45/59-measures-test.mjs
+- reading2/mkww45/60-layerflow-test.mjs
+- reading2/mkww45/61-session-safety-test.mjs
+- reading2/mkww45/62-joined.mjs
+- reading2/mkww45/63-joined.mjs
+- reading2/mkww45/64-audit-foundations.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/mkww45/merge.py. It reads lines from standard input, each holding two whole numbers `start end` with start not greater than end, a closed range. Blank lines are ignored. It merges ranges that overlap or that touch (one ends at n and another starts at n+1) and prints the merged ranges, one per line as `start end`, sorted by start. Example: the input lines `5 8`, `1 3`, `4 4`, `10 12` give the output lines `1 8` then `10 12`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/mkww45: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,206 @@
+{
+ "id": "cukvpe",
+ "ladder": "single",
+ "size": 192000,
+ "index": 1,
+ "kind": "design",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__enforcement_levers.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_corruption.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_feasibility.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point5_288_lines.md",
+   "lines": "1-185"
+  }
+ ],
+ "files": [
+  "reading2/cukvpe/design.md"
+ ],
+ "bytes": 191731,
+ "lines": 1521,
+ "task": "merge",
+ "values": {
+  "code1": "U4S-6971",
+  "code2": "Y8A-7073",
+  "w_last": "larkspur",
+  "w_name": "umberfield",
+  "w_desk": "saltmarsh",
+  "name_a": "Ines Carrowby",
+  "name_b": "Octavio Montenegro",
+  "family": "vegetables",
+  "members": [
+   "marrows",
+   "beets",
+   "cabbages",
+   "leeks",
+   "parsnips",
+   "shallots",
+   "onions",
+   "radishes",
+   "turnips",
+   "carrots"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08770457846187044,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "frac_actual": 0.088,
+   "line": 133,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref U4S-6971",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5098382885581212,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref U4S-6971`.",
+   "probe": "# ref U4S-6971",
+   "frac_actual": 0.5115,
+   "line": 736,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9052142524076661,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "frac_actual": 0.9089,
+   "line": 1394,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.36541984612771194,
+   "value": "reviewer: Ines Carrowby",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.3619,
+   "line": 516,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6707142109862494,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.6711,
+   "line": 985,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 17,
+   "frac": 0.13078704131726132,
+   "body": "Lund sent word of 17 marrows on hand.",
+   "probe": "Lund sent word of 17 marrows on hand.",
+   "frac_actual": 0.1363,
+   "line": 185,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 8,
+   "frac": 0.3419051984292584,
+   "body": "8 beets were logged at the Uller gate.",
+   "probe": "8 beets were logged at the Uller gate.",
+   "frac_actual": 0.3427,
+   "line": 483,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 3,
+   "frac": 0.4770767276629323,
+   "body": "At Tamsin Row the clerk wrote down 3 cabbages.",
+   "probe": "At Tamsin Row the clerk wrote down 3 cabbages.",
+   "frac_actual": 0.4771,
+   "line": 676,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 11,
+   "frac": 0.5367230958492928,
+   "body": "The Varnel store took in 11 leeks.",
+   "probe": "The Varnel store took in 11 leeks.",
+   "frac_actual": 0.534,
+   "line": 777,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 13,
+   "frac": 0.7731724280742281,
+   "body": "Received at Yarm, 13 parsnips.",
+   "probe": "Received at Yarm, 13 parsnips.",
+   "frac_actual": 0.7724,
+   "line": 1157,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 19,
+   "frac": 0.9155668558682553,
+   "body": "Tally for Osk: 19 shallots.",
+   "probe": "Tally for Osk: 19 shallots.",
+   "frac_actual": 0.9196,
+   "line": 1407,
+   "hits": 1,
+   "file": "reading2/cukvpe/design.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 71
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,191 @@
+{
+ "id": "mp6tr4",
+ "ladder": "single",
+ "size": 24000,
+ "index": 2,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "s": 98,
+   "e": 285
+  }
+ ],
+ "files": [
+  "reading2/mp6tr4/principles.md"
+ ],
+ "bytes": 23875,
+ "lines": 220,
+ "task": "wordtop",
+ "values": {
+  "code1": "G9S-5962",
+  "code2": "B9E-6893",
+  "w_last": "foxglove",
+  "w_name": "kestrel",
+  "w_desk": "fennimore",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Lucinda Abernathy",
+  "family": "fruit",
+  "members": [
+   "figs",
+   "quinces",
+   "cherries",
+   "lemons",
+   "pears",
+   "plums",
+   "limes",
+   "apricots",
+   "peaches",
+   "mangoes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: fennimore",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07661359575880947,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: fennimore`.",
+   "probe": "desk: fennimore",
+   "frac_actual": 0.067,
+   "line": 17,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under foxglove",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5009475448034484,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under foxglove`.",
+   "probe": "-- filed under foxglove",
+   "frac_actual": 0.5001,
+   "line": 111,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed B9E-6893",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9507363312654848,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed B9E-6893`.",
+   "probe": "run closed B9E-6893",
+   "frac_actual": 0.9586,
+   "line": 207,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.36021885545911114,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.3455,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6701129448583328,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.6589,
+   "line": 151,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 7,
+   "frac": 0.1650756751158374,
+   "body": "A box of 7 figs came through Rigg.",
+   "probe": "A box of 7 figs came through Rigg.",
+   "frac_actual": 0.1728,
+   "line": 35,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 11,
+   "frac": 0.20706723338038696,
+   "body": "The Eyre store took in 11 quinces.",
+   "probe": "The Eyre store took in 11 quinces.",
+   "frac_actual": 0.2112,
+   "line": 45,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 5,
+   "frac": 0.375855572770327,
+   "body": "Received at Stane, 5 cherries.",
+   "probe": "Received at Stane, 5 cherries.",
+   "frac_actual": 0.4006,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 13,
+   "frac": 0.6315939502505005,
+   "body": "Tally for Uller: 13 lemons.",
+   "probe": "Tally for Uller: 13 lemons.",
+   "frac_actual": 0.6103,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 2,
+   "frac": 0.7430469705521933,
+   "body": "Hale End desk entered 2 pears on the sheet.",
+   "probe": "Hale End desk entered 2 pears on the sheet.",
+   "frac_actual": 0.7481,
+   "line": 168,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 12,
+   "frac": 0.8619652982296532,
+   "body": "12 plums were logged at the Thorpe gate.",
+   "probe": "12 plums were logged at the Thorpe gate.",
+   "frac_actual": 0.8567,
+   "line": 192,
+   "hits": 1,
+   "file": "reading2/mp6tr4/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 50
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

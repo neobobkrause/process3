@@ -1,0 +1,191 @@
+{
+ "id": "xsph6m",
+ "ladder": "single",
+ "size": 12000,
+ "index": 3,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/setup__DEVELOPER.md",
+   "s": 78,
+   "e": 189
+  }
+ ],
+ "files": [
+  "reading2/xsph6m/principles.md"
+ ],
+ "bytes": 11853,
+ "lines": 144,
+ "task": "wordtop",
+ "values": {
+  "code1": "C4N-8641",
+  "code2": "T4V-3594",
+  "w_last": "cinnabar",
+  "w_name": "pemberley",
+  "w_desk": "tamarind",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Soren Achterberg",
+  "family": "fruit",
+  "members": [
+   "peaches",
+   "plums",
+   "pears",
+   "limes",
+   "lemons",
+   "quinces",
+   "cherries",
+   "apricots",
+   "mangoes",
+   "figs"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: tamarind",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.02945018630407108,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: tamarind`.",
+   "probe": "desk: tamarind",
+   "frac_actual": 0.0308,
+   "line": 6,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref C4N-8641",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4701506525592587,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref C4N-8641`.",
+   "probe": "# ref C4N-8641",
+   "frac_actual": 0.4661,
+   "line": 66,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "pemberley-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9549918165854069,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.",
+   "probe": "pemberley-relay.md",
+   "frac_actual": 0.9183,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.311147308598208,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.2307,
+   "line": 45,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8751078517220569,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.875,
+   "line": 127,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 14,
+   "frac": 0.04763914742074876,
+   "body": "At Dunn the clerk wrote down 14 peaches.",
+   "probe": "At Dunn the clerk wrote down 14 peaches.",
+   "frac_actual": 0.056,
+   "line": 15,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 19,
+   "frac": 0.28817160639166994,
+   "body": "Received at Uller, 19 plums.",
+   "probe": "Received at Uller, 19 plums.",
+   "frac_actual": 0.1953,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 2,
+   "frac": 0.35735108627058865,
+   "body": "The Marsh Lane store took in 2 pears.",
+   "probe": "The Marsh Lane store took in 2 pears.",
+   "frac_actual": 0.3959,
+   "line": 57,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 12,
+   "frac": 0.5163350021117884,
+   "body": "Corrie sent word of 12 limes on hand.",
+   "probe": "Corrie sent word of 12 limes on hand.",
+   "frac_actual": 0.5146,
+   "line": 73,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 5,
+   "frac": 0.8121534745006037,
+   "body": "Stane desk entered 5 lemons on the sheet.",
+   "probe": "Stane desk entered 5 lemons on the sheet.",
+   "frac_actual": 0.7972,
+   "line": 100,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 16,
+   "frac": 0.9027550607806353,
+   "body": "A box of 16 quinces came through Varnel.",
+   "probe": "A box of 16 quinces came through Varnel.",
+   "frac_actual": 0.8818,
+   "line": 134,
+   "hits": 1,
+   "file": "reading2/xsph6m/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 68
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

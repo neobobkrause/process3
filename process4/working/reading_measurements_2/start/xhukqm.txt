@@ -1,0 +1,43 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/xhukqm/01-05-misc.md
+- reading2/xhukqm/02-job-sync-test.mjs
+- reading2/xhukqm/03-coordinator-findings-3-4nov.md
+- reading2/xhukqm/04-process4-five-points.md
+- reading2/xhukqm/05-job.mjs
+- reading2/xhukqm/06-notice-test.mjs
+- reading2/xhukqm/07-joined.md
+- reading2/xhukqm/08-process4-disposition.md
+- reading2/xhukqm/09-joined.mjs
+- reading2/xhukqm/10-audit-foundations.md
+- reading2/xhukqm/11-setup-test.mjs
+- reading2/xhukqm/12-coordinator-findings-3-4nov.md
+- reading2/xhukqm/13-record-test.mjs
+- reading2/xhukqm/14-lanes-process3-record.md
+- reading2/xhukqm/15-process4-definition-v6.md
+- reading2/xhukqm/16-restart-speed-test.mjs
+- reading2/xhukqm/17-gateclass-test.mjs
+- reading2/xhukqm/18-ledger-map.md
+- reading2/xhukqm/19-joined.mjs
+- reading2/xhukqm/20-checks.mjs
+- reading2/xhukqm/21-coordinator-findings-3-4nov.md
+- reading2/xhukqm/22-github-pacing.md
+- reading2/xhukqm/23-layerflow-test.mjs
+- reading2/xhukqm/24-trust-layer-review-4nov.md
+- reading2/xhukqm/25-generated-plain-test.mjs
+- reading2/xhukqm/26-joined.mjs
+- reading2/xhukqm/27-rounds.mjs
+- reading2/xhukqm/28-merge.mjs
+- reading2/xhukqm/29-notice-test.mjs
+- reading2/xhukqm/30-joined.md
+- reading2/xhukqm/31-coordinator-findings-3-4nov.md
+- reading2/xhukqm/32-lane.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/xhukqm/colsum.py. It reads lines from standard input, each holding whole numbers separated by spaces. Lines may hold different numbers of cells; a missing cell counts as zero. It prints one line: the sum of each column, separated by single spaces. Example: the input lines `1 2 3`, `4 5`, `-1` give the output line `4 7 3`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/xhukqm: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

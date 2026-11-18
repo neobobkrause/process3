@@ -1,0 +1,152 @@
+{
+ "id": "nc5hhk",
+ "ladder": "start",
+ "size": 8192,
+ "index": 6,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+   "s": 30,
+   "e": 93
+  }
+ ],
+ "files": [],
+ "bytes": 8043,
+ "lines": 100,
+ "task": "sumby",
+ "values": {
+  "code1": "E2L-4465",
+  "code2": "Z5R-5182",
+  "w_last": "copperfield",
+  "w_name": "pemberley",
+  "w_desk": "foxglove",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Lucinda Abernathy",
+  "family": "fruit",
+  "members": [
+   "mangoes",
+   "cherries",
+   "quinces",
+   "limes",
+   "figs",
+   "apricots",
+   "pears",
+   "plums",
+   "lemons",
+   "peaches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under copperfield",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09480080107323437,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under copperfield`.",
+   "probe": "-- filed under copperfield",
+   "frac_actual": 0.0923,
+   "line": 10,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "pemberley-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5079070977155373,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.",
+   "probe": "pemberley-relay.md",
+   "frac_actual": 0.5032,
+   "line": 45,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Z5R-5182",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9506303409423364,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed Z5R-5182`.",
+   "probe": "run closed Z5R-5182",
+   "frac_actual": 0.9321,
+   "line": 83,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.22934010900727245,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.1516,
+   "line": 22,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7021609206599628,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.6935,
+   "line": 64,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 18,
+   "frac": 0.09294081420393348,
+   "body": "Tally for Stane: 18 mangoes.",
+   "probe": "Tally for Stane: 18 mangoes.",
+   "frac_actual": 0.1222,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 7,
+   "frac": 0.3642086798365787,
+   "body": "7 cherries were logged at the Osk gate.",
+   "probe": "7 cherries were logged at the Osk gate.",
+   "frac_actual": 0.4071,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 8,
+   "frac": 0.6828657453372303,
+   "body": "Received at Rigg, 8 quinces.",
+   "probe": "Received at Rigg, 8 quinces.",
+   "frac_actual": 0.6652,
+   "line": 59,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 33
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

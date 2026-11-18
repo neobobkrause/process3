@@ -1,0 +1,127 @@
+{
+ "0": {
+  "id": "mxwy3j",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1421,
+    "s": 871
+   }
+  ]
+ },
+ "1": {
+  "id": "atutb9",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "e": 182,
+    "s": 0
+   }
+  ]
+ },
+ "2": {
+  "id": "jrywdj",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 204,
+    "s": 20
+   }
+  ]
+ },
+ "3": {
+  "id": "qry7uj",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 349,
+    "s": 4
+   }
+  ]
+ },
+ "4": {
+  "id": "vh7vh9",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "e": 312,
+    "s": 35
+   }
+  ]
+ },
+ "5": {
+  "id": "wx3t4r",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "e": 423,
+    "s": 18
+   }
+  ]
+ },
+ "6": {
+  "id": "yv8rqs",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 638,
+    "s": 76
+   }
+  ]
+ },
+ "7": {
+  "id": "xs3wm6",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 851,
+    "s": 178
+   }
+  ]
+ },
+ "8": {
+  "id": "ea66zs",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 637,
+    "s": 521
+   }
+  ]
+ },
+ "9": {
+  "id": "ppgj9k",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "lines": "1-75"
+   }
+  ]
+ }
+}

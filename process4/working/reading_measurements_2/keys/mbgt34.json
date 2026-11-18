@@ -1,0 +1,341 @@
+{
+ "id": "mbgt34",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 8,
+ "files": [
+  "reading2/mbgt34/01-point4-release.md",
+  "reading2/mbgt34/02-pace-test.mjs",
+  "reading2/mbgt34/03-joined.mjs",
+  "reading2/mbgt34/04-audit2-feasibility.md",
+  "reading2/mbgt34/05-coordinator-findings-3-4nov.md",
+  "reading2/mbgt34/06-lanes-process3-record.md",
+  "reading2/mbgt34/07-audit-foundations.md",
+  "reading2/mbgt34/08-redteam-corruption.md",
+  "reading2/mbgt34/09-process4-disposition.md",
+  "reading2/mbgt34/10-point4-release.md",
+  "reading2/mbgt34/11-lead-test.mjs",
+  "reading2/mbgt34/12-joined.mjs",
+  "reading2/mbgt34/13-later-requirements.md",
+  "reading2/mbgt34/14-process4-definition-v6.md",
+  "reading2/mbgt34/15-trust-layer-review-4nov.md",
+  "reading2/mbgt34/16-joined.md"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "design",
+  "principles",
+  "design",
+  "requirements",
+  "design",
+  "code",
+  "code",
+  "requirements",
+  "design",
+  "design",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 203,
+    "e": 266
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 328,
+    "e": 484
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "s": 103,
+    "e": 120
+   },
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "s": 160,
+    "e": 277
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 69,
+    "e": 118
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 970,
+    "e": 1010
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 165,
+    "e": 262
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 0,
+    "e": 86
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "s": 55,
+    "e": 156
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 61,
+    "e": 124
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 80,
+    "e": 150
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 0,
+    "e": 170
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "s": 76,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 0,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 304,
+    "e": 327
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 108,
+    "e": 183
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 255,
+    "e": 318
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 0,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "s": 83,
+    "e": 85
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 289,
+    "e": 345
+   },
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "s": 0,
+    "e": 22
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 195727,
+ "lines": 1604,
+ "task": "rle",
+ "values": {
+  "code1": "W7C-5280",
+  "code2": "V6T-9793",
+  "w_last": "wainscot",
+  "w_name": "bellwether",
+  "w_desk": "orrery",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Saoirse Kinsella",
+  "family": "hand tools",
+  "members": [
+   "spanners",
+   "handsaws",
+   "chisels",
+   "trowels",
+   "mallets",
+   "awls",
+   "pliers",
+   "wrenches",
+   "hammers",
+   "rasps"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under wainscot",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.4043016955997505,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under wainscot`.",
+   "probe": "-- filed under wainscot",
+   "file_index": 0,
+   "frac_actual": 0.0992,
+   "line": 19,
+   "hits": 1,
+   "file": "reading2/mbgt34/01-point4-release.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: orrery",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6012060350123622,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: orrery`.",
+   "probe": "desk: orrery",
+   "file_index": 8,
+   "frac_actual": 0.5221,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/mbgt34/09-process4-disposition.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "bellwether-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.3196886351289368,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `bellwether-relay.md`, and under no other name.",
+   "probe": "bellwether-relay.md",
+   "file_index": 15,
+   "frac_actual": 0.9026,
+   "line": 86,
+   "hits": 1,
+   "file": "reading2/mbgt34/16-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.25043758114448145,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 4,
+   "frac_actual": 0.2387,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/mbgt34/05-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.35580408410845044,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "file_index": 9,
+   "frac_actual": 0.356,
+   "line": 37,
+   "hits": 1,
+   "file": "reading2/mbgt34/10-point4-release.md"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 13,
+   "frac": 0.7732603343298615,
+   "body": "At Varnel the clerk wrote down 13 spanners.",
+   "probe": "At Varnel the clerk wrote down 13 spanners.",
+   "file_index": 2,
+   "frac_actual": 0.7719,
+   "line": 119,
+   "hits": 1,
+   "file": "reading2/mbgt34/03-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 4,
+   "frac": 0.9256619578163763,
+   "body": "The Osk store took in 4 handsaws.",
+   "probe": "The Osk store took in 4 handsaws.",
+   "file_index": 7,
+   "frac_actual": 0.9261,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/mbgt34/08-redteam-corruption.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 2,
+   "frac": 0.5899840524642237,
+   "body": "A box of 2 chisels came through Wick.",
+   "probe": "A box of 2 chisels came through Wick.",
+   "file_index": 9,
+   "frac_actual": 0.6214,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/mbgt34/10-point4-release.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 10,
+   "frac": 0.587090253819846,
+   "body": "10 trowels were logged at the Eyre gate.",
+   "probe": "10 trowels were logged at the Eyre gate.",
+   "file_index": 13,
+   "frac_actual": 0.5625,
+   "line": 37,
+   "hits": 1,
+   "file": "reading2/mbgt34/14-process4-definition-v6.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 29
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

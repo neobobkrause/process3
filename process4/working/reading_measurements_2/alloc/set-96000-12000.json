@@ -1,0 +1,647 @@
+{
+ "0": {
+  "id": "un9z3f",
+  "members": [
+   {
+    "doc": "code/tool__test__tranche.test.mjs",
+    "e": 176,
+    "s": 30
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "e": 536,
+    "s": 508
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "e": 208,
+    "s": 110
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1254,
+    "s": 1095
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1243,
+    "s": 1098
+   },
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "e": 373,
+    "s": 321
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "e": 236,
+    "s": 151
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "e": 355,
+    "s": 347
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "e": 182,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1822,
+    "s": 1689
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1703,
+    "s": 1565
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 169,
+    "s": 155
+   }
+  ]
+ },
+ "1": {
+  "id": "dgqyxu",
+  "members": [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 366,
+    "s": 198
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "e": 70,
+    "s": 25
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "e": 45,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "e": 81,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "e": 184,
+    "s": 130
+   },
+   {
+    "doc": "code/tool__test__scale-fixture.mjs",
+    "e": 107,
+    "s": 0
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "e": 15,
+    "s": 3
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "e": 67,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "e": 207,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 860,
+    "s": 703
+   },
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "e": 220,
+    "s": 167
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 493,
+    "s": 478
+   },
+   {
+    "doc": "design/process4__definition__process4_notice.md",
+    "e": 15,
+    "s": 0
+   }
+  ]
+ },
+ "2": {
+  "id": "kmve2c",
+  "members": [
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "e": 67,
+    "s": 24
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "e": 462,
+    "s": 434
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 240,
+    "s": 221
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "e": 54,
+    "s": 9
+   },
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "e": 23,
+    "s": 0
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "e": 3,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "e": 146,
+    "s": 138
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "e": 92,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "e": 59,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 827,
+    "s": 813
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "e": 130,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 190,
+    "s": 92
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 725,
+    "s": 586
+   },
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "e": 314,
+    "s": 283
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "e": 36,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "e": 90,
+    "s": 0
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "e": 265,
+    "s": 119
+   }
+  ]
+ },
+ "3": {
+  "id": "dwv55v",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 112,
+    "s": 89
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 611,
+    "s": 465
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1205,
+    "s": 1176
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "e": 282,
+    "s": 139
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "e": 35,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "e": 277,
+    "s": 265
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "e": 150,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 443,
+    "s": 282
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 526,
+    "s": 443
+   },
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "e": 285,
+    "s": 151
+   },
+   {
+    "doc": "code/tool__lib__fail-reporter.mjs",
+    "e": 26,
+    "s": 0
+   }
+  ]
+ },
+ "4": {
+  "id": "hbku4m",
+  "members": [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 791,
+    "s": 637
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "e": 276,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "e": 468,
+    "s": 462
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "e": 464,
+    "s": 398
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1513,
+    "s": 1437
+   },
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "e": 204,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "e": 263,
+    "s": 145
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 185,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "e": 47,
+    "s": 0
+   }
+  ]
+ },
+ "5": {
+  "id": "ghjues",
+  "members": [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 472,
+    "s": 387
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "e": 179,
+    "s": 0
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 204,
+    "s": 168
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 903,
+    "s": 872
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 174,
+    "s": 115
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "e": 55,
+    "s": 25
+   },
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "e": 237,
+    "s": 147
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "e": 401,
+    "s": 375
+   },
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "e": 39,
+    "s": 18
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "e": 21,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 493,
+    "s": 443
+   },
+   {
+    "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+    "e": 8,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "e": 113,
+    "s": 29
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "e": 3,
+    "s": 0
+   }
+  ]
+ },
+ "6": {
+  "id": "vn9fcm",
+  "members": [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "e": 88,
+    "s": 44
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "e": 154,
+    "s": 7
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 318,
+    "s": 255
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 82,
+    "s": 76
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "e": 278,
+    "s": 276
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "e": 202,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 469,
+    "s": 373
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "e": 45,
+    "s": 1
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "e": 41,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__pass.test.mjs",
+    "e": 205,
+    "s": 175
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "e": 150,
+    "s": 0
+   }
+  ]
+ },
+ "7": {
+  "id": "nhvbzs",
+  "members": [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "e": 94,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 78,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "e": 124,
+    "s": 50
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 1024,
+    "s": 949
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "e": 183,
+    "s": 108
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "e": 168,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "e": 286,
+    "s": 264
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "e": 139,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1437,
+    "s": 1268
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "e": 155,
+    "s": 0
+   }
+  ]
+ },
+ "8": {
+  "id": "jdrwkn",
+  "members": [
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "e": 274,
+    "s": 161
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "e": 108,
+    "s": 52
+   },
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "e": 144,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 190,
+    "s": 85
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 385,
+    "s": 185
+   },
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "e": 191,
+    "s": 86
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "e": 19,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 1024,
+    "s": 860
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "e": 108,
+    "s": 69
+   },
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "e": 175,
+    "s": 142
+   },
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "e": 291,
+    "s": 160
+   }
+  ]
+ },
+ "9": {
+  "id": "wtmp9d",
+  "members": [
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 119,
+    "s": 68
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 319,
+    "s": 163
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 163,
+    "s": 95
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "e": 209,
+    "s": 154
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "e": 160,
+    "s": 103
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1095,
+    "s": 980
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "e": 177,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "e": 164,
+    "s": 150
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "e": 101,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 328,
+    "s": 174
+   }
+  ]
+ }
+}

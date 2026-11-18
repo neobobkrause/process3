@@ -1,0 +1,392 @@
+{
+ "0": {
+  "id": "tvqphr",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "lines": "all"
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "lines": "all"
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "lines": "1-122"
+   }
+  ]
+ },
+ "1": {
+  "id": "cukvpe",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "lines": "1-185"
+   }
+  ]
+ },
+ "2": {
+  "id": "byq8kq",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/README.md",
+    "lines": "1-39"
+   }
+  ]
+ },
+ "3": {
+  "id": "sh8e8z",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "lines": "1-33"
+   }
+  ]
+ },
+ "4": {
+  "id": "wps2bh",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "lines": "1-60"
+   }
+  ]
+ },
+ "5": {
+  "id": "jh5w3m",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "lines": "1-219"
+   }
+  ]
+ },
+ "6": {
+  "id": "qsvq7b",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2365,
+    "s": 98
+   }
+  ]
+ },
+ "7": {
+  "id": "htqgvk",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__slots.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__product-neutral.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__ghaudit.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lane-plain.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "lines": "1-292"
+   }
+  ]
+ },
+ "8": {
+  "id": "ywx4u8",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__records-inventory.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__account-switch-review.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "lines": "all"
+   }
+  ]
+ },
+ "9": {
+  "id": "jraesu",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1278,
+    "s": 800
+   }
+  ]
+ }
+}

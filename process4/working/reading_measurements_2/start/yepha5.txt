@@ -1,0 +1,192 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+# [file] root.md
+
+# ROOT's rulebook
+
+For ROOT, read once at start, after your prompt. Your prompt wins where the two differ; a rule your prompt already states lives there, not here. At most ten rules, rewritten in place, never appended (TXT-3). Each cites its line (TXT-6) and names what holds it, or says nudge.
+
+## Principles (TXT-4)
+
+
+Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.
+
+1. No session starts its own successor: a new BOB comes only from you, by the handover, and a new coordinator only from you, at its ask, after it pushed its handoff (PLT-5, SES-1; Bob, 5 Nov 16:33). Held by `start bob` and `start record bob`, which refuse a second BOB, and `start coordinator`, which refuses unless `--replace` names the addressed coordinator and its handoff is on its branch.
+2. Git carries state and a message only wakes, after the push (MSG-1). Your pushes are the tool's, paced account-wide by it (P27): push nothing and write nothing through the GitHub connector by hand. Held by `send` and the tool's pacing.
+
+## Rules
+
+
+A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.
+
+1. Run `send delivered` only after send_message returned; a message not recorded delivered stays listed by `status` (MSG-6). Held by `status`.
+2. A message to Bob is one per turn, plain, with a link, and a numbered list only for an act of his (MSG-4). Nudge.
+3. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.
+4. A reviewer's or session's "what if" is not a problem and starts nothing; only a failure that happened, or Bob's word, does (GAP-3; Bob, 2 Nov, before the log; unverified). Nudge.
+5. Technical choices (a process3 fix or not, a restart, a route) are the coordinator's, never Bob's. A product's are BOB's. Each is a short decision record (REC-11), in its repository's DECISIONS.md, reported in one line. Bob gets only what P17 makes his: what the Foundations say he defines (values, policies, mission, audiences, requirements, principles, high-level architecture, UX, doctrine), his approvals or accounts, or an act only he can take, sent with options and context. Anything else: decide it if it is yours, else send it to the coordinator. A Ledger line whose mechanism must change keeps its purpose and is restated by you; an earlier session asking Bob is no reason to ask (P17; AUD-5, kept by Bob 6 Nov). Nudge.
+6. Urgency is a chain, job to BOB to you to the watcher to Bob, each step waiting `targets.decision_minutes` in process/config.json (30 by default) for an answer. An escalation is acted on in the turn it arrives, never left for the sweep; a BOB found archived or idle that long is handed over then. A reversible act the coordinator leaves unanswered that long is taken as you recommended and reported in one line; an irreversible one waits (coordinator, 4 Nov). Nudge.
+7. Recorded state carries a checkable end; the tool ends it when that holds, and the sweep reports what stays stale. Never end one by hand: report it, and its fix is a process3 build (Bob, 6 Nov). Held by `sweep` and the tool's ends.
+
+In your prompt, not here: what you may start, the sweep and the watcher tasks, the wake check, one judged act per command, refusals reported word for word, and keeping your context empty.
+
+A switch of Bob's Claude account follows `rulebooks/account-switch.md` (`.process/rulebooks/account-switch.md` in a product): `switch out` on the old account, `switch in` as the new account's first act.
+
+
+
+At Eyre the clerk wrote down 7 parsnips.
+
+# [file] 03-modules-jobs-and-the-notice.md
+
+# Process4 Foundations, part 3: Modules, jobs and the notice
+
+Length: 86 lines. Last section: "What the notice cannot do".
+
+## Modules
+
+A product is one ordered list of modules. A module may use only modules that come before it in the list. Every file has one owner module.
+
+A use that points to a later module is an error in the design of those modules. It is fixed by reshaping them, not by allowing the use.
+
+ARCH edits the list until every file has one owner and every use points backward.
+
+Writer's reading: the single order is what makes the rest simple. It is always plain which module is the provider and which is the user, so news of a change travels one way only.
+
+## Requirements
+
+Each module has a requirements file, with a public part and a private part, under permanent numbers.
+
+ARCH writes and rewords the requirement text. ARCH touches no code and no tests. The module's job marks a requirement met, in its own pull request.
+
+A rewording that changes what the product does comes to Bob first. A rewording that only says the same thing more clearly is made, and Bob is told in the account after the round. Writer's reading: the dividing line is the one from part 1. What the product does is Bob's, and how it is said and built is the AI's.
+
+A requirements file is kept under the measured maximum size (part 6). ARCH applies this as a rule. When a file nears the maximum, ARCH splits the module into two real modules. Nothing refuses a job or a merge on size.
+
+## Jobs and slots
+
+The plan of work is built around jobs running side by side, up to a number Bob can change. The number is eight by default, counted across the account. Bob changes it by telling the coordinator.
+
+A module has work when a requirement in its file is marked not yet met, or when a walk flaw or a notice has been placed against it. Its job is ready when the module has work and no job open. A ready job does not wait for the modules it uses.
+
+Ready jobs take free slots earliest in the order first. Only Bob's marked instruction puts a module ahead. Who takes a free slot has one right answer, so the process's tool decides it.
+
+A job works in a draft pull request and writes only its own module's files, its tests among them. Bob's rule is that a job for one module is not allowed to change another (`process4/owner_words/bob_words_14nov_c.md`). The rule is held by the job's instructions. Bob's judgment of what he saw under Claude Code is that jobs kept to their own modules, and that stronger enforcement by role is useful but not essential (`bob_words_16_17nov_codex_development.md`).
+
+
+Pell sent word of 14 carrots on hand.
+
+A flaw a job finds in another module goes to ARCH, which passes it to that module's job. A job stopped by another module's flaw reports it, records that it is blocked, pushes its work and stops. Its slot is freed.
+
+When a job completes, it marks its pull request ready and its module tests run. When they pass, ARCH merges the pull request into the tranche branch with the process's tool. There is no review and no act of Bob's. The slot is refilled in the same turn. Measured in Process3: with no event to prompt it, the directing session once noticed a finished job after 194 minutes.
+
+A module's work is finished when its job merges, or when its notified job tells ARCH that nothing needs changing. Claude decided this. A job never merges, starts a session, deploys or changes the process.
+
+
+Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under saltmarsh`.
+
+A job that has failed two corrections is replaced by a fresh session. The fresh session's first task is to understand why the corrections were made, so that it can foresee the ones still needed. A job session that dies is replaced by one that carries on from the same branch and pull request.
+
+## A change across many modules
+
+Some changes touch many modules in the same trivial way and need no judgment. Bob's example is a change to a word table. Such a change is a mechanical edit. It is the only way a module's files change other than by that module's own job (`bob_words_14nov_c.md`).
+
+Claude decided how: a helper in ARCH's session makes the edit as one change covering every affected module. It is merged once, at a time when no job is open. A module where the change needs judgment gets its own job.
+
+This is unproven. It is rehearsed in the trial.
+
+## The notice to user modules
+
+When a job changes a provider, the users of what changed are told. The notice exists to save work.
+
+Bob's motivation is in `bob_words_14nov_c.md`. If every user were told on every change, every change would cause every user to be rebuilt and tested again. He calls that very inefficient and unnecessary.
+
+His view of what matters is in `bob_words_14nov_notice_session.md`. A change to what a provider answers does not by itself call for its users to be tested again. What matters is the interface: what the provider accepts and hands back, and the bounds of the valid values. If those stay the same, users are left alone.
+
+The conclusions, as the design holds them:
+
+- A module's interface is stated in its code together with structured comments. The comments say how the interface is to be used and what its bounds are.
+- A build tool writes out the module's interface, from code and comments together, before and after a job's change. The notice is sent only when the two listings differ.
+- Only the users of the entry that changed are told.
+- For what a provider accepts, users are told only when the new interface cannot stand in for the old: something was removed, renamed, newly required or newly refused. Accepting more tells no one.
+- For what a provider hands back, any change to an entry tells that entry's users.
+- A change to the words that state a bound is a change to the interface.
+- A module with no comments gets them as the first step of its next job, before anything else changes. They describe the module as it stands. That step sends no notice.
+- A notified job checks only the changed parts, and runs only the tests that relate to them.
+- When a notice is sent, and to whom, has one right answer. The process's tool decides it.
+
+How a notified job picks the tests that relate to a changed entry is owed (part 10). Two smaller matters are also open: who is told when the product's list of modules itself changes, and what becomes of a module that says it uses another while none of its code does.
+
+## What the notice cannot do
+
+Bob's conclusion is that there is no reliable way to tell a change to an interface from a change to something else. His words are in `bob_words_15nov_main.md`.
+
+So the notice is a way of saving work. It is not a guarantee. It will sometimes tell a user that needed no change. It will sometimes miss a user that did.
+
+
+Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.
+
+Nothing new catches a missed user. The user's own module tests catch it the next time that user's job runs for any reason. Or a walk meets the break, which is then a flaw and becomes work for that module in the next round. No test of users runs before a provider's change merges.
+
+What is known about the method:
+
+
+13 beets were logged at the Thorpe gate.
+
+- Measured, in a proof on eleven made-up modules and 150 changes chosen to attack the method: it decides as its rules say, and it sent 2.6 times fewer notices than telling every user. Every miss that was recounted showed up as a failing test of the user.
+- Judged, by AI workers reading Process3's record: about 74 of 2,707 notices sent there were needed.
+- Unproven: how many notices the method saves on a real product.
+- Unproven: any of it as part of a running process.
+
+
+# [file] 05-roles-and-sessions.md
+
+# Process4 Foundations, part 5: Roles and sessions
+
+Length: 95 lines. Last section: "The way back after a full stop".
+
+## The standing roles
+
+
+The Hale End store took in 17 marrows.
+
+| Role | Started by | What it does | What it does not do |
+| --- | --- | --- | --- |
+| ROOT | Bob, with a plain prompt on the product's repository | Starts ARCH, the coordinator, the watcher and PROCESS. An hourly alarm wakes it as a safety net, to wake or replace a session that has stopped | Decides nothing about the product and builds nothing |
+| The watcher | ROOT | Stands by, and takes over if ROOT dies | Its takeover is not yet designed |
+| The coordinator | ROOT | Is Bob's front door for a product. Records his marked words. Tells him what ARCH decided, one plain line each. Puts his questions to him. Gives him the account after each round | Decides nothing about the product. Brings Bob no technical question |
+| ARCH | ROOT | One for each product, and long-lived. Directs the work: starts and merges jobs, writes requirement text, names the areas for each walk, makes the development deployment, turns flaws into work, starts the product's design lanes, prepares a release. Decides every technical matter of the product and records each decision in the product's repository | Touches no code and no tests. Never edits Bob's approvals, changes the process, or releases without him |
+| PROCESS | ROOT | Is the only place the process is changed (part 8). Works in the process's own repository. Bob works with it directly. May have lanes of its own | Builds no product |
+
+ROOT and the coordinator are different sessions. Bob may watch ARCH and the lanes, and sometimes speak to them. His reasons are in `process4/owner_words/bob_words_16_17nov_codex_development.md`: the lanes are where design decisions are made, he seldom speaks to jobs but wants to see their progress, and he needs PROCESS when a process matter arises.
+
+What the watcher does when it takes over is designed and rehearsed in the trial. That design is owed, and the takeover is unproven.
+
+## What ARCH keeps and what the tool does
+
+Whatever has one right answer is done by the process's tool: who takes a free slot, when a notice is sent and to whom, and whether a round's jobs are done. ARCH's session keeps what needs judgment. The tool is small: it pushes, opens a pull request and marks it ready, merges, starts the next job, sends notices and writes the shared state.
+
+Writer's reading: this keeps ARCH's context for the work only it can do. Measured in Process3: the architecture role ran as 21 sessions in six and a half days. The share of ARCH's work that is passing things on is measured on the first tranche.
+
+## Jobs, helpers and walking sessions
+
+A **job** is a session ARCH starts to do one module's work (part 3). It decides how to meet that module's requirements.
+
+A **helper**, also called a worker, is started by a session inside itself. Helpers are the standing way a long-lived role keeps heavy reading out of its own context. A helper gets a narrow brief and gives a short answer in a set shape. It ends when its work is done. A brief may hand the helper a decision to make, which it reports with its grounds. Bob's words on this are in `bob_words_17nov_codex_context.md` and `bob_words_16_17nov_codex_development.md`. A helper also does noisy bulk work and truly independent side tasks. No helper is briefed to review another session's work.
+
+
+Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref R4M-4078`.
+
+**Walking sessions** make both walks (part 4). ARCH starts them.
+
+Every session passes Bob's suggested model and effort on to each session it starts. The standard is a model and effort sufficient for quality.
+
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/yepha5/dates.py. It reads lines from standard input. Blank lines are ignored. For each line it prints `valid` if the line is a real calendar date written exactly as `YYYY-MM-DD` (four, two and two digits, leap years by the Gregorian rule) and `invalid` otherwise. After the last it prints `valid=N invalid=M` with the two counts. Example: the input lines `2024-02-29`, `2023-02-29`, `2023-7-01` give `valid`, `invalid`, `invalid`, `valid=1 invalid=2`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/yepha5: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

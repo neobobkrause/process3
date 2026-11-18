@@ -1,0 +1,179 @@
+{
+ "id": "dzapnb",
+ "ladder": "single",
+ "size": 24000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__gateclass.test.mjs",
+   "s": 204,
+   "e": 465
+  }
+ ],
+ "files": [
+  "reading2/dzapnb/module.mjs"
+ ],
+ "bytes": 23788,
+ "lines": 297,
+ "task": "merge",
+ "values": {
+  "code1": "H6A-9659",
+  "code2": "W8T-4602",
+  "w_last": "larkspur",
+  "w_name": "marlowe",
+  "w_desk": "cinnabar",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Ruairi Mactavish",
+  "family": "hand tools",
+  "members": [
+   "spanners",
+   "mallets",
+   "hammers",
+   "trowels",
+   "awls",
+   "handsaws",
+   "rasps",
+   "wrenches",
+   "pliers",
+   "chisels"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed W8T-4602",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06452937053279578,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed W8T-4602`.",
+   "probe": "run closed W8T-4602",
+   "frac_actual": 0.0647,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under larkspur",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5046134341807257,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
+   "probe": "-- filed under larkspur",
+   "frac_actual": 0.5041,
+   "line": 156,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: cinnabar",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9096275773428899,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: cinnabar`.",
+   "probe": "desk: cinnabar",
+   "frac_actual": 0.9115,
+   "line": 280,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.32062609402732756,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.3214,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6040823211793362,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.607,
+   "line": 190,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 5,
+   "frac": 0.06645516314049796,
+   "body": "The Wick store took in 5 spanners.",
+   "probe": "The Wick store took in 5 spanners.",
+   "frac_actual": 0.0691,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 10,
+   "frac": 0.243162364637517,
+   "body": "Tally for Yarm: 10 mallets.",
+   "probe": "Tally for Yarm: 10 mallets.",
+   "frac_actual": 0.2429,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 15,
+   "frac": 0.4718052688865024,
+   "body": "A box of 15 hammers came through Thorpe.",
+   "probe": "A box of 15 hammers came through Thorpe.",
+   "frac_actual": 0.474,
+   "line": 142,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 18,
+   "frac": 0.6211046134910785,
+   "body": "At Brae the clerk wrote down 18 trowels.",
+   "probe": "At Brae the clerk wrote down 18 trowels.",
+   "frac_actual": 0.6232,
+   "line": 197,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 6,
+   "frac": 0.9468179834301376,
+   "body": "Received at Eyre, 6 awls.",
+   "probe": "Received at Eyre, 6 awls.",
+   "frac_actual": 0.9486,
+   "line": 290,
+   "hits": 1,
+   "file": "reading2/dzapnb/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 54
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,379 @@
+{
+ "id": "jcrcwk",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 9,
+ "files": [
+  "reading2/jcrcwk/01-joined.mjs",
+  "reading2/jcrcwk/02-process4-definition-v6.md",
+  "reading2/jcrcwk/03-process4-counterarguments.md",
+  "reading2/jcrcwk/04-joined.md",
+  "reading2/jcrcwk/05-process4-disposition.md",
+  "reading2/jcrcwk/06-joined.mjs",
+  "reading2/jcrcwk/07-joined.md",
+  "reading2/jcrcwk/08-status.mjs",
+  "reading2/jcrcwk/09-joined.mjs",
+  "reading2/jcrcwk/10-layer-flow-messages-test.mjs",
+  "reading2/jcrcwk/11-merge-waits-test.mjs",
+  "reading2/jcrcwk/12-coordinator-findings-3-4nov.md",
+  "reading2/jcrcwk/13-joined.md",
+  "reading2/jcrcwk/14-layerflow.mjs",
+  "reading2/jcrcwk/15-joined.md",
+  "reading2/jcrcwk/16-status.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "design",
+  "principles",
+  "requirements",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "logs",
+  "code",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__fetch-cheap.test.mjs",
+    "s": 4,
+    "e": 65
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 0,
+    "e": 89
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 190,
+    "e": 255
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 96,
+    "e": 208
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 265,
+    "e": 306
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "s": 0,
+    "e": 83
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 565,
+    "e": 639
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "s": 16,
+    "e": 141
+   },
+   {
+    "doc": "code/tool__test__setup-speed.test.mjs",
+    "s": 0,
+    "e": 37
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 450,
+    "e": 490
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "s": 0,
+    "e": 58
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 586,
+    "e": 725
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "s": 96,
+    "e": 154
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "s": 0,
+    "e": 114
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "s": 0,
+    "e": 177
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "s": 0,
+    "e": 190
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 581,
+    "e": 618
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "s": 53,
+    "e": 54
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+    "s": 0,
+    "e": 72
+   },
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "s": 0,
+    "e": 42
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "s": 0,
+    "e": 27
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 770,
+    "e": 895
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 383,
+    "e": 419
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 0,
+    "e": 56
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1218,
+    "e": 1351
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 195890,
+ "lines": 2082,
+ "task": "wordtop",
+ "values": {
+  "code1": "F2J-6804",
+  "code2": "J5F-8952",
+  "w_last": "nettlecombe",
+  "w_name": "zephyrine",
+  "w_desk": "saltmarsh",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "trees",
+  "members": [
+   "cedars",
+   "alders",
+   "larches",
+   "willows",
+   "pines",
+   "oaks",
+   "birches",
+   "elms",
+   "beeches",
+   "maples"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5052067744501169,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "file_index": 0,
+   "frac_actual": 0.099,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/jcrcwk/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref F2J-6804",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6667446626114457,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref F2J-6804`.",
+   "probe": "# ref F2J-6804",
+   "file_index": 8,
+   "frac_actual": 0.5419,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/jcrcwk/09-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "zephyrine-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.271664100469577,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `zephyrine-relay.md`, and under no other name.",
+   "probe": "zephyrine-relay.md",
+   "file_index": 15,
+   "frac_actual": 0.91,
+   "line": 125,
+   "hits": 1,
+   "file": "reading2/jcrcwk/16-status.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5935408367837596,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 6,
+   "frac_actual": 0.6026,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/jcrcwk/07-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8342635816504979,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "file_index": 14,
+   "frac_actual": 0.8398,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/jcrcwk/15-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 6,
+   "frac": 0.8000119823751308,
+   "body": "At Osk the clerk wrote down 6 cedars.",
+   "probe": "At Osk the clerk wrote down 6 cedars.",
+   "file_index": 2,
+   "frac_actual": 0.7864,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/jcrcwk/03-process4-counterarguments.md"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 10,
+   "frac": 0.19280109320754252,
+   "body": "Brae sent word of 10 alders on hand.",
+   "probe": "Brae sent word of 10 alders on hand.",
+   "file_index": 4,
+   "frac_actual": 0.1943,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/jcrcwk/05-process4-disposition.md"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 13,
+   "frac": 0.627243253590869,
+   "body": "Hale End desk entered 13 larches on the sheet.",
+   "probe": "Hale End desk entered 13 larches on the sheet.",
+   "file_index": 9,
+   "frac_actual": 0.6258,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/jcrcwk/10-layer-flow-messages-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 15,
+   "frac": 0.617386259729946,
+   "body": "The Varnel store took in 15 willows.",
+   "probe": "The Varnel store took in 15 willows.",
+   "file_index": 11,
+   "frac_actual": 0.6144,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/jcrcwk/12-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 3,
+   "frac": 0.13379813987802328,
+   "body": "Received at Wick, 3 pines.",
+   "probe": "Received at Wick, 3 pines.",
+   "file_index": 15,
+   "frac_actual": 0.1339,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/jcrcwk/16-status.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

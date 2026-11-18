@@ -1,0 +1,43 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/tkfrvp/01-coordinator-findings-3-4nov.md
+- reading2/tkfrvp/02-merge.mjs
+- reading2/tkfrvp/03-job.mjs
+- reading2/tkfrvp/04-notice-test.mjs
+- reading2/tkfrvp/05-joined.mjs
+- reading2/tkfrvp/06-release-test.mjs
+- reading2/tkfrvp/07-joined.md
+- reading2/tkfrvp/08-joined.mjs
+- reading2/tkfrvp/09-decisions.md
+- reading2/tkfrvp/10-joined.md
+- reading2/tkfrvp/11-attack-corruption.md
+- reading2/tkfrvp/12-layerflow.mjs
+- reading2/tkfrvp/13-joined.mjs
+- reading2/tkfrvp/14-lead.mjs
+- reading2/tkfrvp/15-joined.md
+- reading2/tkfrvp/16-job-test.mjs
+- reading2/tkfrvp/17-gate-test.mjs
+- reading2/tkfrvp/18-audit-b.md
+- reading2/tkfrvp/19-enforcement-levers.md
+- reading2/tkfrvp/20-shims-test.mjs
+- reading2/tkfrvp/21-joined.mjs
+- reading2/tkfrvp/22-joined.mjs
+- reading2/tkfrvp/23-setup.mjs
+- reading2/tkfrvp/24-coordinator-findings-3-4nov.md
+- reading2/tkfrvp/25-results.md
+- reading2/tkfrvp/26-lane-charters.md
+- reading2/tkfrvp/27-ledger-lines.md
+- reading2/tkfrvp/28-audit-ledger.md
+- reading2/tkfrvp/29-readme.md
+- reading2/tkfrvp/30-ledger-lines.md
+- reading2/tkfrvp/31-readme.md
+- reading2/tkfrvp/32-round-next-test.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/tkfrvp/dates.py. It reads lines from standard input. Blank lines are ignored. For each line it prints `valid` if the line is a real calendar date written exactly as `YYYY-MM-DD` (four, two and two digits, leap years by the Gregorian rule) and `invalid` otherwise. After the last it prints `valid=N invalid=M` with the two counts. Example: the input lines `2024-02-29`, `2023-02-29`, `2023-7-01` give `valid`, `invalid`, `invalid`, `valid=1 invalid=2`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/tkfrvp: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

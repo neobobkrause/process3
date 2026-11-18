@@ -1,0 +1,12 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/mxwy3j/requirements.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/mxwy3j/wordtop.py. It reads all of standard input. A word is a longest run of the letters A to Z in either case; words are compared in lower case. It prints the three most frequent words, one per line as `word count`, most frequent first, with ties in count broken by alphabetical order. If there are fewer than three different words it prints those there are. Example: the input `The cat and the hat. The end, and so on.` gives `the 3`, `and 2`, `cat 1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/mxwy3j: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

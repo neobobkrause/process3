@@ -1,0 +1,370 @@
+{
+ "id": "rwy2ad",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 5,
+ "files": [
+  "reading2/rwy2ad/01-joined.mjs",
+  "reading2/rwy2ad/02-joined.mjs",
+  "reading2/rwy2ad/03-joined.md",
+  "reading2/rwy2ad/04-joined.md",
+  "reading2/rwy2ad/05-joined.mjs",
+  "reading2/rwy2ad/06-process4-disposition.md",
+  "reading2/rwy2ad/07-joined.md",
+  "reading2/rwy2ad/08-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "principles",
+  "code",
+  "requirements",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 231,
+    "e": 299
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 0,
+    "e": 463
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__size.mjs",
+    "s": 30,
+    "e": 129
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "s": 0,
+    "e": 141
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1213,
+    "e": 1408
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__lib__carry.mjs",
+    "s": 0,
+    "e": 57
+   },
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "s": 0,
+    "e": 51
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "s": 218,
+    "e": 262
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 0,
+    "e": 360
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "s": 15,
+    "e": 115
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+    "s": 0,
+    "e": 97
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "s": 0,
+    "e": 31
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "s": 0,
+    "e": 15
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__helpers.mjs",
+    "s": 5,
+    "e": 167
+   },
+   {
+    "doc": "code/tool__test__github.test.mjs",
+    "s": 0,
+    "e": 65
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "s": 0,
+    "e": 144
+   },
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "s": 0,
+    "e": 145
+   },
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "s": 0,
+    "e": 210
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 240,
+    "e": 460
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "s": 185,
+    "e": 285
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 366,
+    "e": 645
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "s": 216,
+    "e": 294
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 0,
+    "e": 525
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 381923,
+ "lines": 4037,
+ "task": "dates",
+ "values": {
+  "code1": "B2N-3768",
+  "code2": "L4S-8987",
+  "w_last": "vetiver",
+  "w_name": "alderney",
+  "w_desk": "nettlecombe",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Jacinta Ravensworth",
+  "family": "gemstones",
+  "members": [
+   "amethysts",
+   "pearls",
+   "garnets",
+   "zircons",
+   "rubies",
+   "sapphires",
+   "opals",
+   "emeralds",
+   "agates",
+   "topazes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under vetiver",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6655935616658673,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under vetiver`.",
+   "probe": "-- filed under vetiver",
+   "file_index": 0,
+   "frac_actual": 0.0387,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/rwy2ad/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed L4S-8987",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.2315133250952698,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed L4S-8987`.",
+   "probe": "run closed L4S-8987",
+   "file_index": 4,
+   "frac_actual": 0.5049,
+   "line": 383,
+   "hits": 1,
+   "file": "reading2/rwy2ad/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: nettlecombe",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.44632682269550294,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: nettlecombe`.",
+   "probe": "desk: nettlecombe",
+   "file_index": 7,
+   "frac_actual": 0.91,
+   "line": 567,
+   "hits": 1,
+   "file": "reading2/rwy2ad/08-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8721383433425921,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "file_index": 0,
+   "frac_actual": 0.879,
+   "line": 583,
+   "hits": 1,
+   "file": "reading2/rwy2ad/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6425289999304162,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 7,
+   "frac_actual": 0.6489,
+   "line": 443,
+   "hits": 1,
+   "file": "reading2/rwy2ad/08-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 2,
+   "frac": 0.818823696719379,
+   "body": "The Dunn store took in 2 amethysts.",
+   "probe": "The Dunn store took in 2 amethysts.",
+   "file_index": 0,
+   "frac_actual": 0.8207,
+   "line": 542,
+   "hits": 1,
+   "file": "reading2/rwy2ad/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 14,
+   "frac": 0.47406918135642523,
+   "body": "A box of 14 pearls came through Corrie.",
+   "probe": "A box of 14 pearls came through Corrie.",
+   "file_index": 2,
+   "frac_actual": 0.4726,
+   "line": 189,
+   "hits": 1,
+   "file": "reading2/rwy2ad/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 11,
+   "frac": 0.46816054393481116,
+   "body": "Tally for Quay Nine: 11 garnets.",
+   "probe": "Tally for Quay Nine: 11 garnets.",
+   "file_index": 2,
+   "frac_actual": 0.462,
+   "line": 178,
+   "hits": 1,
+   "file": "reading2/rwy2ad/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 5,
+   "frac": 0.904420617373555,
+   "body": "Uller sent word of 5 zircons on hand.",
+   "probe": "Uller sent word of 5 zircons on hand.",
+   "file_index": 4,
+   "frac_actual": 0.8821,
+   "line": 675,
+   "hits": 1,
+   "file": "reading2/rwy2ad/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 6,
+   "frac": 0.08505941461194653,
+   "body": "Received at Rigg, 6 rubies.",
+   "probe": "Received at Rigg, 6 rubies.",
+   "file_index": 5,
+   "frac_actual": 0.0679,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/rwy2ad/06-process4-disposition.md"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 10,
+   "frac": 0.9332639691591741,
+   "body": "10 sapphires were logged at the Marsh Lane gate.",
+   "probe": "10 sapphires were logged at the Marsh Lane gate.",
+   "file_index": 7,
+   "frac_actual": 0.9281,
+   "line": 579,
+   "hits": 1,
+   "file": "reading2/rwy2ad/08-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 48
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

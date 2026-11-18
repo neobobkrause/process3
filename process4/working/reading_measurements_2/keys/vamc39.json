@@ -1,0 +1,176 @@
+{
+ "id": "vamc39",
+ "ladder": "start",
+ "size": 32768,
+ "index": 2,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/governing__foundations.md",
+   "s": 43,
+   "e": 170
+  }
+ ],
+ "files": [],
+ "bytes": 33206,
+ "lines": 170,
+ "task": "minutes",
+ "values": {
+  "code1": "R5L-9650",
+  "code2": "M3H-4212",
+  "w_last": "copperfield",
+  "w_name": "zephyrine",
+  "w_desk": "umberfield",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Dmitri Volkonsky",
+  "family": "gemstones",
+  "members": [
+   "sapphires",
+   "garnets",
+   "pearls",
+   "zircons",
+   "topazes",
+   "opals",
+   "rubies",
+   "agates",
+   "emeralds",
+   "amethysts"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "zephyrine-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.066825689862592,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `zephyrine-relay.md`, and under no other name.",
+   "probe": "zephyrine-relay.md",
+   "frac_actual": 0.0464,
+   "line": 6,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: umberfield",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.45158608612574935,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.",
+   "probe": "desk: umberfield",
+   "frac_actual": 0.4541,
+   "line": 70,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref R5L-9650",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9544283175495983,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref R5L-9650`.",
+   "probe": "# ref R5L-9650",
+   "frac_actual": 0.9591,
+   "line": 153,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.26600498880273493,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.2719,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8483329495417825,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.867,
+   "line": 129,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 4,
+   "frac": 0.08095893547469594,
+   "body": "The Dunn store took in 4 sapphires.",
+   "probe": "The Dunn store took in 4 sapphires.",
+   "frac_actual": 0.088,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 7,
+   "frac": 0.3371017784087583,
+   "body": "A box of 7 garnets came through Wick.",
+   "probe": "A box of 7 garnets came through Wick.",
+   "frac_actual": 0.3312,
+   "line": 54,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 3,
+   "frac": 0.42211522428749026,
+   "body": "At Eyre the clerk wrote down 3 pearls.",
+   "probe": "At Eyre the clerk wrote down 3 pearls.",
+   "frac_actual": 0.444,
+   "line": 65,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 12,
+   "frac": 0.7239037225547099,
+   "body": "Tally for Varnel: 12 zircons.",
+   "probe": "Tally for Varnel: 12 zircons.",
+   "frac_actual": 0.7118,
+   "line": 115,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 13,
+   "frac": 0.8700022186804355,
+   "body": "Received at Lund, 13 topazes.",
+   "probe": "Received at Lund, 13 topazes.",
+   "frac_actual": 0.8841,
+   "line": 134,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 39
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

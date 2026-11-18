@@ -1,0 +1,310 @@
+{
+ "id": "xzudvc",
+ "ladder": "single",
+ "size": 768000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__merge-train-trial.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__draft-approvals-split-8nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__account-switch-review.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__records-inventory.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-g.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__account-switch-canary.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__register_notes.md",
+   "lines": "1-162"
+  }
+ ],
+ "files": [
+  "reading2/xzudvc/log.md"
+ ],
+ "bytes": 767775,
+ "lines": 3454,
+ "task": "sumby",
+ "values": {
+  "code1": "U2N-1117",
+  "code2": "W7J-7279",
+  "w_last": "nettlecombe",
+  "w_name": "wainscot",
+  "w_desk": "dunmore",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Soren Achterberg",
+  "family": "gemstones",
+  "members": [
+   "zircons",
+   "topazes",
+   "garnets",
+   "pearls",
+   "sapphires",
+   "agates",
+   "rubies",
+   "emeralds",
+   "amethysts",
+   "opals"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "wainscot-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.046302400436255345,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `wainscot-relay.md`, and under no other name.",
+   "probe": "wainscot-relay.md",
+   "frac_actual": 0.0465,
+   "line": 251,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref U2N-1117",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4547026545359477,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref U2N-1117`.",
+   "probe": "# ref U2N-1117",
+   "frac_actual": 0.4888,
+   "line": 1835,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: dunmore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.901978203566492,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: dunmore`.",
+   "probe": "desk: dunmore",
+   "frac_actual": 0.9021,
+   "line": 2971,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2946302857751658,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.3211,
+   "line": 1534,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5513292650057223,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.5473,
+   "line": 1954,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 10,
+   "frac": 0.13344842138053337,
+   "body": "Tamsin Row desk entered 10 zircons on the sheet.",
+   "probe": "Tamsin Row desk entered 10 zircons on the sheet.",
+   "frac_actual": 0.1333,
+   "line": 1219,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 9,
+   "frac": 0.22585690806666836,
+   "body": "Received at Rigg, 9 topazes.",
+   "probe": "Received at Rigg, 9 topazes.",
+   "frac_actual": 0.1333,
+   "line": 1214,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 5,
+   "frac": 0.4497313905143233,
+   "body": "At Yarm the clerk wrote down 5 garnets.",
+   "probe": "At Yarm the clerk wrote down 5 garnets.",
+   "frac_actual": 0.4445,
+   "line": 1746,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 8,
+   "frac": 0.533473611092183,
+   "body": "Tally for Pell: 8 pearls.",
+   "probe": "Tally for Pell: 8 pearls.",
+   "frac_actual": 0.54,
+   "line": 1915,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 14,
+   "frac": 0.7535960468425847,
+   "body": "14 sapphires were logged at the Uller gate.",
+   "probe": "14 sapphires were logged at the Uller gate.",
+   "frac_actual": 0.6889,
+   "line": 2276,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 19,
+   "frac": 0.8217453355162723,
+   "body": "A box of 19 agates came through Thorpe.",
+   "probe": "A box of 19 agates came through Thorpe.",
+   "frac_actual": 0.839,
+   "line": 2546,
+   "hits": 1,
+   "file": "reading2/xzudvc/log.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 65
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

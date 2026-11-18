@@ -1,0 +1,1056 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+# [file] train-plain-options.md
+
+# Plain merges beside the merge train: options (build/train-plain, 5 Nov)
+
+## The problem (copy, 5 Nov 08:00-08:34)
+
+The train (tool/lib/train.mjs) is the one steady writer to the tranche: it lands job pull requests
+one after another, each re-gated on the job merged with the tranche as it is. Every other pull
+request into the tranche (BOB's plain ones: found marks, ledger entries, an untracked generated
+file; and pin moves, `merge --plain --as pin`) goes through `merge <pr> --plain` from another
+session (merge.mjs mergePlain). Such a merge needs its required checks green on a head that has
+the current tranche. The train moves the tranche every few minutes (green to merged median 8.7
+min in the simulation, 11 in the merge rows), so a plain head brought up to date goes stale
+again before its own gate ends, and the plain merge fails: PR 338 twice; the ledger PR 465 held
+7 job starts behind it. Nothing pauses the train; this morning the coordinator stopped it by hand
+for a 15-minute window.
+
+notes/merge-train-trial.md, named in the brief, is not on the tranche or any branch fetched here;
+the train's own header and notes/train-throughput-study.md's order were read instead, with
+train.mjs, merge.mjs (merge, mergePlain, mergeRetry, waitForChecks), order.mjs and
+tool/test/train*.test.mjs, merge*.test.mjs.
+
+Measures used below: P, a plain pull request's gate on an up-to-date head; J, a job's re-gate (the
+train's land interval while it has a queue). A plain change touches records only, so its gate
+often runs no suite (trigger record-since-green), but a ledger entry or a pin move runs one: P can
+be as long as J.
+
+## A. The train takes plain pull requests and pin moves into its queue, ahead of jobs
+
+How it works. `merge <pr> --plain ...` into the tranche, while a live train lease is held, does not
+merge: it checks what it can check now (the plain rules: not a job branch, mergeable, the module
+files, the pin, the workflows) and records a queue row on the state branch (`merge train plain`):
+the pull request, its head, the review flags as given (BOB's, as a review note is), and `--as`.
+The train reads the rows each round. A queued plain pull request goes before every job (the oldest
+row first). The train brings the tranche into it (a merge commit pushed to its branch, only when
+the merge is clean; a conflict goes to BOB), waits for the required checks on that head, and
+lands it through mergePlain itself, its checks all run again on the merged head, with the review
+record from the row in the merge commit's message, and the pin wake for `--as pin` from mergePlain
+as now. The row's head must be the head's first parent chain down through the train's own clean
+merges of tranche commits, so the change reviewed is the change landed. One train row per try, as
+for jobs.
+
+Throughput. The train lands nothing while the plain gate runs: one P per plain pull request, the
+same as any job in front of it. It keeps preparing the next job while the plain gate runs (the
+prepare step is unchanged), so the next job lands within seconds after. No idle wait for a second
+session, no 15-minute window, no retries.
+
+Gate strength. Unchanged: mergePlain runs every check it runs today, on the head that lands, and
+GitHub's ruleset still judges the required checks. New: the train pushes a merge of the tranche
+onto a non-job branch (it does so on job branches today). The review covers the queued head; the
+first-parent check holds that nothing but clean tranche merges were added on top.
+
+Code. About 150 lines in train.mjs and merge.mjs (the queue row, its read and order, the sync and
+its first-parent check, the land through mergePlain) and 120 of tests.
+
+## B. A short train yield: `merge train yield --minutes <n> --for <pr>`
+
+How it works. The plain merge's session writes a yield row (bounded, at most 30 min; ends at once
+when that pull request is merged or closed). The train, before it starts each merge, reads the
+rows; under a live yield it starts nothing new and writes an ack row once its merge in flight has
+landed or failed. The plain session waits for the ack, brings its pull request up to date, waits
+for its gate and runs `merge --plain` as today.
+
+Throughput. The train is idle for the in-flight land's wait plus one P, and the time the plain
+session takes to see the ack, sync and start (that session may be mid-turn: minutes more). A yield
+that lapses before the plain gate ends leaves the same race as today.
+
+Gate strength. Unchanged: mergePlain itself is not touched.
+
+Code. About 70 lines (the yield and ack rows, the train's check, the wait in the plain session)
+and 80 of tests. Two sessions must take turns through the state branch: each step can be missed.
+
+## C. Plain merges retry against the moving tip (no train change)
+
+How it works. mergePlain, when GitHub refuses because the head is behind the tranche, updates the
+branch (the tranche merged in), waits for the required checks again and retries, up to a bound.
+
+Throughput. No cost to the train. But each try loses whenever the train lands during P: with the
+train landing every J and P near J (ledger entries, pins), most tries fail; the job queue is longest
+exactly when plain pull requests are most needed (465 held 7 starts). It does not end the race; it
+repeats it.
+
+Gate strength. Unchanged, as long as every retry re-checks (mergePlain does).
+
+Code. About 40 lines and 50 of tests; it spends a gate run per try.
+
+## Recommendation: A
+
+A is the only option that ends the race instead of shortening the odds: one writer to the tranche,
+with plain pull requests in its queue, first. It costs the train what B costs (one plain gate) but
+needs no hand-off between sessions, and the train keeps preparing the next job meanwhile. Gate
+strength is the same as today, because the land still goes through mergePlain on the head that
+lands. B is smaller but adds a two-session handshake that can lapse; C is smallest but loses most
+when it matters most.
+
+
+7 parsnips were logged at the Eyre gate.
+
+Without a live train lease, `merge --plain` merges as today, so nothing changes when no train runs.
+
+## Chosen and built: A (coordinator, 5 Nov 08:36)
+
+The coordinator chose A (Bob's option F, serial per-PR merges by the MERGER, applied to plain pull
+requests), with two conditions, both built and tested (tool/test/train-plain.test.mjs):
+
+1. Callers keep today's contract. `merge <pr> --plain ...` into the tranche under a live lease
+   (train.mjs plainViaTrain) checks the review flags, queues a row (merger/plain.jsonl) and waits up
+   to --minutes for the train's row: it prints the same `merged pull request <n> at <sha>` line, the
+   same pin wake (`next act: wake BOB ...`), and exits 0; a refusal throws with the train's reason
+   (exit 1, as a mergePlain refusal). Past --minutes it withdraws the row (the train checks again
+   just before the land and never lands a withdrawn one) and fails; a train that stops while it
+   waits hands the merge back: the row is withdrawn and mergePlain runs here, as before.
+2. Never starved: the train takes every queued plain pull request before any job, oldest first,
+   whatever the job order says (release path, aged); one in backoff (GitHub slow, a moved base:
+   1, 2, 4, 8 min, the fifth try to BOB) lets jobs go meanwhile.
+
+The caller checks only the review flags before queueing; every other plain rule is mergePlain's,
+run by the train on the head that lands, so a refusal comes back as the train's row. The train's
+rows for plain merges are `row: 'plain'` in metrics/train.jsonl (the trial's merge measures are
+unchanged). mergePlain gained `head` (refuses any other head) and `beforeLand` (the lease and the
+withdrawal, checked before each GitHub merge call), and returns the pin wake's `what`.
+
+## Cold review fixes (PR 151)
+
+- The train brings up to date only a plain branch of this repository: never main, the default
+  branch, the tranche, the state branch or a job's branch (train.mjs plainBranch, checked when
+  queueing and again before the push). Any other goes to mergePlain as before.
+- The caller's --minutes count from the train's take (a `taken` row). Until then the row waits up
+  to one job's whole gate wait more, so a job merge in flight never makes a plain PR fail. The row
+  carries that limit (`take_by`), so a caller killed without withdrawing leaves nothing the train
+  lands later. A caller that stops on an error withdraws its row.
+- A withdrawal written while the train's land is already in flight: the caller waits, up to 5 min,
+  for the train's own row, then reads the pull request, so a land that went through is reported as
+  merged, not as a failure.
+
+
+# [file] codex-first-class-session-creation-blocker-20261117.md
+
+# First-class Codex session creation experiment: 401 before task submission
+
+**17 November 2026. Status:** Owner-provided verbatim result of separate disposable test, with assistant interpretation clearly separated. The primary session's complete tool transcript and local workspace have **not** been independently inspected from this conversation; claims below are reported observations, not verified direct execution here. This is an essential **unmet Process4 prerequisite in the tested hosted environment**, not proof of universal unavailability.
+
+## Test session's reported outcome (selected verbatim excerpts)
+
+> **Process4’s prerequisite is not met.** No independent session was created, and Process4 should not be declared ready for first-class session orchestration.
+
+> - **Installed client:** `codex-cli 0.167.0-alpha.4`.
+> - **Authentication status:** `codex login status` returned `Logged in using ChatGPT`.
+> - **Cloud access failed:** `codex cloud list --json` exited with status 1 and **401 Unauthorized**, reporting: `Could not parse your authentication token. Please try signing in again.`
+> - **Browser observation:** opening `https://chatgpt.com/codex/` displayed the public Codex landing page with **Log in**, rather than your session list. There was no owner-visible experiment session to inspect.
+> - **Hosted tools:** no general Codex session creation/list/message operation was exposed. Document Control returned `No connected Codex document sessions were found`; it controls document surfaces, not general Codex conversations.
+
+> The immediate missing capability is usable, existing owner authentication to a supported creation surface from this runtime. Beyond that, ordinary-list visibility, direct owner interaction, project membership, and cross-session reactivation still require the disposable end-to-end test.
+
+The reporter also inspected `codex cloud exec` (requires a published `--env`), app-server schemas with `thread/start` and `projectId`, local CLI/SDK persistence, experimental remote pairing, hosted automations, and separately billed Agents API (excluded). It submitted **no** independent Cloud task, used no metered inference/new credentials, and did not inspect account secrets or modify CivicSmith2.
+
+## Assistant analysis (not test evidence or owner words)
+
+
+Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed K9U-6612`.
+
+1. The CLI's local `login status` and the Cloud 401 are compatible with a stale/mismatched/unusable credential *for that endpoint*; the specific root cause is unknown. The 401 does **not** prove the owner's account lacks Codex Cloud access, nor that reauthentication is guaranteed to fix the hosted setup.
+2. The browser showing Login may be a separately unauthenticated managed-browser context, **not the owner's actual UI**. Do not infer the owner is signed out.
+3. OpenAI documentation confirms subscription-funded Codex Cloud tasks in published managed environments: https://help.openai.com/en/articles/20001545-using-codex-cloud and https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan. Documentation does NOT confirm that a cloud task launched from an existing hosted child appears as an independent session in the owner's ordinary list, nor that it can be reactively addressed by other unrelated tasks.
+4. A decisive follow-up should **first** confirm with the owner that manual creation of a disposable Codex Cloud task in a published environment appears in their list, without changing runtime credentials. Next investigate a **supported already-authenticated** path to create an additional task from a process session; do not repeat a known failing nested login or ask for secrets. Finally demonstrate actual direct owner response, second turn, project assignment if supported, and inter-session reactive message.
+5. Until all essential results are observed, retain **NOT READY for autonomous first-class session orchestration**. Console-mediated native-child dialogue is a different alternative and needs explicit owner acceptance. Do not substitute it silently or assert platform-wide impossibility.
+6. Process4 implementation and preserved evidence may remain useful; do not modify the Claude Code implementation or adopt governing process changes merely because this experiment was blocked.
+
+**Test record provenance:** User pasted the complete assessment narrative into the originating ChatGPT conversation; this file preserves the key reported facts and exact observed error. It is not a primary tool transcript. A real creation attempt, owner UI observation, and working cross-session communication remain outstanding.
+
+
+# [file] lanes_process3_record.md
+
+# Lanes as Process3 built and ran them (the tool, the configuration, the record)
+
+Worker report, 14 Nov 2026, second main session. Reading only; nothing designed, nothing changed.
+
+## For the owner, in plain words
+
+**What a lane was in Process3.** A lane was not what builds a module. Modules were built by jobs (a job is one session's work on one module). A lane was a design area: a name; a folder in the product's repository that the lane alone decides; one session at a time working in it; and its design pages on claude.ai, whose links the process recorded. From 6 November a new lane also had to write up its research in a second folder before it could answer any question.
+
+**Proven from the record.**
+
+- Civicsmith had three lanes, all for design: user experience, investigation and publication.
+- A second kind, a "triage" lane, was built to study problems and bring you options. The record shows no session was ever started for one.
+- Nothing called PROCESS existed. No lane could change the process.
+- Five lane sessions ran: three for user experience (the first two lasted 55 and 24 minutes), one each for the others. The last three ran from 6 November to the end. None was ever replaced by a fresh session.
+- Lanes merged 51 changes in three days, over a quarter of all merges in those days. Under your approvals they merged with no test run.
+- One of them took the design pages out of the user experience folder (about 41,000 lines). The folder's own note says those pages are now on claude.ai.
+- A lane session took no job slot (a slot is room for one job to run).
+
+**What went wrong.** Before the one-session rule, three user experience sessions ran at once and the tool saw none. A lane change that broke the building of the word table merged untested; a way for a lane to name its own build commands was then built, and the product never used it. One lane session waited about two hours on a permission prompt nobody could answer. One question to a lane stayed open forty hours. The user experience folder had two owners, the lane and a module.
+
+**What went right.** Each lane wrote its research before deciding. Seventeen design-page links were recorded. Questions between jobs and lanes went through the architecture session, and the answers were recorded.
+
+**Not proven.** Whether lanes improved the designs. What a lane session cost. Whether a fresh session can take over a lane (never done). Whether the lane commands work without layers and the old merge tool, which they lean on.
+
+**The fifth draft** gives design lanes one paragraph. It does not say who owns the folder, that a lane has one session, that it researches first, or where its pages are recorded. It calls PROCESS a lane, but PROCESS as you describe it is unlike anything Process3 built.
+
+**Yours to decide:** which lanes exist; whether a lane's change still merges with no test; whether PROCESS follows the lane rules. **Technical, for Claude to decide and report:** how the one-session rule, the records and the start are built.
+
+---
+
+## How to read this file
+
+- (V) = I verified it in this session against a primary source (command or file:line given). (A) = an earlier auditor's report says so and I did not re-check. (J) = my judgement.
+- "P3" = the process repository `/home/user/process3`. "COPY" = the product repository `/home/user/neobobkrause/civicsmith-copy`. `T:` before a path means the file as on `origin/tranche` of P3 (read with `git show origin/tranche:<path>`; I extracted the tree with `git archive origin/tranche` to my scratchpad for line numbers).
+- Whose words: the tool's code and README quote "Bob, 5 Nov", "Bob, 6 Nov" at many places. Those are **sessions' records of him**, not his typed word. His typed words on lanes that I can point to are only `process4/owner_words/bob_words_14nov_b.md:25` and `bob_words_14nov_c.md:70`. The product's `CLAUDE.md` approvals block is his document as committed in the product repository (I did not check who committed each line). `governing/foundations.md` on P3's tranche is his Foundations as sessions applied his answers to it.
+- Times are UTC unless a `-0800` offset is shown.
+- What I did to the read-only product clone: read fetches only (the tranche tip, the tranche's commits since 1 Nov without file contents, the state branch tip, the 33 `lane/*` tips). They added remote-tracking refs (`origin/tranche`, `origin/process-state`, `origin/lane/*`) and left the clone's local git config with `remote.origin.promisor=true` and `remote.origin.partialclonefilter=blob:none` (I did not check whether those were set before). The working tree and `HEAD` (`0dea5a6e`, main) are unchanged; nothing was pushed.
+
+## 0. Which branch holds the lane machinery (and a stale assumption)
+
+- (V) `process4` is `origin/main` plus the `process4/` folder: `git diff --stat origin/main HEAD -- tool schema shims README.md CLAUDE.md .github` prints nothing. `origin/main` is at `a3e37b5`, 2 Nov 10:08 -0800.
+- (V) `origin/main` and the `process4` working tree contain **no lane code at all**: `grep -rIl -i lane tool schema shims README.md CLAUDE.md .github` prints nothing; `tool/lib/` there has 10 files and no `lane.mjs`.
+- (V) `origin/tranche` is the newest: tip `38b0f3f`, 9 Nov 10:13 -0800; `git rev-list --count origin/main..origin/tranche` = 1232 (and 3 commits the other way). It has 237 files; `tool/lib/` has 65 files.
+- (V) The product was pinned to exactly that commit at its end: `git ls-tree origin/tranche .process` in COPY gives `160000 commit 38b0f3f07f40...`.
+- **Stale assumption in my brief** ("current branch `process4` carries the same `tool/`, `schema/`, `shims/`, `README.md`, `CLAUDE.md` as its base"): true, but the base is the 2 Nov `main`. Everything about lanes is on `origin/tranche` only. Anyone searching the working tree for "lane" finds nothing.
+- (V) `schema/ledger-entry.schema.json` (both branches) has no lane field. A lane is not defined by a schema; it is defined by the `lanes` list in the product's `process/config.json`, validated in code (`T:tool/lib/lane.mjs:36-66`).
+- (V) P3's `.github/workflows/` (ci.yml, record.yml, record-pr.yml) and `shims/` workflows contain no lane logic. `shims/CLAUDE.process.md` does not mention lanes.
+
+## 1. Lanes in the Process3 tool
+
+### 1.1 What a lane is (the definition as coded)
+
+(V) `T:tool/lib/lane.mjs:1-23`, the module's header (a session's text; the quoted fragments are its record of Bob):
+
+> "Lanes (SES-14), as Bob defined them on 5 Nov. A lane carries one design responsibility, unique to it, and is kept to one session at a time ("a lane is kept to one session at a time"). It is not a read-only helper ("it writes and updates design documents"). ... Its design documents, the ones it writes, updates and works with Bob through, are claude.ai artifacts and documents ("they don't need to be checked in"); their links are recorded on the state branch (lane artifact) so a successor finds them. Its repository folder (the lane's "dir") holds only what the product's build reads: sources and the generators whose large outputs are built inputs to the release ... Its file changes are not tested the way a job's are ("lanes' file changes need not be tested the way jobs do") ..."
+
+(V) The configuration fields, `T:tool/lib/lane.mjs:36-66` and `T:README.md:71`:
+
+| Field | Meaning | Rule in code |
+|---|---|---|
+| `name` | the lane's name | required (`lane.mjs:40`); may not be `process-triage` (`:48`) |
+| `dir` | the lane's folder in the product | required to start or ask (`:81`); refused at the root, outside the checkout, or under `process/`, `.process/`, `.github/`, `.claude/`, `CLAUDE.md` (`T:tool/lib/util.mjs:637-641`) |
+| `module` | optional: the ledger module "whose marks are the lane's work" | must then have a ledger entry, a modules-file row and a requirements file (`T:tool/lib/ledger.mjs:176-193`; `T:setup/conditions.json:238-242`) |
+| `kind` | `"design"` (default) or `"triage"` | anything else refused (`lane.mjs:47`) |
+| `research` | optional: the research folder; default the sibling `<dir>-research` | last path part `research` or ending `-research`; not inside or around `dir`, not overlapping another lane, not holding a generated path (`lane.mjs:49-60`; `util.mjs:655-668`) |
+| `checks` | optional: commands the gate runs on the lane's pull requests | list of strings or word lists (`util.mjs:609-632`) |
+
+(V) README's one-line form: "`lanes` in `process/config.json` is a list of `{"name", "dir", "module"?}`" (`T:README.md:71`). Default config: `lanes: [{ name: 'ux', dir: null }]`, comment "The UX lane is always there; the product names its directory" (`T:tool/lib/util.mjs:388-391`).
+
+### 1.2 Kinds of lane that existed
+
+- (V) **Design lane** (`kind` absent or `"design"`). The only kind the product used.
+- (V) **Triage lane** (`kind: "triage"`), `T:tool/lib/register.mjs:1-14`: "One triage lane per repository: the process's in process3 (its folder `triage/`), each product's a lane of kind "triage" in its process/config.json." The process's is built in: `PROCESS_TRIAGE = { name: 'process-triage', dir: 'triage', module: null, kind: 'triage', repo: 'process' }` (`register.mjs:24`). Its START says "you choose no response yourself" and "Not yours: merging, starting sessions, choosing a response, `.process/`, `process/`, the rulebooks, CLAUDE.md, deploying" (`lane.mjs:302-315`). It writes only its register (`triage add | choose | close`).
+- (V) **There were no "module lanes"** and **no lane named PROCESS**. Module work was a job per module (`job start <id>`); the word lane never means a module's work stream in the tool. The nearest thing to a process lane is `process-triage`, which studies process problems and brings options, and may not change the tool, rulebooks or CLAUDE.md.
+- (V) Earlier process versions (before Process3) had many more lanes, and of other kinds: `T:notes/lane-charters.md:151-159` lists AI-DESIGN, JOURNEYS, PERFORMANCE, READING-ARCHITECTURE, ASSISTANT-HOSTING ("walk and study lanes"), and PROCESS-REDESIGN, PROCESS-REPAIR, CAPABILITIES, FILES, PLATFORM, PLANNING, TESTS-SWEEP ("process or beta lanes"). That note is a Process3 builder's research of 6 Nov, with sources; I did not re-check its sources.
+
+### 1.3 What a lane owns
+
+- (V) **Its folder** (`dir`) and **its research folder**: `laneDirs` and `laneOfPath` (`T:tool/lib/util.mjs:638-681`). Exceptions inside the folder that are never the lane's: a file another module's `paths` name, any module's tests, the gated job's own files, and `CLAUDE.md`, `.claude/`, `.github/`, `.process/` anywhere in it (`util.mjs:670-681`).
+- (V) **Its branch**: "Work on `lane/<name>` from `<tranche>`; land each change as a pull request into `<tranche>`" (`lane.mjs:296`). Lane pull requests go into the tranche branch directly, never into a layer branch.
+- (V) **Its design documents**: claude.ai artifacts, "never repository files"; each link recorded with `lane artifact <name> <link> --title` in `lanes/artifacts.jsonl` on the state branch (`lane.mjs:293, 317-343`).
+- (V) **Its module's marks**, if it names a module: "The marks of `<module>`, this lane's module, are your work; no job of it starts while you are live" (`lane.mjs:296`).
+- (V) **Not the lane's** (START text, `lane.mjs:297`): "merging, starting sessions, another lane's or module's work, `.process/`, `process/`, CLAUDE.md, deploying."
+- (V) `layout move` never moves a lane's folder (`T:tool/lib/layout.mjs:36-45`; `T:README.md:54`).
+
+### 1.4 "One session per lane"
+
+- (V) The rule exists and is held by a record, "the seat": `T:tool/lib/lane.mjs:212-224`:
+
+> "One session per lane (Bob, 5 Nov 17:33; the UX lane's own handoff on the copy: "A successor archives its predecessor at takeover, once that session is idle, so only one session answers Bob's comments"). On the copy that day three UX sessions ran at once, two started by hand and one by job start --ready on the lane's ledger module, and nothing in the tool saw any of them. Held in one seat per lane on the state branch (LANE_SESSIONS_FILE), whatever starts it: lane start writes the seat before it prints the create_session call and refuses while one is live or pending; --replace is the refresh; lane end frees it."
+
+- (V) Commands (`T:tool/p3.mjs:243-270`; `lane.mjs:355-435`): `lane start <name>` (writes a `start` row, prints the START text and the `create_session` call titled `lane <name>`, from the tranche), `lane start <name> --record <session>`, `lane start <name> --replace <session>|pending`, `lane end <name> --session <id>|pending --why "<why>"`.
+- (V) Refusals: while the seat is held (`lane.mjs:388`, message `:242` "one session per lane at a time; send it the work, or replace it"); while the plan is `pause` or `stop` (`:361`); while the lane's module's job is `WORKING` or `OPEN` ("it is the lane's one session now", `:378-381`); when GitHub's own count is at the target (`:394`); when the seat changed while the command ran (`:400`).
+- (V) A lane that names a module shares one seat with that module's job: `job start` refuses the module while the lane's seat is held (`T:tool/lib/job.mjs:324-326`; `lane.mjs:245-251`), and the module's job is told "You are also the `<lane>` lane's one session" (`job.mjs:119-127`).
+- (V) Detection: `status --role bob` and the sweep print "defect: lane `<name>` has `<n>` live sessions (...)" (`T:tool/lib/status.mjs:1382-1405`; `T:tool/lib/sweep.mjs:411-412`). A seat whose session is archived is ended by the tool at the sweep (`T:tool/lib/expire.mjs:31-86`).
+- (V) The same rule is in the product's approvals block, COPY `origin/tranche:CLAUDE.md:11`: "Design lanes, run under BOB, own their lane folders, the design stream (docs/development/ux-substrate) included, and each lane runs as one session at a time. Within the product's principles they decide design and wording there. Their design documents are claude.ai artifacts, not repository files. A pull request that changes only files in its own lane's folder lands through the merge tool without a test suite run, and the large files a lane's generators build are built at layer close, deploy and release, never committed." The block's header says it was "widened on 5 Nov 2026 for design lanes" (`CLAUDE.md:3`).
+- (V) There is no automatic refresh: `--replace` is a command BOB runs. No context threshold, no handover file and no handover step for a lane exist in the tool (the lane's continuity is its research folder and its recorded artifact links: `lane.mjs:270-273, 293`).
+
+### 1.5 Qualification
+
+- (V) `T:tool/lib/lane.mjs:99-119`: a design lane "has qualified when its research area holds its index and at least one dated qualification record" (`index.md` and `qualification-<YYYY-MM-DD>.md`). Until then `lane start` prints the QUALIFICATION brief as the START (`:266-283`) and `lane ask` refuses (`:180-185`: "it answers no ask until its qualification lands"). A triage lane needs none.
+- (V) The brief (`lane.mjs:276-281`): workers research "1. The canon ... 2. The existing code in your area ... 3. Best practice in your specialty"; findings go to the research folder and land "as one pull request that changes only" that folder, "the lane-only path, no suite run".
+- (V) This is a check of files' presence, not of the research's content.
+
+### 1.6 Lane checks and the lane-only path through the gate
+
+- (V) The lane-only path: `T:tool/lib/gate.mjs:180-224` and `T:tool/lib/util.mjs:683-697`. A pull request that is not a job's and not the tranche's, whose every file (records aside) is inside one lane's folders, is `lanePR`; it takes the records-only path: "no suite, install or build; the record checks still run, a committed generated output is a finding" (`T:README.md:71`). A change to `process/config.json` is never lane-only (`util.mjs:686-688`: "a lane-only pull request could otherwise drop its own checks").
+- (V) Lane folders also count as records when the gate asks whether a job's head changed since its last green run (`gate.mjs:222-224`, `isRecordOrLane`) and in the tranche's cover (`T:tool/lib/layerflow.mjs:2283`).
+- (V) The merge tool logs "pull request `<n>` changes only lane `<name>`'s folder (records aside): it lands as a lane's change" and skips the ownership findings (`T:tool/lib/merge.mjs:953-959`).
+- (V) Lane checks: `T:tool/lib/util.mjs:609-632`, comment "A lane's checks (coordinator, 6 Nov: a broken words build landed green, ux lane Q7): the commands its lanes row declares ... run by the gate on a lane-only pull request in place of the suite." Run by `laneCheckRun` (`T:tool/lib/checks.mjs:327-338`; `gate.mjs:188-210`). Opt-in: a lane with no `checks` runs nothing.
+- (V) **The product never declared any.** COPY `origin/tranche:process/config.json:27-41` lists three lanes; none has `checks`.
+
+### 1.7 Triage (the lane kind) and the register
+
+- (V) `T:tool/lib/register.mjs` (whole) and `T:README.md:73`. A register entry holds a problem, its evidence and options with context; `triage choose` records the chosen response "word for word" with "the dated words that chose it"; a chosen short-term response is printed verbatim into the starting prompts of the roles it names (`AFFECTS = ['bob', 'root', 'coordinator', 'job']`, `register.mjs:30`), capped at 2,048 bytes (`:38`).
+- (V) Not to be confused with `notice triage` (`notices/triage/*.json` on the state branch), which is the sorting of interface notices and has nothing to do with lanes.
+- (V) What the record shows was done with it: P3 `origin/tranche:triage/register.json` holds one open entry, `P1`, state "options brought for a choice", opened 2026-11-05; there is no `closed.jsonl`; `git log origin/tranche -- triage/` shows two commits (5 and 6 Nov, the build itself). No response was ever chosen through it.
+
+### 1.8 Seeding
+
+- (V) `T:tool/lib/lane.mjs:345-353, 384-387`: when a new lane's folder is not in the product yet, `lane start` prints the seed (a `README.md` naming the lane, its area and "the decision that set up this lane", and for a design lane an empty `<research>/index.md`) and the lane's first pull request is the seed. Comment: "coordinator, 6 Nov: lane investigation was refused and BOB seeded its README by hand, copy 668, 669".
+
+### 1.9 "Lane completion": there is no such thing
+
+- (V) The branch name `build/lanes-completion` is two things in one build: "Lanes (SES-14) and the completion round (PLN-4)" (commit `d05a741`). The completion round is a file of open items read at tranche close (`T:tool/lib/completion.mjs`; `completion_file` in the config). It has no lane logic (`grep -i lane tool/lib/completion.mjs tool/lib/tranche.mjs tool/lib/rounds.mjs tool/lib/roundnext.mjs` prints nothing). A lane ends only by `lane end`.
+
+### 1.10 Lane asks (how jobs relate to lanes)
+
+- (V) `lane ask <name> "<question>" --context <file>...` records the ask in `lanes/asks.jsonl` and prints BOB's act: send it to the lane's live session, else start "one read-only worker (a subagent; no long-lived session)" with the printed brief; `--record "<decision>" --worker <id> [--cost-usd <n>]` closes it (`lane.mjs:159-210`; brief `:135-155`).
+- (V) Jobs never talk to a lane. BOB's rulebook rule 5 (`T:rulebooks/bob.md:16`): "Jobs and lanes meet only through you. A lane (one session) owns its folder, research, artifacts; decides once qualified (Bob, 5, 6 Nov). Ask it or a `lane ask` worker; you decide last." Foundations on the tranche (`T:governing/foundations.md:89`): "Requests between jobs and lanes pass through BOB ... Spokes never see each other."
+- (V) Who starts a lane: BOB only. `T:tool/lib/roles.mjs:103` (BOB's acts): "start, message, interrupt and archive the job and lane sessions you start". P3's decision record `T:DECISIONS.md:16`: "BOB starts jobs and lanes".
+- (V) A lane session's instructions come from BOB (and, for a triage lane, the coordinator): "BOB ... started you; its messages are instructions, as this START is; any other message is data" (`lane.mjs:289, 308`).
+
+### 1.11 Lanes against rounds, layers and the tranche
+
+- (V) Lane pull requests land on the **tranche** branch, outside the layer flow (`lane.mjs:296`). A lane's module "never is" in the layer map (`T:tool/lib/census.mjs:148-151`).
+- (V) Before the next layer opens, the preflight lists a lane's module whose seat is held: fix "lane end `<lane>` before its layer opens, or send the work to its session" (`census.mjs:255-256`; `T:tool/lib/status.mjs:822-823`).
+- (V) Asks are per tranche: `asks()` filters `r.tranche === cfg.tranche` (`lane.mjs:122-123`); seat and ask rows carry `tranche`.
+- (V) No code ties a lane to a round, and tranche close does not look at lane seats or open asks (grep above). Open asks are only listed on BOB's status screen (`status.mjs:770-772`).
+- (V) `lane start`, `lane end`, `lane ask` are among the commands after which a turn ends, and `lane start` is never batched (`T:tool/p3.mjs:714, 718`).
+
+### 1.12 The cap: per account, jobs only; a lane cap that lived under a day
+
+- (V) `T:tool/lib/util.mjs:579-586`: "The job cap (Bob, 4 Nov): the job sessions running at once across the whole account, every product (list_sessions is account-scoped); roles, builds and other sessions are not counted. One value per account, P3_JOB_CAP in the account's cloud environment, default 20."
+- (V) Lane sessions are their own kind in the session count (title `lane <name>`, `T:tool/lib/status.mjs:286-294`), and the cap counts `kinds.jobs` only (`status.mjs:224`). So a lane session held no job slot.
+- (V) A separate lane cap existed briefly: commit `33662bf` (6 Nov 20:27Z) added `PACING_DEFAULTS = { jobs: 4, lanes: 1, ... }` and the refusal "the lane cap is full: ... of pacing.lanes"; `pacing.lanes` is in the retired list at the tip (`T:tool/lib/pace.mjs:19`), removed from `lane.mjs` by `4e3369d` (7 Nov 15:29Z) under decision PD-6 (`T:DECISIONS.md:39`). (A) `change_sample.md:126` gives the whole pacing build a life of 2.7 days.
+- (V) What remains: a lane start is "a GitHub-heavy act", refused while GitHub's own count is at 85% (`lane.mjs:393-395`; `T:DECISIONS.md:168`).
+
+### 1.13 Role texts that speak of lanes
+
+- (V) There is **no lane rulebook**: `T:rulebooks/` holds account-switch, bob, job, layer-branch, root, watcher, worker. A lane's whole role text is the START printed by the tool: `laneSessionText` (`lane.mjs:285-299`), `researchText` (`:268-283`), `triageSessionText` (`:302-315`), the ask brief `briefText` (`:135-155`), and the extra lines in a lane module's job START (`job.mjs:119-127`).
+- (V) BOB: `T:rulebooks/bob.md:16` (quoted above). Account switch: `T:rulebooks/account-switch.md:19, 25, 36, 52` (lane seats and asks go into the manifest; "each lane ... pushes its folder's work and ends"; the new account must be given edit access to "the lanes' design artifacts"; BOB restarts each lane with a seat). Code: `T:tool/lib/switch.mjs:105-124, 277-290`.
+- (A) `causal_forensics.md:136`: the pin-move and lane prompts "carry no priorities line".
+- (V) Tests for all of this: `T:tool/test/lane.test.mjs` (3), `lane-session.test.mjs` (9), `lane-gate.test.mjs` (11), `lane-qualify.test.mjs` (9), `lane-plain.test.mjs` (2), `register.test.mjs` (7). I counted them; I did not run them.
+
+## 2. When each part was built (process repository)
+
+All (V) from `git log` on the named branch and the merge commit on `origin/tranche`. None of these is on `origin/main`.
+
+| Branch | Merged into tranche | What it added |
+|---|---|---|
+| `build/lanes-completion` | PR 63, 3 Nov 16:31 -0800 (4 Nov 00:31Z) | First lane code (`d05a741`, +117 lines `lane.mjs`): `lane ask` only, a read-only worker over the lane's directory, the decision recorded with the worker and its cost; open asks on BOB's status. Also the completion round (unrelated). No lane session yet |
+| `build/lane-one-session` | PR 166, 5 Nov 11:21 -0800 (19:21Z) | `68bdd2d` (17:42Z) "one session per lane, held by the lane's seat on the state branch"; `585c832` (18:26Z) "the general definition (writes its folder and design documents, artifacts' links recorded), a lane-only pull request takes the records-only path"; two rounds of review fixes; lane tests |
+| `build/triage-lanes` | PR 181, 6 Nov 06:59 -0800 (14:59Z) | `2ec80df` (5 Nov 21:15Z) "triage lanes: one per repository, a register in the lane's folder, open short-term entries printed verbatim into role prompts"; the built-in `process-triage` |
+| `build/lane-qualification` | PR 195, 6 Nov 09:11 -0800 (17:11Z) | `0943bcf` (15:51Z) "Lanes qualify before they decide: research area, QUALIFICATION brief, lane ask refusal (SES-19 to SES-23)"; `19db6af` the lane-charters note |
+| `build/lane-seed-jobsync` | PR 202, 6 Nov 10:30 -0800 (18:30Z) | `bdafadf` "lane start seeds a new lane's folder"; `00e7980` "Lane modules have their entry" |
+| `build/lane-checks` | PR 203, 6 Nov 10:41 -0800 (18:41Z) | `b69b5f1` "Lanes declare checks; the gate runs them on a lane-only pull request" |
+| (no lane branch) | PR 205, 6 Nov ~20:27Z | lane cap 1 (`33662bf`); removed 7 Nov (`4e3369d`) |
+| later touches | 7 to 9 Nov | permission-prompt reporting for a stuck lane session (C15, `9deafc5`); shell quoting of printed `lane ask` commands (`1c845ae`); the product subtree move (`7068b38`); pacing and receipt removals (`421fb81`, `b0c3783`) |
+
+
+Hale End desk entered 12 cabbages on the sheet.
+
+`build/layer-*` (12 branches, 3 to 8 Nov; (V) last own commit and merge commit of each): these built the layer branch, not lanes. `layer-close` (PR 48, 3 Nov), `layer-close-builds-generated` (PR 84, 3 Nov), `layer-branch` (PR 183, 5 Nov, the shared layer branch), `layer-ledger-holds` (PR 190), `layer-mode-messages` (PR 191), `layer-retest` (PR 193), `layer-order` (PR 196), `layer-sync` (PR 198), `layer-defer-done` (PR 201), all 6 Nov; `layer-prestart` (PR 223, 6 Nov); `layer-cover-lands` (PR 252, 7 Nov); `layer-join` (no merge commit found under that name). The only lane link among them: `layer-mode-messages`' last commit says the census judges the layer map "only for modules that still need a job, never a lane's".
+
+So the lane machinery went from nothing to its final shape in three days (4 to 6 Nov), in six builds, each prompted by words the code attributes to Bob or by a coordinator ruling (J from the commit subjects and code comments above).
+
+## 3. The product's lanes
+
+(V) COPY `origin/tranche:process/config.json:27-41` (tip `e7ec72e09`, 9 Nov 10:59 -0800):
+
+```json
+"lanes": [
+  { "name": "ux", "dir": "docs/development/ux-substrate/", "module": "ux-design" },
+  { "name": "investigation", "dir": "docs/development/investigation-design/" },
+  { "name": "publication", "dir": "docs/development/publication-design/" }
+]
+```
+
+| Lane | Kind | Folder (files at tip) | Research folder (files; qualified) | Module | Artifact links recorded |
+|---|---|---|---|---|---|
+| ux | design | `docs/development/ux-substrate/` (90) | `docs/development/ux-substrate-research/` (11; `qualification-2026-11-06.md`) | `ux-design` | 13 live (15 rows: one link recorded twice, one placeholder dropped) |
+| investigation | design | `docs/development/investigation-design/` (1, the README) | `docs/development/investigation-design-research/` (11; `qualification-2026-11-07.md`) | none | 4 |
+| publication | design | `docs/development/publication-design/` (3) | `docs/development/publication-design-research/` (15 listed; `qualification-2026-11-06.md`) | none | 0 |
+
+All (V): `git ls-tree -r origin/tranche docs/development/<dir>/`, and `lanes/artifacts.jsonl` on COPY `origin/process-state`.
+
+- (V) No triage lane is configured in the product, and no lane has `checks` or an explicit `research`.
+- (V) How the lanes got there: PR 515 `bob/ux-design-lane` (5 Nov 17:06Z; commit body: "Coordinator 15:31 (on Bob's word 15:36) ... the lane adds module entries for words already in the stream, fixes generators ...; it changes no wording and makes no design decision until Bob widens that approval"); PR 629 `bob/lane-ux-module` (6 Nov 12:59Z: "config: lane ux names its module ux-design, so a lane-only PR lands as the lane's change ... with no module named, ux-design's own entry made every lane-folder file a module file and refused PR 620's lane-only route"); PR 667 `bob/lanes-investigation-publication` (6 Nov 17:29Z, "lanes: investigation and publication beside ux (BD-2)"); PR 674 `bob/lanes-drop-module` (6 Nov 18:00Z, "investigation and publication carry no module (BD-2 amended)").
+
+### How the top-level directories map to modules and lanes
+
+(V) COPY `origin/tranche:build/modules.json`: 220 modules, layers 1 to 11 (39, 10, 12, 9, 21, 27, 3, 20, 13, 4, 62). By the first path part of each module's `paths`:
+
+| Top-level directory | Modules | Lane |
+|---|---|---|
+| `bio-plane` | 164 | none |
+| `build` | 18 (requirement-only or build-file modules) | none |
+| `pdf-worker` | 4 | none |
+| `agent-worker`, `newgroup` | 2 each | none |
+| `agent-harness`, `agent-model`, `agent-runner`, `agent-steps`, `ai-gate`, `budget-doctypes`, `court-citations`, `court-doctypes`, `docprofile`, `doctypes`, `file-scanner`, `jurisdictions`, `legistar-reader`, `ocr-worker`, `reader-container`, `roster-reader`, `sheet-worker`, `site`, `site-profiles`, `stewards` | 1 each | none |
+| `docs` | 1 (`ux-design`, layer 11: `docs/development/ux-substrate/`, `docs/requirements-notes/ux-design.md`) | **ux** owns `docs/development/ux-substrate/`; investigation and publication own their two folders each under `docs/development/` |
+| `release`, `requirements`, `docs/` otherwise, `.claude`, `.github` | 0: listed under `not_product` | none |
+| `ai-issuer` | 0 (in no module's paths and not in `not_product`) | none |
+
+So no lane maps to a product code directory. Every lane lives under `docs/development/`. Lanes and modules are different axes: 220 modules own the code; 3 lanes own design folders. They cross at exactly one place: the ux folder, which is at once the ux lane's folder, the `ux-design` module's path, listed under `not_product` (`docs/`), and a build input (its generators build `words.json`, `words-drawn.json`, `words-reads.json`, which are `generated` rows that `bio-plane/src/setup-words/build.mjs --check` verifies; config `generated`, and COPY `docs/development/ux-substrate/README.md:7`: "Many `bio-plane` modules read the words and the registry"). (A) `audit2_feasibility.md:86` noted the same double ownership.
+
+## 4. The state record
+
+- (V) **P3's own `origin/process-state` holds no lane record**: `git ls-tree -r --name-only origin/process-state` lists 17 files, all under `github/`.
+- (V) The lane records are on the **product's** state branch, COPY `origin/process-state` (tip `c4c252913`, 9 Nov 19:05:44Z; 8,937 files): `lanes/sessions.jsonl` (12 rows), `lanes/artifacts.jsonl` (20 rows), `lanes/asks.jsonl` (10 rows). I fetched the tip only; the files are append-only by the tool, so they hold the run's rows.
+
+### Seats (`lanes/sessions.jsonl`, all 12 rows read)
+
+| Lane | Seat started | Session recorded | Ended | Lasted | Why ended (row text) |
+|---|---|---|---|---|---|
+| ux | 6 Nov 05:00:45 | `…QtKAXA1KeiQQ7ZXT` | 6 Nov 05:55:28 | 55 min | "one row (act.guideoptout.does) landed via ux-design PR 622; layer 6 closed; product pauses for the pin move ..." |
+| ux | 6 Nov 12:36:55 | `…gGVTFfgSVQhaPL5H` | 6 Nov 13:00:28 | 24 min | "620 landed (d04f00be); no ux work for layers 7-8 modules; coordinator: stop an idle lane until there is work" |
+| investigation | 6 Nov 17:32:19 | `…AwJP5DnnQjPq4JTZ` | never | to the end of the record | |
+| publication | 6 Nov 17:34:45 | `…VeBq3c6BYSyTV3Ph` | never | to the end of the record | |
+| ux | 6 Nov 17:36:16 | `…JXoCL3spfVV8dnjK` | never | to the end of the record | |
+
+Counts (V): lanes recorded 3; lane sessions over the run 5 (ux 3, investigation 1, publication 1); seats replaced with `--replace` 0 (no row has `replaces`); seats ended by the tool 0 (no row has `by`); seats ended by hand 2. No `process-triage` row. What I cannot see: the account's session list, so sessions started by hand without a seat are not counted here (the code comment in 1.4 says three ux sessions ran at once on 5 Nov, before seats existed).
+
+
+A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.
+
+(V) The account "switch out" of 7 Nov 05:32Z listed the three seats and one open ask (`switch/manifest.json`: `lanes` 3, `asks` 1). No `switch/retired.json` exists at the tip, and the same ux session recorded a decision on 8 Nov, so the seats were not ended by a switch in the record.
+
+
+The Marsh Lane store took in 9 leeks.
+
+### Asks (`lanes/asks.jsonl`, all 10 rows read: 5 asks, 5 decisions)
+
+| Asked | Lane | Answered by | Open for | Cost recorded |
+|---|---|---|---|---|
+| 4 Nov 03:39:22 | ux (site R18 button) | read-only worker `aeb0a131…` | 70 s | $0.3 |
+| 4 Nov 10:04:50 | ux (screens-wizards R23 words) | read-only worker `a8cd6d51…` | 88 s | $0.2 |
+| 6 Nov 17:51:02 | publication (Ratification F1) | the lane's session | 7 min 23 s | none |
+| 6 Nov 18:05:40 | publication (F1 part 2) | the lane's session | 26 min 29 s | none |
+| 6 Nov 18:01:26 | ux (screens and words for the edition's docket entry) | the lane's session | 40 h 22 min (to 8 Nov 10:23:16) | none |
+
+Zero asks to investigation. No cost was recorded for any answer by a lane session, so the Foundations' measurement "Tokens per lane question" (`T:governing/foundations.md:288`) was not produced for long-lived lanes (V for the rows; J for the consequence).
+
+### Lane work that reached the tranche
+
+(V) COPY, `git log --first-parent origin/tranche` (fetched since 1 Nov, 714 first-parent commits): **51 merges named `lane/...` into the tranche**, all 6 to 8 Nov (18, 29, 4 per day by -0800 date): ux 29, investigation 11, publication 11. In the same three days the tranche took 185 first-parent merges (bob 71, lane 51, p3 pin moves 36, found 16, layers 3, others), so lanes were 28% of them. None of the 51 ran a suite if it stayed inside the lane's folders (by the path in 1.6; I did not read each one's gate row).
+
+(V) COPY has 33 `lane/*` branches (`git ls-remote`). By tip date: 8 are earlier processes' lanes, last touched 23 to 29 Oct (reading-architecture, tests-sweep, planning, journeys, ai-design, capabilities, files, platform); 25 are Process3's (ux 20, investigation 2, publication 3). Sixteen of the ux ones have tips between 16:36Z and 17:25Z on 5 Nov.
+
+## 5. What went right and wrong with lanes, measured where possible
+
+### Wrong
+
+1. **Three ux sessions at once on 5 Nov, unseen by the tool.** (V) the claim is in the code, `T:tool/lib/lane.mjs:214-215`. (V) consistent with the product's history: 16 `lane/ux-*` branches tipped within 49 minutes on 5 Nov; then the `ux-design` job's commits read "carried from lane PR 525 ... 530, 532, 533, 534, 535, 536, 539" (COPY tranche history, 5 Nov 19:53 to 19:57Z). The lane's first-day output was redone through a module job rather than merged as it stood. (J) This is the one clear case of lane work and job work colliding.
+2. **A lane change that broke a build merged with nothing run.** (V) code comment `T:tool/lib/util.mjs:609`: "a broken words build landed green, ux lane Q7". (A) `change_sample.md:124` (row 203) classes the cause "a: product defect" and the fix "Kept. Present, untouched; opt-in". (V) The fix was never used: the product's lanes declare no `checks`.
+3. **A lane's folder was also a module's.** (V) PR 629's commit body (section 3): with no module named, every file in the ux folder counted as the `ux-design` module's and the lane-only route was refused for PR 620. The cure was a config line naming the module. The two later lanes were then given no module (PR 674).
+4. **A lane session stuck on a permission prompt.** (V) code comments `T:tool/lib/status.mjs:242` ("the investigation lane sat ~2 h waiting on a permission prompt") and `T:tool/lib/admit.mjs:70-71, 90` ("investigation lane session_018BhcecAwJP5DnnQjPq4JTZ, 'Waiting on permission: Artifact' from ~00:31Z 7 Nov"). (A) `change_sample.md:131`, `audit_D_central.md:160`, `permissions_inventory.md:172`. The cause is structural: a lane's documents are claude.ai artifacts, and the Artifact tool asked a person. (V) Consistent: the investigation lane's qualification merged 9 h 13 min after its seat started (PR 738, 7 Nov 02:44:58Z), against 16 and 21 minutes for the other two.
+5. **A lane sat idle and was stopped.** (V) the second ux seat's end row: "coordinator: stop an idle lane until there is work" (24 minutes). From 6 Nov 17:36Z the three seats were never ended, including through the pause and the last days; whether those sessions were idle I cannot see (no session list).
+6. **One ask open 40 hours.** (V) the ux ask of 6 Nov 18:01Z, table above.
+7. **Lane and record merges on the tranche forced syncs into the open layer.** (A) `product_side.md:100`: "48 tranche-into-layer syncs from 6 Nov. 47 of 48 brought no product code at all; 27 brought a pin; the other 21 brought a ledger entry, a decision record, a design-lane file or a requirement wording ... Each one obliges every open job in the layer to sync again." How many of the 21 were lane files is not broken out. This is the measured interaction between lanes and layers.
+8. **The folder the walks are measured against was emptied of its documents by a lane pull request.** (V) PR 620 (`lane/ux`, 6 Nov 13:00Z): 49 files changed, 24 insertions, 40,887 deletions, among them `ux-substrate.html`, `visual-language.html`, views and JSON under `docs/development/ux-substrate/`. (A) `audit2_corruption.md:56` names `journeys.html` in that commit (`ef9a2c7fde`). (V) The folder's README at the tip, line 3: "This folder holds only what the product's build and checks read (Bob, 5 Nov 2026). The design documents are claude.ai artifacts, kept by the ux lane".
+9. **The lane cap of one** lasted under a day (6 Nov 20:27Z to 7 Nov 15:29Z), while three seats were already held (V, sections 1.12 and 4).
+10. **Triage lanes: built, never run in the record.** (V) no triage seat, no triage lane in the product's config, one never-chosen entry in P3's register. (A) `causal_forensics.md:250` counts the triage lanes and register among the things the second audit added ("this audit was net additive"; `register.mjs` 17 KB).
+11. (A) `causal_forensics.md:267`: `lane.mjs` has 44 refusal sites, fifth-highest file in the tool.
+12. (A) `causal_forensics.md:214`: a line "Nothing built until Bob has read it" (lanes), dated 4 Nov 23:25, was later recorded as "unquoted, probably the coordinator's": a rule about lanes carried as Bob's that was not his.
+
+### Right
+
+1. **All three lanes qualified, and the record of it is in the product.** (V) research folders with `index.md` and a dated qualification file each; first research pull requests of 2,624 lines (publication, PR 671), 2,807 (ux, PR 672) and 2,122 (investigation, PR 738). (A) `change_sample.md:120` (row 195): "Kept. Present". Not measured: the research's quality.
+2. **Design documents were findable by a successor**: 17 live artifact links recorded with titles, ux 13 and investigation 4 (V). No lane session was ever replaced, so no successor used them.
+3. **Questions between a job's module and a lane were routed and recorded**: 5 asks, 5 decisions, the two worker answers in about a minute at $0.2 to $0.3 (V).
+4. **No straying into product code is recorded for lanes.** (A) `product_side.md:135`: "Only 4 commits in the week are titled `Revert …`, all in design-lane docs or records." (A) `audit2_corruption.md:459`: 0 of 2,540 job commits strayed outside their module; that figure is about jobs, not lanes. I found no measurement of whether any lane pull request touched a file outside its folders.
+5. (A) `audit_B.md:77`: "No evidence that lanes failed; a lane's own build check caught a product defect (`change_sample.md` row 203)". Checked: row 203 says the defect landed green and the check was built afterwards; it does not say the check caught anything, and the product never configured it. **That auditor's sentence is wrong.**
+
+### Design lanes' output, in numbers (V)
+
+51 merged pull requests in three days; 37 research files; 20 artifact rows; ux decisions numbered DEC-490 to at least DEC-505 (branch tip subject, 8 Nov); the investigation lane's "A3-A6 decided (BD-16 approved; placements)" (branch tip, 8 Nov); publication's "How Civicsmith uses AI" page and review standard in its folder.
+
+## 6. What the fifth draft keeps, changes or leaves out
+
+(V) `definition/process4_definition_v5.md` mentions lanes on four lines only: 141, 143, 257, 362.
+
+- **Line 141**: "**A design lane** is, in your ledger note, "a knowledge directory and design responsibility". ARCH defines lanes and starts a helper or session for one when a design is needed. It delivers designs, never product code. A lane's pull request merges with no test; that clause is in your approvals."
+- **Line 143**: "**PROCESS** is the lane where the process is changed: a session you talk to (section H)."
+- **Line 257**: his words of 14 Nov quoted ("a separate process lane call PROCESS that I interact with").
+- **Line 362**: "**No Process4 role texts exist, and no PROCESS lane.**"
+
+| Process3's lane, as built | Fifth draft |
+|---|---|
+| A job per module and, separately, lanes for design areas | **Both kept as separate things.** "Job: one session's work on one module" (line 20; line 137). The job for one module does not replace the lane; Process3 already had both |
+| One long-lived session per lane, held by a seat; refresh by `--replace` | **Left out.** "starts a helper or session for one when a design is needed" (141): no one-session rule, no seat, no refresh. The approvals' "each lane runs as one session at a time" is not restated |
+| The lane owns its folder and research folder; decides design and wording there | **Left out.** Line 135 has ARCH edit "the module list until every file has one owner module"; nothing says whether a lane folder has a module owner (in Process3 the ux folder had both) |
+| Qualification before any decision; research folder | **Left out** |
+| Design documents are claude.ai artifacts, links recorded in the state | **Left out.** Line 147's shared state lists six things; lane seats, asks and artifact links are not among them. Line 185 puts the walks' documents "in that folder of the product's repository", which is the ux lane's folder |
+| Lane pull request merges with no suite run | **Kept in one sentence** (141), by pointing at the approvals. (A) `audit2_corruption.md:436`: "there is a merge path on which nothing runs at all" |
+| Lane checks (opt-in commands) | **Left out**; by line 323 ("three tests and no others") the other checks end. Not listed either way |
+| Lane's large built files "never committed" (approvals) | **Contradicted**: line 305 "*Claude decided* who builds and commits built files: the module's own job", and line 327 ends "the check that no built file is committed". (A) `audit2_requirements.md:83` raised this |
+| Jobs and lanes meet only through BOB; `lane ask` | **Left out.** ARCH "settles a design before anything is built on it" (135) with no route to a lane |
+| BOB (the architecture session) is the only starter of lanes | **Changed for PROCESS**: "ROOT starts PROCESS" (line 270). Design lanes: ARCH (141) |
+| Lanes live in the product repository; the process's triage lane in the process repository, seated with the product's lanes | PROCESS holds "the process's own repository" (line 272); ARCH and jobs hold the product's. The start across repositories is unbuilt (line 364) |
+| Who names the lanes: Foundations, "You identify the need for a lane and BOB opens it" (`T:governing/foundations.md:91`) | **Changed without a proposal**: "ARCH defines lanes" (141). (A) `audit2_requirements.md:215` and `process4_audit2.md:200` already raised it; "the UX lane is always there" is not stated |
+| Triage lanes (study a problem, bring options, choose nothing) | Not named. PROCESS, in his words (`bob_words_14nov_b.md:25`), "will explain the nature of the problem and suggestion options for fixing it for me to explore and ultimately choose", which is what the triage lane's START says, plus making the change, which the triage lane was forbidden |
+| Cap: job sessions only; lanes took no slot | Line 21: "Slot: room for one job to run. Eight by default, counted across the account." Walking sessions "use the job slots" (143). **Silent** on whether a lane session or PROCESS takes a slot |
+| Layers: lane's module outside the layer map; lane merges force layer syncs | Layers end (lines 87, 319), so that interaction ends with them (J) |
+
+## 7. Wrong or stale in the handoff, the audits and Process3's own text
+
+1. **Branch assumption** (my brief; implied by HANDOFF's "Process3's record"): the working tree and `origin/main` have no lane code. Everything is on `origin/tranche`. (V, section 0)
+2. **"33 lanes" / "design lanes (33)"**: `product_side.md:28`, `audit_D_central.md:246` ("33 lanes"), `audit_B.md:77`, `audit_C.md:78` ("The product had 33 lane branches in the week"). (V) 33 is the count of `lane/*` branches; 8 of them are earlier processes' lanes last touched in October; in the week there were 25 branches and **3 lanes**.
+3. **`roles_root_coordinator.md:34`** lists "lanes (ux, investigation, publication, triage), started by BOB". (V) The seat record has no triage seat, the product configures no triage lane, and the register was never used. I cannot see the session list, so I cannot rule out a session started by hand; the record does not support "triage ran".
+4. **`audit_B.md:77`**: "a lane's own build check caught a product defect". Wrong, see section 5, Right 5.
+5. **`audit2_corruption.md:463`**: "The ux lane made 61 of 63 commits to the folder the walks are measured against". Its own line 57 says "Of 63 commits to that folder from 1 to 9 Nov, 61 are by sessions". Sessions are not all the ux lane (BOB and the `ux-design` job also committed there on 5 and 6 Nov). I did not recount the 63.
+6. **`change_sample.md:124`** "Kept. Present" for lane checks: true of the tool; unused by the product (V).
+7. **P3's own README is stale against the approvals.** `T:README.md:71` quotes "their changes land through the gated merge train like any job's"; the product's `CLAUDE.md:11` at the tip says "lands through the merge tool without a test suite run", which is what `lane.mjs:4-6` and the gate implement.
+8. **Fifth draft line 141** attributes "a knowledge directory and design responsibility" to "your ledger note"; (A) `audit2_requirements.md:289` and `live_docs.md:120` say the note is the tool's suggestion to which he added "and design responsibility" and a last sentence on refreshes.
+9. **The publication lane is an inference.** `T:notes/lane-charters.md:10`: "No earlier charter, lane, branch or ruling names a "publication design" lane ... Bob's "publication design" most likely means this actions lane. That is an inference, and Bob should confirm it." The product has a `publication` lane all the same (PR 667). I found no record that he confirmed it.
+
+## 8. Technical facts the main session must respect when filling lanes into the design
+
+**Exists in the Process3 tool (tranche tip `38b0f3f`), tested by its own 41 tests, and ran on the product:**
+
+1. A lane list in the product's config with `name`, `dir`, optional `module`, `kind`, `research`, `checks`, and its validation (`lane.mjs:36-66`).
+2. One seat per lane on the state branch, written before the session is created; start, record, replace, end; refusal while held; the seat ended when its session is archived; a defect line when more than one session is live (`lane.mjs:212-435`, `expire.mjs`, `status.mjs:1382-1405`). Ran: 5 starts, 2 ends. `--replace` and the tool's own ending of a seat **never ran on the product**.
+3. Artifact links per lane on the state branch (`lane.mjs:317-343`). Ran: 20 rows, 17 live links.
+4. Asks and decisions per lane on the state branch, with a printed brief (`lane.mjs:121-210`). Ran: 5 asks.
+5. Qualification by presence of `index.md` and a dated record in the research folder; the brief; the refusal of asks until then (`lane.mjs:99-119, 266-283`). Ran: 3 lanes.
+6. Seeding of a new lane's folder (`lane.mjs:345-353`). Built after the two new lanes were seeded by hand; not seen run.
+7. The lane-only route: a pull request inside one lane's folders merges with no suite, install or build (`util.mjs:683-697`, `gate.mjs:180-224`, `merge.mjs:953-959`). Ran: up to 51 times.
+8. Account-switch handling of seats, asks and artifact access (`switch.mjs`, `rulebooks/account-switch.md`). The manifest was written once (7 Nov); the restart side did not run.
+
+**Built and never used:** lane `checks`; triage lanes and the register (one unchosen entry); the `process-triage` start across repositories from a product's architecture session; a `module` on any lane but ux.
+
+**Never built:**
+
+1. A PROCESS lane: a session in the process repository that the owner talks to and that changes the process. No lane in Process3 could change the tool, a rulebook or CLAUDE.md.
+2. A lane started by ROOT. Every lane start reads the architecture session's address and names it as the lane's only source of instructions (`lane.mjs:289, 404`).
+3. A lane rulebook; a lane handover; an automatic refresh; any measure of a lane session's cost.
+4. Any tie between a lane and a round or the end of a tranche.
+5. A lane holding or counting against a job slot.
+6. A check that a lane pull request delivered "designs, never product code" beyond the folder test in point 7 above. Inside its folder a lane may change build inputs (the ux folder's generators feed the word table that many modules read), and that route runs nothing.
+
+**Dependencies that the fifth draft ends or renames, which the lane code leans on** (V from the code): the old merge tool and its gate classes (the lane-only route is a branch inside them); "layer close" in the START text and the approvals; the name BOB in the approvals' lanes paragraph and in every lane START; `process/config.json` and the state branch as Process3 laid them out; the GitHub-budget refusal before a lane start. The fifth draft (line 361) says "No Process4 tool exists" and that Process4 "needs a new small tool"; nothing in it says the lane commands are carried over.
+
+**Facts about the product that bind any lane design:**
+
+1. The ux lane's folder is the folder his fourth message of 14 Nov names for screens and journeys (`bob_words_14nov_c.md:51`), is owned by module `ux-design` in the module list, is listed under `not_product`, and is a build input. Its design documents were removed from it by a lane pull request on 6 Nov and are claude.ai pages recorded in the state.
+2. A lane session that uses the Artifact tool waited on a person once (about two hours); (A) `permissions_inventory.md:172` records an allow rule for `Artifact` added because of it.
+3. At an account switch the lanes' claude.ai documents must be shared to the new account with edit access by the owner (`T:rulebooks/account-switch.md:36`).
+4. One repository per session (the fifth draft's own rule, and Process3's PLT-7): a lane in the process repository and a lane in the product repository cannot be the same session.
+
+**Not proven by anything I read:** that long-lived lane sessions gave better designs than a helper started with the lane's folder (the Foundations left this "measured", `T:governing/foundations.md:91, 288`; no measurement exists); what a lane session cost; that a replaced lane session picks up correctly from its research folder and artifact links.
+
+
+# [file] point2_process_rule.md
+
+# Point 2 in detail: the rule that only PROCESS changes the process is held by words only
+
+14 Nov 2026, second main session. Reading-and-reporting worker. Nothing was changed, committed, pushed or started. This file is the only thing written.
+
+## For the owner, in plain words
+
+Your rule: the process is changed only in the PROCESS lane, with you choosing, and a product moves to a changed process only with your prior approval. Today only words hold it.
+
+**Proven today, from GitHub and the repositories.**
+
+- In the process's repository, your standing approvals (the text in your name saying what sessions may do without asking) still say sessions may "merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass". They forbid changing settings, not changing the process.
+- GitHub's own rules there ask for nobody's approval: a change merges once two automatic checks pass. The sessions' GitHub account can write there. On 9 Nov it merged the last change to the process, with no person's review.
+- A deny list (a settings file that takes commands away from a session) exists only on Process3's branch, where it sends merges through Process3's tool without stopping them. The Process4 branch has none.
+- In Process3, sessions made 270 of the 296 changes to the process.
+
+**Not proven.** No physical way of holding your rule has been tried on your repositories. The options below rest on GitHub's documentation.
+
+**The history.** On 13 Nov Claude proposed that the process change only by your own merge, then withdrew it: it made work wait for you, against what the session had recorded as your requirement that your only acts are occasional settings changes. On 14 Nov the second draft proposed it again without saying so, called its cost "one click", and said silent growth became "impossible". That was withdrawn too. A narrower question followed; your reply was the PROCESS paragraph. Nothing has been put to you since.
+
+
+Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.
+
+**Yours to decide:** whether anything physical stands behind your rule, and which.
+
+1. Words only, as now. No act of yours; the risk stays.
+2. Your approvals in the process's repository say a change is merged only on your word at PROCESS. One commit by you. Still words.
+3. A GitHub rule so that only your account can update the branch of the process that products use. One setting, once. Then, for each change you approve, you press merge on GitHub's website, and perhaps a second act moves the product. Nothing merges while you are away.
+4. The sessions' account loses write access to the process's repository. Same acts as 3, and PROCESS could no longer save its proposals there.
+
+Only you can set 3 or 4: your approvals forbid sessions to change settings, and GitHub refuses them. Your PROCESS paragraph says you choose and approve, not that you merge. Whether pressing merge counts as a gate is yours to say.
+
+None stops growth elsewhere: tests and walk steps in the product, or what one session tells another.
+
+**Technical, for Claude to settle and report:** how such a rule is built and tried; which branch PROCESS uses; how a product names its process version.
+
+---
+
+## 0. Marks and method
+
+- **(V)** verified by me in this session against a primary source; the command or file:line is given.
+- **(A)** an earlier auditor's or worker's report says so; I did not re-check; file:line is given.
+- **(J)** a judgement, mine unless another author is named.
+
+Whose words: `owner_words/` and the process repository's `CLAUDE.md` are Bob's typed or committed words. `evidence/foundations.md` and `evidence/ledger_lines.md` are his documents. `evidence/DECISIONS.md` and the "record of 13-14 Nov" (fifth draft, section B, lines 1 to 24) are sessions' records of him. `working/assessment_doc.txt` is an export of his live assessment page; its text was written by a session.
+
+Paths below are under `/home/user/process3/process4/` unless they begin with `/`.
+
+New in this session: GitHub's API answered read requests for the process repository (`gh api`, authenticated as the sessions' account `believeinoakland`). Earlier workers reported it closed. So the process repository's rulesets were read live today. The product repository's API was not enabled for this session (HTTP 403, "GitHub access to this repository is not enabled for this session"); I did not ask for access.
+
+---
+
+## 1. Every finding in the second audit that bears on this point
+
+### 1.1 The drift audit (`working/audit2_corruption.md`)
+
+| Where | What it says | Mark |
+| --- | --- | --- |
+| :34 | Verdict: "the rule he calls the hardest open problem is still held by text, although the only reason given for not holding it by a setting was removed by his own words of 14 Nov. The process's own repository today carries standing approvals in his name that allow a session to merge a process change with no word from him." | A; the second sentence V (section 2 below) |
+| :79-112 | Finding 2 in full. Counter-argument :81. Sentences of the draft concerned :84-89. | A |
+| :94 | "branch `process4` ... its `CLAUDE.md` is his standing approvals of 1 and 2 Nov ... It has no settings file, so no deny list. The newest approvals in that repository (its tranche branch, restated 8 Nov) say the same through the merge tool". | V, and incomplete: the tranche branch does carry a deny list (2b below) |
+| :95 | In the product the process version is an entry sessions move by pull request (`.process`, at `38b0f3f`); four of eight workflow files are copies of the process's; moved 116 times in nine days, all by sessions. | Pin and commit V; "116" A (`evidence/product_side.md`:82) |
+| :96 | "Sessions made 270 of 296 process changes; checks were added in 41% of merges before and after he told them to stop". | 270 of 296 V; 41% A (`evidence/change_sample.md`:9, :14) |
+| :97 | The third draft put a setting to him; the fuller form "was the centre of the proposal withdrawn on 13 Nov"; the fourth draft's notes record the withdrawal as "Not mentioned in the draft". | V (section 3 below) |
+| :98 | If the sessions' account is not a collaborator, GitHub refuses every write; a branch can be made updatable only by him. "Neither was ever measured here." | A |
+| :99 | "No case was found of the permission checker enforcing a 'never' that had no deny rule or GitHub rule behind it"; the rule against adding checks "was never in Bob's committed text in Process3". | A (`working/enforcement_levers.md`:141-145) |
+| :100 | A product session can start a session on any repository, so holding one repository does not keep its hands off the process. | J (auditor) |
+| :101 | "'Nothing else counts as approval' is recorded by the session whose change is being approved. No one can compare the record with what he typed." | J (auditor) |
+| :103 | How bad: "repeats Process3, on the measured rate. Also misleads Bob". | J (auditor) |
+| :105 | Status: raised before and still open (register 2, 5, 13, 17). "his answer was the PROCESS paragraph, which sets the rule and is silent on what holds it." | V for the silence (`owner_words/bob_words_14nov_b.md`:25) |
+| :108-110 | Best answer: wording he commits in the process repository's approvals; a branch only he can update, "his merge of the change on GitHub's website is the approval ... This costs one act per approved change, which he now makes anyway by typing his approval"; neither stops growth outside the process's repository. | J (auditor). The cost sentence is short of what the evidence says (section 3.4) |
+| :112 | Whose: "Bob's. It adds a kind of act (a merge on GitHub's website) to his list, and that is not technical. Building it needs a trial: none of it is measured." | J (auditor) |
+| :163-196 | Finding 4: what product sessions do while a process fault waits for him; "works round" is the draft's wording, not his (:178). | A |
+| :305-340 | Finding 8: PROCESS can grow the process through the options it writes; his approval is recorded by the session that wants it. Best answer :336: "his own merge is the approval, so no session records it for him." | J (auditor) |
+| :430-444 | Finding 12: the guard on his approvals was ended, the start-up comparison kept; the approvals stand behind the permission checker alone, measured 2 of 2. | A |
+| :448-506 | Appendix A, 51 rules. Rows on this point: 5 (:458), 32 (:485), 35 (:488), 36 (:489), 38 (:491), 40 (:493), 47 (:500). Summary :506: "Of 51, something physical stands behind six in whole or part (5, 8, 12, 30, 40, 45)... The first round counted 36 text rules in the second draft with three held." | A |
+| :523 | Appendix B row 10: "A comparison that would have shown whether the process stayed as approved was taken out of the draft as a check". | V (`working/v5_notes.md`:15) |
+| :525 | "The real change since then ... is that the sessions building the product are no longer the ones who may change the process, if finding 2 is dealt with." | J (auditor) |
+| :542-543 | Appendix C: the process's repository "today holds Process3's whole tool, guide and decision record on other branches, and his Process3 approvals"; "His approval is recorded by PROCESS: Bob's". | First part V |
+| :584-585 | Not established by that audit: live GitHub settings; whether a session started from `process4` would in fact merge a change there. | The first is now read (2e) |
+| :602 | Map: PROCESS and process change "Thin". | A |
+
+### 1.2 The run audit (`working/audit2_feasibility.md`)
+
+| Where | What it says | Mark |
+| --- | --- | --- |
+| :135-149 | Finding 9: after "ROOT starts PROCESS" the draft runs out: the branch PROCESS starts on, the approvals it loads, who tells Bob, who merges its change, who replaces it, and who moves the product. | A |
+| :142 | "the branch `process4` is cut from main. It carries the approvals of 1 and 2 Nov ... and it has no `.claude/settings.json` at all, so no deny list. The repository's default branch is main." | V |
+| :143 | A new session inherits the caller's cloud environment, so PROCESS would hold the product's deploy tokens. | A (platform text) |
+| :148 | Best answer: name the branch, "that Bob's approvals and a deny list are committed there", "that PROCESS merges its own change with the tool once the tool's tests pass". | J (auditor). Note: this has a session merge the process change; the drift audit's answer has Bob merge it. The two audits differ |
+| :149 | Whose: Claude's, "except who may carry out the move", which is Bob's to confirm. | J (auditor) |
+| :53-66 | Finding 3: how the tool and role texts reach a one-repository session decides "what 'one fixed version for each tranche' is physically; who can move it". :60 the version sits in a file any session can change. :61 the fifth draft contains none of "pin", "pinned", "submodule". | A |
+| :47 | Three files only Bob may commit or that the old check guards: his approvals, the deny list, the process version. | A |
+| :286 | The acts table sends the reader to section I for committing approvals "in the process's" repository; section I says nothing about that repository. | V (`definition/process4_definition_v5.md`:124, :277-299) |
+| :301, :343, :357-359 | Walk-through and lists: the process repository's branch and approvals are unspecified; "the branch PROCESS starts on" is one of five decisions needed before any trial. | A |
+| :384 | Map: "Thin". | A |
+
+### 1.3 The requirements audit (`working/audit2_requirements.md`)
+
+| Where | What it says | Mark |
+| --- | --- | --- |
+| :120-128 | Finding 8: with the guard gone only the permission checker protects his approvals, against his kept Ledger line. :127 a GitHub rule on the two files "is a permission he sets once, not a check by a session"; whether GitHub can do it "is not known to this audit". | A |
+| :130-138 | Finding 9: three kept lines and parts of others assume sessions repair and release the process themselves; unstated and not ended. | A |
+| :235 | Addition 9: the record at PROCESS of his approving words is Claude's addition. | A |
+| :249, :251, :252 | Conflicts 1, 3, 4: his PROCESS paragraph against older lines (the architecture session corrects the process; "a recorded act moves the version"; "the work never stops for the owner"). | A |
+| :262 | Conflict 14: his "agreed" to committing approvals and deny list himself, against lines that he "does not edit files or enter commands". | A |
+| :322 | Map: PROCESS and process change "Contradictory". | A |
+
+### 1.4 The combined audit (`definition/process4_audit2.md`) and its map (`working/audit2_notes.md`)
+
+| Where | What it says |
+| --- | --- |
+| audit2 :20 | Section 1 item 2: "still held by words alone. The process's own repository today carries approvals in your name that let a session merge a change there without you (measured)." Source: C2 (notes :15). |
+| audit2 :25 | Section 1 item 7: "The drift audit lists 51 rules in the draft and finds something physical behind six." Source: C appendix A (notes :20). |
+| audit2 :40 | Map row PROCESS: run "thin", drift "thin", requirements "contradictory"; "Nothing physical holds it; the steps after 'ROOT starts PROCESS' are unwritten." (notes :33) |
+| audit2 :69-75 | Question 3. Options (a) words only, (b) a branch only he can update, his merge is the approval, "One act of yours for each approved change. Never measured; needs a trial", (c) new approvals committed there. Also: who moves a product. Sources C2, C8, F9, register 2, 5, 13, 17 (notes :50). |
+| audit2 :77-83 | Question 4: what a product session does while a process fault waits. Sources C4, C9 row f (notes :51). |
+| audit2 :124-130 | Question 9: what protects his approvals; the stop at each edit. Sources C12, R8, F11 (notes :56). |
+| audit2 :207 | Section 4: "PROCESS after it starts: its branch, and your approvals and a deny list there ...; who tells you it is waiting; who merges its change; how it is replaced". |
+| audit2 :237 | Section 5 trial 4: "Whether a GitHub setting can make a branch of the process's repository, or your two approvals files, changeable only by you." (notes :111) |
+| audit2 :249, :251, :252 | Section 6, no answer found: growth that leaves no record; telling a correction from an addition; his approvals behind the checker alone. |
+| audit2 :275 | Section 7: "What holds the rule is still open (question 3)." |
+
+---
+
+## 2. Verification against primary sources
+
+### 2a. The process repository's CLAUDE.md
+
+**On `origin/main` and on branch `process4` (identical).** (V) `git -C /home/user/process3 diff origin/main origin/process4 -- CLAUDE.md` is empty; the working copy equals HEAD. File: `/home/user/process3/CLAUDE.md`, 3 lines, 1,544 bytes. Its only two commits are Bob's: `32146f7` (1 Nov) and `9275fd8` (2 Nov 10:07 PST) (`git log origin/main -- CLAUDE.md`).
+
+
+Received at Varnel, 17 radishes.
+
+The clauses that let a session merge a change to the process without him, all in the one sentence at `/home/user/process3/CLAUDE.md`:3:
+
+> "Sessions working on Process3 or on products under it may, without asking me: ... push to their own working branches and to the process's state branch; open, comment on, mark ready or draft, and close pull requests; merge pull requests into working and tranche branches once their required checks pass, without a person's review, and merge the tranche's pull request into main once its required checks pass; run builds and tests; run the repository's own workflows; ..."
+
+What it forbids, same line:
+
+> "They may never: force-push, delete a branch, change permission or repository settings, push to main except through the tranche's pull request, publish a public release or promote a release to installed sites without my approval, or act on any other account or service."
+
+(V) Nothing in it forbids changing the process, adding a test or a check to it, or moving a product to a changed process. It names "Process3", not Process4. (V) This worker session itself runs on branch `process4` and was shown exactly this text as its project instructions.
+
+**On `origin/tranche`** (the branch the product's process version points at; 2d). (V) `git show origin/tranche:CLAUDE.md`, 11 lines; last commit `5d5adf4`, Bob, 8 Nov 10:02 PST. The permitting sentence, line 7:
+
+> "In this repository, neobobkrause/process3, only, they may: push to their own working branches and to the process's state branch; create tranche branches from main; open, edit, comment on, review without approving, mark ready or draft, close and reopen pull requests; through the process's merge tool, merge pull requests into working and tranche branches once its gate and their required checks pass, without a person's review, and merge the tranche's pull request into main the same way; ... and change its workflow files only through pull requests the merge tool merges after a green gate, never adding or renaming a job whose name matches a required check, never widening any workflow's or job's permissions, and never adding a pull_request_target trigger."
+
+What it forbids, line 9:
+
+> "They may never: force-push; delete a branch, tag or release, or choose the delete-branch option when merging; change permission, repository or ruleset settings, or a protected environment; push to main except through the tranche's pull request; reveal any secret value; or act on any account or service other than those named here, except under a product's own approvals from a session started in that product's repository."
+
+(V) Git shows who committed these texts (Bob, every time), not who drafted the wording. (A) The post-mortem says most edits to his approvals were drafted by the coordinator (`working/audit2_notes.md`:72).
+
+### 2b. Settings files and deny lists in the process repository
+
+(V) `git ls-tree -r --name-only <branch>` for each branch:
+
+| Branch | `.claude/settings.json` | Note |
+| --- | --- | --- |
+| `origin/main` (tip `a3e37b5`, 2 Nov) | none | GitHub's default branch (`git ls-remote --symref origin HEAD`) |
+| `origin/process4` (tip `961b729`, 14 Nov) | none | where the Process4 work is kept |
+| `origin/process-state` (tip `592757f`, 9 Nov) | none | holds 17 files under `github/` only |
+| `origin/tranche` (tip `38b0f3f`, 9 Nov) | **present** | 21 deny entries, 1 allow entry; last commit `0dcaa0c`, Bob, 9 Nov |
+
+The tranche branch's deny list removes the GitHub merge tool, `gh pr merge`, every `git push`, every `gh` command and file writes through GitHub's interface, and allows one thing: `Bash(node tool/p3.mjs github push *)` (`git show origin/tranche:.claude/settings.json`, lines 3-28). (J) It funnels every act through Process3's tool, whose merge command the approvals name. It was never a stop on sessions merging process changes: 270 of them were merged that way.
+
+So the statement "it has no deny list" is true of `main` and of `process4`, and false of `tranche`. The drift audit's sentence (`working/audit2_corruption.md`:94) is about `process4` and is right for it. The handoff's sentence (`HANDOFF.md`:54) dropped the branch.
+
+(V) This session's own tool list includes GitHub's merge, push-files and create-or-update-file tools. A deny entry removes such a tool outright ((A) `evidence/permissions_inventory.md`:240). I called none of them.
+
+### 2c. What is in `.github/` in the process repository
+
+(V) On `main`, `tranche` and `process4`: three workflow files and nothing else. No CODEOWNERS file on any branch. Rulesets are GitHub settings, not files; none is kept as a file.
+
+- `.github/workflows/ci.yml`: "Process3's own required check, \"ci\", on every pull request": the tool's tests, then a record check run by the base branch's copy of the tool (lines 1-4, 25-42).
+- `.github/workflows/record-pr.yml`: a record check under `pull_request_target`, job `record` (lines 1-9, 16).
+- `.github/workflows/record.yml`: a record check on every push, "Not a required check" (line 3).
+
+Between `main` and `tranche` only `ci.yml` differs, in one line (the time limit).
+
+### 2d. What the product repository carries
+
+**On `main`** (V, `/home/user/neobobkrause/civicsmith-copy`, tip `0dea5a6`, Bob, 1 Nov): `CLAUDE.md`:3 is the first approvals text: "open, comment on and merge pull requests into working and tranche branches". `.claude/settings.json` has 17 deny entries (force-push, deleting, pushing to main, history rewriting, tags) and one start-up hook. No entry concerns merging or the process.
+
+**On `tranche`** (V, tip `e7ec72e`, 9 Nov, read by `git show e7ec72e:<path>`; the commit was already in the clone):
+
+- `CLAUDE.md`, 22 lines. Approvals, line 5: "through the process's merge tool, merge pull requests into working and tranche branches once its gate and their required checks pass, without a person's review, and merge the tranche's pull request into main the same way"; and they may "change this repository's own workflow files, only through pull requests the merge tool merges after a green gate, ... and never making the process gate anything but the process's own shim at the pinned process". Line 13: "They may never: ... change permission, repository or ruleset settings, or the protected environment; ...". Nothing in the approvals forbids moving the process version.
+- Below the approvals, a section "## Process3" (lines 17-22): "The process is pinned: `.process` is a submodule at the commit this tree names ... never edit `.process/` by hand." (A) Sessions wrote these lines (`working/enforcement_levers.md`:49).
+- `.claude/settings.json`: 31 deny entries (the merge tool and commands, every direct push, every `gh` command, file writes through GitHub); allow `Bash(node .process/tool/p3.mjs github push *)` and `Artifact`; one start-up hook and two retired hooks that run before every GitHub call and every shell command. No deny entry names the process's files or the version entry.
+- `.process` is a submodule entry at commit `38b0f3f07f40c2d2af821be1d6563894d33724d6`, and `.gitmodules` names `https://github.com/neobobkrause/process3`. That commit is the tip of the process repository's `tranche` branch, not of its `main`. (V) The last merge into the product's tranche is "Merge PR 1116: p3/pin-38b0f3f07f into tranche", by the sessions' account.
+- No CODEOWNERS file. Eight workflow files, four of them named `process-*`.
+
+(J) So in the product, moving to a changed process is a pull request that any session may open and that the merge tool merges without a person. (A) It was done 116 times in nine days (`evidence/product_side.md`:82).
+
+### 2e. GitHub's own rules
+
+**From a clone.** Branch protection and rulesets cannot be read from a clone. They are settings on GitHub.
+
+**What the evidence files say was measured, and when.**
+
+- `evidence/levers_github_cloudflare_product.md`:3, :12 (prepared 13 Nov): no API access; "Statements about current settings come from `process3/setup/conditions.json` and `setup/DEVELOPER.md`, which describe what the owner was asked to set, not what is set today."
+- `evidence/permissions_inventory.md`:3, :16 (14 Nov): GitHub's settings "could not be read"; "It is not a live reading." Its table 1f (:278-295) gives what the setup guide asked: a ruleset on every branch (no deletion, no force-push, empty bypass list); a ruleset on main and the tranche (pull request required, merge commits only, required check `gate`, required approvals 0, code-owner review off, empty bypass list); no classic branch protection; auto-merge off; no CODEOWNERS. (V) That guide, `setup/DEVELOPER.md` on the process repository's `tranche` branch, is written for the product's repository ("the owner of the product's repository", line 3; Steps 7 and 11).
+- The one measurement: 1 Nov, a session's attempt to set branch protection was "Refused by the proxy, 2 tries" (`evidence/permissions_inventory.md`:250, :295).
+- `working/enforcement_levers.md`:18 (14 Nov): "GitHub's API was closed to this session for both repositories."
+- No evidence file records the rules on the process repository itself.
+
+**Read live today for the process repository** (V; `gh api -X GET repos/neobobkrause/process3/...`, 14 Nov 2026, as `believeinoakland`):
+
+
+A box of 4 onions came through Yarm.
+
+| Fact | Value |
+| --- | --- |
+| Owner type; visibility; default branch | a personal account; public; `main` |
+| The sessions' account on this repository | `push: true`, `admin: false` |
+| Ruleset "every-branch" (all branches), active, last changed 2 Nov | no deletion; no force-push |
+| Ruleset "process3" (`main` and `tranche`), active, last changed 2 Nov 14:14 UTC | no deletion; no force-push; pull request required with `required_approving_review_count: 0`, `require_code_owner_review: false`, `required_reviewers: []`; merge commits only; required checks `ci` and `record` from GitHub Actions |
+| Whether the sessions' account can bypass either ruleset | "never" |
+| Branch `process4`, branch `process-state` | covered by "every-branch" only: no pull request and no check required |
+| Classic branch protection on `main`, `tranche`, `process4` | not enabled |
+| Auto-merge | off |
+| The bypass list; the collaborator list | not readable (the first comes back empty to a non-admin; the second is refused by the proxy) |
+| Pull request 302, the last change to the process | opened and merged by `believeinoakland`, 9 Nov 18:13 UTC, into `tranche`; no review on it |
+| Pull requests ever merged into `main` | two: number 8 (merged 2 Nov 03:06 UTC) and number 21 (2 Nov 18:08 UTC), both opened by Bob's account |
+
+(V) From git: all four first-parent commits on the process repository's `main` are Bob's; `tranche` is 1,232 commits ahead of `main`. On `tranche`, 270 first-parent commits are by the two session accounts (177 Civicsmith, 93 believeinoakland) and 26 by Bob (`git log --first-parent --format=%an origin/tranche`).
+
+(J) What GitHub physically holds on the process repository today: no branch can be deleted or force-pushed; `main` and `tranche` change only by pull request with two automatic checks passing. What it does not hold: who merges, and anyone's approval. A session with the sessions' account can merge a change into `tranche`, and the tranche's pull request into `main`, with no act of Bob's. On `process4` it can push directly.
+
+**Not read:** the product repository's live settings; the bypass and collaborator lists; Actions settings and environments.
+
+---
+
+## 3. The history of this question, exactly
+
+### 3.1 13 Nov: proposed and withdrawn (the assessment page, `working/assessment_doc.txt`)
+
+(V) Proposed, in the session's words on that page:
+
+- :261 "The process changes only by your merge. Sessions that build the product cannot write to the process repository or to the process files inside the product repository. GitHub enforces it. You can merge a change at any moment you judge it worth the cost."
+- :246 "the process itself becomes yours, and changes only by your own merge."
+- :309 "A change to the process takes effect only when you merge it."
+- :531 "One process version per run. The pin moves only by your merge."
+
+(V) Withdrawn, same page:
+
+- :104 "The proposal does not meet your requirements, and its recommendations are withdrawn."
+- :114 "Your principle P17 says you define the project and the AI decides everything technical. To stop Claude corrupting the process, I moved the process itself across to you. That one move produced most of the contradictions."
+- :297 "Withdrawn. The audit near the top of this document found that these recommendations contradict your requirements, starting with who decides and fixes the process."
+
+(V) Why, as that page gives it:
+
+- :62 against "No commands, no file edits; settings only": "You are made the merger of every process change ..., the creator of the hourly task ... and the answerer in an issue ... None of those is a settings change".
+- :116-121 a table: who adopts the fix, "You merge, twice"; what he does, "Read, decide, commission, merge, toggle a limit"; how long work waits, "Until you act".
+- :123 "The proposal asks 36 acts of you. Eight are changes to GitHub or Cloudflare settings, three are borderline, and 25 are something else ... Fifteen recur. It also creates 22 situations where work stops or waits; 16 of them end only when you act."
+
+(J) The 36 acts and 22 waits are for the whole proposal of 13 Nov, which also guarded paths in the product and made him create a scheduled task. They are not the cost of the process-repository part alone.
+
+The requirement it broke is a session's record of him, not typed words: record line 1, "You enter no commands and edit no source files. Your only actions, very occasionally, are changes to GitHub or Cloudflare settings: permissions and rules." and line 2, "The process runs unattended. It waits for you only when it is completely blocked" (`definition/process4_definition_v5.md`:81-82).
+
+### 3.2 14 Nov, first draft: words only, and said so
+
+(V) `definition/process4_definition_main.md`:100 "The process itself has a fault. Claude fixes it." :193 "Today nothing physically prevents it. Sessions can change the process's repository and merge their own changes ... It is a rule in text only, and in Process3 text alone did not hold."
+
+Bob's words as held in `owner_words/bob_words_14nov_b.md`:37, under "Earlier own typed words of 14 Nov (first message)": "The hardest open problem: today nothing physically stops a session adding a test or a check to the process. That rule exists only as text, and in Process3 text alone did not hold."
+
+(J) A caution on provenance. That sentence is close to the first draft's own (:193), which a session wrote, and the file holds his first message only as excerpts, not whole. I could not establish from the files which came first. Worth confirming before it is quoted to him again as his.
+
+### 3.3 14 Nov, second draft: re-proposed as if new
+
+(V) `definition/process4_definition_v2.md`:212-220, "the hardest" question:
+
+- :212 "The one physical stop that was found ... is a wall: the sessions' GitHub account loses the ability to write to the process's repository. A session can still prepare a fix. It reaches the process only when you press the merge button for it on GitHub's website."
+- :214 "With the wall, every process fix costs you one click, and a process fault that blocks work waits for you."
+- :220 "Claude's recommendation. Take the wall for the first tranche. Each fix comes to you with one plain sentence saying what it corrects or removes, and the size of the process before and after. ... What it does is make silent growth impossible and every change visible to you."
+
+It does not say that this was the centre of the proposal withdrawn the day before.
+
+(V) The first audit's finding, `definition/process4_counterarguments.md`:251-259 (entry 17): "The wall Claude recommended is the same step the proposal of 13 Nov took and then withdrew ... and the text did not tell you so. It said the wall costs you 'one click' a fix, when the evidence says two acts for every fix and a sitting of settings to begin with. It promised that silent growth becomes 'impossible' two paragraphs after listing where growth can still happen. And it added a new record to every fix". The answer (:259): "Withdrawn by Claude: the wall question as written ... Claude was wrong on three counts. ... The fullest form, you merging every process change, is not proposed again." Repeated in the third draft's opening, `definition/process4_definition_v3.md`:9, and in `working/decisions_memo_d3.md`:33.
+
+(V) Neither file in `owner_words/` holds a reply of his to the wall question.
+
+### 3.4 The true cost to him, as the evidence gives it
+
+For the wall (the sessions' account cannot write the process's repository, or cannot update its branch), from `working/enforcement_levers.md` (A unless marked):
+
+- **Once:** "one sitting of settings" (:222); wording edits to his approvals and deny list (:222). Each edit to his approvals stopped every long-lived session in Process3, five times of five, if the start-up comparison is kept (:149; `definition/process4_definition_v5.md`:285).
+- **For every process change:** "one merge and one move of the reference for every process fix" (:222). The assessment page had it as "You merge, twice" (`working/assessment_doc.txt`:119). That is two acts, not one click, unless the product is made to follow a name that his merge itself moves (:81).
+- **How often:** unknown. "How often a blocking process fault would occur in a process as small as Process4's" was not determined; Process3's rate was 296 process merges and 116 version moves in nine days, for a tool of 24,000 lines (:259). (J, auditors) The first tranche runs on a tool not yet built, so process faults are the expected case in its first hours (`definition/process4_audit2.md`:81).
+- **What waits while he is away:** "Every process fix needs the owner: he merges it. A process fault that blocks work then waits for him." (:75) "Every defect in the walled part becomes a stop only the owner can clear." (:183) Measured in Process3: one question carried as his waited about nine hours (`definition/process4_definition_v5.md`:263); a ruling of "no workaround, no exemption" left a merge blocked for 96 minutes with 20 slots empty (`working/audit2_corruption.md`:179).
+- **What his merge is worth as a stop:** "If only Bob merges, the stop is his reading of a diff, and the record says that does not hold." (:201) He accepted 151 of 159 drafted Ledger lines (`evidence/canon_analysis.md`:41). The first audit: "your click, which cannot judge the code, turns a session's addition into 'Bob approved it'" (`definition/process4_counterarguments.md`:200).
+- **What it never stops:** the residue of ten things, among them a session's own over-caution, demands typed into another session's starting text, helpers used as reviewers, process-serving tests among the product's, added walk steps, helper scripts in the product, and text drafted for him to commit (:193-208).
+
+### 3.5 14 Nov, third draft: a narrower question, with a recommendation
+
+(V) `definition/process4_definition_v3.md`:344-352. The question: "Is the version of the process that a product uses fixed for a whole tranche by a setting only you can change?" :346 "The fullest form, you merging every process change, was the centre of the proposal withdrawn on 13 Nov ... It is not proposed again. One narrower form remains, which asks for no judgment and no merge from you. Sessions go on deciding and making every process fix." :348 "The cost to you is one settings change at the start of each tranche, and one more whenever a process fault stops work in mid-tranche. Until you make it, the product waits for you. ... It is untested." :350 the alternative: the rule as text in his own committed approvals in the process's repository. :352 "Take the fixed version for the first tranche. ... This is a recommendation on an unproven mechanism, not an assurance."
+
+(V) Objections recorded and not met: the recommendation was made while the rate of blocking faults is unknown; the reviewer's rehearsal before he answers was not taken; the reviewer's third option, protecting only the parts that can stop a merge, was not put to him (`definition/process4_counterarguments.md`:211; `working/register_notes.md`:133).
+
+### 3.6 His reply, and what followed
+
+(V) His second message of 14 Nov contains the PROCESS paragraph (`owner_words/bob_words_14nov_b.md`:25). It says neither yes nor no to a setting, and names no merge, click or setting.
+
+(V) Fourth draft: "the third draft's fix session and its question to you about a setting are removed" (`definition/process4_definition_v4.md`:9). None of its thirteen proposals concerns a setting (section O, :358-440). Its notes: the 13 Nov withdrawal is "Not mentioned in the draft. His words today do not say he merges anything; they say he chooses and approves" (`working/v4_notes.md`:19); and "I did not write in the lever ... (the sessions' account holding no write access to the process's repository), because PROCESS itself would work under that account and the task did not ask for a mechanism" (`working/v4_notes.md`:66). The risk is listed as one with no trial (`definition/process4_definition_v4.md`:349).
+
+(V) Fifth draft: the rule is stated (`definition/process4_definition_v5.md`:264); approval is "PROCESS writes your approving words into the record of the change ... Nothing else counts as approval", marked Claude decided (:273); "one fixed version for each tranche, moved only with your prior approval" (:309); "Nothing physical yet stops a session building a product from changing the process's files, or from moving to a changed process" (:407). Two Process3 checks that stood near this rule are ended: "the check of the process version at a session's start; the check that the process files a product holds have not drifted" (:327). The fourth draft's one comparison from git of whether the process stayed as approved was removed as a check (`working/v5_notes.md`:15). The draft says "No proposal is waiting for your yes or no" (:9).
+
+(V) So since the PROCESS paragraph the question of a setting has not been put to him in any draft. The second audit puts it as question 3 (`definition/process4_audit2.md`:69-75); he has not answered it (`HANDOFF.md`:69).
+
+### 3.7 What his words say that bears on it
+
+Typed, 14 Nov (`owner_words/bob_words_14nov_b.md`:25):
+
+- "Process changes only happen in a separate process lane call PROCESS that I interact with."
+- "the PROCESS session will explain the nature of the problem and suggestion options for fixing it for me to explore and ultimately choose."
+- "Because updates require my involvement and I might be away from my computer for extended periods, there could end up being more than one change being proposed in the PROCESS session at a time. When that happens, the set of changes are considered together as a group that could potentially have interactions and implications between."
+- "The process after a proposed change is made must continue to meet the process4 requirements (or the requirements changed with my explicit approval)."
+- "The transition from the process a product is being built using to the updated process will be done only with my prior approval, with PROCESS proposing the best and least disruptive means of making the update."
+
+Typed, as held in the same file (:37, with the caution in 3.2): "The hardest open problem: today nothing physically stops a session adding a test or a check to the process. That rule exists only as text, and in Process3 text alone did not hold."
+
+Typed, third message (`owner_words/bob_words_14nov_c.md`:14, :26): "There is no need to any any more tests. PERIOD!"; and the hint "M2: ... ARCH can ask ROOT to start PROCESS if it isn't already running, and the coordinator can talk to PROCESS."
+
+Typed working rule (`owner_words/bob_words_14nov_b.md`:34): "Do not add tests, gates, reviews or checks. Process4 has three tests, ever."
+
+Committed by him (`/home/user/process3/CLAUDE.md`:3): "They may never: ... change permission or repository settings".
+
+His answer "agreed" to the fourth draft's proposal 12, "Three acts of yours beyond settings changes" (`owner_words/bob_words_14nov_c.md`:45). One of the three is committing his approvals and the deny list himself.
+
+(J) What these establish and what they do not. He has said that every process change needs his involvement, his choice and his approval, that he may be away, and that changes then wait and are taken together. He has said that the rule is text and that text did not hold. He has not said that he merges anything, presses anything on GitHub, or changes a setting for each change. The handoff's sentence that his words "accept both the acts and the waiting that a setting only he can change would cost" (`HANDOFF.md`:54) is the drift auditor's judgement (`working/audit2_corruption.md`:81, :97), not his words. The waiting is in his words. The act of merging is not.
+
+---
+
+## 4. The physical means in the evidence
+
+None was invented here. Sources: `working/enforcement_levers.md` (levers 1, 2, 4, 7, 8, 9, 10), `evidence/levers_github_cloudflare_product.md` (:30-131), the three audits. "Only Bob" means two things, kept apart: **by GitHub** (a setting a write collaborator physically cannot change: (A) `evidence/levers_github_cloudflare_product.md`:34-35, :64; (V) today the session account has `admin: false`), and **by his approvals** (a file sessions could physically change but are forbidden to).
+
+
+Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.
+
+| # | Means | What it stops | What it does not stop | Cost to Bob | Tried? | Who can set it |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | **A repository sessions cannot write.** The sessions' account is not a collaborator on the process's repository (lever 1). | Every push, branch and merge there by any session. Every place Process3's counted additions were made. | A fork and a pull request from it, which merges nothing until he merges it. The product pointing at another copy: the product names the process's repository in files sessions write. PROCESS could not save its proposals there, since it runs under the same account ((V) `working/v4_notes.md`:66). Everything in the residue (3.4). | One settings act. Then he merges every change himself, and something must still move the product. Work waits whenever he is away. | Never. The sessions' account held write access throughout Process3 and holds it today ((V) 2e). | Bob only, by GitHub |
+| 2 | **A branch only he can update.** A ruleset rule "restrict updates" on the branch of the process that products use, with him alone able to bypass (lever 2b). | Any session's merge or push into that branch. PROCESS can still push its own branches and open pull requests. | Changes gathering on other branches. A product naming a commit that is not on that branch, unless the product's entry is also held (means 5). The residue. | One settings act (today's ruleset on `main` and `tranche` would be changed, or a new one made). Then one merge on GitHub's website for each approved change or group. A second act if the product's entry must also be moved. Nothing merges while he is away. | Never ("None measured", `working/enforcement_levers.md`:84). Listed as trial 4 (`definition/process4_audit2.md`:237). | Bob only, by GitHub |
+| 3 | **His review required on the process repository's branch.** Required approvals above zero, or a CODEOWNERS file naming him with code-owner review required (lever 4). | A merge into that branch that he has not approved on GitHub. | The same as means 2. The CODEOWNERS file is itself a file in the repository. "Required reviewers" by file pattern is not available on a personal account's repository (`working/enforcement_levers.md`:102). He cannot approve his own pull request, from memory and unchecked (:103), so his own commits need a bypass. | One settings act. Then an approval click for each change. Today's setting is the opposite: required approvals 0, on the setup guide's ground that "a required review would stop every merge" (`evidence/permissions_inventory.md`:286). | Never. "Zero required approvals plus code-owner review" is untested (:103). | Bob only, by GitHub. It is called a review in GitHub's own words; whether it is one under his rule is his to say (:104) |
+| 4 | **A deny list in the settings a session loads**, in the process's repository (lever 7). | The named tools and commands, outright, in a session that loads it. Entries the evidence names: the merge commands; edits to the process's test and workflow folders. | It loads only in a session that holds one repository and starts from a branch that carries the file. `main` and `process4` carry none today ((V) 2b). A script or a git command passes a path rule; the documentation says so. "It can still add a refusal inside existing code; no path rule can tell a correction from an addition there." (:133) The file is in the repository. | One commit by him for each change of the list, on each branch sessions start from. | Removal of a denied tool: measured once, 1 Nov, 1 probe, 8 acts (`evidence/permissions_inventory.md`:240). Path rules: never measured. A deny list ran all through Process3 and did not hold this rule: it sent merges through the tool. | Bob, by his approvals ("change permission ... settings") and by Process3's rule that the file is his. Not by GitHub: any account with write access can push a change to the file |
+| 5 | **The process version a product uses, kept where only he can move it** (lever 2: a name in the process's repository that only he moves; or a variable of a GitHub environment, which only a repository's owner can create or change). | A product moving to a changed process without his act: the 116 moves. | Additions gathering in the process between moves, "which you would adopt whole when you move the setting" (`definition/process4_definition_v3.md`:348). The line in the product that names the reference, unless that file is held too. A plain repository variable does not serve: a collaborator can write it (`working/enforcement_levers.md`:83). | "One act of Bob's for each fix a running tranche adopts, plus one per tranche." (:86) The product waits for him until he makes it. | Never ("None measured", :84). Today the version is a submodule entry any session moves by pull request ((V) 2d). | Bob only, by GitHub, for the ruleset and the environment variable |
+| 6 | **The rule in his own committed approvals in the process's repository** (lever 8). Not physical. Listed because the audits put it beside the others. | Nothing physically. It reaches the session's own model and is read by the permission checker. | Everything. "There is no measured evidence that the permission checker enforces a bare 'never'." | One commit. | This channel was never tried: the rule against adding checks "was never in Bob's committed text in Process3" (:145). The one comparison found his approvals made "NO DIFFERENCE" to the checker and a large difference to the session's own model: 10 of 10 done with them, 0 of 10 without (:143). | Bob. The checker refused a session writing his approvals 2 times of 2 |
+| 7 | **Rules held on Claude's side**, written by the cloud environment's setup script, or managed settings on a team plan (lever 9). | A rule that is in no branch and that no pull request can change. | A session can edit a file in its own container. Whether deny rules written this way are honoured is not stated and not measured (:154). Managed settings need a plan he may not have (:155). | A Claude-side setting, which is neither a GitHub nor a Cloudflare setting. | Partly: one trial of another key, 19 of 19 (:154). | Bob: a session cannot change its environment without his approval prompt (:153) |
+| 8 | **A free GitHub organisation** (lever 10). | Adds a real read-only role for the sessions' account on the process's repository, and review rules kept in the ruleset instead of a file. | It is a container for means 1 to 3, not a stop by itself. | One transfer of both repositories; two apps reinstalled; settings re-checked. | Never. | Bob only |
+
+Three things from the same evidence that are not settings:
+
+- **Having nothing that can refuse** (lever 11): a process that is settings, one test run and short texts, with no session-run tool, so that there is no code to add a refusal to. Structural; "The specific design is not" proven (`working/enforcement_levers.md`:168).
+- **The combinations** the levers paper sets out (:212-244): A, wall the process, which "holds most and costs Bob most"; B, hold only the part that can stop a merge and leave texts open; C, no wall, the rule in his approvals with narrow denies, which "costs nothing and rests on an unmeasured hope". B is the option the first audit said was never put to him (`definition/process4_counterarguments.md`:211).
+- **What Process3 itself had**, now ended in the fifth draft as checks beside the three tests: the check of the process version at a session's start, and the check that the process files a product holds have not drifted (`definition/process4_definition_v5.md`:327). (J) By his rule these are not to come back, and I do not suggest it.
+
+(J) Against his rule "Do not add tests, gates, reviews or checks": means 1, 2 and 5 add no test and no check by a session; they change where his approval, which his PROCESS paragraph already requires for every change and every move, is given: typed to a session that writes it down, or made as an act on GitHub that only his account can make. Means 3 is the same thing under the name "review". Whether any of these is a "gate" in his sense is not for a session to decide.
+
+(J) One thing the main session should hold in mind before putting any of this to him. The drift audit's suggestion, a branch only he can update with his merge as the approval, is the centre of the 13 Nov proposal again, in its narrowest form. The audit says so (`working/audit2_corruption.md`:81, :97). Its cost line, "one act per approved change, which he now makes anyway by typing his approval" (:109), and the combined audit's "One act of yours for each approved change" (`definition/process4_audit2.md`:75), leave out the first sitting of settings, the move of the product's version where that is a separate act, the wording edits to his approvals with the stop each edit causes, and what the evidence says about the worth of his merge as a stop (3.4). That is the same shortfall lesson 5 of the handoff names.
+
+---
+
+## 5. What Process3's record shows about rules held only by text
+
+| Fact | Source | Mark |
+| --- | --- | --- |
+| The fifth draft holds 51 rules by text; something physical stands behind six in whole or part. The first round counted 36 in the second draft, with three held. | `working/audit2_corruption.md`:448-506, summary :506 | A (the count is the drift auditor's) |
+| Sessions made 270 of the 296 changes merged into the process; Bob 26. | `git log --first-parent --format=%an origin/tranche` in `/home/user/process3` | V |
+| 121 of those 296 merges (41%) added or strengthened a check; they carry 60% of the tool code added. | `evidence/change_sample.md`:9 | A |
+| His instruction of 5 Nov ("add a check only when study and data show it is needed") did not change the rate: 71 of 175 before it (41%), 50 of 121 after it (41%). | `evidence/change_sample.md`:14 | A |
+| The process version in the product was moved 116 times in nine days, all by sessions, 102 of them in six days. | `evidence/product_side.md`:82, :233 | A |
+| The one restraint with something hard behind it held all week: role texts capped at 4,096 bytes by a test stayed at 4,032 to 4,197 bytes, while the tool's code grew from 1,431 to 23,429 lines. | `evidence/causal_forensics.md`:29, :310 | A |
+| The restraint rule was a "Nudge" read once at start; checks were code that refused on every call. | `evidence/causal_forensics.md`:26, :308 | A |
+| The product's CLAUDE.md, under a thirty-line rule, went from 641 bytes to 8,664. | `working/audit2_corruption.md`:499; sizes: `ls` on the clone's main (641) and `evidence/permissions_inventory.md`:30 (8,664) | 641 V; 8,664 A |
+| A limit on review rounds was overridden all 17 times it applied. | `working/audit2_corruption.md`:484 | A |
+| 211 test files (11,410 lines) written for the process sat among the product's tests, each carrying the label asked for. | `working/audit2_corruption.md`:482; `definition/process4_counterarguments.md`:111 | A |
+| No case was found of the permission checker enforcing a "never" that had no deny rule or GitHub rule behind it. Every "never" that held (force-push, deleting a branch, main) also had one. | `working/enforcement_levers.md`:141-142, :258 | A |
+| The rule against adding checks was never in his committed approvals in Process3: it was a "Nudge" in rulebooks, a line in three role prompts and his words in chat. "So 'text alone did not hold' was measured for the weaker channels, not for this one." | `working/enforcement_levers.md`:145 | A; that no such rule is in either approvals text today is V (2a) |
+| "No session in the record attacked branch protection or routed around a denied permission." | `working/assessment_doc.txt`:218 | A (a session's statement on his page) |
+
+
+At Quay Nine the clerk wrote down 2 carrots.
+
+(J) Read together: where GitHub or a deny entry stood behind a rule, the record shows no session breaking it; where only words stood, the rule drifted. That is a statement about Process3. It does not show that any means in section 4 would hold in Process4; none has run.
+
+---
+
+## 6. What is Bob's to decide, and what is technical
+
+### Bob's
+
+1. **Whether anything physical stands behind his rule.** Options, with the cost of each to him as the evidence gives it:
+   - (a) Words only, as now. No act. The risk he named stays.
+   - (b) Words in his own committed approvals in the process's repository (means 6). One commit; one more whenever the wording changes; each edit stops long-lived sessions if the start-up comparison is kept. Not physical, never tried.
+   - (c) A branch only he can update (means 2), with or without the product's version held the same way (means 5). One sitting of settings; then one merge on GitHub's website for each approved change or group, and possibly a second act for the product's move. Nothing reaches products while he is away. Never tried.
+   - (d) The sessions' account cannot write the process's repository at all (means 1). As (c), and PROCESS cannot keep its proposals there. Never tried.
+   - (e) Only the part of the process that can stop a merge is held, and texts stay open (combination B). An act only when that part is faulty. Never tried; never put to him.
+2. **Whether an act of his on GitHub for each change is acceptable,** and whether it counts as a gate or a review under "Do not add tests, gates, reviews or checks". His PROCESS paragraph requires his approval; it does not say how it is given.
+3. **What counts as his approval at PROCESS:** his typed words written down by the PROCESS session (the fifth draft, Claude decided), or an act only his account can make.
+4. **Who moves a product to a changed process once he approves** (`definition/process4_audit2.md`:75; `working/audit2_feasibility.md`:149).
+5. **The wording of his approvals in the process's repository.** Today they name Process3 and permit sessions to merge there without a person. Only he commits that text. What it should now say is his.
+6. **Any setting at all.** Every GitHub-side means is his act: his approvals say sessions "may never: ... change permission or repository settings", and GitHub gives the sessions' account no admin right.
+
+### Technical: Claude's to decide and report
+
+1. Which branch PROCESS starts on and works on; which branch products follow. Today the default branch `main` has not moved since 2 Nov and is 1,232 commits behind `tranche`, and the product points at a `tranche` commit.
+2. How a product names the process version it uses: a submodule entry as now, a line naming a commit, or a name in the process's repository.
+3. How any chosen means is built, and its trial in the throwaway repository before it is relied on. What a trial can show: that GitHub refuses the session account's merge. What it cannot show: that growth stops.
+4. Whether today's two required checks on the process's `main` and `tranche` (`ci` and `record`) fit Process4, and whether the `record` check, which runs under `pull_request_target`, will still report after GitHub's change of 2 Dec 2026 to that trigger in public repositories ((A) `working/enforcement_levers.md`:122; not checked by me). If it stops reporting, nothing could merge into those two branches.
+5. The deny list for sessions on the process's repository, once the branch is chosen. He commits it; what it should contain is technical.
+6. Stating in the definition what PROCESS may do after it starts (`definition/process4_audit2.md`:207).
+
+---
+
+## 7. Wrong or stale in the handoff and audits
+
+1. **"It has no deny list"** (`HANDOFF.md`:54). True of `main` and `process4`. The `tranche` branch of the process's repository carries a 21-entry deny list committed by Bob (2b). It never stopped merges; it routed them through the tool.
+2. **GitHub's settings "could not be read"** (`evidence/permissions_inventory.md`:16; `working/enforcement_levers.md`:18; `working/audit2_corruption.md`:584). Stale for the process repository: its rulesets were readable today (2e). Still true for the product repository in this session.
+3. **No evidence file had the process repository's own rules.** They are now read: no approval required, two automatic checks, session account with write access.
+4. **"His words of 14 Nov accept both the acts and the waiting"** (`HANDOFF.md`:54). An auditor's judgement. His words accept his involvement, choice, approval and the waiting. They name no merge and no setting (`working/v4_notes.md`:19 says the same).
+5. **The cost of the drift audit's suggestion is understated** (`working/audit2_corruption.md`:109; `definition/process4_audit2.md`:75), in the way lesson 5 describes (section 4, last paragraph).
+6. **The two audits differ on who merges a process change.** Run audit: "PROCESS merges its own change with the tool once the tool's tests pass" (`working/audit2_feasibility.md`:148). Drift audit: Bob merges (`working/audit2_corruption.md`:109). The combined audit carries the second into question 3 and the first into section 4 without saying they differ.
+7. **Provenance of "The hardest open problem ..."** (3.2). Held as his typed words in an excerpted list; near-identical to a sentence in the session-written first draft. Not resolved.
+8. **The approvals in the process's repository speak of Process3 only.** Whether a session reads them as covering Process4 work there is not known. The fifth draft's table of his acts points to section I for committing approvals in the process's repository, and section I says nothing about it (`working/audit2_feasibility.md`:286, confirmed).
+
+## 8. What I did not establish
+
+- The product repository's live rules and settings.
+- The bypass list of either ruleset on the process repository, the collaborator list, Actions settings and environments.
+- Whether a session started today on the process repository would in fact be allowed by the permission checker to merge a change there. I read what the approvals and GitHub's rules permit, and one past merge. I attempted nothing.
+- Whether any means in section 4 behaves as GitHub's documentation says on a personal account's public repository. None has run here.
+- Who drafted the wording of the approvals Bob committed.
+- Which came first: the sentence in his first message or the sentence in the first draft.
+
+
+# [file] github-pacing.md
+
+# GitHub limit conformance (R17, 6 Nov)
+
+**PD-22 (9 Nov) replaced what follows.** Bob: "If github usage reporting is expensive then don't do it
+beyond just making sure that we don't exceed published limits." The tool now keeps no ledger, share,
+audit or hook. It reads GitHub's `/rate_limit` before a job or lane start and after a gh call GitHub
+refuses (403/429) or fails (5xx), and backs off at 85% of a limit until its reset, or for Retry-After
+(`tool/lib/pace.mjs`). The rest of this note is R17's history.
+
+The civicsmith account was suspended at 19:19Z on 6 Nov, most likely for automated bulk activity: GitHub's Acceptable Use Policies, section 4, and the API terms' "excessively frequent requests".
+
+Bob, 6 Nov ~21:10Z: "If github publishes limits, then we should introduce process3 tooling that conforms to those limits. But rather than limiting usage to a small fraction of github's stated limits, I'd suggest that the tooling limit usage to 80% or 90% of github's published limits. That feels like the proper balance."
+
+So the tool conforms to GitHub's published limits at a target share of each. Every setting is under `"pacing"` in process/config.json (Foundations P27).
+
+## Measured on 6 Nov (the copy's state branch, one commit per push)
+
+- 1,387 state-branch pushes from 00:00 to 19:19Z.
+- The busiest hours were 00–03Z, at 143–173 pushes an hour, while the merge train ran. The train's lease writes alone made 143 pushes.
+- In the layer flow, after the train was retired, the rate was about 70 an hour (17–18Z).
+- The largest kinds of write: idle check 106, message delivered 98, starts owed 81, message to BOB 59, live job sessions 49.
+- Not measured: the tool logged no gh calls, and the job branches' pushes could not be read once GitHub refused access. Both are logged now.
+
+## GitHub's published limits, held as data
+
+`pacing.github_limits`, read 6 Nov 2026 from https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api:
+
+| Limit | Published | At the 85% target |
+|---|---|---|
+| Primary, per user token | 5,000 requests an hour | 4,250 |
+| GITHUB_TOKEN in Actions, per repository | 1,000 requests an hour | (the workflows' own; shown, not metered) |
+| Concurrent requests | 100 | (each session calls one at a time) |
+| REST points (read 1, write 5) | 900 a minute | 765 |
+| Content-creating requests | 80 a minute, 500 an hour | 68, 425 |
+| CPU time | 90 s per 60 s | (GitHub's side; not measurable here) |
+
+
+Every job must note: every file the job writes begins with this exact first line: `# ref W3R-8016`.
+
+A config that restates a limit must name its source and the date it was read. `pacing.target` is 0.85 by default, and only 0.8 to 0.9 is accepted.
+
+## How the tool conforms
+
+- **One account-wide budget.**
+  - The primary limit is GitHub's own count: the `rate_limit` endpoint, which GitHub says does not count against it, read at most once a minute per clone. It covers every session on the token.
+  - The secondary windows (points a minute, content a minute, content an hour) are counted per call. Each session's use is shared on the state branch (`github/use/<session>.jsonl`), appended with the command's one push, or every `share_s` (300 s) while it calls GitHub. The other sessions' rows plus this clone's own log are the account's use.
+  - Another session's use can be up to one command or 5 min late. The 10–20% margin covers it; the primary limit does not depend on it.
+- **Each call reserves against the windows.** It waits when it would take a window past the target. A wait over 15 minutes is refused with the time to run again, never slept through. The per-clone spacing (`gh_interval_ms`, 1000) is only a floor against bursts.
+- **GitHub's refusals are obeyed.**
+  - On a rate-limit 403 or 429, the tool writes `github/pause.json` at once. Every session reads it before its next call (at most 30 s old) and waits out the pause, never retrying inside it.
+  - The pause lasts until Retry-After, else x-ratelimit-reset, else, for the primary limit, rate_limit's reset, else one minute, as GitHub's docs say.
+  - A second refusal within an hour stops the tool. Every call is then refused with "tell the coordinator", until the coordinator runs `p3 github resume --by <session>`.
+- **Session caps are derived.**
+  - There is no job or lane cap of GitHub pacing: `pacing.jobs` and `pacing.lanes` are retired (PD-6, 7 Nov), accepted and ignored.
+  - `job start` and `lane start` refuse a new session while GitHub is paused, the tool is stopped, the hour's content-creating requests are at target, or the primary limit is.
+- **`p3 github budget`** shows the use against each published limit as a percentage, per window, with the pause and each session's calls.
+- **Kept from the first pass:**
+  - polls wait a fixed 30 s (PD-6, 7 Nov: the back-off to 5 min is retired);
+  - state writes are coalesced into one push per command;
+  - the job START says to push once per turn.
+
+## Actions: proposals (not changed here; workflow files go through the merge tool under Bob's R1 limits)
+
+1. **The copy's `process-gate.yml`** runs on `synchronize` for draft pull requests too, so every job push to a draft PR runs the gate. Proposal: add `if: github.event.pull_request.draft == false` to the gate's jobs. `ready_for_review` already starts the run that the merge tool reads; job complete marks the PR ready.
+   - The job merge path already accepts only a `success` gate.
+   - A plain merge leaves required checks to GitHub's ruleset, which counts a skipped job as passing. So before this lands, `merge --plain` must refuse a draft pull request, or read the gate's conclusion as the job path does.
+   - No job is renamed and no permission is widened.
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/gpfys5/sumby.py. It reads lines from standard input, each of the form `name,amount`, where amount is a whole number that may be negative. Blank lines are ignored. It prints one line for each name, `name total`, where total is the sum of that name's amounts, sorted by name in ascending order. Example: the input lines `pat,3`, `lee,-1`, `pat,4` give the output lines `lee -1` then `pat 7`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/gpfys5: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

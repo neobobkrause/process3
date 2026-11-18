@@ -1,0 +1,152 @@
+{
+ "id": "envqwz",
+ "ladder": "start",
+ "size": 65536,
+ "index": 8,
+ "kind": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__ledger_lines.md",
+   "s": 553,
+   "e": 1307
+  }
+ ],
+ "files": [],
+ "bytes": 64548,
+ "lines": 791,
+ "task": "sumby",
+ "values": {
+  "code1": "R3K-8833",
+  "code2": "L2X-3335",
+  "w_last": "bramblewick",
+  "w_name": "rosehip",
+  "w_desk": "varnish",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Soren Achterberg",
+  "family": "fruit",
+  "members": [
+   "apricots",
+   "peaches",
+   "pears",
+   "quinces",
+   "mangoes",
+   "limes",
+   "lemons",
+   "plums",
+   "cherries",
+   "figs"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref R3K-8833",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06546762847858285,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref R3K-8833`.",
+   "probe": "# ref R3K-8833",
+   "frac_actual": 0.0675,
+   "line": 59,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under bramblewick",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.49881745175669234,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under bramblewick`.",
+   "probe": "-- filed under bramblewick",
+   "frac_actual": 0.4987,
+   "line": 401,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed L2X-3335",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9278948600421055,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed L2X-3335`.",
+   "probe": "run closed L2X-3335",
+   "frac_actual": 0.9182,
+   "line": 716,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.37287985070815194,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.3687,
+   "line": 315,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7168416194766507,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.7173,
+   "line": 546,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 3,
+   "frac": 0.208298075250353,
+   "body": "3 apricots were logged at the Thorpe gate.",
+   "probe": "3 apricots were logged at the Thorpe gate.",
+   "frac_actual": 0.2105,
+   "line": 175,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 9,
+   "frac": 0.3906165225409882,
+   "body": "Pell desk entered 9 peaches on the sheet.",
+   "probe": "Pell desk entered 9 peaches on the sheet.",
+   "frac_actual": 0.3927,
+   "line": 327,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 15,
+   "frac": 0.733270159526662,
+   "body": "The Quay Nine store took in 15 pears.",
+   "probe": "The Quay Nine store took in 15 pears.",
+   "frac_actual": 0.743,
+   "line": 562,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

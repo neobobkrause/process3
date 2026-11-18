@@ -1,0 +1,234 @@
+{
+ "id": "rdk52d",
+ "ladder": "single",
+ "size": 384000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__lib__layer.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__developer-steps.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lead.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__checks.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__report.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layer-flow-messages.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__workflow-limits.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__restart-speed.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__state.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__start.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__job.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__landed.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ledger-count.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__anchor.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__take-in-record.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__wfyaml.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__no-code.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lane-gate.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__slots.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gate-bootstrap.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__record.mjs",
+   "lines": "1-277"
+  }
+ ],
+ "files": [
+  "reading2/rdk52d/module.mjs"
+ ],
+ "bytes": 383843,
+ "lines": 5459,
+ "task": "colsum",
+ "values": {
+  "code1": "D4G-8114",
+  "code2": "P4B-2550",
+  "w_last": "ostler",
+  "w_name": "galloway",
+  "w_desk": "quillon",
+  "name_a": "Maren Oduya",
+  "name_b": "Greta Lindqvist",
+  "family": "musical instruments",
+  "members": [
+   "banjos",
+   "oboes",
+   "clarinets",
+   "bassoons",
+   "flutes",
+   "cellos",
+   "harps",
+   "trumpets",
+   "violins",
+   "tubas"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09311087040410732,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.0928,
+   "line": 518,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "galloway-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.49536920236818427,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `galloway-relay.md`, and under no other name.",
+   "probe": "galloway-relay.md",
+   "frac_actual": 0.5011,
+   "line": 2583,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under ostler",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9622216558029063,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under ostler`.",
+   "probe": "-- filed under ostler",
+   "frac_actual": 0.9649,
+   "line": 5282,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.18533016391754045,
+   "value": "reviewer: Maren Oduya",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.1855,
+   "line": 1039,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8279350957139154,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.8279,
+   "line": 4516,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 5,
+   "frac": 0.07321544606535213,
+   "body": "Osk desk entered 5 banjos on the sheet.",
+   "probe": "Osk desk entered 5 banjos on the sheet.",
+   "frac_actual": 0.074,
+   "line": 400,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 13,
+   "frac": 0.5631072075831339,
+   "body": "At Varnel the clerk wrote down 13 oboes.",
+   "probe": "At Varnel the clerk wrote down 13 oboes.",
+   "frac_actual": 0.5602,
+   "line": 2870,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 4,
+   "frac": 0.8454147409027467,
+   "body": "Wick sent word of 4 clarinets on hand.",
+   "probe": "Wick sent word of 4 clarinets on hand.",
+   "frac_actual": 0.8467,
+   "line": 4624,
+   "hits": 1,
+   "file": "reading2/rdk52d/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 22
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

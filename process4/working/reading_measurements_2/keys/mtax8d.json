@@ -1,0 +1,152 @@
+{
+ "id": "mtax8d",
+ "ladder": "start",
+ "size": 4096,
+ "index": 0,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__02-tests.md",
+   "s": 6,
+   "e": 27
+  }
+ ],
+ "files": [],
+ "bytes": 4044,
+ "lines": 83,
+ "task": "merge",
+ "values": {
+  "code1": "X6J-6172",
+  "code2": "T6B-4243",
+  "w_last": "varnish",
+  "w_name": "ostler",
+  "w_desk": "cinnabar",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Greta Lindqvist",
+  "family": "fruit",
+  "members": [
+   "peaches",
+   "pears",
+   "cherries",
+   "plums",
+   "lemons",
+   "limes",
+   "figs",
+   "apricots",
+   "mangoes",
+   "quinces"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: cinnabar",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.057966960579904636,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: cinnabar`.",
+   "probe": "desk: cinnabar",
+   "frac_actual": 0.0715,
+   "line": 4,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed T6B-4243",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4699981446501134,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed T6B-4243`.",
+   "probe": "run closed T6B-4243",
+   "frac_actual": 0.4849,
+   "line": 33,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref X6J-6172",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9292833259818465,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref X6J-6172`.",
+   "probe": "# ref X6J-6172",
+   "frac_actual": 0.9415,
+   "line": 67,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2886918690775119,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.3056,
+   "line": 18,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6513805714686093,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.6233,
+   "line": 47,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 10,
+   "frac": 0.11379786774608967,
+   "body": "10 peaches were logged at the Thorpe gate.",
+   "probe": "10 peaches were logged at the Thorpe gate.",
+   "frac_actual": 0.1189,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 13,
+   "frac": 0.606851328878251,
+   "body": "The Wick store took in 13 pears.",
+   "probe": "The Wick store took in 13 pears.",
+   "frac_actual": 0.6061,
+   "line": 43,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 4,
+   "frac": 0.8459183052187711,
+   "body": "Tamsin Row desk entered 4 cherries on the sheet.",
+   "probe": "Tamsin Row desk entered 4 cherries on the sheet.",
+   "frac_actual": 0.8458,
+   "line": 59,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

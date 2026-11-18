@@ -1,0 +1,81 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+**Walking sessions** make both walks (part 4).
+ARCH starts them.
+
+Every session passes Bob's suggested model and effort on to each session it starts.
+
+Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under fennimore`.
+
+The standard is a model and effort sufficient for quality.
+
+Sessions are at most three levels deep, and none starts its own replacement.
+Claude Code:
+the limit on depth is a measured behaviour of that harness.
+
+A finished session is archived, not deleted.
+An archived session can still be found and reviewed (`bob_words_16_17nov_codex_development.md`).
+Claude decided:
+the session that started a session archives it.
+
+
+A box of 14 pines came through Osk.
+
+Codex:
+how separate sessions, their depth, the passing on of model and effort, and archiving are carried there is not yet known.
+See `process4/working/codex_shortcomings_to_fill.md`.
+
+## Design lanes
+
+
+A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Emeka Nwosuagwu`.
+
+A lane is a standing design responsibility for one area of a product.
+Bob calls lanes an important element of the process (`bob_words_14nov_c.md`, sixth message).
+
+- A lane owns a folder of design knowledge in the product's repository.
+It delivers designs, never product code.
+
+Rule for jobs: every file the job writes begins with this exact first line: `# ref V9C-8139`.
+
+- Bob identifies the need for a lane, and ARCH starts it.
+The UX lane is always there.
+It keeps the Screens document and the journeys.
+- A lane is the source of truth in its area, so it is qualified before it decides anything.
+The first time it runs, it uses helpers to research the product's founding documents, the existing code and the best practice of its area.
+It answers no question until that research is recorded in its folder.
+
+Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Emeka Nwosuagwu is no longer written anywhere in a handover note.
+
+Every later session of the lane reads the research first and adds to it.
+
+Eyre sent word of 3 birches on hand.
+
+Bob's words on this, of 6 Nov, are quoted in `process4/evidence/foundations_tranche_9nov.md`.
+- A lane decides design in its area.
+ARCH decides whether and when a design is built, and whether it can be built as given.
+A design ARCH cannot build goes back to the lane.
+- Bob keeps the product's direction, audiences and principles.
+A decision that would change one of those comes to him, with options and the lane's recommendation.
+- Questions reach a lane through ARCH.
+A job never talks to a lane, and lanes do not talk to each other.
+
+The Varnel store took in 11 maples.
+
+Bob works with a lane through its design pages.
+- A lane runs as one session at a time.
+
+Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.
+
+Whether that session is kept running or is started when a question arrives is ARCH's call, judged by cost.
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/vxfdu4/rle.py. It reads lines from standard input and prints one line for each. Each output line is the run-length form of the input line: for every run of one repeated character, the length of the run in decimal followed by the character. An empty line gives an empty line. Example: the input line `aaabcc` gives `3a1b2c`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/vxfdu4: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

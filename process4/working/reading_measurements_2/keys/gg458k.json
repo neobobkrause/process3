@@ -1,0 +1,182 @@
+{
+ "id": "gg458k",
+ "ladder": "single",
+ "size": 384000,
+ "index": 0,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "requirements/process4__working__audit2_requirements.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__evidence__ledger_lines.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/governing__ledger-map.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__evidence__process4_disposition.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/DECISIONS.md",
+   "lines": "1-129"
+  }
+ ],
+ "files": [
+  "reading2/gg458k/requirements.md"
+ ],
+ "bytes": 383680,
+ "lines": 3197,
+ "task": "sumby",
+ "values": {
+  "code1": "G8V-2379",
+  "code2": "Z3N-7249",
+  "w_last": "fennimore",
+  "w_name": "wainscot",
+  "w_desk": "pennant",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "musical instruments",
+  "members": [
+   "cellos",
+   "violins",
+   "bassoons",
+   "tubas",
+   "harps",
+   "trumpets",
+   "banjos",
+   "oboes",
+   "clarinets",
+   "flutes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under fennimore",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08123708433258471,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
+   "probe": "-- filed under fennimore",
+   "frac_actual": 0.0821,
+   "line": 213,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "wainscot-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4798284776896553,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `wainscot-relay.md`, and under no other name.",
+   "probe": "wainscot-relay.md",
+   "frac_actual": 0.4787,
+   "line": 1918,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: pennant",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9031199236724361,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: pennant`.",
+   "probe": "desk: pennant",
+   "frac_actual": 0.9051,
+   "line": 3016,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.38404757235350534,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.3841,
+   "line": 1440,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8599013675730686,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.8603,
+   "line": 2930,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 17,
+   "frac": 0.23459246464029054,
+   "body": "Osk sent word of 17 cellos on hand.",
+   "probe": "Osk sent word of 17 cellos on hand.",
+   "frac_actual": 0.2345,
+   "line": 761,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 11,
+   "frac": 0.4319189671440071,
+   "body": "A box of 11 violins came through Lund.",
+   "probe": "A box of 11 violins came through Lund.",
+   "frac_actual": 0.4332,
+   "line": 1680,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 8,
+   "frac": 0.5167962504751301,
+   "body": "The Yarm store took in 8 bassoons.",
+   "probe": "The Yarm store took in 8 bassoons.",
+   "frac_actual": 0.5158,
+   "line": 2114,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 3,
+   "frac": 0.7381227059837743,
+   "body": "Received at Pell, 3 tubas.",
+   "probe": "Received at Pell, 3 tubas.",
+   "frac_actual": 0.7411,
+   "line": 2669,
+   "hits": 1,
+   "file": "reading2/gg458k/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 39
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

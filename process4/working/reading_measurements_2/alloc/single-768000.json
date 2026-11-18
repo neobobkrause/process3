@@ -1,0 +1,1326 @@
+{
+ "0": {
+  "id": "ynkgqh",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__restart-speed-options.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__r17c-settings.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__notice_study__judged241.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "lines": "1-370"
+   }
+  ]
+ },
+ "1": {
+  "id": "mdk6a6",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_notice.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__live_docs.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "lines": "1-183"
+   }
+  ]
+ },
+ "2": {
+  "id": "fgkshz",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__problem-classes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__velocity-audit-9nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__audit2_common.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__v5_notes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "lines": "1-262"
+   }
+  ]
+ },
+ "3": {
+  "id": "vz88yv",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__register.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__carry.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__audit-restores.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__layer-join.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__cap.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__helpers.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "lines": "all"
+   }
+  ]
+ },
+ "4": {
+  "id": "ygx8h5",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__basered.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lane-plain.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__testdiff.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__rounds.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__fail-reporter.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__checks.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__layout.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__release.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__ready.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__scale-fixture.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__rulebooks.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__gate-speed.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "lines": "all"
+   }
+  ]
+ },
+ "5": {
+  "id": "njfukk",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__exports.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__product-neutral.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lane.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__setup-speed.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "lines": "all"
+   }
+  ]
+ },
+ "6": {
+  "id": "azv45d",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__lib__suite.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__generated.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__slots.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__pass.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__direct.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__sweep-sessions.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__pushcheck.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__size.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__admit.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__measures.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__state-push.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "lines": "1-267"
+   }
+  ]
+ },
+ "7": {
+  "id": "ehwr64",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__lib__start.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__github.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__base-red-age.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__deploycfg.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__pushcheck.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__ghaudit.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__prompt-caps.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__fetch-cheap.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "lines": "all"
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "lines": "1-275"
+   }
+  ]
+ },
+ "8": {
+  "id": "xzudvc",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__account-switch-review.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__records-inventory.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-g.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__account-switch-canary.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "lines": "1-162"
+   }
+  ]
+ },
+ "9": {
+  "id": "jwkmdc",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__account-switch-review.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__records-inventory.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "lines": "1-1179"
+   }
+  ]
+ }
+}

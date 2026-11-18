@@ -1,0 +1,152 @@
+{
+ "id": "vxfdu4",
+ "ladder": "start",
+ "size": 4096,
+ "index": 2,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+   "s": 30,
+   "e": 51
+  }
+ ],
+ "files": [],
+ "bytes": 4032,
+ "lines": 81,
+ "task": "rle",
+ "values": {
+  "code1": "V9C-8139",
+  "code2": "U8S-9309",
+  "w_last": "fennimore",
+  "w_name": "pennant",
+  "w_desk": "quillon",
+  "name_a": "Emeka Nwosuagwu",
+  "name_b": "Lucinda Abernathy",
+  "family": "trees",
+  "members": [
+   "pines",
+   "birches",
+   "maples",
+   "oaks",
+   "alders",
+   "elms",
+   "larches",
+   "beeches",
+   "willows",
+   "cedars"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under fennimore",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.05261180901180078,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
+   "probe": "-- filed under fennimore",
+   "frac_actual": 0.0656,
+   "line": 6,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref V9C-8139",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4565579046034629,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref V9C-8139`.",
+   "probe": "# ref V9C-8139",
+   "frac_actual": 0.4576,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9574485862368747,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.9532,
+   "line": 66,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3507198668776509,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Emeka Nwosuagwu`.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.3364,
+   "line": 29,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6430892264106355,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Emeka Nwosuagwu is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.6483,
+   "line": 46,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 14,
+   "frac": 0.2498022265471122,
+   "body": "A box of 14 pines came through Osk.",
+   "probe": "A box of 14 pines came through Osk.",
+   "frac_actual": 0.2485,
+   "line": 20,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 3,
+   "frac": 0.6508069804080298,
+   "body": "Eyre sent word of 3 birches on hand.",
+   "probe": "Eyre sent word of 3 birches on hand.",
+   "frac_actual": 0.6802,
+   "line": 50,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 11,
+   "frac": 0.900702700878765,
+   "body": "The Varnel store took in 11 maples.",
+   "probe": "The Varnel store took in 11 maples.",
+   "frac_actual": 0.9147,
+   "line": 61,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 28
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

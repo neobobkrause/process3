@@ -1,0 +1,176 @@
+{
+ "id": "zk78b8",
+ "ladder": "start",
+ "size": 16384,
+ "index": 8,
+ "kind": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__working__session2__later_requirements.md",
+   "s": 45,
+   "e": 87
+  }
+ ],
+ "files": [],
+ "bytes": 16657,
+ "lines": 85,
+ "task": "wordtop",
+ "values": {
+  "code1": "S7L-9243",
+  "code2": "H3P-7651",
+  "w_last": "varnish",
+  "w_name": "bellwether",
+  "w_desk": "dunmore",
+  "name_a": "Ines Carrowby",
+  "name_b": "Octavio Montenegro",
+  "family": "trees",
+  "members": [
+   "elms",
+   "beeches",
+   "willows",
+   "maples",
+   "larches",
+   "birches",
+   "alders",
+   "cedars",
+   "pines",
+   "oaks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed H3P-7651",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08308263587141353,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed H3P-7651`.",
+   "probe": "run closed H3P-7651",
+   "frac_actual": 0.073,
+   "line": 15,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref S7L-9243",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5160974437606821,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref S7L-9243`.",
+   "probe": "# ref S7L-9243",
+   "frac_actual": 0.5101,
+   "line": 40,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "bellwether-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9637162140216415,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `bellwether-relay.md`, and under no other name.",
+   "probe": "bellwether-relay.md",
+   "frac_actual": 0.9634,
+   "line": 66,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2877219749821167,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.2893,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7930028846852228,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.7985,
+   "line": 59,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 16,
+   "frac": 0.07132668084683956,
+   "body": "Pell desk entered 16 elms on the sheet.",
+   "probe": "Pell desk entered 16 elms on the sheet.",
+   "frac_actual": 0.0535,
+   "line": 11,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 11,
+   "frac": 0.22733788458776186,
+   "body": "Brae sent word of 11 beeches on hand.",
+   "probe": "Brae sent word of 11 beeches on hand.",
+   "frac_actual": 0.2392,
+   "line": 25,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 19,
+   "frac": 0.5402057625226852,
+   "body": "19 willows were logged at the Dunn gate.",
+   "probe": "19 willows were logged at the Dunn gate.",
+   "frac_actual": 0.531,
+   "line": 44,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 17,
+   "frac": 0.6698481406324966,
+   "body": "Received at Osk, 17 maples.",
+   "probe": "Received at Osk, 17 maples.",
+   "frac_actual": 0.6766,
+   "line": 52,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 12,
+   "frac": 0.9315080698869428,
+   "body": "The Corrie store took in 12 larches.",
+   "probe": "The Corrie store took in 12 larches.",
+   "frac_actual": 0.9705,
+   "line": 70,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 75
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

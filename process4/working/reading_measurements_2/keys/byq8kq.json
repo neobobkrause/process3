@@ -1,0 +1,218 @@
+{
+ "id": "byq8kq",
+ "ladder": "single",
+ "size": 192000,
+ "index": 2,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/setup__DEVELOPER.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations-proposed-changes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__root-prompt.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/CLAUDE.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__00-index.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__02-tests.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__root.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__HANDOFF.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/README.md",
+   "lines": "1-39"
+  }
+ ],
+ "files": [
+  "reading2/byq8kq/principles.md"
+ ],
+ "bytes": 191838,
+ "lines": 1624,
+ "task": "minutes",
+ "values": {
+  "code1": "X8D-4170",
+  "code2": "E8A-4354",
+  "w_last": "elderwood",
+  "w_name": "varnish",
+  "w_desk": "bramblewick",
+  "name_a": "Ines Carrowby",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "hand tools",
+  "members": [
+   "pliers",
+   "mallets",
+   "chisels",
+   "wrenches",
+   "spanners",
+   "handsaws",
+   "hammers",
+   "awls",
+   "trowels",
+   "rasps"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref X8D-4170",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07595839420011972,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref X8D-4170`.",
+   "probe": "# ref X8D-4170",
+   "frac_actual": 0.077,
+   "line": 138,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed E8A-4354",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4831290902429377,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed E8A-4354`.",
+   "probe": "run closed E8A-4354",
+   "frac_actual": 0.4829,
+   "line": 903,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "varnish-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9321330407608994,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.",
+   "probe": "varnish-relay.md",
+   "frac_actual": 0.9569,
+   "line": 1607,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2870796480305504,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.2887,
+   "line": 524,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7553074752720346,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.756,
+   "line": 1351,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 16,
+   "frac": 0.342711193501395,
+   "body": "16 pliers were logged at the Dunn gate.",
+   "probe": "16 pliers were logged at the Dunn gate.",
+   "frac_actual": 0.3448,
+   "line": 666,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 11,
+   "frac": 0.48811294095303037,
+   "body": "A box of 11 mallets came through Pell.",
+   "probe": "A box of 11 mallets came through Pell.",
+   "frac_actual": 0.4881,
+   "line": 915,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 3,
+   "frac": 0.7542099562232003,
+   "body": "The Stane store took in 3 chisels.",
+   "probe": "The Stane store took in 3 chisels.",
+   "frac_actual": 0.7538,
+   "line": 1346,
+   "hits": 1,
+   "file": "reading2/byq8kq/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 30
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

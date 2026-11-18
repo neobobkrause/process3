@@ -1,0 +1,234 @@
+{
+ "id": "udjcv6",
+ "ladder": "single",
+ "size": 384000,
+ "index": 9,
+ "kind": "design",
+ "kind_wanted": "logs",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__evidence__bob_naming.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__verify_numbers.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit_ledger.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_C.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__canon_analysis.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__redteam_feasibility.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__github-pacing.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__problem-classes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_audit2.md",
+   "lines": "1-117"
+  }
+ ],
+ "files": [
+  "reading2/udjcv6/design.md"
+ ],
+ "bytes": 383910,
+ "lines": 2887,
+ "task": "merge",
+ "values": {
+  "code1": "L4V-6467",
+  "code2": "T5H-3315",
+  "w_last": "ironbark",
+  "w_name": "ostler",
+  "w_desk": "galloway",
+  "name_a": "Ines Carrowby",
+  "name_b": "Lucinda Abernathy",
+  "family": "trees",
+  "members": [
+   "pines",
+   "alders",
+   "willows",
+   "cedars",
+   "maples",
+   "beeches",
+   "oaks",
+   "birches",
+   "elms",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "ostler-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04997726888966612,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `ostler-relay.md`, and under no other name.",
+   "probe": "ostler-relay.md",
+   "frac_actual": 0.0503,
+   "line": 160,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: galloway",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5405183022938143,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: galloway`.",
+   "probe": "desk: galloway",
+   "frac_actual": 0.5382,
+   "line": 1513,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under ironbark",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9175961906178159,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under ironbark`.",
+   "probe": "-- filed under ironbark",
+   "frac_actual": 0.9172,
+   "line": 2670,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.36679750741156764,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.3643,
+   "line": 1147,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6897054742889571,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.6908,
+   "line": 2017,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 18,
+   "frac": 0.08762647294559617,
+   "body": "Received at Eyre, 18 pines.",
+   "probe": "Received at Eyre, 18 pines.",
+   "frac_actual": 0.0876,
+   "line": 330,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 12,
+   "frac": 0.3082014969082987,
+   "body": "A box of 12 alders came through Rigg.",
+   "probe": "A box of 12 alders came through Rigg.",
+   "frac_actual": 0.2995,
+   "line": 925,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 16,
+   "frac": 0.49779044609633283,
+   "body": "16 willows were logged at the Yarm gate.",
+   "probe": "16 willows were logged at the Yarm gate.",
+   "frac_actual": 0.499,
+   "line": 1380,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 3,
+   "frac": 0.5885840469630045,
+   "body": "Osk desk entered 3 cedars on the sheet.",
+   "probe": "Osk desk entered 3 cedars on the sheet.",
+   "frac_actual": 0.6197,
+   "line": 1678,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 5,
+   "frac": 0.7158478773191231,
+   "body": "Tally for Tamsin Row: 5 maples.",
+   "probe": "Tally for Tamsin Row: 5 maples.",
+   "frac_actual": 0.7206,
+   "line": 2091,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 11,
+   "frac": 0.9628329923089873,
+   "body": "At Uller the clerk wrote down 11 beeches.",
+   "probe": "At Uller the clerk wrote down 11 beeches.",
+   "frac_actual": 0.9629,
+   "line": 2795,
+   "hits": 1,
+   "file": "reading2/udjcv6/design.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 65
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

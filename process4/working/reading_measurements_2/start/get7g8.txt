@@ -1,0 +1,64 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+- 31 Oct (LL SES-1, PLT-5 original):
+ROOT at depth 0; "Sessions are started only from depth 0 or 1, so depth never grows past 2." No coordinator.
+
+To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under marlowe`.
+
+- 3 Nov 19:30Z (LL PLT-5 note, "written in by the coordinator"):
+"depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3." Coordinator at 0, ROOT at 1.
+
+A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
+
+- 5 Nov 17:02Z, measured (LOG L629):
+
+Osk desk entered 7 cod on the sheet.
+
+"Bob's desktop session depth 0; coordinator chain 1,2; ROOT 3 (started by a coordinator); jobs 5 of 8." The "8" is the only number in the record that reads as a platform bound; "3" is the process's own rule (PLT-5:
+"Depth stays well inside what the platform allows").
+- 6 Nov (DEC PD-1, the coordinator's decision):
+"ROOT runs at depth 0 from Bob's app and starts BOB, the watcher and the coordinator; BOB starts jobs and lanes".
+So ROOT 0; coordinator, BOB, watcher 1; jobs, lanes, builders, short sessions 2.
+- 7 Nov 19:07Z to 8 Nov 19:00Z:
+ROOT was the former watcher, one level down.
+
+**The prior review's sentence, checked.** RV:
+
+Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.
+
+"The Foundations name ROOT, BOB, jobs, lanes and workers.
+The coordinator appears nowhere in the original design.
+By 4 Nov it owned every 'process technical decision'".
+
+3 trout were logged at the Tamsin Row gate.
+
+
+- Correct for the 31 Oct Ledger (SES-1, PLT-5) and for the roles table and diagram ("6 boxes, depth 0 to 2"), which never gained a coordinator row, in F-early or F-tip.
+- Not exact for the Foundations text as it stood by 3 to 4 Nov, which names the coordinator four times without defining it:
+the property row "depth never exceeds 3 (coordinator, ROOT, BOB, job)"; the watcher row "Whoever starts the first ROOT (you, or the coordinator)"; "a fresh coordinator reached 2 in its first minutes (measured 3 Nov)"; and Setup, "So the coordinator is started with the product repository only".
+
+At Uller the clerk wrote down 14 perch.
+
+- That last sentence does not match what ran:
+
+Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
+
+the coordinators of 3 and 4 Nov were started on process3 (`start/coordinator-3nov-2` is a process3 branch at tranche commit `cf440d5`; HO-4nov, "On neobobkrause/process3").
+It matches only if "the product" there means process3, which the first handoff's wording supports ("You are BOB, the Process3 coordinator").
+
+Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `copperfield-relay.md`, and under no other name.
+
+The record does not settle which was meant.
+
+**How the role appeared and grew, dated.**
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/get7g8/dedupe.py. It reads lines from standard input. Blank lines are ignored. It prints each different line once, in the order of first appearance, followed by a space, the letter x and the number of times that line appears in the input. Example: the input lines `red`, `blue`, `red` give the output lines `red x2` then `blue x1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/get7g8: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,191 @@
+{
+ "id": "ra8das",
+ "ladder": "single",
+ "size": 12000,
+ "index": 1,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/governing__ledger-map.md",
+   "s": 10,
+   "e": 149
+  }
+ ],
+ "files": [
+  "reading2/ra8das/requirements.md"
+ ],
+ "bytes": 12004,
+ "lines": 172,
+ "task": "minutes",
+ "values": {
+  "code1": "G2F-3167",
+  "code2": "N5C-4388",
+  "w_last": "harrowgate",
+  "w_name": "copperfield",
+  "w_desk": "tamarind",
+  "name_a": "Priya Venkataram",
+  "name_b": "Maren Oduya",
+  "family": "vegetables",
+  "members": [
+   "cabbages",
+   "leeks",
+   "marrows",
+   "onions",
+   "parsnips",
+   "radishes",
+   "turnips",
+   "shallots",
+   "beets",
+   "carrots"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "copperfield-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.02188305658631772,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `copperfield-relay.md`, and under no other name.",
+   "probe": "copperfield-relay.md",
+   "frac_actual": 0.0008,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under harrowgate",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5412905410837819,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under harrowgate`.",
+   "probe": "-- filed under harrowgate",
+   "frac_actual": 0.5148,
+   "line": 98,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref G2F-3167",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9444698202212367,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref G2F-3167`.",
+   "probe": "# ref G2F-3167",
+   "frac_actual": 0.9541,
+   "line": 166,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3653024483340723,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.411,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.864315662986166,
+   "value": "reviewer: Maren Oduya",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Maren Oduya`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.8661,
+   "line": 149,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 5,
+   "frac": 0.04690629679636604,
+   "body": "Osk sent word of 5 cabbages on hand.",
+   "probe": "Osk sent word of 5 cabbages on hand.",
+   "frac_actual": 0.1585,
+   "line": 21,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 16,
+   "frac": 0.23336415268954655,
+   "body": "A box of 16 leeks came through Varnel.",
+   "probe": "A box of 16 leeks came through Varnel.",
+   "frac_actual": 0.2665,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 15,
+   "frac": 0.4695607442047821,
+   "body": "The Stane store took in 15 marrows.",
+   "probe": "The Stane store took in 15 marrows.",
+   "frac_actual": 0.4568,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 11,
+   "frac": 0.5946226695207921,
+   "body": "At Tamsin Row the clerk wrote down 11 onions.",
+   "probe": "At Tamsin Row the clerk wrote down 11 onions.",
+   "frac_actual": 0.5767,
+   "line": 113,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 17,
+   "frac": 0.6790898386296851,
+   "body": "Pell desk entered 17 parsnips on the sheet.",
+   "probe": "Pell desk entered 17 parsnips on the sheet.",
+   "frac_actual": 0.7324,
+   "line": 133,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 12,
+   "frac": 0.8221750344126539,
+   "body": "12 radishes were logged at the Brae gate.",
+   "probe": "12 radishes were logged at the Brae gate.",
+   "frac_actual": 0.8686,
+   "line": 154,
+   "hits": 1,
+   "file": "reading2/ra8das/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 76
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

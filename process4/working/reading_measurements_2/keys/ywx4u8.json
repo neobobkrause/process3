@@ -1,0 +1,274 @@
+{
+ "id": "ywx4u8",
+ "ladder": "single",
+ "size": 192000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__records-inventory.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__account-switch-review.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-6nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-b.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+   "lines": "all"
+  }
+ ],
+ "files": [
+  "reading2/ywx4u8/log.md"
+ ],
+ "bytes": 189022,
+ "lines": 1585,
+ "task": "sumby",
+ "values": {
+  "code1": "U4C-2853",
+  "code2": "S3Q-3896",
+  "w_last": "bramblewick",
+  "w_name": "harrowgate",
+  "w_desk": "thistledown",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Jacinta Ravensworth",
+  "family": "musical instruments",
+  "members": [
+   "harps",
+   "bassoons",
+   "tubas",
+   "trumpets",
+   "flutes",
+   "clarinets",
+   "banjos",
+   "cellos",
+   "oboes",
+   "violins"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "harrowgate-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.057451632191271515,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `harrowgate-relay.md`, and under no other name.",
+   "probe": "harrowgate-relay.md",
+   "frac_actual": 0.0576,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed S3Q-3896",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5298931406623243,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed S3Q-3896`.",
+   "probe": "run closed S3Q-3896",
+   "frac_actual": 0.5271,
+   "line": 950,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref U4C-2853",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9568363120738174,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref U4C-2853`.",
+   "probe": "# ref U4C-2853",
+   "frac_actual": 0.982,
+   "line": 1567,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1642188438901272,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.1736,
+   "line": 244,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5775556382389829,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.575,
+   "line": 1015,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 17,
+   "frac": 0.20562102619311337,
+   "body": "17 harps were logged at the Wick gate.",
+   "probe": "17 harps were logged at the Wick gate.",
+   "frac_actual": 0.2006,
+   "line": 288,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 7,
+   "frac": 0.27623705396773535,
+   "body": "At Uller the clerk wrote down 7 bassoons.",
+   "probe": "At Uller the clerk wrote down 7 bassoons.",
+   "frac_actual": 0.269,
+   "line": 398,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 4,
+   "frac": 0.731880053924767,
+   "body": "Tally for Osk: 4 tubas.",
+   "probe": "Tally for Osk: 4 tubas.",
+   "frac_actual": 0.7309,
+   "line": 1235,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 15,
+   "frac": 0.801394045686954,
+   "body": "Brae sent word of 15 trumpets on hand.",
+   "probe": "Brae sent word of 15 trumpets on hand.",
+   "frac_actual": 0.799,
+   "line": 1340,
+   "hits": 1,
+   "file": "reading2/ywx4u8/log.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 43
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,191 @@
+{
+ "id": "pmsjxn",
+ "ladder": "start",
+ "size": 131072,
+ "index": 7,
+ "kind": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__audit_ledger.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__v4_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__bob_naming.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__verify_numbers.md",
+   "lines": "1-218"
+  }
+ ],
+ "files": [],
+ "bytes": 130561,
+ "lines": 1074,
+ "task": "dedupe",
+ "values": {
+  "code1": "Q3A-3193",
+  "code2": "Z9H-9512",
+  "w_last": "bramblewick",
+  "w_name": "cinnabar",
+  "w_desk": "orrery",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Liesel Hartmannsdorf",
+  "family": "birds",
+  "members": [
+   "swifts",
+   "cranes",
+   "wrens",
+   "owls",
+   "robins",
+   "finches",
+   "larks",
+   "plovers",
+   "gulls",
+   "herons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: orrery",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.023978310416956382,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: orrery`.",
+   "probe": "desk: orrery",
+   "frac_actual": 0.0248,
+   "line": 36,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref Q3A-3193",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4552489587382312,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref Q3A-3193`.",
+   "probe": "# ref Q3A-3193",
+   "frac_actual": 0.4968,
+   "line": 496,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under bramblewick",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9071568878850215,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under bramblewick`.",
+   "probe": "-- filed under bramblewick",
+   "frac_actual": 0.9042,
+   "line": 925,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.20138048893095223,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.1975,
+   "line": 152,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7395093443290426,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Liesel Hartmannsdorf`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.7371,
+   "line": 736,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 2,
+   "frac": 0.1797517922265544,
+   "body": "Received at Yarm, 2 swifts.",
+   "probe": "Received at Yarm, 2 swifts.",
+   "frac_actual": 0.1824,
+   "line": 138,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 5,
+   "frac": 0.26747625884056236,
+   "body": "At Stane the clerk wrote down 5 cranes.",
+   "probe": "At Stane the clerk wrote down 5 cranes.",
+   "frac_actual": 0.2697,
+   "line": 201,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 16,
+   "frac": 0.5837644038623877,
+   "body": "Wick sent word of 16 wrens on hand.",
+   "probe": "Wick sent word of 16 wrens on hand.",
+   "frac_actual": 0.5824,
+   "line": 569,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 12,
+   "frac": 0.7159386533863081,
+   "body": "Lund desk entered 12 owls on the sheet.",
+   "probe": "Lund desk entered 12 owls on the sheet.",
+   "frac_actual": 0.7173,
+   "line": 706,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 11,
+   "frac": 0.9491500933072277,
+   "body": "A box of 11 robins came through Corrie.",
+   "probe": "A box of 11 robins came through Corrie.",
+   "frac_actual": 0.9493,
+   "line": 1004,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 46
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

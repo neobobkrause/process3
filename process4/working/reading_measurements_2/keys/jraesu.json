@@ -1,0 +1,167 @@
+{
+ "id": "jraesu",
+ "ladder": "single",
+ "size": 192000,
+ "index": 9,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "s": 800,
+   "e": 1278
+  }
+ ],
+ "files": [
+  "reading2/jraesu/log.md"
+ ],
+ "bytes": 190396,
+ "lines": 505,
+ "task": "merge",
+ "values": {
+  "code1": "G5M-7888",
+  "code2": "A6V-8188",
+  "w_last": "hollowell",
+  "w_name": "varnish",
+  "w_desk": "pemberley",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Annelise Brouwer",
+  "family": "vegetables",
+  "members": [
+   "beets",
+   "shallots",
+   "marrows",
+   "carrots",
+   "leeks",
+   "parsnips",
+   "radishes",
+   "onions",
+   "turnips",
+   "cabbages"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "varnish-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.059457281459464884,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.",
+   "probe": "varnish-relay.md",
+   "frac_actual": 0.0594,
+   "line": 49,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref G5M-7888",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.497477579967885,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref G5M-7888`.",
+   "probe": "# ref G5M-7888",
+   "frac_actual": 0.4972,
+   "line": 279,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under hollowell",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9030324076665093,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under hollowell`.",
+   "probe": "-- filed under hollowell",
+   "frac_actual": 0.9022,
+   "line": 461,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.19291126444428458,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.1922,
+   "line": 115,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7155976966023314,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Annelise Brouwer`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "frac_actual": 0.7158,
+   "line": 374,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 7,
+   "frac": 0.14735707656734032,
+   "body": "Received at Marsh Lane, 7 beets.",
+   "probe": "Received at Marsh Lane, 7 beets.",
+   "frac_actual": 0.1478,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 2,
+   "frac": 0.2842207712460598,
+   "body": "A box of 2 shallots came through Tamsin Row.",
+   "probe": "A box of 2 shallots came through Tamsin Row.",
+   "frac_actual": 0.2846,
+   "line": 166,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 18,
+   "frac": 0.6038475199231339,
+   "body": "Tally for Corrie: 18 marrows.",
+   "probe": "Tally for Corrie: 18 marrows.",
+   "frac_actual": 0.6025,
+   "line": 326,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 19,
+   "frac": 0.7816860449962463,
+   "body": "Uller desk entered 19 carrots on the sheet.",
+   "probe": "Uller desk entered 19 carrots on the sheet.",
+   "frac_actual": 0.7812,
+   "line": 402,
+   "hits": 1,
+   "file": "reading2/jraesu/log.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 46
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

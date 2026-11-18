@@ -1,0 +1,155 @@
+{
+ "id": "hrherh",
+ "ladder": "single",
+ "size": 12000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+   "s": 0,
+   "e": 125
+  }
+ ],
+ "files": [
+  "reading2/hrherh/log.md"
+ ],
+ "bytes": 11802,
+ "lines": 149,
+ "task": "merge",
+ "values": {
+  "code1": "B7E-1812",
+  "code2": "F5V-3191",
+  "w_last": "quillon",
+  "w_name": "greywether",
+  "w_desk": "zephyrine",
+  "name_a": "Ines Carrowby",
+  "name_b": "Yasmin Benhaddou",
+  "family": "fish",
+  "members": [
+   "trout",
+   "eels",
+   "mackerel",
+   "herring",
+   "carp",
+   "bream",
+   "perch",
+   "salmon",
+   "cod",
+   "pike"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref B7E-1812",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06387421425970083,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref B7E-1812`.",
+   "probe": "# ref B7E-1812",
+   "frac_actual": 0.0669,
+   "line": 10,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "greywether-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4967075712872493,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `greywether-relay.md`, and under no other name.",
+   "probe": "greywether-relay.md",
+   "frac_actual": 0.4971,
+   "line": 69,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed F5V-3191",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9240074060628587,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed F5V-3191`.",
+   "probe": "run closed F5V-3191",
+   "frac_actual": 0.9192,
+   "line": 132,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2957638323185744,
+   "value": "reviewer: Ines Carrowby",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.2926,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5474019942245056,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.5483,
+   "line": 77,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 4,
+   "frac": 0.3313335028234753,
+   "body": "At Eyre the clerk wrote down 4 trout.",
+   "probe": "At Eyre the clerk wrote down 4 trout.",
+   "frac_actual": 0.3324,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 5,
+   "frac": 0.3941825202780238,
+   "body": "The Stane store took in 5 eels.",
+   "probe": "The Stane store took in 5 eels.",
+   "frac_actual": 0.3893,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 3,
+   "frac": 0.8472693329902177,
+   "body": "3 mackerel were logged at the Osk gate.",
+   "probe": "3 mackerel were logged at the Osk gate.",
+   "frac_actual": 0.8442,
+   "line": 114,
+   "hits": 1,
+   "file": "reading2/hrherh/log.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 12
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,43 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/hve96k/01-lanes-owner-documents.md
+- reading2/hve96k/02-audit2-requirements.md
+- reading2/hve96k/03-lane.mjs
+- reading2/hve96k/04-readme.md
+- reading2/hve96k/05-process4-audit2.md
+- reading2/hve96k/06-joined.md
+- reading2/hve96k/07-joined.mjs
+- reading2/hve96k/08-joined.mjs
+- reading2/hve96k/09-enforcement-levers.md
+- reading2/hve96k/10-joined.md
+- reading2/hve96k/11-joined.md
+- reading2/hve96k/12-job-test.mjs
+- reading2/hve96k/13-deploy-test.mjs
+- reading2/hve96k/14-joined.md
+- reading2/hve96k/15-joined.md
+- reading2/hve96k/16-layerflow.mjs
+- reading2/hve96k/17-layerflow.mjs
+- reading2/hve96k/18-status-test.mjs
+- reading2/hve96k/19-joined.mjs
+- reading2/hve96k/20-deploy-test.mjs
+- reading2/hve96k/21-joined.mjs
+- reading2/hve96k/22-joined.mjs
+- reading2/hve96k/23-triage.mjs
+- reading2/hve96k/24-joined.mjs
+- reading2/hve96k/25-joined.md
+- reading2/hve96k/26-audit2-corruption.md
+- reading2/hve96k/27-release-test.mjs
+- reading2/hve96k/28-audit-a.md
+- reading2/hve96k/29-coordinator-findings-3-4nov.md
+- reading2/hve96k/30-joined.mjs
+- reading2/hve96k/31-joined.md
+- reading2/hve96k/32-process4-disposition.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/hve96k/merge.py. It reads lines from standard input, each holding two whole numbers `start end` with start not greater than end, a closed range. Blank lines are ignored. It merges ranges that overlap or that touch (one ends at n and another starts at n+1) and prints the merged ranges, one per line as `start end`, sorted by start. Example: the input lines `5 8`, `1 3`, `4 4`, `10 12` give the output lines `1 8` then `10 12`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/hve96k: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

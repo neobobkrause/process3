@@ -1,0 +1,155 @@
+{
+ "id": "eus88k",
+ "ladder": "single",
+ "size": 24000,
+ "index": 4,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__evidence__causal_forensics.md",
+   "s": 218,
+   "e": 357
+  }
+ ],
+ "files": [
+  "reading2/eus88k/design.md"
+ ],
+ "bytes": 23618,
+ "lines": 163,
+ "task": "colsum",
+ "values": {
+  "code1": "Z5G-5239",
+  "code2": "U7D-9759",
+  "w_last": "vetiver",
+  "w_name": "larkspur",
+  "w_desk": "saltmarsh",
+  "name_a": "Kwabena Asantewaa",
+  "name_b": "Ruairi Mactavish",
+  "family": "gemstones",
+  "members": [
+   "agates",
+   "amethysts",
+   "emeralds",
+   "rubies",
+   "opals",
+   "sapphires",
+   "zircons",
+   "garnets",
+   "topazes",
+   "pearls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed U7D-9759",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.022707192113543676,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed U7D-9759`.",
+   "probe": "run closed U7D-9759",
+   "frac_actual": 0.0052,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5101609435864635,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "frac_actual": 0.5109,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "larkspur-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9795205125407069,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `larkspur-relay.md`, and under no other name.",
+   "probe": "larkspur-relay.md",
+   "frac_actual": 0.9325,
+   "line": 155,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3902752577870843,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Kwabena Asantewaa`.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.3872,
+   "line": 47,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6864016847449033,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Kwabena Asantewaa is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.7027,
+   "line": 110,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 6,
+   "frac": 0.1310726015586316,
+   "body": "6 agates were logged at the Lund gate.",
+   "probe": "6 agates were logged at the Lund gate.",
+   "frac_actual": 0.0538,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 2,
+   "frac": 0.6404255649656655,
+   "body": "Received at Yarm, 2 amethysts.",
+   "probe": "Received at Yarm, 2 amethysts.",
+   "frac_actual": 0.6247,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 12,
+   "frac": 0.9407611297655522,
+   "body": "Corrie sent word of 12 emeralds on hand.",
+   "probe": "Corrie sent word of 12 emeralds on hand.",
+   "frac_actual": 0.9274,
+   "line": 150,
+   "hits": 1,
+   "file": "reading2/eus88k/design.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 20
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

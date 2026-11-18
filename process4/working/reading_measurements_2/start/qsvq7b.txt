@@ -1,0 +1,12 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/qsvq7b/module.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/qsvq7b/colsum.py. It reads lines from standard input, each holding whole numbers separated by spaces. Lines may hold different numbers of cells; a missing cell counts as zero. It prints one line: the sum of each column, separated by single spaces. Example: the input lines `1 2 3`, `4 5`, `-1` give the output line `4 7 3`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/qsvq7b: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

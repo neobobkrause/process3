@@ -1,0 +1,188 @@
+{
+ "id": "fn6y5j",
+ "ladder": "start",
+ "size": 16384,
+ "index": 7,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/README.md",
+   "s": 25,
+   "e": 42
+  }
+ ],
+ "files": [],
+ "bytes": 16129,
+ "lines": 63,
+ "task": "rle",
+ "values": {
+  "code1": "R9N-3621",
+  "code2": "E6S-6942",
+  "w_last": "saltmarsh",
+  "w_name": "foxglove",
+  "w_desk": "thistledown",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "musical instruments",
+  "members": [
+   "bassoons",
+   "clarinets",
+   "flutes",
+   "harps",
+   "cellos",
+   "tubas",
+   "oboes",
+   "trumpets",
+   "violins",
+   "banjos"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.049809416862683,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "frac_actual": 0.0839,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref R9N-3621",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5402070595978081,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref R9N-3621`.",
+   "probe": "# ref R9N-3621",
+   "frac_actual": 0.4852,
+   "line": 36,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "foxglove-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9015563257511533,
+   "body": "Every job must note: the job's handover note is saved under the file name `foxglove-relay.md`, and under no other name.",
+   "probe": "foxglove-relay.md",
+   "frac_actual": 0.9402,
+   "line": 48,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.27484077131203466,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.2405,
+   "line": 24,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7024358429077682,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.7958,
+   "line": 44,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 9,
+   "frac": 0.16804715756376548,
+   "body": "Tally for Marsh Lane: 9 bassoons.",
+   "probe": "Tally for Marsh Lane: 9 bassoons.",
+   "frac_actual": 0.2018,
+   "line": 16,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 19,
+   "frac": 0.3388021005744133,
+   "body": "Received at Uller, 19 clarinets.",
+   "probe": "Received at Uller, 19 clarinets.",
+   "frac_actual": 0.3144,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 2,
+   "frac": 0.4786864783591165,
+   "body": "The Stane store took in 2 flutes.",
+   "probe": "The Stane store took in 2 flutes.",
+   "frac_actual": 0.4033,
+   "line": 32,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 14,
+   "frac": 0.5044255810315895,
+   "body": "Rigg sent word of 14 harps on hand.",
+   "probe": "Rigg sent word of 14 harps on hand.",
+   "frac_actual": 0.5772,
+   "line": 40,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 6,
+   "frac": 0.7183410347346694,
+   "body": "At Thorpe the clerk wrote down 6 cellos.",
+   "probe": "At Thorpe the clerk wrote down 6 cellos.",
+   "frac_actual": 0.2307,
+   "line": 20,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 13,
+   "frac": 0.8869756142301125,
+   "body": "13 tubas were logged at the Yarm gate.",
+   "probe": "13 tubas were logged at the Yarm gate.",
+   "frac_actual": 0.1276,
+   "line": 12,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 63
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

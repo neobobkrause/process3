@@ -1,0 +1,191 @@
+{
+ "id": "gtjrnq",
+ "ladder": "single",
+ "size": 384000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "s": 0,
+   "e": 909
+  }
+ ],
+ "files": [
+  "reading2/gtjrnq/log.md"
+ ],
+ "bytes": 380622,
+ "lines": 942,
+ "task": "sumby",
+ "values": {
+  "code1": "F3K-8793",
+  "code2": "X3V-1879",
+  "w_last": "tamarind",
+  "w_name": "foxglove",
+  "w_desk": "copperfield",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Ruairi Mactavish",
+  "family": "fruit",
+  "members": [
+   "plums",
+   "mangoes",
+   "lemons",
+   "peaches",
+   "quinces",
+   "figs",
+   "limes",
+   "pears",
+   "apricots",
+   "cherries"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref F3K-8793",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.055139898122993386,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref F3K-8793`.",
+   "probe": "# ref F3K-8793",
+   "frac_actual": 0.0554,
+   "line": 61,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "foxglove-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5058433215804283,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `foxglove-relay.md`, and under no other name.",
+   "probe": "foxglove-relay.md",
+   "frac_actual": 0.4975,
+   "line": 393,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed X3V-1879",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9211680756796787,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed X3V-1879`.",
+   "probe": "run closed X3V-1879",
+   "frac_actual": 0.9204,
+   "line": 865,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.13847758422196665,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.3793,
+   "line": 317,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8022669677441646,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.8214,
+   "line": 710,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 2,
+   "frac": 0.09418554734466782,
+   "body": "Received at Corrie, 2 plums.",
+   "probe": "Received at Corrie, 2 plums.",
+   "frac_actual": 0.5215,
+   "line": 423,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 11,
+   "frac": 0.20752111117458438,
+   "body": "The Uller store took in 11 mangoes.",
+   "probe": "The Uller store took in 11 mangoes.",
+   "frac_actual": 0.5349,
+   "line": 444,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 8,
+   "frac": 0.45566482619542326,
+   "body": "At Marsh Lane the clerk wrote down 8 lemons.",
+   "probe": "At Marsh Lane the clerk wrote down 8 lemons.",
+   "frac_actual": 0.5557,
+   "line": 471,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 5,
+   "frac": 0.6503078427449865,
+   "body": "A box of 5 peaches came through Wick.",
+   "probe": "A box of 5 peaches came through Wick.",
+   "frac_actual": 0.6285,
+   "line": 541,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 4,
+   "frac": 0.7484094381898548,
+   "body": "4 quinces were logged at the Varnel gate.",
+   "probe": "4 quinces were logged at the Varnel gate.",
+   "frac_actual": 0.7179,
+   "line": 630,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 15,
+   "frac": 0.9149750454107949,
+   "body": "Brae desk entered 15 figs on the sheet.",
+   "probe": "Brae desk entered 15 figs on the sheet.",
+   "frac_actual": 0.9164,
+   "line": 852,
+   "hits": 1,
+   "file": "reading2/gtjrnq/log.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 45
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

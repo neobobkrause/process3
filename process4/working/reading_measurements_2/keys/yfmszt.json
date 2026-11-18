@@ -1,0 +1,152 @@
+{
+ "id": "yfmszt",
+ "ladder": "start",
+ "size": 8192,
+ "index": 2,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+   "s": 16,
+   "e": 97
+  }
+ ],
+ "files": [],
+ "bytes": 8247,
+ "lines": 118,
+ "task": "wordtop",
+ "values": {
+  "code1": "C9N-4134",
+  "code2": "R9E-5235",
+  "w_last": "fennimore",
+  "w_name": "greywether",
+  "w_desk": "quillon",
+  "name_a": "Priya Venkataram",
+  "name_b": "Noor Al-Tamimi",
+  "family": "fish",
+  "members": [
+   "eels",
+   "mackerel",
+   "cod",
+   "salmon",
+   "bream",
+   "pike",
+   "trout",
+   "herring",
+   "carp",
+   "perch"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed R9E-5235",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08058061860108096,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed R9E-5235`.",
+   "probe": "run closed R9E-5235",
+   "frac_actual": 0.0899,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under fennimore",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4788099043901126,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
+   "probe": "-- filed under fennimore",
+   "frac_actual": 0.4889,
+   "line": 54,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9751059093274033,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.9412,
+   "line": 103,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.35379356797255235,
+   "value": "reviewer: Priya Venkataram",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.3654,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6200439046455101,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.6376,
+   "line": 73,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 4,
+   "frac": 0.031456153590396545,
+   "body": "At Stane the clerk wrote down 4 eels.",
+   "probe": "At Stane the clerk wrote down 4 eels.",
+   "frac_actual": 0.0346,
+   "line": 6,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 8,
+   "frac": 0.42755235308963513,
+   "body": "Tamsin Row desk entered 8 mackerel on the sheet.",
+   "probe": "Tamsin Row desk entered 8 mackerel on the sheet.",
+   "frac_actual": 0.4274,
+   "line": 39,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 15,
+   "frac": 0.790777511000462,
+   "body": "Received at Hale End, 15 cod.",
+   "probe": "Received at Hale End, 15 cod.",
+   "frac_actual": 0.8007,
+   "line": 88,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

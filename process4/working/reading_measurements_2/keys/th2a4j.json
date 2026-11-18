@@ -1,0 +1,364 @@
+{
+ "id": "th2a4j",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 3,
+ "files": [
+  "reading2/th2a4j/01-status.mjs",
+  "reading2/th2a4j/02-joined.md",
+  "reading2/th2a4j/03-appendix-commits.md",
+  "reading2/th2a4j/04-lead.mjs",
+  "reading2/th2a4j/05-joined.mjs",
+  "reading2/th2a4j/06-roles.mjs",
+  "reading2/th2a4j/07-layerflow.mjs",
+  "reading2/th2a4j/08-levers-github-cloudflare-pro.md",
+  "reading2/th2a4j/09-coordinator-findings-3-4nov.md",
+  "reading2/th2a4j/10-joined.md",
+  "reading2/th2a4j/11-k-evidence.md",
+  "reading2/th2a4j/12-joined.mjs",
+  "reading2/th2a4j/13-attack-feasibility.md",
+  "reading2/th2a4j/14-redteam-feasibility.md",
+  "reading2/th2a4j/15-github-pacing.md",
+  "reading2/th2a4j/16-audit-a.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "design",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 295,
+    "e": 438
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 257,
+    "e": 306
+   },
+   {
+    "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+    "s": 0,
+    "e": 24
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 348,
+    "e": 383
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 0,
+    "e": 97
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 0,
+    "e": 141
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "s": 277,
+    "e": 287
+   },
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "s": 0,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 155,
+    "e": 276
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 2057,
+    "e": 2198
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 298,
+    "e": 411
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1150,
+    "e": 1176
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-g.md",
+    "s": 33,
+    "e": 36
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+    "s": 0,
+    "e": 47
+   },
+   {
+    "doc": "logs/notes__account-switch-canary.md",
+    "s": 0,
+    "e": 16
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 261,
+    "e": 362
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "s": 149,
+    "e": 190
+   },
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "s": 0,
+    "e": 130
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 86,
+    "e": 189
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 0,
+    "e": 94
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__github-pacing.md",
+    "s": 0,
+    "e": 117
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 178,
+    "e": 278
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 194708,
+ "lines": 1908,
+ "task": "colsum",
+ "values": {
+  "code1": "V4G-9099",
+  "code2": "C5J-5383",
+  "w_last": "sandalwood",
+  "w_name": "hollowell",
+  "w_desk": "quarrystone",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Annelise Brouwer",
+  "family": "vegetables",
+  "members": [
+   "shallots",
+   "onions",
+   "marrows",
+   "turnips",
+   "radishes",
+   "beets",
+   "parsnips",
+   "carrots",
+   "leeks",
+   "cabbages"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref V4G-9099",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.46193175619064386,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref V4G-9099`.",
+   "probe": "# ref V4G-9099",
+   "file_index": 0,
+   "frac_actual": 0.0938,
+   "line": 17,
+   "hits": 1,
+   "file": "reading2/th2a4j/01-status.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "hollowell-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6368918811082328,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `hollowell-relay.md`, and under no other name.",
+   "probe": "hollowell-relay.md",
+   "file_index": 8,
+   "frac_actual": 0.5485,
+   "line": 18,
+   "hits": 1,
+   "file": "reading2/th2a4j/09-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed C5J-5383",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.5482132000271722,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed C5J-5383`.",
+   "probe": "run closed C5J-5383",
+   "file_index": 15,
+   "frac_actual": 0.9043,
+   "line": 96,
+   "hits": 1,
+   "file": "reading2/th2a4j/16-audit-a.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2605301976593955,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 6,
+   "frac_actual": 0.2593,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/th2a4j/07-layerflow.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.571468752409845,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Annelise Brouwer`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 14,
+   "frac_actual": 0.6184,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/th2a4j/15-github-pacing.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 11,
+   "frac": 0.12274915648288771,
+   "body": "Wick desk entered 11 shallots on the sheet.",
+   "probe": "Wick desk entered 11 shallots on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.1179,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/th2a4j/01-status.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 16,
+   "frac": 0.6245047633478525,
+   "body": "The Stane store took in 16 onions.",
+   "probe": "The Stane store took in 16 onions.",
+   "file_index": 4,
+   "frac_actual": 0.6217,
+   "line": 118,
+   "hits": 1,
+   "file": "reading2/th2a4j/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 5,
+   "frac": 0.9142289739940594,
+   "body": "Received at Marsh Lane, 5 marrows.",
+   "probe": "Received at Marsh Lane, 5 marrows.",
+   "file_index": 9,
+   "frac_actual": 0.8472,
+   "line": 107,
+   "hits": 1,
+   "file": "reading2/th2a4j/10-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 2,
+   "frac": 0.9163411414114331,
+   "body": "Tally for Uller: 2 turnips.",
+   "probe": "Tally for Uller: 2 turnips.",
+   "file_index": 9,
+   "frac_actual": 0.839,
+   "line": 102,
+   "hits": 1,
+   "file": "reading2/th2a4j/10-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 19,
+   "frac": 0.23277442170710916,
+   "body": "Thorpe sent word of 19 radishes on hand.",
+   "probe": "Thorpe sent word of 19 radishes on hand.",
+   "file_index": 13,
+   "frac_actual": 0.2717,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/th2a4j/14-redteam-feasibility.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 53
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

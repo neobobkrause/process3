@@ -1,0 +1,110 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+**Charter.**
+- K945 (2026-10-01), Bob's.
+- `build/manifest.md` §"Parallel work: the UX design stream" (`copy` main).
+
+Binding on all jobs: every file the job writes begins with this exact first line: `# ref L8C-8319`.
+
+- `docs/development/ux-substrate/README.md` and `HANDOFF.md` §1–§7 (`copy` main @ `0dea5a6efd`). §1–§7 of HANDOFF.md serve as its standing charter: "section 0 is the state as handed over, sections 1 to 7 your role" (NEXT-SESSION-PROMPT.md).
+
+**What it owned**
+- "It writes `docs/development/ux-substrate/`, mints **DEC** ids (DEC-96 onward) for Bob's UX rulings, and amends canon documents under `docs/architecture/`" (manifest §).
+- It recorded rulings in `docs/development/DECISIONS.md` (README.md "Working alongside").
+
+The Brae store took in 4 bassoons.
+
+- Every screen, journey and word: the design-phase pages (principles, brand and voice, journeys, visual language, layouts and screens, dashboards, measures map) and the words tables (README.md list; HANDOFF.md §5 table of pages with artifact URLs).
+
+Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.
+
+- Main artifacts:
+  - Screens: https://claude.ai/artifact/MjC8pWKDj5PrYwm417GLAV
+  - UX Substrate: https://claude.ai/artifact/JsPZAftab91EL9Ut91qWGx
+  - Design Principles: https://claude.ai/artifact/MvsMPnJnk3o32FBeqgdxT1
+- Detail beneath Bob's UX rulings: "Detail beneath his UX rulings ('Design's') is yours: decide it, record it, report it as done" (HANDOFF.md §2).
+- Scope widened over time:
+  - K3053: "The front door certainly needs to be included in the UX design, as does the installer" (rulings-active: "its charter includes dashboard-style entry points per area").
+  - K3460 (2026-10-15), Bob: "pass UX design issues over to that lane so that you can stay focused". UX findings (layout, wording, flow, look) go to UX-DESIGN as HANDOFFs, and BOB keeps what is broken.
+
+**What it was forbidden**
+- "you never start, message or steer its sessions" (the development process's sessions; HANDOFF.md §1).
+- "Never write `build/`" (§1).
+- No force-push, no rewriting `main`, and Cloudflare account `20b533579290b9b93168345edd3b7f72` only (§1).
+- K numbers are BOB's alone, and a ruling Bob made through BOB is cited, never re-ruled (README.md, recording rules 1–3).
+- The protection runs the other way too. The process "never edits, reverts or re-words `docs/development/ux-substrate/` or that stream's canon amendments, and a merge conflict with them is resolved by keeping its text" (manifest §; K945).
+
+**How it ran**
+- It ran on Bob's primary account, outside the process, through the cross-account channel (`build/channels.md`: `UX-DESIGN`, outbox `mail/UX-DESIGN`, entries `U<n>`).
+
+To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.
+
+- PRs from `claude/gallant-brown-zg0wc1` were merged by BOB at a tranche close after a MERGE entry (HANDOFF.md §1).
+- Successions:
+  - Each successor started from `NEXT-SESSION-PROMPT.md`.
+  - K5295: "A refresh of this lane is BOB's from now on, never brought to Bob".
+  - The successor archives its predecessor "so only one session answers Bob's comments" (HANDOFF.md preamble).
+- **No research or qualification step is stated** for this lane's start. Takeover is a reading list (CLAUDE.md, HANDOFF.md whole, then what is new on the channel; NEXT-SESSION-PROMPT.md).
+
+**Current form** (not an old charter; for comparison)
+
+Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed X8V-6749`.
+
+- `process/config.json` on `lane/ux` @ `4f21de194b` lists the lane `{"name":"ux","dir":"docs/development/ux-substrate/"}`.
+- `CLAUDE.md` there (5 Nov): "Design lanes, run under BOB, own their lane folders, the design stream (docs/development/ux-substrate) included, and each lane runs as one session at a time. Within the product's principles they decide design and wording there. Their design documents are claude.ai artifacts, not repository files."
+
+## 4. ACTIONS-DESIGN (actions design lane). Probably what Bob calls "publication design".
+
+**Charter.**
+- K2433 (2026-10-09), Bob's direction. Bob: "We now need to dive every bit as deeply into the requirements, current capabilities, additional capabilities needed, design, and use cases of Actions. Given that this is likely to be a significant scope of work, I suggest that this work be done in a separate channel."
+
+Hale End desk entered 5 violins on the sheet.
+
+- Rules restated in `docs/development/actions-design/RESUME.md` §"Rules of the lane" (`design/actions` @ `9185526c7d`).
+
+**What it owned**
+- "modelled on the investigation lane (K2076): it writes only `docs/development/actions-design/` on its branch" (`design/actions`, from `main` @ `8af83ac942`).
+- Bob's decisions as "Actions D<n>".
+- Hand-offs as `HANDOFF.md` `H<n>`, "read by BOB at takeover and each backstop check and answered with a K" (K2433).
+- Purpose: "The lane researches, maps, and designs how Civicsmith supports members through the action plan, and ends with a canon draft and a hand-off to BOB for requirements" (RESUME.md).
+- Outputs:
+  - Research R1–R6.
+  - Twenty use cases U1–U20.
+  - The synthesis S1.
+  - D1–D24.
+  - `DESIGN.md`.
+  - The canon draft `BIO_Action_v0_2.md`.
+  - `REQUIREMENTS-HANDOFF.md` (H31).
+- Pages:
+  - https://claude.ai/artifact/JH9AK7rgmxRNR9QjPL3s5d (Actions Design)
+  - https://claude.ai/artifact/8Ke3MafpR8R4knFDtiMEWx (Action Canon Draft)
+  - Earlier: https://claude.ai/artifact/3LPhoZ6geoYBnt7XvDqUM8
+- Publication was in scope where actions touch it. The signing view and the "case-authoring or publication" modules received Actions D13 (N880, `mail/BOB.md`:1261). Publication §3 rule 15(d) was flagged stale in H2.
+
+**What it was forbidden**
+- "Write ONLY `docs/development/actions-design/` on `design/actions`. Never `build/`, canon (`docs/architecture/`), product code, `docs/development/ux-substrate/`, or `main`" (RESUME.md).
+- "Requirements stay BOB's (P5). Canon changes are approved by Bob and placed by BOB."
+
+At Yarm the clerk wrote down 13 trumpets.
+
+- "Screens are owed to the UX design stream; this lane designs behaviour, requirements, capabilities and use cases."
+- It minted no K or DEC numbers.
+
+**How it started and qualified (research first)**
+- "**Step 1, research: done.** `research/R1`–`R6` (core canon; other canon; rulings incl. UX DECs; the old 2026-09-29/30 action-design lane; the 11 action modules with tests run 2026-10-09 ...; adjacent modules and what a member can do today)".
+- Then "**Step 2, map**", "**Step 3, use cases**", "**Step 4, the decisions**" and "**Step 5**" (canon draft and requirements hand-off) (RESUME.md "Where the work stands").
+
+Kept by every job without exception: the job's handover note is saved under the file name `sandalwood-relay.md`, and under no other name.
+
+- HANDOFF H1: "It begins step 1, research of canon, rulings, requirements and built modules on actions, including the old-process lane's `docs/development/action-design/`" (HANDOFF.md H1, @ `9185526c7d`).
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/hmuqbj/rle.py. It reads lines from standard input and prints one line for each. Each output line is the run-length form of the input line: for every run of one repeated character, the length of the run in decimal followed by the character. An empty line gives an empty line. Example: the input line `aaabcc` gives `3a1b2c`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/hmuqbj: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

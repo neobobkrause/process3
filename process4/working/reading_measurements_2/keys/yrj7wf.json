@@ -1,0 +1,152 @@
+{
+ "id": "yrj7wf",
+ "ladder": "start",
+ "size": 131072,
+ "index": 5,
+ "kind": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__ledger_lines.md",
+   "s": 146,
+   "e": 1699
+  }
+ ],
+ "files": [],
+ "bytes": 129276,
+ "lines": 1590,
+ "task": "dates",
+ "values": {
+  "code1": "L8H-2764",
+  "code2": "K3K-4046",
+  "w_last": "wainscot",
+  "w_name": "kestrel",
+  "w_desk": "thistledown",
+  "name_a": "Odette Fairweather",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "trees",
+  "members": [
+   "birches",
+   "pines",
+   "oaks",
+   "cedars",
+   "elms",
+   "maples",
+   "larches",
+   "alders",
+   "beeches",
+   "willows"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref L8H-2764",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.043390767203310435,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref L8H-2764`.",
+   "probe": "# ref L8H-2764",
+   "frac_actual": 0.043,
+   "line": 60,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5197957225979598,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "frac_actual": 0.5195,
+   "line": 805,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "kestrel-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9379901279879469,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.",
+   "probe": "kestrel-relay.md",
+   "frac_actual": 0.9348,
+   "line": 1452,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.15761880125276134,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "frac_actual": 0.1555,
+   "line": 220,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7244256934512736,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.7254,
+   "line": 1113,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 17,
+   "frac": 0.24309571378515438,
+   "body": "A box of 17 birches came through Osk.",
+   "probe": "A box of 17 birches came through Osk.",
+   "frac_actual": 0.2444,
+   "line": 359,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 6,
+   "frac": 0.6510696219245528,
+   "body": "Tally for Dunn: 6 pines.",
+   "probe": "Tally for Dunn: 6 pines.",
+   "frac_actual": 0.6484,
+   "line": 976,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "oaks",
+   "n": 2,
+   "frac": 0.7440509656456779,
+   "body": "Received at Yarm, 2 oaks.",
+   "probe": "Received at Yarm, 2 oaks.",
+   "frac_actual": 0.7432,
+   "line": 1142,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 25
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

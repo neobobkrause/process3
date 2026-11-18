@@ -1,0 +1,199 @@
+{
+ "id": "xtbknn",
+ "ladder": "start",
+ "size": 131072,
+ "index": 3,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__account-switch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations-proposed-changes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__root.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__layer-branch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "lines": "all"
+  }
+ ],
+ "files": [],
+ "bytes": 129113,
+ "lines": 953,
+ "task": "rle",
+ "values": {
+  "code1": "K4Z-2421",
+  "code2": "B3V-4481",
+  "w_last": "kestrel",
+  "w_name": "cinnabar",
+  "w_desk": "pennant",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Mikko Rantanen",
+  "family": "gemstones",
+  "members": [
+   "emeralds",
+   "pearls",
+   "amethysts",
+   "sapphires",
+   "zircons",
+   "garnets",
+   "opals",
+   "topazes",
+   "rubies",
+   "agates"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "cinnabar-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07961558105926511,
+   "body": "Every job must note: the job's handover note is saved under the file name `cinnabar-relay.md`, and under no other name.",
+   "probe": "cinnabar-relay.md",
+   "frac_actual": 0.0793,
+   "line": 105,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: pennant",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5379887019687889,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: pennant`.",
+   "probe": "desk: pennant",
+   "frac_actual": 0.5376,
+   "line": 595,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under kestrel",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9285236137447914,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under kestrel`.",
+   "probe": "-- filed under kestrel",
+   "frac_actual": 0.9281,
+   "line": 875,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.278727754441738,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.2785,
+   "line": 324,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.667538646707033,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.6658,
+   "line": 725,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 11,
+   "frac": 0.17968121258331743,
+   "body": "Received at Thorpe, 11 emeralds.",
+   "probe": "Received at Thorpe, 11 emeralds.",
+   "frac_actual": 0.186,
+   "line": 188,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 16,
+   "frac": 0.27573481404511624,
+   "body": "At Dunn the clerk wrote down 16 pearls.",
+   "probe": "At Dunn the clerk wrote down 16 pearls.",
+   "frac_actual": 0.2768,
+   "line": 317,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 4,
+   "frac": 0.6235750005988223,
+   "body": "Tamsin Row desk entered 4 amethysts on the sheet.",
+   "probe": "Tamsin Row desk entered 4 amethysts on the sheet.",
+   "frac_actual": 0.6241,
+   "line": 685,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 2,
+   "frac": 0.7512287919273124,
+   "body": "Rigg sent word of 2 sapphires on hand.",
+   "probe": "Rigg sent word of 2 sapphires on hand.",
+   "frac_actual": 0.7501,
+   "line": 780,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 33
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

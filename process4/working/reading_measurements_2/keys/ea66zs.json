@@ -1,0 +1,191 @@
+{
+ "id": "ea66zs",
+ "ladder": "single",
+ "size": 48000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "s": 521,
+   "e": 637
+  }
+ ],
+ "files": [
+  "reading2/ea66zs/log.md"
+ ],
+ "bytes": 47679,
+ "lines": 149,
+ "task": "wordtop",
+ "values": {
+  "code1": "U3M-2320",
+  "code2": "J8X-9936",
+  "w_last": "vetiver",
+  "w_name": "elderwood",
+  "w_desk": "zephyrine",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Emeka Nwosuagwu",
+  "family": "trees",
+  "members": [
+   "birches",
+   "willows",
+   "maples",
+   "cedars",
+   "oaks",
+   "elms",
+   "beeches",
+   "pines",
+   "larches",
+   "alders"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed J8X-9936",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08412804347000728,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed J8X-9936`.",
+   "probe": "run closed J8X-9936",
+   "frac_actual": 0.0868,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: zephyrine",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4506904091748622,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: zephyrine`.",
+   "probe": "desk: zephyrine",
+   "frac_actual": 0.4692,
+   "line": 70,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref U3M-2320",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9574240453601628,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref U3M-2320`.",
+   "probe": "# ref U3M-2320",
+   "frac_actual": 0.9574,
+   "line": 145,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2517957986798195,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.2493,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8664108614337556,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "frac_actual": 0.858,
+   "line": 129,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 17,
+   "frac": 0.1649785280424519,
+   "body": "At Brae the clerk wrote down 17 birches.",
+   "probe": "At Brae the clerk wrote down 17 birches.",
+   "frac_actual": 0.1687,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 10,
+   "frac": 0.3060850615085118,
+   "body": "Lund desk entered 10 willows on the sheet.",
+   "probe": "Lund desk entered 10 willows on the sheet.",
+   "frac_actual": 0.3,
+   "line": 48,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 3,
+   "frac": 0.37956905428440746,
+   "body": "Thorpe sent word of 3 maples on hand.",
+   "probe": "Thorpe sent word of 3 maples on hand.",
+   "frac_actual": 0.3854,
+   "line": 59,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 18,
+   "frac": 0.5928660259375972,
+   "body": "The Yarm store took in 18 cedars.",
+   "probe": "The Yarm store took in 18 cedars.",
+   "frac_actual": 0.5933,
+   "line": 88,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "count",
+   "member": "oaks",
+   "n": 4,
+   "frac": 0.7476202149856676,
+   "body": "Received at Quay Nine, 4 oaks.",
+   "probe": "Received at Quay Nine, 4 oaks.",
+   "frac_actual": 0.7494,
+   "line": 113,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 14,
+   "frac": 0.9388541647111117,
+   "body": "A box of 14 elms came through Wick.",
+   "probe": "A box of 14 elms came through Wick.",
+   "frac_actual": 0.9335,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/ea66zs/log.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 66
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

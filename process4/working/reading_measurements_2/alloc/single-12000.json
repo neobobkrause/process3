@@ -1,0 +1,112 @@
+{
+ "0": {
+  "id": "rmfgbm",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 308,
+    "s": 256
+   }
+  ]
+ },
+ "1": {
+  "id": "ra8das",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 149,
+    "s": 10
+   }
+  ]
+ },
+ "2": {
+  "id": "kmta7v",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 95,
+    "s": 31
+   }
+  ]
+ },
+ "3": {
+  "id": "xsph6m",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 189,
+    "s": 78
+   }
+  ]
+ },
+ "4": {
+  "id": "kfqjab",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "e": 111,
+    "s": 33
+   }
+  ]
+ },
+ "5": {
+  "id": "cswvkr",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 270,
+    "s": 204
+   }
+  ]
+ },
+ "6": {
+  "id": "navtmd",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "e": 174,
+    "s": 17
+   }
+  ]
+ },
+ "7": {
+  "id": "jdmwmt",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "e": 160,
+    "s": 0
+   }
+  ]
+ },
+ "8": {
+  "id": "hrherh",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "e": 125,
+    "s": 0
+   }
+  ]
+ },
+ "9": {
+  "id": "xem7qu",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "e": 197,
+    "s": 0
+   }
+  ]
+ }
+}

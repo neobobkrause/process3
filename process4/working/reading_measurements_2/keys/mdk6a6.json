@@ -1,0 +1,274 @@
+{
+ "id": "mdk6a6",
+ "ladder": "single",
+ "size": 768000,
+ "index": 1,
+ "kind": "design",
+ "kind_wanted": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__evidence__audit_B.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_D_central.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__github-pacing.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point3_first_hour.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__replay__appendix_commits.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__session_brief.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__defect-sweep-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_audit2.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__result.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_five_points.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__bob_naming.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__study.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__trust-layer-review-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__train-plain-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_notice.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__train-spec-plan.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_lanes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__canon_analysis.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__trial_plan_facts.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__live_docs.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_C.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_feasibility.md",
+   "lines": "1-183"
+  }
+ ],
+ "files": [
+  "reading2/mdk6a6/design.md"
+ ],
+ "bytes": 767772,
+ "lines": 5777,
+ "task": "merge",
+ "values": {
+  "code1": "G6H-1607",
+  "code2": "Y7E-1320",
+  "w_last": "greywether",
+  "w_name": "alderney",
+  "w_desk": "thistledown",
+  "name_a": "Saoirse Kinsella",
+  "name_b": "Jacinta Ravensworth",
+  "family": "musical instruments",
+  "members": [
+   "trumpets",
+   "violins",
+   "harps",
+   "banjos",
+   "tubas",
+   "oboes",
+   "cellos",
+   "flutes",
+   "clarinets",
+   "bassoons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under greywether",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09782314880715269,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under greywether`.",
+   "probe": "-- filed under greywether",
+   "frac_actual": 0.0995,
+   "line": 394,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "alderney-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5155387784164323,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `alderney-relay.md`, and under no other name.",
+   "probe": "alderney-relay.md",
+   "frac_actual": 0.5155,
+   "line": 2825,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9422267649589027,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "frac_actual": 0.9421,
+   "line": 5532,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3375008086504888,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.3378,
+   "line": 1758,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7971128737591502,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.7972,
+   "line": 4887,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 5,
+   "frac": 0.175726403989246,
+   "body": "A box of 5 trumpets came through Lund.",
+   "probe": "A box of 5 trumpets came through Lund.",
+   "frac_actual": 0.1767,
+   "line": 874,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 13,
+   "frac": 0.26479146922260066,
+   "body": "Uller sent word of 13 violins on hand.",
+   "probe": "Uller sent word of 13 violins on hand.",
+   "frac_actual": 0.2785,
+   "line": 1400,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 6,
+   "frac": 0.4854274490489482,
+   "body": "6 harps were logged at the Corrie gate.",
+   "probe": "6 harps were logged at the Corrie gate.",
+   "frac_actual": 0.4863,
+   "line": 2604,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 14,
+   "frac": 0.6840711303916859,
+   "body": "Thorpe desk entered 14 banjos on the sheet.",
+   "probe": "Thorpe desk entered 14 banjos on the sheet.",
+   "frac_actual": 0.6839,
+   "line": 4175,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 16,
+   "frac": 0.9618510067200261,
+   "body": "Tally for Brae: 16 tubas.",
+   "probe": "Tally for Brae: 16 tubas.",
+   "frac_actual": 0.9632,
+   "line": 5645,
+   "hits": 1,
+   "file": "reading2/mdk6a6/design.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 54
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

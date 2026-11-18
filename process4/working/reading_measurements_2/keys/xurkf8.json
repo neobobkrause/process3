@@ -1,0 +1,191 @@
+{
+ "id": "xurkf8",
+ "ladder": "start",
+ "size": 65536,
+ "index": 4,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__HANDOFF.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__root.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__probes-pin-for-bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "lines": "1-224"
+  }
+ ],
+ "files": [],
+ "bytes": 64981,
+ "lines": 548,
+ "task": "wordtop",
+ "values": {
+  "code1": "N5Q-9272",
+  "code2": "A4F-4631",
+  "w_last": "marlowe",
+  "w_name": "hollowell",
+  "w_desk": "quillon",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Priya Venkataram",
+  "family": "musical instruments",
+  "members": [
+   "clarinets",
+   "flutes",
+   "trumpets",
+   "cellos",
+   "bassoons",
+   "harps",
+   "banjos",
+   "tubas",
+   "violins",
+   "oboes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "hollowell-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04787928974975332,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `hollowell-relay.md`, and under no other name.",
+   "probe": "hollowell-relay.md",
+   "frac_actual": 0.0452,
+   "line": 33,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.45027208062955043,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.4896,
+   "line": 293,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref N5Q-9272",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9712950235086396,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref N5Q-9272`.",
+   "probe": "# ref N5Q-9272",
+   "frac_actual": 0.9713,
+   "line": 524,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.18525806231761605,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.177,
+   "line": 101,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8748925427384502,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Priya Venkataram`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.8745,
+   "line": 487,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 5,
+   "frac": 0.18370045879024546,
+   "body": "At Quay Nine the clerk wrote down 5 clarinets.",
+   "probe": "At Quay Nine the clerk wrote down 5 clarinets.",
+   "frac_actual": 0.1756,
+   "line": 96,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 7,
+   "frac": 0.2852517510931152,
+   "body": "Received at Pell, 7 flutes.",
+   "probe": "Received at Pell, 7 flutes.",
+   "frac_actual": 0.285,
+   "line": 156,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 11,
+   "frac": 0.46227529955543856,
+   "body": "Tally for Corrie: 11 trumpets.",
+   "probe": "Tally for Corrie: 11 trumpets.",
+   "frac_actual": 0.4472,
+   "line": 275,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 16,
+   "frac": 0.6393047122051376,
+   "body": "16 cellos were logged at the Tamsin Row gate.",
+   "probe": "16 cellos were logged at the Tamsin Row gate.",
+   "frac_actual": 0.6401,
+   "line": 368,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 3,
+   "frac": 0.8139170228036583,
+   "body": "Thorpe desk entered 3 bassoons on the sheet.",
+   "probe": "Thorpe desk entered 3 bassoons on the sheet.",
+   "frac_actual": 0.8126,
+   "line": 448,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,179 @@
+{
+ "id": "rbndjd",
+ "ladder": "start",
+ "size": 65536,
+ "index": 3,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/notes__lane-charters.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__layer-branch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/setup__DEVELOPER.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+   "lines": "all"
+  }
+ ],
+ "files": [],
+ "bytes": 64425,
+ "lines": 581,
+ "task": "rle",
+ "values": {
+  "code1": "U2H-1850",
+  "code2": "K9S-8763",
+  "w_last": "greywether",
+  "w_name": "quarrystone",
+  "w_desk": "foxglove",
+  "name_a": "Kwabena Asantewaa",
+  "name_b": "Dmitri Volkonsky",
+  "family": "trees",
+  "members": [
+   "larches",
+   "willows",
+   "alders",
+   "birches",
+   "maples",
+   "elms",
+   "beeches",
+   "oaks",
+   "pines",
+   "cedars"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed K9S-8763",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06036731038459919,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed K9S-8763`.",
+   "probe": "run closed K9S-8763",
+   "frac_actual": 0.0553,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "quarrystone-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5357653887566841,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `quarrystone-relay.md`, and under no other name.",
+   "probe": "quarrystone-relay.md",
+   "frac_actual": 0.5405,
+   "line": 316,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under greywether",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9011013606270207,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under greywether`.",
+   "probe": "-- filed under greywether",
+   "frac_actual": 0.9142,
+   "line": 548,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16016014387737496,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Kwabena Asantewaa`.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.1579,
+   "line": 106,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5556615029771619,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Kwabena Asantewaa is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.5549,
+   "line": 339,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 12,
+   "frac": 0.11154825606908453,
+   "body": "Eyre sent word of 12 larches on hand.",
+   "probe": "Eyre sent word of 12 larches on hand.",
+   "frac_actual": 0.1088,
+   "line": 69,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 4,
+   "frac": 0.4764073406670597,
+   "body": "Tamsin Row desk entered 4 willows on the sheet.",
+   "probe": "Tamsin Row desk entered 4 willows on the sheet.",
+   "frac_actual": 0.4799,
+   "line": 268,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 3,
+   "frac": 0.6646734229061743,
+   "body": "At Lund the clerk wrote down 3 alders.",
+   "probe": "At Lund the clerk wrote down 3 alders.",
+   "frac_actual": 0.6613,
+   "line": 402,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 5,
+   "frac": 0.9425775130843616,
+   "body": "The Quay Nine store took in 5 birches.",
+   "probe": "The Quay Nine store took in 5 birches.",
+   "frac_actual": 0.9558,
+   "line": 555,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 24
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

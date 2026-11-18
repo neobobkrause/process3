@@ -1,0 +1,163 @@
+{
+ "id": "vcsm3r",
+ "ladder": "start",
+ "size": 65536,
+ "index": 5,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__root-prompt.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "lines": "1-228"
+  }
+ ],
+ "files": [],
+ "bytes": 64708,
+ "lines": 466,
+ "task": "dates",
+ "values": {
+  "code1": "U9J-2138",
+  "code2": "R5D-1961",
+  "w_last": "umberfield",
+  "w_name": "saltmarsh",
+  "w_desk": "varnish",
+  "name_a": "Priya Venkataram",
+  "name_b": "Tobias Hallworth",
+  "family": "gemstones",
+  "members": [
+   "sapphires",
+   "amethysts",
+   "topazes",
+   "opals",
+   "emeralds",
+   "rubies",
+   "agates",
+   "zircons",
+   "pearls",
+   "garnets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "saltmarsh-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.023364704056013264,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `saltmarsh-relay.md`, and under no other name.",
+   "probe": "saltmarsh-relay.md",
+   "frac_actual": 0.0246,
+   "line": 34,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref U9J-2138",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5325598425592097,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref U9J-2138`.",
+   "probe": "# ref U9J-2138",
+   "frac_actual": 0.5287,
+   "line": 322,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: varnish",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9091344583065377,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: varnish`.",
+   "probe": "desk: varnish",
+   "frac_actual": 0.9082,
+   "line": 427,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1480243453336963,
+   "value": "reviewer: Priya Venkataram",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.1486,
+   "line": 134,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4551455696577905,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.4513,
+   "line": 292,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 14,
+   "frac": 0.19432203899258835,
+   "body": "A box of 14 sapphires came through Thorpe.",
+   "probe": "A box of 14 sapphires came through Thorpe.",
+   "frac_actual": 0.1944,
+   "line": 161,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 9,
+   "frac": 0.6051387851619313,
+   "body": "Received at Lund, 9 amethysts.",
+   "probe": "Received at Lund, 9 amethysts.",
+   "frac_actual": 0.58,
+   "line": 344,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 11,
+   "frac": 0.6820851540609424,
+   "body": "Tally for Osk: 11 topazes.",
+   "probe": "Tally for Osk: 11 topazes.",
+   "frac_actual": 0.6823,
+   "line": 377,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 34
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,179 @@
+{
+ "id": "vvt5q2",
+ "ladder": "single",
+ "size": 96000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__lib__layerflow.mjs",
+   "s": 1337,
+   "e": 2464
+  }
+ ],
+ "files": [
+  "reading2/vvt5q2/module.mjs"
+ ],
+ "bytes": 95103,
+ "lines": 1162,
+ "task": "dedupe",
+ "values": {
+  "code1": "E6F-5033",
+  "code2": "L8N-4988",
+  "w_last": "orrery",
+  "w_name": "saltmarsh",
+  "w_desk": "varnish",
+  "name_a": "Saoirse Kinsella",
+  "name_b": "Soren Achterberg",
+  "family": "fruit",
+  "members": [
+   "cherries",
+   "plums",
+   "figs",
+   "apricots",
+   "quinces",
+   "pears",
+   "mangoes",
+   "limes",
+   "lemons",
+   "peaches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed L8N-4988",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09842582233222952,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed L8N-4988`.",
+   "probe": "run closed L8N-4988",
+   "frac_actual": 0.0718,
+   "line": 86,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under orrery",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5204805951094283,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under orrery`.",
+   "probe": "-- filed under orrery",
+   "frac_actual": 0.4747,
+   "line": 556,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref E6F-5033",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9098972956723699,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref E6F-5033`.",
+   "probe": "# ref E6F-5033",
+   "frac_actual": 0.933,
+   "line": 1084,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3881431093232747,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.3802,
+   "line": 438,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7040397631025306,
+   "value": "reviewer: Soren Achterberg",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.7482,
+   "line": 852,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 2,
+   "frac": 0.08022055472599755,
+   "body": "The Wick store took in 2 cherries.",
+   "probe": "The Wick store took in 2 cherries.",
+   "frac_actual": 0.0704,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 16,
+   "frac": 0.24507077956390935,
+   "body": "16 plums were logged at the Uller gate.",
+   "probe": "16 plums were logged at the Uller gate.",
+   "frac_actual": 0.2454,
+   "line": 282,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 19,
+   "frac": 0.4226207998562178,
+   "body": "Marsh Lane sent word of 19 figs on hand.",
+   "probe": "Marsh Lane sent word of 19 figs on hand.",
+   "frac_actual": 0.4736,
+   "line": 551,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 14,
+   "frac": 0.6194730066377232,
+   "body": "Received at Corrie, 14 apricots.",
+   "probe": "Received at Corrie, 14 apricots.",
+   "frac_actual": 0.574,
+   "line": 671,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 18,
+   "frac": 0.8700566721294343,
+   "body": "Dunn desk entered 18 quinces on the sheet.",
+   "probe": "Dunn desk entered 18 quinces on the sheet.",
+   "frac_actual": 0.8385,
+   "line": 958,
+   "hits": 1,
+   "file": "reading2/vvt5q2/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 69
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

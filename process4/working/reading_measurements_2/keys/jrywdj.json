@@ -1,0 +1,155 @@
+{
+ "id": "jrywdj",
+ "ladder": "single",
+ "size": 48000,
+ "index": 2,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/governing__foundations.md",
+   "s": 20,
+   "e": 204
+  }
+ ],
+ "files": [
+  "reading2/jrywdj/principles.md"
+ ],
+ "bytes": 47797,
+ "lines": 208,
+ "task": "colsum",
+ "values": {
+  "code1": "Z7D-2374",
+  "code2": "Z6B-9840",
+  "w_last": "fennimore",
+  "w_name": "varnish",
+  "w_desk": "zephyrine",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Yasmin Benhaddou",
+  "family": "gemstones",
+  "members": [
+   "agates",
+   "garnets",
+   "pearls",
+   "zircons",
+   "topazes",
+   "emeralds",
+   "amethysts",
+   "rubies",
+   "opals",
+   "sapphires"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: zephyrine",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08333931591820272,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: zephyrine`.",
+   "probe": "desk: zephyrine",
+   "frac_actual": 0.0818,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed Z6B-9840",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.48117964234138544,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed Z6B-9840`.",
+   "probe": "run closed Z6B-9840",
+   "frac_actual": 0.4717,
+   "line": 113,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "varnish-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9112445014648044,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.",
+   "probe": "varnish-relay.md",
+   "frac_actual": 0.9164,
+   "line": 198,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1943426927822942,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.1447,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6786662057530826,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.6813,
+   "line": 152,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 9,
+   "frac": 0.2660765696611515,
+   "body": "Received at Hale End, 9 agates.",
+   "probe": "Received at Hale End, 9 agates.",
+   "frac_actual": 0.2653,
+   "line": 64,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 8,
+   "frac": 0.4226082648226295,
+   "body": "Tally for Stane: 8 garnets.",
+   "probe": "Tally for Stane: 8 garnets.",
+   "frac_actual": 0.4238,
+   "line": 104,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 5,
+   "frac": 0.9000577760964619,
+   "body": "At Thorpe the clerk wrote down 5 pearls.",
+   "probe": "At Thorpe the clerk wrote down 5 pearls.",
+   "frac_actual": 0.8852,
+   "line": 193,
+   "hits": 1,
+   "file": "reading2/jrywdj/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 22
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

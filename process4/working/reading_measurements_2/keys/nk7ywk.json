@@ -1,0 +1,176 @@
+{
+ "id": "nk7ywk",
+ "ladder": "start",
+ "size": 16384,
+ "index": 5,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "s": 156,
+   "e": 200
+  }
+ ],
+ "files": [],
+ "bytes": 16151,
+ "lines": 87,
+ "task": "merge",
+ "values": {
+  "code1": "G3B-9096",
+  "code2": "K4Y-9261",
+  "w_last": "rosehip",
+  "w_name": "lodestone",
+  "w_desk": "harrowgate",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Hamish Colquhoun",
+  "family": "birds",
+  "members": [
+   "herons",
+   "cranes",
+   "larks",
+   "gulls",
+   "finches",
+   "plovers",
+   "robins",
+   "owls",
+   "wrens",
+   "swifts"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed K4Y-9261",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0574718309460899,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed K4Y-9261`.",
+   "probe": "run closed K4Y-9261",
+   "frac_actual": 0.0525,
+   "line": 4,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: harrowgate",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.49813799582539164,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.",
+   "probe": "desk: harrowgate",
+   "frac_actual": 0.4636,
+   "line": 41,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref G3B-9096",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9200035609027988,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref G3B-9096`.",
+   "probe": "# ref G3B-9096",
+   "frac_actual": 0.931,
+   "line": 69,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.17586145558860905,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.2131,
+   "line": 14,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5010962154612046,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Hamish Colquhoun`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.4635,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 9,
+   "frac": 0.17060330553948042,
+   "body": "A box of 9 herons came through Dunn.",
+   "probe": "A box of 9 herons came through Dunn.",
+   "frac_actual": 0.2132,
+   "line": 18,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 15,
+   "frac": 0.3214991371773117,
+   "body": "At Eyre the clerk wrote down 15 cranes.",
+   "probe": "At Eyre the clerk wrote down 15 cranes.",
+   "frac_actual": 0.3222,
+   "line": 26,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 17,
+   "frac": 0.5293831569242587,
+   "body": "17 larks were logged at the Osk gate.",
+   "probe": "17 larks were logged at the Osk gate.",
+   "frac_actual": 0.5671,
+   "line": 45,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 18,
+   "frac": 0.6223142586225318,
+   "body": "Lund sent word of 18 gulls on hand.",
+   "probe": "Lund sent word of 18 gulls on hand.",
+   "frac_actual": 0.5672,
+   "line": 49,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 6,
+   "frac": 0.903868870144315,
+   "body": "Received at Thorpe, 6 finches.",
+   "probe": "Received at Thorpe, 6 finches.",
+   "frac_actual": 0.8914,
+   "line": 65,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 65
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

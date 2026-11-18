@@ -1,0 +1,876 @@
+{
+ "id": "eq69xq",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 12000,
+ "n_files": 64,
+ "index": 2,
+ "files": [
+  "reading2/eq69xq/01-process4-counterarguments.md",
+  "reading2/eq69xq/02-canon-analysis.md",
+  "reading2/eq69xq/03-joined.mjs",
+  "reading2/eq69xq/04-p3.mjs",
+  "reading2/eq69xq/05-triage.mjs",
+  "reading2/eq69xq/06-results.md",
+  "reading2/eq69xq/07-release-test.mjs",
+  "reading2/eq69xq/08-process4-counterarguments.md",
+  "reading2/eq69xq/09-layerflow.mjs",
+  "reading2/eq69xq/10-coordinator-findings-3-4nov.md",
+  "reading2/eq69xq/11-joined.md",
+  "reading2/eq69xq/12-foundations.md",
+  "reading2/eq69xq/13-audit-d-central.md",
+  "reading2/eq69xq/14-status.mjs",
+  "reading2/eq69xq/15-joined.mjs",
+  "reading2/eq69xq/16-coordinator-findings-3-4nov.md",
+  "reading2/eq69xq/17-defect-sweep-4nov.md",
+  "reading2/eq69xq/18-layerflow-test.mjs",
+  "reading2/eq69xq/19-gate.mjs",
+  "reading2/eq69xq/20-layer-flow-messages-test.mjs",
+  "reading2/eq69xq/21-joined.mjs",
+  "reading2/eq69xq/22-joined.mjs",
+  "reading2/eq69xq/23-change-sample.md",
+  "reading2/eq69xq/24-tranche.mjs",
+  "reading2/eq69xq/25-pace.mjs",
+  "reading2/eq69xq/26-joined.mjs",
+  "reading2/eq69xq/27-joined.mjs",
+  "reading2/eq69xq/28-coordinator-findings-3-4nov.md",
+  "reading2/eq69xq/29-joined.mjs",
+  "reading2/eq69xq/30-rounds.mjs",
+  "reading2/eq69xq/31-process4-counterarguments.md",
+  "reading2/eq69xq/32-joined.md",
+  "reading2/eq69xq/33-state-race-test.mjs",
+  "reading2/eq69xq/34-lead.mjs",
+  "reading2/eq69xq/35-record.mjs",
+  "reading2/eq69xq/36-audit-c.md",
+  "reading2/eq69xq/37-joined.md",
+  "reading2/eq69xq/38-process4-definition-appendix.md",
+  "reading2/eq69xq/39-lanes-owner-documents.md",
+  "reading2/eq69xq/40-levers-github-cloudflare-pro.md",
+  "reading2/eq69xq/41-coordinator-findings-3-4nov.md",
+  "reading2/eq69xq/42-joined.mjs",
+  "reading2/eq69xq/43-deploy-test.mjs",
+  "reading2/eq69xq/44-joined.md",
+  "reading2/eq69xq/45-branches-test.mjs",
+  "reading2/eq69xq/46-process4-definition-appendix.md",
+  "reading2/eq69xq/47-joined.mjs",
+  "reading2/eq69xq/48-layerflow-test.mjs",
+  "reading2/eq69xq/49-joined.mjs",
+  "reading2/eq69xq/50-coordinator-findings-3-4nov.md",
+  "reading2/eq69xq/51-joined.mjs",
+  "reading2/eq69xq/52-round-next-test.mjs",
+  "reading2/eq69xq/53-causal-forensics.md",
+  "reading2/eq69xq/54-joined.md",
+  "reading2/eq69xq/55-process4-counterarguments.md",
+  "reading2/eq69xq/56-process4-disposition.md",
+  "reading2/eq69xq/57-util.mjs",
+  "reading2/eq69xq/58-layerflow.mjs",
+  "reading2/eq69xq/59-point4-release.md",
+  "reading2/eq69xq/60-report.mjs",
+  "reading2/eq69xq/61-process4-counterarguments.md",
+  "reading2/eq69xq/62-readme.md",
+  "reading2/eq69xq/63-change-sample.md",
+  "reading2/eq69xq/64-process4-definition-appendix.md"
+ ],
+ "file_kinds": [
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "logs",
+  "principles",
+  "principles",
+  "design",
+  "code",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "design",
+  "design",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "design",
+  "requirements",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "principles",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 469,
+    "e": 556
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 381,
+    "e": 536
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "s": 91,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 492,
+    "e": 567
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 464,
+    "e": 609
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 0,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "s": 115,
+    "e": 255
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 154,
+    "e": 303
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 0,
+    "e": 96
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 611,
+    "e": 770
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 935,
+    "e": 970
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "s": 4,
+    "e": 33
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 244,
+    "e": 246
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 168,
+    "e": 204
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 89,
+    "e": 185
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1218,
+    "e": 1351
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "s": 37,
+    "e": 79
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 508,
+    "e": 628
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "s": 0,
+    "e": 10
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 782,
+    "e": 838
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "s": 0,
+    "e": 93
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 940,
+    "e": 1098
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 441,
+    "e": 612
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "s": 0,
+    "e": 177
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 175,
+    "e": 202
+   },
+   {
+    "doc": "code/tool__test__github.test.mjs",
+    "s": 0,
+    "e": 65
+   },
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "s": 0,
+    "e": 72
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 389,
+    "e": 505
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 207,
+    "e": 245
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 118,
+    "e": 159
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 0,
+    "e": 169
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layout.test.mjs",
+    "s": 158,
+    "e": 193
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 863,
+    "e": 992
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "s": 142,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "s": 0,
+    "e": 106
+   },
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "s": 0,
+    "e": 19
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1039,
+    "e": 1070
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 971,
+    "e": 1082
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "s": 0,
+    "e": 27
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 0,
+    "e": 143
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 556,
+    "e": 690
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+    "s": 3,
+    "e": 31
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+    "s": 0,
+    "e": 20
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "s": 0,
+    "e": 6
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "s": 0,
+    "e": 186
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 141,
+    "e": 304
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "s": 346,
+    "e": 500
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 76,
+    "e": 115
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "s": 3,
+    "e": 21
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "s": 0,
+    "e": 23
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 189,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 0,
+    "e": 97
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 92,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 520,
+    "e": 554
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "s": 215,
+    "e": 341
+   },
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "s": 0,
+    "e": 70
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 326,
+    "e": 452
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "s": 42,
+    "e": 58
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "s": 0,
+    "e": 66
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "s": 195,
+    "e": 381
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 145,
+    "e": 189
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "s": 76,
+    "e": 206
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "s": 0,
+    "e": 55
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1400,
+    "e": 1560
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 265,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "s": 182,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "s": 339,
+    "e": 367
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1150,
+    "e": 1176
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "s": 221,
+    "e": 280
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "s": 0,
+    "e": 105
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "s": 163,
+    "e": 327
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 224,
+    "e": 295
+   }
+  ],
+  [
+   {
+    "doc": "requirements/governing__ledger-map-proposed-changes.md",
+    "s": 1,
+    "e": 22
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 1565,
+    "e": 1652
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 373,
+    "e": 469
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 191,
+    "e": 242
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 550,
+    "e": 736
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1929,
+    "e": 2057
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 0,
+    "e": 80
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 179,
+    "e": 301
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 821,
+    "e": 950
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 50,
+    "e": 59
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 0,
+    "e": 73
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 335,
+    "e": 382
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 780883,
+ "lines": 7582,
+ "task": "rle",
+ "values": {
+  "code1": "X6V-1597",
+  "code2": "E6H-2286",
+  "w_last": "rosehip",
+  "w_name": "sandalwood",
+  "w_desk": "ironbark",
+  "name_a": "Emeka Nwosuagwu",
+  "name_b": "Calum Drysdale",
+  "family": "fish",
+  "members": [
+   "pike",
+   "cod",
+   "bream",
+   "carp",
+   "eels",
+   "salmon",
+   "perch",
+   "herring",
+   "mackerel",
+   "trout"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed E6H-2286",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.15019411167963456,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed E6H-2286`.",
+   "probe": "run closed E6H-2286",
+   "file_index": 0,
+   "frac_actual": 0.0854,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/eq69xq/01-process4-counterarguments.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under rosehip",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4603133337385976,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under rosehip`.",
+   "probe": "-- filed under rosehip",
+   "file_index": 32,
+   "frac_actual": 0.4621,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/eq69xq/33-state-race-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref X6V-1597",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.27390586306066744,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref X6V-1597`.",
+   "probe": "# ref X6V-1597",
+   "file_index": 63,
+   "frac_actual": 0.911,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/eq69xq/64-process4-definition-appendix.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.32737571433688606,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Emeka Nwosuagwu`.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "file_index": 21,
+   "frac_actual": 0.3293,
+   "line": 53,
+   "hits": 1,
+   "file": "reading2/eq69xq/22-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7365941971163076,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Emeka Nwosuagwu is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 53,
+   "frac_actual": 0.7335,
+   "line": 74,
+   "hits": 1,
+   "file": "reading2/eq69xq/54-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 12,
+   "frac": 0.12946038923645553,
+   "body": "12 pike were logged at the Dunn gate.",
+   "probe": "12 pike were logged at the Dunn gate.",
+   "file_index": 5,
+   "frac_actual": 0.1986,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/eq69xq/06-results.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 7,
+   "frac": 0.6022464553679601,
+   "body": "Tally for Marsh Lane: 7 cod.",
+   "probe": "Tally for Marsh Lane: 7 cod.",
+   "file_index": 17,
+   "frac_actual": 0.6052,
+   "line": 94,
+   "hits": 1,
+   "file": "reading2/eq69xq/18-layerflow-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "bream",
+   "n": 17,
+   "frac": 0.47053878089134205,
+   "body": "Received at Pell, 17 bream.",
+   "probe": "Received at Pell, 17 bream.",
+   "file_index": 33,
+   "frac_actual": 0.4675,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/eq69xq/34-lead.mjs"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 2,
+   "frac": 0.6940197817524174,
+   "body": "At Wick the clerk wrote down 2 carp.",
+   "probe": "At Wick the clerk wrote down 2 carp.",
+   "file_index": 41,
+   "frac_actual": 0.6967,
+   "line": 150,
+   "hits": 1,
+   "file": "reading2/eq69xq/42-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 10,
+   "frac": 0.45079531595188976,
+   "body": "The Rigg store took in 10 eels.",
+   "probe": "The Rigg store took in 10 eels.",
+   "file_index": 55,
+   "frac_actual": 0.4431,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/eq69xq/56-process4-disposition.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 48
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

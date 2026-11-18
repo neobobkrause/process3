@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/uevuj3/01-merge-waits-test.mjs
+- reading2/uevuj3/02-audit-c.md
+- reading2/uevuj3/03-joined.md
+- reading2/uevuj3/04-status.mjs
+- reading2/uevuj3/05-audit-a.md
+- reading2/uevuj3/06-joined.md
+- reading2/uevuj3/07-job-test.mjs
+- reading2/uevuj3/08-decisions.md
+- reading2/uevuj3/09-joined.md
+- reading2/uevuj3/10-03-tick.md
+- reading2/uevuj3/11-point5-288-lines.md
+- reading2/uevuj3/12-joined.mjs
+- reading2/uevuj3/13-assessment-doc.md
+- reading2/uevuj3/14-gate-test.mjs
+- reading2/uevuj3/15-joined.md
+- reading2/uevuj3/16-review.md
+- reading2/uevuj3/17-job-sync-test.mjs
+- reading2/uevuj3/18-util.mjs
+- reading2/uevuj3/19-process4-disposition.md
+- reading2/uevuj3/20-joined.mjs
+- reading2/uevuj3/21-joined.mjs
+- reading2/uevuj3/22-job-test.mjs
+- reading2/uevuj3/23-ledger-lines.md
+- reading2/uevuj3/24-coordinator-findings-3-4nov.md
+- reading2/uevuj3/25-coordinator-findings-3-4nov.md
+- reading2/uevuj3/26-setup.mjs
+- reading2/uevuj3/27-joined.md
+- reading2/uevuj3/28-audit2-requirements.md
+- reading2/uevuj3/29-attack-feasibility.md
+- reading2/uevuj3/30-audit-d-central.md
+- reading2/uevuj3/31-joined.mjs
+- reading2/uevuj3/32-joined.mjs
+- reading2/uevuj3/33-audit-ledger.md
+- reading2/uevuj3/34-study.md
+- reading2/uevuj3/35-coordinator-findings-3-4nov.md
+- reading2/uevuj3/36-setup-test.mjs
+- reading2/uevuj3/37-coordinator-findings-3-4nov.md
+- reading2/uevuj3/38-joined.mjs
+- reading2/uevuj3/39-joined.md
+- reading2/uevuj3/40-report.mjs
+- reading2/uevuj3/41-gateclass-test.mjs
+- reading2/uevuj3/42-coordinator-findings-3-4nov.md
+- reading2/uevuj3/43-self-ending-test.mjs
+- reading2/uevuj3/44-job-test.mjs
+- reading2/uevuj3/45-permissions-inventory.md
+- reading2/uevuj3/46-joined.mjs
+- reading2/uevuj3/47-canon-analysis.md
+- reading2/uevuj3/48-process4-disposition.md
+- reading2/uevuj3/49-layerflow.mjs
+- reading2/uevuj3/50-status-test.mjs
+- reading2/uevuj3/51-setup-test.mjs
+- reading2/uevuj3/52-readme.md
+- reading2/uevuj3/53-joined.md
+- reading2/uevuj3/54-sweep.mjs
+- reading2/uevuj3/55-point1-tranche-end.md
+- reading2/uevuj3/56-workflows.mjs
+- reading2/uevuj3/57-lanes-process3-record.md
+- reading2/uevuj3/58-coordinator-findings-3-4nov.md
+- reading2/uevuj3/59-joined.mjs
+- reading2/uevuj3/60-generated-plain-test.mjs
+- reading2/uevuj3/61-gate-test.mjs
+- reading2/uevuj3/62-register-notes.md
+- reading2/uevuj3/63-assessment-doc.md
+- reading2/uevuj3/64-layerflow.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/uevuj3/wordtop.py. It reads all of standard input. A word is a longest run of the letters A to Z in either case; words are compared in lower case. It prints the three most frequent words, one per line as `word count`, most frequent first, with ties in count broken by alphabetical order. If there are fewer than three different words it prints those there are. Example: the input `The cat and the hat. The end, and so on.` gives `the 3`, `and 2`, `cat 1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/uevuj3: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,191 @@
+{
+ "id": "bgf79k",
+ "ladder": "single",
+ "size": 96000,
+ "index": 1,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__ledger_lines.md",
+   "s": 450,
+   "e": 1592
+  }
+ ],
+ "files": [
+  "reading2/bgf79k/requirements.md"
+ ],
+ "bytes": 95052,
+ "lines": 1175,
+ "task": "merge",
+ "values": {
+  "code1": "N7Q-6295",
+  "code2": "Z5R-7083",
+  "w_last": "kestrel",
+  "w_name": "quillon",
+  "w_desk": "cinnabar",
+  "name_a": "Priya Venkataram",
+  "name_b": "Kwabena Asantewaa",
+  "family": "gemstones",
+  "members": [
+   "garnets",
+   "agates",
+   "amethysts",
+   "sapphires",
+   "rubies",
+   "pearls",
+   "emeralds",
+   "zircons",
+   "opals",
+   "topazes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed Z5R-7083",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.08692336838261647,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed Z5R-7083`.",
+   "probe": "run closed Z5R-7083",
+   "frac_actual": 0.087,
+   "line": 109,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "quillon-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5232473393742989,
+   "body": "Every job must note: the job's handover note is saved under the file name `quillon-relay.md`, and under no other name.",
+   "probe": "quillon-relay.md",
+   "frac_actual": 0.524,
+   "line": 615,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref N7Q-6295",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9277233056245472,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref N7Q-6295`.",
+   "probe": "# ref N7Q-6295",
+   "frac_actual": 0.927,
+   "line": 1101,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.25794034691190715,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.2573,
+   "line": 330,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6100334048824005,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.6139,
+   "line": 698,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 8,
+   "frac": 0.14863366434232883,
+   "body": "8 garnets were logged at the Tamsin Row gate.",
+   "probe": "8 garnets were logged at the Tamsin Row gate.",
+   "frac_actual": 0.1522,
+   "line": 187,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 3,
+   "frac": 0.2604409812511253,
+   "body": "Eyre desk entered 3 agates on the sheet.",
+   "probe": "Eyre desk entered 3 agates on the sheet.",
+   "frac_actual": 0.257,
+   "line": 325,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 7,
+   "frac": 0.4562823210366015,
+   "body": "A box of 7 amethysts came through Quay Nine.",
+   "probe": "A box of 7 amethysts came through Quay Nine.",
+   "frac_actual": 0.4544,
+   "line": 548,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 2,
+   "frac": 0.6241285963572599,
+   "body": "Tally for Rigg: 2 sapphires.",
+   "probe": "Tally for Rigg: 2 sapphires.",
+   "frac_actual": 0.6229,
+   "line": 714,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 9,
+   "frac": 0.671419268892193,
+   "body": "At Pell the clerk wrote down 9 rubies.",
+   "probe": "At Pell the clerk wrote down 9 rubies.",
+   "frac_actual": 0.6736,
+   "line": 784,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 12,
+   "frac": 0.8577531712188246,
+   "body": "Corrie sent word of 12 pearls on hand.",
+   "probe": "Corrie sent word of 12 pearls on hand.",
+   "frac_actual": 0.8603,
+   "line": 1024,
+   "hits": 1,
+   "file": "reading2/bgf79k/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 41
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

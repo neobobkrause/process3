@@ -1,0 +1,167 @@
+{
+ "id": "abu9z7",
+ "ladder": "single",
+ "size": 24000,
+ "index": 0,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__process4_disposition.md",
+   "s": 161,
+   "e": 266
+  }
+ ],
+ "files": [
+  "reading2/abu9z7/requirements.md"
+ ],
+ "bytes": 23743,
+ "lines": 132,
+ "task": "minutes",
+ "values": {
+  "code1": "W5X-6298",
+  "code2": "X3A-8138",
+  "w_last": "tamarind",
+  "w_name": "hollowell",
+  "w_desk": "nettlecombe",
+  "name_a": "Ines Carrowby",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "fruit",
+  "members": [
+   "plums",
+   "mangoes",
+   "apricots",
+   "lemons",
+   "pears",
+   "quinces",
+   "figs",
+   "limes",
+   "peaches",
+   "cherries"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref W5X-6298",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03869104357002785,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref W5X-6298`.",
+   "probe": "# ref W5X-6298",
+   "frac_actual": 0.0423,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed X3A-8138",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5334516073804507,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed X3A-8138`.",
+   "probe": "run closed X3A-8138",
+   "frac_actual": 0.5374,
+   "line": 71,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under tamarind",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9156742837174524,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under tamarind`.",
+   "probe": "-- filed under tamarind",
+   "frac_actual": 0.917,
+   "line": 120,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2932793385558021,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.2903,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7149357652779533,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.7139,
+   "line": 90,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 13,
+   "frac": 0.04685094760185028,
+   "body": "13 plums were logged at the Osk gate.",
+   "probe": "13 plums were logged at the Osk gate.",
+   "frac_actual": 0.0349,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "mangoes",
+   "n": 12,
+   "frac": 0.44994935341090136,
+   "body": "Uller desk entered 12 mangoes on the sheet.",
+   "probe": "Uller desk entered 12 mangoes on the sheet.",
+   "frac_actual": 0.4548,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 4,
+   "frac": 0.7101724141811322,
+   "body": "Tally for Wick: 4 apricots.",
+   "probe": "Tally for Wick: 4 apricots.",
+   "frac_actual": 0.7229,
+   "line": 94,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 3,
+   "frac": 0.8011661688236765,
+   "body": "The Marsh Lane store took in 3 lemons.",
+   "probe": "The Marsh Lane store took in 3 lemons.",
+   "frac_actual": 0.7916,
+   "line": 103,
+   "hits": 1,
+   "file": "reading2/abu9z7/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 32
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

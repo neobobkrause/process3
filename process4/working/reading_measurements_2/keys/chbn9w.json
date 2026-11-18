@@ -1,0 +1,505 @@
+{
+ "id": "chbn9w",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 3,
+ "files": [
+  "reading2/chbn9w/01-lanes-owner-documents.md",
+  "reading2/chbn9w/02-foundations.md",
+  "reading2/chbn9w/03-coordinator-findings-3-4nov.md",
+  "reading2/chbn9w/04-process4-disposition.md",
+  "reading2/chbn9w/05-later-requirements.md",
+  "reading2/chbn9w/06-coordinator-findings-3-4nov.md",
+  "reading2/chbn9w/07-joined.md",
+  "reading2/chbn9w/08-joined.mjs",
+  "reading2/chbn9w/09-audit-ledger.md",
+  "reading2/chbn9w/10-coordinator-findings-3-4nov.md",
+  "reading2/chbn9w/11-found.mjs",
+  "reading2/chbn9w/12-audit-ledger.md",
+  "reading2/chbn9w/13-job-test.mjs",
+  "reading2/chbn9w/14-switch-test.mjs",
+  "reading2/chbn9w/15-decisions.md",
+  "reading2/chbn9w/16-coordinator-findings-3-4nov.md",
+  "reading2/chbn9w/17-deploy-test.mjs",
+  "reading2/chbn9w/18-process4-counterarguments.md",
+  "reading2/chbn9w/19-levers-github-cloudflare-pro.md",
+  "reading2/chbn9w/20-joined.md",
+  "reading2/chbn9w/21-joined.md",
+  "reading2/chbn9w/22-joined.md",
+  "reading2/chbn9w/23-gate.mjs",
+  "reading2/chbn9w/24-notice-test.mjs",
+  "reading2/chbn9w/25-layerflow-test.mjs",
+  "reading2/chbn9w/26-session-safety-test.mjs",
+  "reading2/chbn9w/27-joined.mjs",
+  "reading2/chbn9w/28-audit-c.md",
+  "reading2/chbn9w/29-roundnext.mjs",
+  "reading2/chbn9w/30-coordinator-findings-3-4nov.md",
+  "reading2/chbn9w/31-state.mjs",
+  "reading2/chbn9w/32-p3.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "principles",
+  "logs",
+  "requirements",
+  "requirements",
+  "logs",
+  "logs",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "code",
+  "requirements",
+  "logs",
+  "code",
+  "design",
+  "design",
+  "logs",
+  "principles",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "logs",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 245,
+    "e": 303
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 119,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 935,
+    "e": 970
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 361,
+    "e": 410
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 69,
+    "e": 108
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1150,
+    "e": 1176
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "s": 1,
+    "e": 45
+   },
+   {
+    "doc": "logs/notes__records-inventory.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+    "s": 0,
+    "e": 14
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 328,
+    "e": 329
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "s": 0,
+    "e": 153
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 198,
+    "e": 282
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 358,
+    "e": 382
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "s": 0,
+    "e": 183
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 282,
+    "e": 443
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 759,
+    "e": 936
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "s": 179,
+    "e": 320
+   }
+  ],
+  [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 0,
+    "e": 61
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1039,
+    "e": 1070
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 326,
+    "e": 452
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 284,
+    "e": 373
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 182,
+    "e": 298
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "s": 7,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "s": 0,
+    "e": 53
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-b.md",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 343,
+    "e": 345
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "s": 0,
+    "e": 68
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 11
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 538,
+    "e": 610
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 70,
+    "e": 86
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 612,
+    "e": 784
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 186,
+    "e": 348
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1400,
+    "e": 1560
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "s": 0,
+    "e": 203
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 75,
+    "e": 158
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 463,
+    "e": 561
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 76,
+    "e": 115
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 0,
+    "e": 191
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 581,
+    "e": 618
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "s": 170,
+    "e": 359
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 464,
+    "e": 609
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 392441,
+ "lines": 3492,
+ "task": "sumby",
+ "values": {
+  "code1": "P2F-5974",
+  "code2": "G6C-9569",
+  "w_last": "marlowe",
+  "w_name": "umberfield",
+  "w_desk": "dunmore",
+  "name_a": "Ines Carrowby",
+  "name_b": "Dmitri Volkonsky",
+  "family": "hand tools",
+  "members": [
+   "wrenches",
+   "mallets",
+   "chisels",
+   "handsaws",
+   "rasps",
+   "hammers",
+   "awls",
+   "spanners",
+   "trowels",
+   "pliers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under marlowe",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.878257818456531,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under marlowe`.",
+   "probe": "-- filed under marlowe",
+   "file_index": 0,
+   "frac_actual": 0.0663,
+   "line": 4,
+   "hits": 1,
+   "file": "reading2/chbn9w/01-lanes-owner-documents.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.30813261863967556,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "file_index": 16,
+   "frac_actual": 0.4638,
+   "line": 66,
+   "hits": 1,
+   "file": "reading2/chbn9w/17-deploy-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: dunmore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8974379954822171,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: dunmore`.",
+   "probe": "desk: dunmore",
+   "file_index": 31,
+   "frac_actual": 0.9062,
+   "line": 139,
+   "hits": 1,
+   "file": "reading2/chbn9w/32-p3.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6625016656276925,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "file_index": 5,
+   "frac_actual": 0.6575,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/chbn9w/06-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.38101146384890594,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 25,
+   "frac_actual": 0.3801,
+   "line": 91,
+   "hits": 1,
+   "file": "reading2/chbn9w/26-session-safety-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 8,
+   "frac": 0.11406263999371294,
+   "body": "At Osk the clerk wrote down 8 wrenches.",
+   "probe": "At Osk the clerk wrote down 8 wrenches.",
+   "file_index": 5,
+   "frac_actual": 0.1116,
+   "line": 6,
+   "hits": 1,
+   "file": "reading2/chbn9w/06-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 19,
+   "frac": 0.41006783195254326,
+   "body": "Stane sent word of 19 mallets on hand.",
+   "probe": "Stane sent word of 19 mallets on hand.",
+   "file_index": 9,
+   "frac_actual": 0.3978,
+   "line": 10,
+   "hits": 1,
+   "file": "reading2/chbn9w/10-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 18,
+   "frac": 0.8354496796602823,
+   "body": "18 chisels were logged at the Lund gate.",
+   "probe": "18 chisels were logged at the Lund gate.",
+   "file_index": 21,
+   "frac_actual": 0.86,
+   "line": 88,
+   "hits": 1,
+   "file": "reading2/chbn9w/22-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 3,
+   "frac": 0.4341506893702674,
+   "body": "A box of 3 handsaws came through Marsh Lane.",
+   "probe": "A box of 3 handsaws came through Marsh Lane.",
+   "file_index": 25,
+   "frac_actual": 0.4339,
+   "line": 107,
+   "hits": 1,
+   "file": "reading2/chbn9w/26-session-safety-test.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 48
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

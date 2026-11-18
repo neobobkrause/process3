@@ -1,0 +1,339 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+# [file] 08-changing-the-process.md
+
+# Process4 Foundations, part 8: Changing the process
+
+Length: 85 lines. Last section: "What Process4 does not carry".
+
+## Only PROCESS changes the process
+
+The process is changed in one place, a separate lane called PROCESS, and Bob works with it directly. His statement of this is one paragraph in `process4/owner_words/bob_words_14nov_b.md`. Its points are these.
+
+- Process changes are often technical and detailed. PROCESS explains the nature of the problem and offers options. Bob explores them and chooses.
+- Changes need Bob, and he may be away from his computer for long periods. So more than one change may be waiting at once. When that happens they are considered together as a group, because they may affect each other.
+- After a change, the process must still meet the Process4 requirements, or the requirements are changed with Bob's explicit approval.
+- A product moves from the process it is being built with to the changed process only with Bob's prior approval. PROCESS proposes the best and least disruptive way to make the move.
+
+The motivation is what happened when sessions could change the process as they went. Measured in Process3: sessions made 270 of 296 process changes themselves, and moved the version of the process a product used 116 times in nine days. Measured: checks were added in 41% of Process3's merges. Bob's finding is that this growth is why no tranche finished (part 2).
+
+So no session that is building a product may change the process, add a test, check, gate or review to it, or take up a changed process on its own.
+
+Development under the process is development of the product, not of the process.
+
+## The rule PROCESS works under
+
+A change to the process may correct or remove what is broken. It may not add a test, a gate, a review or a stop. The tests are closed (part 2).
+
+
+Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: alderney`.
+
+Three more rules apply, all from part 1. Caution is a cost, paid only against a measured failure or Bob's word. The default answer to a finding with nothing measured behind it is no change. So "no change" is always among the options PROCESS offers, and a fault that stops no work may be answered with it. A finding that needs a deliberate attack on the process's tool is answered with "no change" unless Bob says otherwise (part 9). And a workaround is not a fix. Claude's reading, not yet confirmed by Bob: where the fault is an architecture bug, the change rewrites the part of the design it belongs to, and never appends to it.
+
+
+3 plovers were logged at the Lund gate.
+
+PROCESS writes Bob's approving words into its record exactly as typed, with the date. Nothing else counts as his approval. Claude decided this.
+
+## How a process fault travels
+
+A job that meets a fault in the process reports it to ARCH. The fault goes from ARCH to the coordinator, and from the coordinator to PROCESS. If PROCESS is not running, ARCH asks ROOT to start it. Bob's outline of this route is in `bob_words_14nov_c.md`.
+
+Claude decided: the description of the fault is written once, by the session that met it, and is passed on unchanged. Writer's reading: this is the same care taken with Bob's words in part 7. A description rewritten at each step drifts from what was seen.
+
+A stop that nothing called for is a process fault. Some such stops need no change to the process. A stop caused by a compaction is an example. Then the stopped session is simply woken or replaced. Each such case may be studied and reported to PROCESS. Any change to the process is explained to Bob, who decides whether and how the process is updated.
+
+Claude's reading, not yet confirmed by Bob: while Process4 is on trial, every such stop is reported to PROCESS. The simpler handling applies once it is beyond trial.
+
+A process fault that stops work, and that only a change to the process can clear, waits for Bob at PROCESS. How often that happens can be shown only by the first real tranche.
+
+## What holds the rule
+
+Bob rewords his approvals in the process's repository to say that a process change is merged only on his word given at PROCESS. Nothing enforced by GitHub is added.
+
+So the rule is held by words: Bob's approvals and each session's instructions. Claude Code: the permission checker reads those approvals and protects them (part 9). Codex: what stands in for the permission checker there is not yet known. See `process4/working/codex_shortcomings_to_fill.md`.
+
+## One fixed version for each tranche
+
+The process has its own repository. A product names one fixed version of the process, and a tranche runs on that version from its opening to its end. Each session fetches a read-only copy of that version. The product's sessions work on one repository, the product's.
+
+The version a product names moves only with Bob's prior approval, by the means PROCESS proposes. ARCH makes the move. A job held up by a process fault is not started over. Once the product has moved to the corrected process, the same job carries on.
+
+PROCESS works in the process's own repository. The process's tool has tests of its own, which run only when PROCESS changes the process (part 2).
+
+## Process4 develops itself
+
+Process4 develops itself. Bob asks that its development reach the point where its own constructs can be used for its further development. He expects that to make better use of calendar time, of his time and of tokens. His words are in `bob_words_17nov_fresh_context_and_process_self_development.md`.
+
+- PROCESS may have lanes of its own for standing subjects, as needed. Claude's reading, not yet confirmed by Bob: PROCESS starts its own lanes.
+- A hard open question gets a session of its own, with a written brief and a bounded task. That session ends with a written result once the result is usable.
+
+## When a new model version arrives
+
+When a new model version arrives, PROCESS puts one question to Bob. It asks which parts of the process may no longer be needed, and which of the working rules that exist because of the permission checker may no longer be needed. Those working rules are in part 9, and the permission checker is a Claude Code construct.
+
+Nothing is removed or tried unless Bob says so.
+
+Writer's reading: parts of the process exist to cover shortcomings of the models and harnesses of the day. A better model may make a part needless, so the question is asked. It is asked of Bob so that a change to the process stays his decision.
+
+## What Process4 does not carry
+
+Process4 keeps its own bookkeeping small. It does not carry any of the following.
+
+- A count of false "done" claims.
+- A session with no memory between wakes.
+- A line-by-line test of instruction files.
+- A written receipt from each job of the commands it ran.
+- A set-up check before a job starts.
+- Records of reading and cost for each job, a cost alarm, or a job record in a fixed format.
+- A check of records, or a check for oversized or temporary files.
+- A rule that every rule cites a measured failure.
+- An audit of whether sessions read documents whole.
+
+
+Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.
+
+Writer's reading: each of these served the process and not the product. The measured cost in Process3 supports leaving them out. Measured: 105 of 508 merges changed nothing but job records. Measured: the job's receipt caught nothing in 1,187 test runs. Measured: a cost figure made compulsory blocked every job's completion for 45 minutes. Measured: the set-up check refused every job start after Bob applied new settings.
+
+Cost is still reported where it can be read, in the account after each round and in the report at the end of a tranche. It is a reported number and never a target.
+
+
+# [file] DEVELOPER.md
+
+# The developer's steps
+
+There are 11 steps. Take them in order, in one sitting, with no pause: once the repository is yours (Step 1), none of them waits on another person. These are the steps only you, the owner of the product's repository, can take. A Claude session cannot take any of them, and nothing a session can do is listed here. Each step says why it is needed, the exact clicks on github.com (or Cloudflare, or claude.ai), how BOB (the coordinating Claude session) confirms it, and which entry of the setup list (`setup/conditions.json`) it sets.
+
+The order, in short:
+- Steps 1 and 2: your account and the repository, signed in as yourself.
+- Step 3: the session account's part, in a private window, so your own window stays signed in as you.
+- Steps 4 to 8: while you take these, BOB pushes the tranche (after Step 3) and runs the gate once (after Step 4).
+- Steps 9 and 10: the approvals and the deny list, as your own commits directly on the tranche.
+- Step 11, last: the ruleset on `main` and the tranche, which stops direct commits to them.
+
+When you are done, tell BOB on the onboarding page. BOB starts a fresh session from the tranche branch (the deploy variables reach only sessions started after you saved them) and runs `p3 setup check` there once, which reads everything back.
+
+`p3 setup check` prints one line per entry: `set`, `missing`, `unmeasured` (nothing to measure yet), `not configured` (the product's config does not ask for it), or `confirmed` (GitHub does not let a session read it, so your word on the onboarding page stands for it). No job starts while an entry is `missing`.
+
+
+Received at Brae, 15 robins.
+
+Words used below, filled in when BOB shows you this page for your product: `<owner>/<product>` is the repository; `<session account>` is the second GitHub account the Claude sessions act as; `<tranche>` is the tranche's name. The **tranche** is the branch the sessions' work collects in before it reaches `main` (named `tranche` unless `process/config.json` says otherwise). The **required check** is `gate` unless `process/config.json` names another.
+
+Two rules for every edit you make on github.com:
+- Only an edit made on github.com in the browser, signed in as yourself, counts: the pencil (**Edit this file**) or **Add file**, then **Create new file**. Do not upload a file (**Add file**, then **Upload files**): the edit page shows you exactly the text you commit, and an upload does not. Do not use GitHub Desktop or `git push`: those are not website commits, and the checks report them.
+- If GitHub offers to commit only to a new branch, it opens a pull request on the next page. On that page, set **base** to the tranche, not `main`, before you click **Create pull request**.
+
+## Step 1. Own the product's repository
+
+Why: every other step is a setting of this repository, and only its owner can change settings.
+
+Clicks: signed in to github.com as yourself. If the repository does not exist yet, click **+** (top right), then **New repository**, name it `<product>`, and click **Create repository**. If it exists under another account, that account's owner moves it to you: **Settings**, then **General**, then at the bottom **Transfer**.
+
+How BOB confirms: `p3 setup check` reads the repository as the session account (its `account` condition): push, never admin, so the owner is you, never `<session account>`: the repository's owner holds the approvals, so the sessions' own account must not own it.
+
+Sets: none, because the setup check reads this repository, so it cannot run before the repository is yours; Step 3's `account` reads it.
+
+## Step 2. Install the Claude GitHub App, and invite the session account, as yourself
+
+Why: the sessions reach the repository through the Claude GitHub App, which only the owner can install on it. The sessions push their own branches and open pull requests as the session account, so it needs Write. It must not be an admin, so it can never change these settings or get around the rules below.
+
+Clicks: signed in to github.com as yourself, in your own window.
+
+1. Open `https://github.com/apps/claude/installations/select_target`, pick your own account. If **All repositories** is already chosen, leave it, since `<owner>/<product>` is then included. Otherwise choose **Only select repositories**, pick `<owner>/<product>` (keeping any repositories already listed), and click **Install** (or **Save**).
+2. Open `https://github.com/<owner>/<product>/settings/access` (**Settings**, then **Collaborators**), click **Add people**, type `<session account>`, pick it, and click **Add ... to this repository**. On a repository you own personally, a collaborator gets Write, never admin.
+3. On the same page, check that `<session account>` is the only other person listed.
+
+How BOB confirms: the collaborator list cannot be read by a session, so you confirm it on the onboarding page. Step 3 makes `account` readable.
+
+Sets: `collaborators`.
+
+## Step 3. In a private window: accept the invitation and connect Claude's GitHub as the session account
+
+Why: the sessions act on GitHub through Claude's GitHub connection. If it is connected as you, every session would act as the owner, and the rules below would not hold them. A private window keeps the session account's sign-in apart, so your own window stays signed in as you for every later step.
+
+Clicks:
+1. Open a private window: in Chrome or Edge press Ctrl+Shift+N (Cmd+Shift+N on a Mac); in Firefox, Ctrl+Shift+P (Cmd+Shift+P); in Safari, **File**, then **New Private Window**.
+2. In the private window, open `https://github.com/login` and sign in as `<session account>`. Open `https://github.com/<owner>/<product>/invitations` and click **Accept invitation**.
+3. In the same private window, open `https://claude.ai/connect-github` and sign in to claude.ai with your own Claude account. If claude.ai emails you a sign-in link, copy the link (or the code) from the email into the private window, not your normal one, so the sign-in lands there. Then connect (or reconnect) GitHub. When GitHub asks you to authorize Claude, check that the account shown at the top is `<session account>`, then click **Authorize**. If GitHub offers to install the Claude app on `<session account>`, close that page without installing: Step 2 already installed it on the repository.
+4. Close the private window. Your own window is still signed in to github.com as you.
+5. On the onboarding page, tell BOB Step 3 is done. BOB then pushes the tranche while you go on with Step 4.
+
+
+Tally for Thorpe: 12 owls.
+
+How BOB confirms: `p3 setup check` shows `account` set (push, not admin), and the account it names is `<session account>`, not yours.
+
+Sets: `account`.
+
+## Step 4. Actions settings, secrets and environments
+
+Why: the gate runs the product's code from every pull request. Only its posting step gets a token that can write, and only for that step; no deploy or release key may be within the gate's reach, since those live in Claude's cloud environment (Step 8). The gate's records must be kept 90 days, because a merge trusts a gate result only while its record still exists. A record keeps the retention set when it was made, so take this step first of Steps 4 to 8, and tell BOB when it is saved: BOB runs the gate once only then.
+
+
+Every job must note: the job's handover note is saved under the file name `foxglove-relay.md`, and under no other name.
+
+Clicks:
+1. Open `https://github.com/<owner>/<product>/settings/actions` (**Settings**, then **Actions**, then **General**). Under **Artifact and log retention**, enter `90` days and click **Save**. Under **Workflow permissions**, choose **Read repository contents and packages permissions**, untick **Allow GitHub Actions to create and approve pull requests**, and click **Save**.
+2. **Settings**, then **Secrets and variables**, then **Actions**: there should be no repository secrets.
+3. **Settings**, then **Environments**: there should be none. If one must exist, open it and under **Deployment branches and tags** choose **Selected branches and tags** with `main` only.
+4. On the onboarding page, tell BOB Step 4 is saved. BOB runs the gate once while you take Steps 5 to 8.
+
+How BOB confirms: `p3 setup check` shows `artifact-retention` set once the gate has run (`unmeasured` before then). The other three cannot be read by a session, so you confirm them on the onboarding page.
+
+Sets: `actions-settings`, `artifact-retention`, `secrets`, `environments`.
+
+## Step 5. Merge settings
+
+Why: the sessions' work is merged by the tool alone, with a merge commit, so each pull request's history stays whole, and no branch is ever deleted.
+
+Clicks: open `https://github.com/<owner>/<product>/settings` (**Settings**, then **General**), and scroll to the **Pull Requests** section: tick **Allow merge commits**; untick **Allow auto-merge**; untick **Automatically delete head branches**. Each saves when clicked.
+
+How BOB confirms: `p3 setup check` shows `merge-settings` set.
+
+Sets: `merge-settings`.
+
+## Step 6. Delete any classic branch protection rule
+
+Why: the rulesets in Steps 7 and 11 hold `main` and the tranche. An older classic branch protection rule adds requirements the tool does not expect, and a session cannot read who may bypass it.
+
+Clicks: open `https://github.com/<owner>/<product>/settings/branches` (**Settings**, then **Branches**). Under **Branch protection rules**, for each rule listed, click **Delete**, then confirm in the dialog that opens. If the page says there are no branch protection rules, there is nothing to do.
+
+How BOB confirms: `p3 setup check` shows `classic-protection` set. It reads `main` and the tranche (`protected`, and the protection itself where GitHub lets a session read it) and reports any classic rule as missing, to remove.
+
+
+To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.
+
+Sets: `classic-protection`.
+
+## Step 7. A ruleset named every-branch, on all branches
+
+Why: no session may delete any branch or rewrite its history, wherever it is. This ruleset does not stop your own commits in Steps 9 and 10.
+
+Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**, then **Rules**, then **Rulesets**), click **New ruleset**, then **New branch ruleset**.
+1. Name it `every-branch`. Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
+2. Under **Target branches**, click **Add target**, then **Include all branches**.
+3. Under **Branch rules**, make sure **Restrict deletions** and **Block force pushes** are ticked, and nothing else.
+4. Click **Create**.
+
+How BOB confirms: `p3 setup check` shows `ruleset-all-branches` set; you confirm the empty bypass list on the onboarding page.
+
+Sets: `ruleset-all-branches`, `ruleset-bypass`.
+
+## Step 8. The deploy token, in the Claude cloud environment
+
+Why: the process deploys the product so walkers can run and each round can find and fix flaws, unattended. The sessions need the product's deploy token for that, in their own environment. The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email, so the token needs each scope below. It binds no Workers KV, so the token needs no KV scope.
+
+Clicks:
+1. On `https://dash.cloudflare.com`, sign in. The product's account is the one whose **Account ID** is the value `process/config.json` names as `"cloudflare_account"` (BOB shows it on the onboarding page; each account's ID is on its **Account home**, under the account's name, or in the URL after `dash.cloudflare.com/`). In that account, click **R2 Object Storage** in the left sidebar. If the page offers to enable or purchase R2 instead of listing buckets, follow it to enable R2 (it has a free tier; Cloudflare may ask for a payment method), because the token's R2 scope cannot be read until R2 is on. Click your profile icon (top right), then **My Profile**, then **API Tokens**, then **Create Token**. Next to **Create Custom Token**, click **Get started**.
+2. Name it (for example `<product> development`). Under **Permissions**, add these three rows, using **+ Add more** for each after the first, all under **Account**:
+   - **Workers Scripts**: **Edit**
+   - **Workers R2 Storage**: **Edit**
+   - **Containers**: **Edit**
+3. Under **Account Resources**, choose **Include** and the product's account (the one with that Account ID). Click **Continue to summary**, then **Create Token**, and copy the token. Never paste it into a chat.
+4. On claude.ai, open any Claude Code session for this product. Click the cloud environment menu in the session's title bar, then **Edit**. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable (not under Network secrets), because `p3 setup check` and the product's deploy tools read environment variables. Set `CLOUDFLARE_API_TOKEN` to the token, and `CLOUDFLARE_ACCOUNT_ID` to that Account ID. Click **Save**.
+
+How BOB confirms: the variables reach only sessions started after you save, so BOB confirms from a new session started from the tranche branch. `p3 setup check` there shows `environment` set (it prints only the names), `deploy-account` set (it prints only the configured account and whether it matches), and `deploy-token` set: it makes one harmless read per scope (list Workers scripts, list R2 buckets, list containers) and reports each scope present or missing, never printing the token. A read cannot tell Edit from Read, so choose **Edit** exactly as listed above. Before `process/config.json` lists them, all three show `not configured`.
+
+Sets: `environment`, `deploy-account`, `deploy-token`.
+
+## Step 9. The standing approvals, in CLAUDE.md on the tranche
+
+Why: the standing approvals say what sessions may do without asking you. A session acts on them only when they are on the branch it starts from, and every session starts from the tranche. The checks accept a change to them only when it is your own commit made on github.com, so a session cannot widen its own approvals. BOB's setup puts nothing in the approvals block: the text is yours. Take this step before Step 11, which stops direct commits to the tranche.
+
+Clicks: signed in to github.com as yourself, in your own window.
+
+1. Open `https://github.com/<owner>/<product>/tree/<tranche>`. If GitHub shows a 404 page, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. Otherwise, look at the file list: if `CLAUDE.md` is in it, open `https://github.com/<owner>/<product>/edit/<tranche>/CLAUDE.md`; if not, open `https://github.com/<owner>/<product>/new/<tranche>?filename=CLAUDE.md`. Check that the branch shown above the editor is the tranche.
+2. Add this heading on a line of its own (or the heading `process/config.json` names under `"approvals"`), once, and only once in the file:
+
+
+At Stane the clerk wrote down 16 cranes.
+
+   ```
+   ## Standing approvals from Bob
+   ```
+
+3. Under it, paste your approvals: the text is your own, from your onboarding page. Give your text no heading of its own that holds any form of the word "approve" (approve, approved, approval): the checks count every such heading, and allow one. Leave any other part of the file as it is.
+4. Make the change here, in the browser, signed in as yourself. An upload, GitHub Desktop or a `git push` does not count.
+5. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
+
+How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, the block your own commit through GitHub's website last set on the tranche or `main`. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"` (`neobobkrause` when it names none); you confirm that owner once on the onboarding page. The record check also reports any later change to the approvals that is not your own website commit.
+
+Sets: `approvals`.
+
+## Step 10. The deny list, in .claude/settings.json on the tranche
+
+Why: the deny list stops every session from force-pushing, deleting a branch, writing files through GitHub instead of git, and merging any way but the tool. The settings file is yours: the checks find any change to it that is not your own commit on GitHub's website. BOB's setup puts nothing under `.claude/`, so you create the file. Take this step before Step 11, so it is a direct commit to the tranche.
+
+Clicks: signed in to github.com as yourself, in your own window.
+
+1. Open `https://github.com/<owner>/<product>/tree/<tranche>` (it is there: you used it in Step 9). If the file list shows a `.claude` folder holding `settings.json`, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text; otherwise open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche.
+2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. Do not add a rule such as `"Bash(git push origin :*)"`: it would block a session's push of its own branch.
+
+   ```json
+   {
+     "permissions": {
+       "deny": [
+         "Bash(git push --force *)",
+         "Bash(git push -f *)",
+         "Bash(git push --force-with-lease *)",
+         "Bash(git push origin --delete *)",
+         "mcp__github__create_or_update_file",
+         "mcp__github__push_files",
+         "mcp__github__delete_file",
+         "Bash(gh api *contents/*)",
+         "mcp__github__merge_pull_request",
+         "Bash(gh pr merge *)",
+         "Bash(gh api *pulls/*/merge*)"
+       ]
+     }
+   }
+   ```
+
+3. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
+
+How BOB confirms: `p3 setup check` shows `deny-list` set.
+
+Sets: `deny-list`.
+
+## Step 11. A ruleset on main and the tranche (last)
+
+
+A box of 2 wrens came through Quay Nine.
+
+Why: nothing reaches `main` or the tranche except through a pull request whose required check is green, merged with a merge commit. The tool merges once the check passes, without a person's review, so the ruleset asks for no approving review. Step 7 keeps every branch, these two included, from being deleted or rewritten. This step is last because it stops your direct commits in Steps 9 and 10.
+
+Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**, then **Rules**, then **Rulesets**), click **New ruleset**, then **New branch ruleset**.
+1. Name it (for example `process3`). Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
+2. Under **Target branches**, click **Add target**, then **Include by pattern**, and enter `main`. Do it again for the tranche's name.
+3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`, and leave **Require review from Code Owners** unticked: the tool merges once the check is green, and a required review would stop every merge. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**. Leave **Restrict deletions** and **Block force pushes** as GitHub sets them here: Step 7 already holds both on every branch.
+4. Tick **Require status checks to pass**, click **Add checks**, type `gate`, and pick the one whose source is **GitHub Actions** (BOB ran the gate once after Step 4, so it is offered). If it is not offered, type `gate` in full, add it, and set its source to **GitHub Actions**, not any source.
+5. Click **Create**.
+
+How BOB confirms: `p3 setup check` shows `ruleset-main-tranche` set. The bypass list cannot be read whole by a session, so you confirm it on the onboarding page.
+
+Sets: `ruleset-main-tranche`, `ruleset-bypass`.
+
+
+# [file] copy-CLAUDE.md
+
+## Standing approvals from Bob
+
+Standing approvals from Bob, 1 Nov 2026, widened for development releases and for every step of the development process on 2 Nov 2026, made exact for Cloudflare on 2 Nov 2026, widened on 4 Nov 2026 for development releases, container images, product workflows, development signing secrets and generated design-stream files, widened on 5 Nov 2026 for design lanes and a scheduled branch cleanup, and widened on 9 Nov 2026 for reviewed revert exemptions. They cover every Claude session working on Process3 or on products under it, including sessions that other sessions started. Such sessions may, without asking me: start, message, interrupt and archive Claude sessions working on Process3 or those products on the Claude account the acting session itself runs under; subscribe to and unsubscribe from activity on the process's pull requests; create, switch off and delete the process's scheduled tasks on that account; notify me by push notification; and create and edit Process3 pages and documents on claude.ai under that account.
+
+
+A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under quarrystone`.
+
+In this repository, neobobkrause/civicsmith-copy, only, they may: push to their own working branches and to the process's state branch; create tranche branches from main; open, edit, comment on, review without approving, mark ready or draft, close and reopen pull requests; through the process's merge tool, merge pull requests into working and tranche branches once its gate and their required checks pass, without a person's review, and merge the tranche's pull request into main the same way; record a reviewed revert exemption (`p3 revert exempt`) on a job's pull request, as its reviewer and never as the job's own session, when the job's change is a refactor or touches only tests or records so that its tests rightly pass both before and after the change (AUD-1, my Keep of 6 Nov 2026); run builds and tests, fetching public packages and images for them; run, re-run and cancel this repository's own workflows, including container-images, including when a merge's push fires it; cut, sign and publish development releases, as GitHub pre-releases with their tags, marked development, and install and upgrade them on development deployments; change this repository's own workflow files, only through pull requests the merge tool merges after a green gate, never adding or renaming a job whose name matches a required check, never widening any workflow's or job's permissions, never adding a pull_request_target trigger, and never making the process gate anything but the process's own shim at the pinned process; and create Actions secrets in this repository whose values the session or the repository's own workflow generated, for development signing only, naming them and never reading, printing, copying, overwriting or deleting any secret they did not create.
+
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/nje8uf/sumby.py. It reads lines from standard input, each of the form `name,amount`, where amount is a whole number that may be negative. Blank lines are ignored. It prints one line for each name, `name total`, where total is the sum of that name's amounts, sorted by name in ascending order. Example: the input lines `pat,3`, `lee,-1`, `pat,4` give the output lines `lee -1` then `pat 7`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/nje8uf: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

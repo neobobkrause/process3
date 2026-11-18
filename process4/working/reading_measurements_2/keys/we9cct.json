@@ -1,0 +1,191 @@
+{
+ "id": "we9cct",
+ "ladder": "single",
+ "size": 24000,
+ "index": 5,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+   "s": 164,
+   "e": 374
+  }
+ ],
+ "files": [
+  "reading2/we9cct/design.md"
+ ],
+ "bytes": 24096,
+ "lines": 243,
+ "task": "dedupe",
+ "values": {
+  "code1": "H2F-6004",
+  "code2": "R7F-9789",
+  "w_last": "drumlin",
+  "w_name": "pemberley",
+  "w_desk": "quillon",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Dmitri Volkonsky",
+  "family": "hand tools",
+  "members": [
+   "rasps",
+   "chisels",
+   "wrenches",
+   "spanners",
+   "awls",
+   "handsaws",
+   "trowels",
+   "hammers",
+   "mallets",
+   "pliers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "pemberley-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0648189585583609,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.",
+   "probe": "pemberley-relay.md",
+   "frac_actual": 0.0694,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under drumlin",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4516566346561857,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under drumlin`.",
+   "probe": "-- filed under drumlin",
+   "frac_actual": 0.4561,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9252130282919803,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.9264,
+   "line": 224,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.22512863945405115,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.2205,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.730940288977469,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "frac_actual": 0.7342,
+   "line": 178,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 18,
+   "frac": 0.13978893514455926,
+   "body": "Quay Nine sent word of 18 rasps on hand.",
+   "probe": "Quay Nine sent word of 18 rasps on hand.",
+   "frac_actual": 0.1394,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 14,
+   "frac": 0.2299342516936612,
+   "body": "A box of 14 chisels came through Marsh Lane.",
+   "probe": "A box of 14 chisels came through Marsh Lane.",
+   "frac_actual": 0.2345,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 4,
+   "frac": 0.3942540200312894,
+   "body": "Tally for Thorpe: 4 wrenches.",
+   "probe": "Tally for Thorpe: 4 wrenches.",
+   "frac_actual": 0.4239,
+   "line": 109,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 16,
+   "frac": 0.5275950604362918,
+   "body": "16 spanners were logged at the Rigg gate.",
+   "probe": "16 spanners were logged at the Rigg gate.",
+   "frac_actual": 0.5303,
+   "line": 142,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 9,
+   "frac": 0.6889986133059737,
+   "body": "At Yarm the clerk wrote down 9 awls.",
+   "probe": "At Yarm the clerk wrote down 9 awls.",
+   "frac_actual": 0.6939,
+   "line": 167,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 12,
+   "frac": 0.8803744878537357,
+   "body": "The Corrie store took in 12 handsaws.",
+   "probe": "The Corrie store took in 12 handsaws.",
+   "frac_actual": 0.8808,
+   "line": 217,
+   "hits": 1,
+   "file": "reading2/we9cct/design.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 73
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

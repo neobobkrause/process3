@@ -1,0 +1,916 @@
+{
+ "id": "au6pvf",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 12000,
+ "n_files": 64,
+ "index": 5,
+ "files": [
+  "reading2/au6pvf/01-joined.md",
+  "reading2/au6pvf/02-report-right-test.mjs",
+  "reading2/au6pvf/03-joined.mjs",
+  "reading2/au6pvf/04-merge.mjs",
+  "reading2/au6pvf/05-joined.mjs",
+  "reading2/au6pvf/06-joined.md",
+  "reading2/au6pvf/07-train-throughput-study.md",
+  "reading2/au6pvf/08-job.mjs",
+  "reading2/au6pvf/09-permissions-inventory.md",
+  "reading2/au6pvf/10-layerflow-test.mjs",
+  "reading2/au6pvf/11-p3.mjs",
+  "reading2/au6pvf/12-lane.mjs",
+  "reading2/au6pvf/13-layerflow.mjs",
+  "reading2/au6pvf/14-joined.md",
+  "reading2/au6pvf/15-point3-first-hour.md",
+  "reading2/au6pvf/16-triage.mjs",
+  "reading2/au6pvf/17-hold-test.mjs",
+  "reading2/au6pvf/18-coordinator-findings-3-4nov.md",
+  "reading2/au6pvf/19-audit-ledger.md",
+  "reading2/au6pvf/20-close-workflows-test.mjs",
+  "reading2/au6pvf/21-joined.md",
+  "reading2/au6pvf/22-enforcement-levers.md",
+  "reading2/au6pvf/23-joined.md",
+  "reading2/au6pvf/24-levers-github-cloudflare-pro.md",
+  "reading2/au6pvf/25-process4-definition-appendix.md",
+  "reading2/au6pvf/26-joined.mjs",
+  "reading2/au6pvf/27-coordinator-findings-3-4nov.md",
+  "reading2/au6pvf/28-audit2-requirements.md",
+  "reading2/au6pvf/29-audit2-feasibility.md",
+  "reading2/au6pvf/30-joined.md",
+  "reading2/au6pvf/31-attack-feasibility.md",
+  "reading2/au6pvf/32-process4-definition-v6.md",
+  "reading2/au6pvf/33-trial-plan-facts.md",
+  "reading2/au6pvf/34-canon-analysis.md",
+  "reading2/au6pvf/35-joined.md",
+  "reading2/au6pvf/36-joined.md",
+  "reading2/au6pvf/37-joined.mjs",
+  "reading2/au6pvf/38-levers-github-cloudflare-pro.md",
+  "reading2/au6pvf/39-enforcement-levers.md",
+  "reading2/au6pvf/40-joined.md",
+  "reading2/au6pvf/41-attack-feasibility.md",
+  "reading2/au6pvf/42-joined.mjs",
+  "reading2/au6pvf/43-joined.md",
+  "reading2/au6pvf/44-joined.md",
+  "reading2/au6pvf/45-joined.mjs",
+  "reading2/au6pvf/46-joined.mjs",
+  "reading2/au6pvf/47-audit-a.md",
+  "reading2/au6pvf/48-hold.mjs",
+  "reading2/au6pvf/49-audit2-corruption.md",
+  "reading2/au6pvf/50-pace-test.mjs",
+  "reading2/au6pvf/51-verify-numbers.md",
+  "reading2/au6pvf/52-levers-github-cloudflare-pro.md",
+  "reading2/au6pvf/53-sweep-test.mjs",
+  "reading2/au6pvf/54-joined.md",
+  "reading2/au6pvf/55-job-test.mjs",
+  "reading2/au6pvf/56-roundnext.mjs",
+  "reading2/au6pvf/57-status.mjs",
+  "reading2/au6pvf/58-joined.md",
+  "reading2/au6pvf/59-p3.mjs",
+  "reading2/au6pvf/60-joined.mjs",
+  "reading2/au6pvf/61-audit-a.md",
+  "reading2/au6pvf/62-job.mjs",
+  "reading2/au6pvf/63-audit-foundations.md",
+  "reading2/au6pvf/64-joined.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "design",
+  "principles",
+  "design",
+  "design",
+  "code",
+  "logs",
+  "requirements",
+  "design",
+  "design",
+  "design",
+  "design",
+  "design",
+  "design",
+  "principles",
+  "design",
+  "code",
+  "design",
+  "design",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "principles",
+  "code",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "code",
+  "design",
+  "code",
+  "principles",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 175,
+    "e": 220
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 362,
+    "e": 400
+   },
+   {
+    "doc": "design/notes__restart-speed-options.md",
+    "s": 0,
+    "e": 32
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "s": 0,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 65,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 463,
+    "e": 573
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "s": 194,
+    "e": 213
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 455,
+    "e": 610
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__measures.mjs",
+    "s": 65,
+    "e": 115
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 0,
+    "e": 104
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 136,
+    "e": 151
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 377,
+    "e": 407
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "s": 97,
+    "e": 130
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "s": 0,
+    "e": 119
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 139,
+    "e": 271
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 191,
+    "e": 266
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 317,
+    "e": 498
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 281,
+    "e": 398
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1187,
+    "e": 1337
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 549,
+    "e": 610
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 685,
+    "e": 686
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "s": 133,
+    "e": 193
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 328,
+    "e": 492
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 37,
+    "e": 175
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1205,
+    "e": 1236
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 198,
+    "e": 282
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 0,
+    "e": 207
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 358,
+    "e": 390
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "s": 93,
+    "e": 118
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 143,
+    "e": 245
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "s": 30,
+    "e": 115
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "s": 120,
+    "e": 122
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 182,
+    "e": 298
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 238,
+    "e": 287
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__scale-fixture.mjs",
+    "s": 77,
+    "e": 204
+   },
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "s": 160,
+    "e": 175
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1268,
+    "e": 1294
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 89,
+    "e": 153
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 180,
+    "e": 245
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__judged241.txt",
+    "s": 11,
+    "e": 250
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "s": 168,
+    "e": 274
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 221,
+    "e": 227
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 301,
+    "e": 423
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 411,
+    "e": 476
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 110,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 95,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "s": 0,
+    "e": 86
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "s": 0,
+    "e": 42
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "s": 10,
+    "e": 20
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 274,
+    "e": 324
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 992,
+    "e": 1017
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 301,
+    "e": 395
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 957,
+    "e": 960
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 0,
+    "e": 92
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 0,
+    "e": 84
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "s": 7,
+    "e": 53
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "s": 0,
+    "e": 82
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 0,
+    "e": 86
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "s": 175,
+    "e": 287
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "s": 0,
+    "e": 33
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+    "s": 20,
+    "e": 45
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 0,
+    "e": 108
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "s": 63,
+    "e": 81
+   },
+   {
+    "doc": "design/notes__gate-map-4nov.md",
+    "s": 51,
+    "e": 104
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 333,
+    "e": 358
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 1093,
+    "e": 1153
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 0,
+    "e": 106
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "s": 4,
+    "e": 153
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "s": 0,
+    "e": 35
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 83,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "s": 0,
+    "e": 165
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 181,
+    "e": 264
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 328,
+    "e": 484
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 0,
+    "e": 161
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 411,
+    "e": 500
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 195,
+    "e": 376
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 289,
+    "e": 345
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 259,
+    "e": 289
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1103,
+    "e": 1268
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 191,
+    "e": 347
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 138,
+    "e": 295
+   }
+  ],
+  [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 154,
+    "e": 184
+   },
+   {
+    "doc": "requirements/governing__ledger-map-proposed-changes.md",
+    "s": 0,
+    "e": 1
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 305,
+    "e": 464
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "s": 48,
+    "e": 87
+   },
+   {
+    "doc": "code/tool__test__pushcheck.test.mjs",
+    "s": 0,
+    "e": 67
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 784,
+    "e": 847
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 54,
+    "e": 83
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 406,
+    "e": 543
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 86,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__rounds.test.mjs",
+    "s": 179,
+    "e": 246
+   },
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "s": 180,
+    "e": 256
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 777821,
+ "lines": 7801,
+ "task": "colsum",
+ "values": {
+  "code1": "C6Q-4824",
+  "code2": "P3Q-9751",
+  "w_last": "pennant",
+  "w_name": "galloway",
+  "w_desk": "cinnabar",
+  "name_a": "Maren Oduya",
+  "name_b": "Kwabena Asantewaa",
+  "family": "hand tools",
+  "members": [
+   "wrenches",
+   "awls",
+   "chisels",
+   "pliers",
+   "handsaws",
+   "spanners",
+   "mallets",
+   "trowels",
+   "rasps",
+   "hammers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: cinnabar",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.38026847291204124,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: cinnabar`.",
+   "probe": "desk: cinnabar",
+   "file_index": 0,
+   "frac_actual": 0.0914,
+   "line": 10,
+   "hits": 1,
+   "file": "reading2/au6pvf/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under pennant",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.36487452533054376,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under pennant`.",
+   "probe": "-- filed under pennant",
+   "file_index": 32,
+   "frac_actual": 0.4522,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/au6pvf/33-trial-plan-facts.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref C6Q-4824",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.1197073760373644,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref C6Q-4824`.",
+   "probe": "# ref C6Q-4824",
+   "file_index": 63,
+   "frac_actual": 0.9059,
+   "line": 137,
+   "hits": 1,
+   "file": "reading2/au6pvf/64-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.703662637024835,
+   "value": "reviewer: Maren Oduya",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "file_index": 14,
+   "frac_actual": 0.7048,
+   "line": 45,
+   "hits": 1,
+   "file": "reading2/au6pvf/15-point3-first-hour.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4845458966712438,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "file_index": 39,
+   "frac_actual": 0.4764,
+   "line": 47,
+   "hits": 1,
+   "file": "reading2/au6pvf/40-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 16,
+   "frac": 0.6495558915385229,
+   "body": "A box of 16 wrenches came through Hale End.",
+   "probe": "A box of 16 wrenches came through Hale End.",
+   "file_index": 11,
+   "frac_actual": 0.6427,
+   "line": 73,
+   "hits": 1,
+   "file": "reading2/au6pvf/12-lane.mjs"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 7,
+   "frac": 0.6008556504824841,
+   "body": "Tally for Lund: 7 awls.",
+   "probe": "Tally for Lund: 7 awls.",
+   "file_index": 17,
+   "frac_actual": 0.601,
+   "line": 21,
+   "hits": 1,
+   "file": "reading2/au6pvf/18-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 2,
+   "frac": 0.2327864021571433,
+   "body": "The Quay Nine store took in 2 chisels.",
+   "probe": "The Quay Nine store took in 2 chisels.",
+   "file_index": 25,
+   "frac_actual": 0.2281,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/au6pvf/26-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 9,
+   "frac": 0.4431771294183519,
+   "body": "Received at Tamsin Row, 9 pliers.",
+   "probe": "Received at Tamsin Row, 9 pliers.",
+   "file_index": 42,
+   "frac_actual": 0.528,
+   "line": 70,
+   "hits": 1,
+   "file": "reading2/au6pvf/43-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 10,
+   "frac": 0.6909680813740837,
+   "body": "Marsh Lane sent word of 10 handsaws on hand.",
+   "probe": "Marsh Lane sent word of 10 handsaws on hand.",
+   "file_index": 55,
+   "frac_actual": 0.6852,
+   "line": 110,
+   "hits": 1,
+   "file": "reading2/au6pvf/56-roundnext.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 44
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

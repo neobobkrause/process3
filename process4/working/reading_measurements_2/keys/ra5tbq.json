@@ -1,0 +1,164 @@
+{
+ "id": "ra5tbq",
+ "ladder": "start",
+ "size": 16384,
+ "index": 2,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__HANDOFF.md",
+   "s": 2,
+   "e": 115
+  }
+ ],
+ "files": [],
+ "bytes": 16450,
+ "lines": 153,
+ "task": "colsum",
+ "values": {
+  "code1": "F3Q-4182",
+  "code2": "C8Z-2942",
+  "w_last": "larkspur",
+  "w_name": "vetiver",
+  "w_desk": "rosehip",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Tobias Hallworth",
+  "family": "fruit",
+  "members": [
+   "plums",
+   "figs",
+   "limes",
+   "cherries",
+   "lemons",
+   "mangoes",
+   "quinces",
+   "pears",
+   "apricots",
+   "peaches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: rosehip",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09017085506959502,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: rosehip`.",
+   "probe": "desk: rosehip",
+   "frac_actual": 0.0897,
+   "line": 16,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed C8Z-2942",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.46153811143282325,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed C8Z-2942`.",
+   "probe": "run closed C8Z-2942",
+   "frac_actual": 0.5473,
+   "line": 71,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "vetiver-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9290565254732853,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `vetiver-relay.md`, and under no other name.",
+   "probe": "vetiver-relay.md",
+   "frac_actual": 0.928,
+   "line": 136,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.33644928928509493,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.3711,
+   "line": 57,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6269170939744579,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.6122,
+   "line": 89,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 8,
+   "frac": 0.17349124815195693,
+   "body": "Received at Yarm, 8 plums.",
+   "probe": "Received at Yarm, 8 plums.",
+   "frac_actual": 0.1582,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 9,
+   "frac": 0.30453031773687134,
+   "body": "Corrie desk entered 9 figs on the sheet.",
+   "probe": "Corrie desk entered 9 figs on the sheet.",
+   "frac_actual": 0.2932,
+   "line": 46,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 10,
+   "frac": 0.6951219204197323,
+   "body": "Dunn sent word of 10 limes on hand.",
+   "probe": "Dunn sent word of 10 limes on hand.",
+   "frac_actual": 0.6878,
+   "line": 102,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 18,
+   "frac": 0.8876200016361795,
+   "body": "A box of 18 cherries came through Stane.",
+   "probe": "A box of 18 cherries came through Stane.",
+   "frac_actual": 0.8878,
+   "line": 128,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 45
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,301 @@
+{
+ "id": "hx3fgf",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 9,
+ "files": [
+  "reading2/hx3fgf/01-joined.md",
+  "reading2/hx3fgf/02-process4-disposition.md",
+  "reading2/hx3fgf/03-joined.mjs",
+  "reading2/hx3fgf/04-joined.md",
+  "reading2/hx3fgf/05-assessment-doc.md",
+  "reading2/hx3fgf/06-joined.md",
+  "reading2/hx3fgf/07-joined.md",
+  "reading2/hx3fgf/08-readme.md"
+ ],
+ "file_kinds": [
+  "design",
+  "requirements",
+  "code",
+  "design",
+  "design",
+  "logs",
+  "design",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 163,
+    "e": 332
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "s": 0,
+    "e": 218
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 0,
+    "e": 240
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 89,
+    "e": 158
+   },
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "s": 0,
+    "e": 139
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 0,
+    "e": 89
+   },
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "s": 0,
+    "e": 280
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "s": 0,
+    "e": 50
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__problem-classes.md",
+    "s": 10,
+    "e": 26
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "s": 0,
+    "e": 274
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 0,
+    "e": 144
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 0,
+    "e": 269
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "s": 16,
+    "e": 33
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "s": 0,
+    "e": 48
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "s": 0,
+    "e": 254
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "s": 0,
+    "e": 165
+   },
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "s": 0,
+    "e": 22
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 163,
+    "e": 348
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 0,
+    "e": 129
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 0,
+    "e": 57
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 387131,
+ "lines": 2977,
+ "task": "merge",
+ "values": {
+  "code1": "Q7L-3440",
+  "code2": "X6W-4837",
+  "w_last": "orrery",
+  "w_name": "pemberley",
+  "w_desk": "thistledown",
+  "name_a": "Emeka Nwosuagwu",
+  "name_b": "Yasmin Benhaddou",
+  "family": "fruit",
+  "members": [
+   "quinces",
+   "plums",
+   "peaches",
+   "limes",
+   "apricots",
+   "mangoes",
+   "figs",
+   "lemons",
+   "pears",
+   "cherries"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref Q7L-3440",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.833926354325868,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref Q7L-3440`.",
+   "probe": "# ref Q7L-3440",
+   "file_index": 0,
+   "frac_actual": 0.0984,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/hx3fgf/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "pemberley-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6443309035129905,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.",
+   "probe": "pemberley-relay.md",
+   "file_index": 4,
+   "frac_actual": 0.5487,
+   "line": 142,
+   "hits": 1,
+   "file": "reading2/hx3fgf/05-assessment-doc.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7457557764056306,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "file_index": 7,
+   "frac_actual": 0.9084,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/hx3fgf/08-readme.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7727058056993278,
+   "value": "reviewer: Emeka Nwosuagwu",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Emeka Nwosuagwu`.",
+   "probe": "`reviewer: Emeka Nwosuagwu`",
+   "file_index": 2,
+   "frac_actual": 0.7666,
+   "line": 504,
+   "hits": 1,
+   "file": "reading2/hx3fgf/03-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.418673982757371,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Emeka Nwosuagwu is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "file_index": 6,
+   "frac_actual": 0.4068,
+   "line": 126,
+   "hits": 1,
+   "file": "reading2/hx3fgf/07-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 14,
+   "frac": 0.8268051347227166,
+   "body": "The Thorpe store took in 14 quinces.",
+   "probe": "The Thorpe store took in 14 quinces.",
+   "file_index": 1,
+   "frac_actual": 0.8004,
+   "line": 202,
+   "hits": 1,
+   "file": "reading2/hx3fgf/02-process4-disposition.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 15,
+   "frac": 0.5260828300305123,
+   "body": "A box of 15 plums came through Osk.",
+   "probe": "A box of 15 plums came through Osk.",
+   "file_index": 5,
+   "frac_actual": 0.5787,
+   "line": 363,
+   "hits": 1,
+   "file": "reading2/hx3fgf/06-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 18,
+   "frac": 0.9245606826931114,
+   "body": "At Hale End the clerk wrote down 18 peaches.",
+   "probe": "At Hale End the clerk wrote down 18 peaches.",
+   "file_index": 6,
+   "frac_actual": 0.925,
+   "line": 310,
+   "hits": 1,
+   "file": "reading2/hx3fgf/07-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

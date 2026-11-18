@@ -1,0 +1,152 @@
+{
+ "id": "uyufz9",
+ "ladder": "start",
+ "size": 8192,
+ "index": 8,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "s": 203,
+   "e": 229
+  }
+ ],
+ "files": [],
+ "bytes": 8051,
+ "lines": 63,
+ "task": "minutes",
+ "values": {
+  "code1": "E9G-1163",
+  "code2": "H9X-1846",
+  "w_last": "thistledown",
+  "w_name": "alderney",
+  "w_desk": "ostler",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Noor Al-Tamimi",
+  "family": "hand tools",
+  "members": [
+   "spanners",
+   "mallets",
+   "trowels",
+   "wrenches",
+   "handsaws",
+   "hammers",
+   "chisels",
+   "pliers",
+   "awls",
+   "rasps"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "alderney-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06786773353269446,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `alderney-relay.md`, and under no other name.",
+   "probe": "alderney-relay.md",
+   "frac_actual": 0.075,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under thistledown",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5453199160653146,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under thistledown`.",
+   "probe": "-- filed under thistledown",
+   "frac_actual": 0.4748,
+   "line": 27,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed H9X-1846",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9788176629598221,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed H9X-1846`.",
+   "probe": "run closed H9X-1846",
+   "frac_actual": 0.9345,
+   "line": 48,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3117117758607979,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.2904,
+   "line": 17,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7130825877285061,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.7992,
+   "line": 37,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 3,
+   "frac": 0.16902150150729578,
+   "body": "Tally for Brae: 3 spanners.",
+   "probe": "Tally for Brae: 3 spanners.",
+   "frac_actual": 0.1687,
+   "line": 10,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 18,
+   "frac": 0.37229531855647613,
+   "body": "Marsh Lane desk entered 18 mallets on the sheet.",
+   "probe": "Marsh Lane desk entered 18 mallets on the sheet.",
+   "frac_actual": 0.3693,
+   "line": 22,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 19,
+   "frac": 0.7209527891481083,
+   "body": "A box of 19 trowels came through Yarm.",
+   "probe": "A box of 19 trowels came through Yarm.",
+   "frac_actual": 0.7994,
+   "line": 41,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

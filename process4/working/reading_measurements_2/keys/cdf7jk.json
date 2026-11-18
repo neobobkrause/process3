@@ -1,0 +1,202 @@
+{
+ "id": "cdf7jk",
+ "ladder": "single",
+ "size": 24000,
+ "index": 9,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/notes__coordinator-handoff-5nov-g.md",
+   "lines": "all"
+  },
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+   "lines": "1-51"
+  }
+ ],
+ "files": [
+  "reading2/cdf7jk/log.md"
+ ],
+ "bytes": 23946,
+ "lines": 228,
+ "task": "rle",
+ "values": {
+  "code1": "R2S-7232",
+  "code2": "V5R-1783",
+  "w_last": "pennant",
+  "w_name": "galloway",
+  "w_desk": "sandalwood",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Octavio Montenegro",
+  "family": "fish",
+  "members": [
+   "pike",
+   "eels",
+   "carp",
+   "herring",
+   "trout",
+   "salmon",
+   "mackerel",
+   "bream",
+   "perch",
+   "cod"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: sandalwood",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06354749873804541,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: sandalwood`.",
+   "probe": "desk: sandalwood",
+   "frac_actual": 0.0406,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed V5R-1783",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.537853559552336,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed V5R-1783`.",
+   "probe": "run closed V5R-1783",
+   "frac_actual": 0.5324,
+   "line": 113,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under pennant",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9276424793361956,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under pennant`.",
+   "probe": "-- filed under pennant",
+   "frac_actual": 0.9288,
+   "line": 202,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1496900418986857,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.1499,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4556116460694243,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.4257,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "count",
+   "member": "pike",
+   "n": 16,
+   "frac": 0.10712199036765471,
+   "body": "Eyre desk entered 16 pike on the sheet.",
+   "probe": "Eyre desk entered 16 pike on the sheet.",
+   "frac_actual": 0.099,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 11,
+   "frac": 0.2538501345153679,
+   "body": "Marsh Lane sent word of 11 eels on hand.",
+   "probe": "Marsh Lane sent word of 11 eels on hand.",
+   "frac_actual": 0.2508,
+   "line": 61,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 15,
+   "frac": 0.35626359359799864,
+   "body": "Received at Osk, 15 carp.",
+   "probe": "Received at Osk, 15 carp.",
+   "frac_actual": 0.3375,
+   "line": 75,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "count",
+   "member": "herring",
+   "n": 18,
+   "frac": 0.6284116641241229,
+   "body": "At Pell the clerk wrote down 18 herring.",
+   "probe": "At Pell the clerk wrote down 18 herring.",
+   "frac_actual": 0.6355,
+   "line": 136,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 14,
+   "frac": 0.7586231360641318,
+   "body": "A box of 14 trout came through Corrie.",
+   "probe": "A box of 14 trout came through Corrie.",
+   "frac_actual": 0.771,
+   "line": 154,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 12,
+   "frac": 0.8976507409831613,
+   "body": "The Lund store took in 12 salmon.",
+   "probe": "The Lund store took in 12 salmon.",
+   "frac_actual": 0.8647,
+   "line": 173,
+   "hits": 1,
+   "file": "reading2/cdf7jk/log.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 86
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

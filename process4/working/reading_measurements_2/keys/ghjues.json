@@ -1,0 +1,261 @@
+{
+ "id": "ghjues",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 5,
+ "files": [
+  "reading2/ghjues/01-assessment-doc.md",
+  "reading2/ghjues/02-metrics.mjs",
+  "reading2/ghjues/03-foundations.md",
+  "reading2/ghjues/04-coordinator-findings-3-4nov.md",
+  "reading2/ghjues/05-audit-c.md",
+  "reading2/ghjues/06-joined.mjs",
+  "reading2/ghjues/07-joined.md",
+  "reading2/ghjues/08-joined.md"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "principles",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 387,
+    "e": 472
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "s": 0,
+    "e": 179
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 168,
+    "e": 204
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 872,
+    "e": 903
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 115,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "s": 25,
+    "e": 55
+   },
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "s": 147,
+    "e": 237
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 375,
+    "e": 401
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "s": 18,
+    "e": 39
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 443,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 29,
+    "e": 113
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "s": 0,
+    "e": 3
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 98579,
+ "lines": 777,
+ "task": "dedupe",
+ "values": {
+  "code1": "C6S-9164",
+  "code2": "N8D-7899",
+  "w_last": "galloway",
+  "w_name": "alderney",
+  "w_desk": "thistledown",
+  "name_a": "Calum Drysdale",
+  "name_b": "Mikko Rantanen",
+  "family": "birds",
+  "members": [
+   "swifts",
+   "cranes",
+   "herons",
+   "plovers",
+   "larks",
+   "robins",
+   "owls",
+   "wrens",
+   "finches",
+   "gulls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref C6S-9164",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7536009746094642,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref C6S-9164`.",
+   "probe": "# ref C6S-9164",
+   "file_index": 0,
+   "frac_actual": 0.0999,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/ghjues/01-assessment-doc.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed N8D-7899",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.8615091968097567,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed N8D-7899`.",
+   "probe": "run closed N8D-7899",
+   "file_index": 4,
+   "frac_actual": 0.5198,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/ghjues/05-audit-c.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "alderney-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.5933936924680715,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `alderney-relay.md`, and under no other name.",
+   "probe": "alderney-relay.md",
+   "file_index": 7,
+   "frac_actual": 0.9135,
+   "line": 85,
+   "hits": 1,
+   "file": "reading2/ghjues/08-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3688010024070547,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 0,
+   "frac_actual": 0.3651,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/ghjues/01-assessment-doc.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.22779199546387777,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "file_index": 5,
+   "frac_actual": 0.2274,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/ghjues/06-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "swifts",
+   "n": 2,
+   "frac": 0.07630022420758713,
+   "body": "2 swifts were logged at the Corrie gate.",
+   "probe": "2 swifts were logged at the Corrie gate.",
+   "file_index": 0,
+   "frac_actual": 0.0756,
+   "line": 7,
+   "hits": 1,
+   "file": "reading2/ghjues/01-assessment-doc.md"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 17,
+   "frac": 0.3838898735711741,
+   "body": "Thorpe desk entered 17 cranes on the sheet.",
+   "probe": "Thorpe desk entered 17 cranes on the sheet.",
+   "file_index": 4,
+   "frac_actual": 0.3939,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/ghjues/05-audit-c.md"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 8,
+   "frac": 0.2096256556973427,
+   "body": "At Tamsin Row the clerk wrote down 8 herons.",
+   "probe": "At Tamsin Row the clerk wrote down 8 herons.",
+   "file_index": 6,
+   "frac_actual": 0.1842,
+   "line": 17,
+   "hits": 1,
+   "file": "reading2/ghjues/07-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

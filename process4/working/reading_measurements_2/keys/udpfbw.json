@@ -1,0 +1,377 @@
+{
+ "id": "udpfbw",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 7,
+ "files": [
+  "reading2/udpfbw/01-joined.md",
+  "reading2/udpfbw/02-status.mjs",
+  "reading2/udpfbw/03-foundations.md",
+  "reading2/udpfbw/04-job.mjs",
+  "reading2/udpfbw/05-audit-c.md",
+  "reading2/udpfbw/06-pace.mjs",
+  "reading2/udpfbw/07-p3.mjs",
+  "reading2/udpfbw/08-notice-slots-test.mjs",
+  "reading2/udpfbw/09-joined.md",
+  "reading2/udpfbw/10-joined.mjs",
+  "reading2/udpfbw/11-audit-b.md",
+  "reading2/udpfbw/12-util.mjs",
+  "reading2/udpfbw/13-point4-release.md",
+  "reading2/udpfbw/14-joined.mjs",
+  "reading2/udpfbw/15-process4-counterarguments.md",
+  "reading2/udpfbw/16-release-test.mjs"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "principles",
+  "code",
+  "design",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/notes__velocity-audit-9nov.md",
+    "s": 27,
+    "e": 62
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 384,
+    "e": 432
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 553,
+    "e": 575
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 725,
+    "e": 874
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 168,
+    "e": 204
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 703,
+    "e": 860
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 0,
+    "e": 46
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 169,
+    "e": 340
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "s": 8,
+    "e": 189
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "s": 36,
+    "e": 37
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+    "s": 0,
+    "e": 24
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov.md",
+    "s": 0,
+    "e": 14
+   },
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "s": 121,
+    "e": 132
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1352,
+    "e": 1408
+   },
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 0,
+    "e": 107
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 88,
+    "e": 139
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 736,
+    "e": 919
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 266,
+    "e": 344
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "s": 0,
+    "e": 145
+   },
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "s": 0,
+    "e": 22
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 208,
+    "e": 284
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 0,
+    "e": 154
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 196031,
+ "lines": 1995,
+ "task": "minutes",
+ "values": {
+  "code1": "C4L-8515",
+  "code2": "C5X-5440",
+  "w_last": "zephyrine",
+  "w_name": "lodestone",
+  "w_desk": "pennant",
+  "name_a": "Soren Achterberg",
+  "name_b": "Calum Drysdale",
+  "family": "trees",
+  "members": [
+   "elms",
+   "beeches",
+   "larches",
+   "pines",
+   "willows",
+   "maples",
+   "alders",
+   "birches",
+   "oaks",
+   "cedars"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "lodestone-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6489321147117124,
+   "body": "Every job must note: the job's handover note is saved under the file name `lodestone-relay.md`, and under no other name.",
+   "probe": "lodestone-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.065,
+   "line": 16,
+   "hits": 1,
+   "file": "reading2/udpfbw/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: pennant",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.11238192242823049,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: pennant`.",
+   "probe": "desk: pennant",
+   "file_index": 8,
+   "frac_actual": 0.4608,
+   "line": 43,
+   "hits": 1,
+   "file": "reading2/udpfbw/09-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under zephyrine",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.5171422908688782,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under zephyrine`.",
+   "probe": "-- filed under zephyrine",
+   "file_index": 15,
+   "frac_actual": 0.9066,
+   "line": 146,
+   "hits": 1,
+   "file": "reading2/udpfbw/16-release-test.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6510042428015579,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "file_index": 1,
+   "frac_actual": 0.6488,
+   "line": 98,
+   "hits": 1,
+   "file": "reading2/udpfbw/02-status.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2217554425050401,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "file_index": 15,
+   "frac_actual": 0.2195,
+   "line": 37,
+   "hits": 1,
+   "file": "reading2/udpfbw/16-release-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 9,
+   "frac": 0.2178819314534206,
+   "body": "Tally for Quay Nine: 9 elms.",
+   "probe": "Tally for Quay Nine: 9 elms.",
+   "file_index": 1,
+   "frac_actual": 0.2246,
+   "line": 33,
+   "hits": 1,
+   "file": "reading2/udpfbw/02-status.mjs"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 4,
+   "frac": 0.8563862594647643,
+   "body": "The Uller store took in 4 beeches.",
+   "probe": "The Uller store took in 4 beeches.",
+   "file_index": 5,
+   "frac_actual": 0.8546,
+   "line": 149,
+   "hits": 1,
+   "file": "reading2/udpfbw/06-pace.mjs"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 17,
+   "frac": 0.6530825197394595,
+   "body": "Rigg desk entered 17 larches on the sheet.",
+   "probe": "Rigg desk entered 17 larches on the sheet.",
+   "file_index": 6,
+   "frac_actual": 0.6538,
+   "line": 111,
+   "hits": 1,
+   "file": "reading2/udpfbw/07-p3.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 15,
+   "frac": 0.3478926386325614,
+   "body": "Dunn sent word of 15 pines on hand.",
+   "probe": "Dunn sent word of 15 pines on hand.",
+   "file_index": 8,
+   "frac_actual": 0.3685,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/udpfbw/09-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 18,
+   "frac": 0.5526987488149164,
+   "body": "Received at Tamsin Row, 18 willows.",
+   "probe": "Received at Tamsin Row, 18 willows.",
+   "file_index": 11,
+   "frac_actual": 0.5541,
+   "line": 95,
+   "hits": 1,
+   "file": "reading2/udpfbw/12-util.mjs"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 8,
+   "frac": 0.24335757109309952,
+   "body": "8 maples were logged at the Hale End gate.",
+   "probe": "8 maples were logged at the Hale End gate.",
+   "file_index": 14,
+   "frac_actual": 0.2471,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/udpfbw/15-process4-counterarguments.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 71
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

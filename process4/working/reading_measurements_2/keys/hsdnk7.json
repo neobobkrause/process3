@@ -1,0 +1,155 @@
+{
+ "id": "hsdnk7",
+ "ladder": "start",
+ "size": 65536,
+ "index": 9,
+ "kind": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "requirements/process4__working__decisions_memo_d3.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/DECISIONS.md",
+   "lines": "1-157"
+  }
+ ],
+ "files": [],
+ "bytes": 64892,
+ "lines": 293,
+ "task": "merge",
+ "values": {
+  "code1": "R5D-5034",
+  "code2": "T8R-6909",
+  "w_last": "larkspur",
+  "w_name": "bramblewick",
+  "w_desk": "lodestone",
+  "name_a": "Tamsin Polkinghorne",
+  "name_b": "Saoirse Kinsella",
+  "family": "musical instruments",
+  "members": [
+   "harps",
+   "clarinets",
+   "oboes",
+   "flutes",
+   "bassoons",
+   "cellos",
+   "banjos",
+   "tubas",
+   "trumpets",
+   "violins"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under larkspur",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07099237905993044,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
+   "probe": "-- filed under larkspur",
+   "frac_actual": 0.0681,
+   "line": 26,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "bramblewick-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.48395813407862326,
+   "body": "Every job must note: the job's handover note is saved under the file name `bramblewick-relay.md`, and under no other name.",
+   "probe": "bramblewick-relay.md",
+   "frac_actual": 0.49,
+   "line": 151,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed T8R-6909",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9149235680347717,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed T8R-6909`.",
+   "probe": "run closed T8R-6909",
+   "frac_actual": 0.9261,
+   "line": 260,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.12299053693983099,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tamsin Polkinghorne`.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.1215,
+   "line": 38,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8408219622145433,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Tamsin Polkinghorne is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.832,
+   "line": 236,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 18,
+   "frac": 0.12995639508515983,
+   "body": "Received at Rigg, 18 harps.",
+   "probe": "Received at Rigg, 18 harps.",
+   "frac_actual": 0.1916,
+   "line": 54,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 8,
+   "frac": 0.47772871519982596,
+   "body": "Pell desk entered 8 clarinets on the sheet.",
+   "probe": "Pell desk entered 8 clarinets on the sheet.",
+   "frac_actual": 0.4759,
+   "line": 143,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 11,
+   "frac": 0.9398121360530526,
+   "body": "The Brae store took in 11 oboes.",
+   "probe": "The Brae store took in 11 oboes.",
+   "frac_actual": 0.9461,
+   "line": 268,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 37
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

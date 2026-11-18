@@ -1,0 +1,155 @@
+{
+ "id": "mxwy3j",
+ "ladder": "single",
+ "size": 48000,
+ "index": 0,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__ledger_lines.md",
+   "s": 871,
+   "e": 1421
+  }
+ ],
+ "files": [
+  "reading2/mxwy3j/requirements.md"
+ ],
+ "bytes": 47464,
+ "lines": 574,
+ "task": "wordtop",
+ "values": {
+  "code1": "C6H-1056",
+  "code2": "D2U-3413",
+  "w_last": "orrery",
+  "w_name": "kestrel",
+  "w_desk": "ironbark",
+  "name_a": "Odette Fairweather",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "hand tools",
+  "members": [
+   "rasps",
+   "pliers",
+   "wrenches",
+   "spanners",
+   "mallets",
+   "hammers",
+   "trowels",
+   "chisels",
+   "handsaws",
+   "awls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed D2U-3413",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04118285752507492,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed D2U-3413`.",
+   "probe": "run closed D2U-3413",
+   "frac_actual": 0.0581,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: ironbark",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5091332155166393,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: ironbark`.",
+   "probe": "desk: ironbark",
+   "frac_actual": 0.5162,
+   "line": 260,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under orrery",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9632517877906683,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under orrery`.",
+   "probe": "-- filed under orrery",
+   "frac_actual": 0.9572,
+   "line": 544,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3330706536519275,
+   "value": "reviewer: Odette Fairweather",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "frac_actual": 0.3247,
+   "line": 176,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7483979967355143,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.7532,
+   "line": 412,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 10,
+   "frac": 0.143618614449955,
+   "body": "The Rigg store took in 10 rasps.",
+   "probe": "The Rigg store took in 10 rasps.",
+   "frac_actual": 0.142,
+   "line": 74,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 18,
+   "frac": 0.4867580829002347,
+   "body": "At Yarm the clerk wrote down 18 pliers.",
+   "probe": "At Yarm the clerk wrote down 18 pliers.",
+   "frac_actual": 0.494,
+   "line": 246,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 6,
+   "frac": 0.8025403245566519,
+   "body": "A box of 6 wrenches came through Stane.",
+   "probe": "A box of 6 wrenches came through Stane.",
+   "frac_actual": 0.8055,
+   "line": 448,
+   "hits": 1,
+   "file": "reading2/mxwy3j/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 34
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

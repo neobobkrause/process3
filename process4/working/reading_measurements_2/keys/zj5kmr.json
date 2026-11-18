@@ -1,0 +1,152 @@
+{
+ "id": "zj5kmr",
+ "ladder": "start",
+ "size": 4096,
+ "index": 4,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/rulebooks__bob.md",
+   "s": 9,
+   "e": 18
+  }
+ ],
+ "files": [],
+ "bytes": 4023,
+ "lines": 74,
+ "task": "dates",
+ "values": {
+  "code1": "K7L-2394",
+  "code2": "Z2Y-7824",
+  "w_last": "lodestone",
+  "w_name": "rosehip",
+  "w_desk": "bellwether",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Mikko Rantanen",
+  "family": "hand tools",
+  "members": [
+   "wrenches",
+   "rasps",
+   "handsaws",
+   "hammers",
+   "awls",
+   "trowels",
+   "pliers",
+   "spanners",
+   "mallets",
+   "chisels"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under lodestone",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04929769393808843,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under lodestone`.",
+   "probe": "-- filed under lodestone",
+   "frac_actual": 0.0859,
+   "line": 9,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "rosehip-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5001919803069464,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `rosehip-relay.md`, and under no other name.",
+   "probe": "rosehip-relay.md",
+   "frac_actual": 0.4792,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: bellwether",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9679855240648039,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: bellwether`.",
+   "probe": "desk: bellwether",
+   "frac_actual": 0.9484,
+   "line": 58,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3388850791197602,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.3508,
+   "line": 21,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6555979759825887,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Mikko Rantanen`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.6511,
+   "line": 39,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 15,
+   "frac": 0.06032377755222457,
+   "body": "At Rigg the clerk wrote down 15 wrenches.",
+   "probe": "At Rigg the clerk wrote down 15 wrenches.",
+   "frac_actual": 0.0062,
+   "line": 5,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 6,
+   "frac": 0.6273976479389274,
+   "body": "Dunn desk entered 6 rasps on the sheet.",
+   "probe": "Dunn desk entered 6 rasps on the sheet.",
+   "frac_actual": 0.6282,
+   "line": 33,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 18,
+   "frac": 0.9624221355950244,
+   "body": "Tally for Yarm: 18 handsaws.",
+   "probe": "Tally for Yarm: 18 handsaws.",
+   "frac_actual": 0.947,
+   "line": 54,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 39
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

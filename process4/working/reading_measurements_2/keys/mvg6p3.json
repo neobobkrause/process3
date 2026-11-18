@@ -1,0 +1,215 @@
+{
+ "id": "mvg6p3",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 7,
+ "files": [
+  "reading2/mvg6p3/01-joined.md",
+  "reading2/mvg6p3/02-joined.md"
+ ],
+ "file_kinds": [
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 476,
+    "e": 597
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "s": 0,
+    "e": 269
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "s": 0,
+    "e": 18
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 89,
+    "e": 209
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "s": 0,
+    "e": 49
+   },
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "s": 0,
+    "e": 39
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "s": 0,
+    "e": 207
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96358,
+ "lines": 874,
+ "task": "wordtop",
+ "values": {
+  "code1": "J9D-4872",
+  "code2": "F8M-5828",
+  "w_last": "bellwether",
+  "w_name": "lodestone",
+  "w_desk": "cinnabar",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Odette Fairweather",
+  "family": "vegetables",
+  "members": [
+   "radishes",
+   "beets",
+   "leeks",
+   "turnips",
+   "parsnips",
+   "onions",
+   "cabbages",
+   "carrots",
+   "shallots",
+   "marrows"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "lodestone-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5369201920910018,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `lodestone-relay.md`, and under no other name.",
+   "probe": "lodestone-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0933,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/mvg6p3/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under bellwether",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.08088930673506527,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under bellwether`.",
+   "probe": "-- filed under bellwether",
+   "file_index": 1,
+   "frac_actual": 0.4534,
+   "line": 257,
+   "hits": 1,
+   "file": "reading2/mvg6p3/02-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref J9D-4872",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8380738982611149,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref J9D-4872`.",
+   "probe": "# ref J9D-4872",
+   "file_index": 1,
+   "frac_actual": 0.9018,
+   "line": 421,
+   "hits": 1,
+   "file": "reading2/mvg6p3/02-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.546378037275719,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "file_index": 0,
+   "frac_actual": 0.5449,
+   "line": 200,
+   "hits": 1,
+   "file": "reading2/mvg6p3/01-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4564990331035165,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 1,
+   "frac_actual": 0.4494,
+   "line": 252,
+   "hits": 1,
+   "file": "reading2/mvg6p3/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 3,
+   "frac": 0.889944862813502,
+   "body": "Rigg desk entered 3 radishes on the sheet.",
+   "probe": "Rigg desk entered 3 radishes on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.8856,
+   "line": 382,
+   "hits": 1,
+   "file": "reading2/mvg6p3/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 18,
+   "frac": 0.1320662927710011,
+   "body": "A box of 18 beets came through Marsh Lane.",
+   "probe": "A box of 18 beets came through Marsh Lane.",
+   "file_index": 0,
+   "frac_actual": 0.1406,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/mvg6p3/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 5,
+   "frac": 0.07562432694427605,
+   "body": "At Corrie the clerk wrote down 5 leeks.",
+   "probe": "At Corrie the clerk wrote down 5 leeks.",
+   "file_index": 1,
+   "frac_actual": 0.0655,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/mvg6p3/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 15,
+   "frac": 0.2605766783461368,
+   "body": "Thorpe sent word of 15 turnips on hand.",
+   "probe": "Thorpe sent word of 15 turnips on hand.",
+   "file_index": 1,
+   "frac_actual": 0.2609,
+   "line": 164,
+   "hits": 1,
+   "file": "reading2/mvg6p3/02-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 41
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

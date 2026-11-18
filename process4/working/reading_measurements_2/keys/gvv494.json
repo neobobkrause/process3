@@ -1,0 +1,223 @@
+{
+ "id": "gvv494",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 9,
+ "files": [
+  "reading2/gvv494/01-joined.mjs",
+  "reading2/gvv494/02-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "requirements"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 258,
+    "e": 464
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "s": 0,
+    "e": 305
+   },
+   {
+    "doc": "code/tool__lib__pushcheck.mjs",
+    "s": 0,
+    "e": 58
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 0,
+    "e": 64
+   }
+  ],
+  [
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "s": 97,
+    "e": 276
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 460,
+    "e": 660
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96016,
+ "lines": 1061,
+ "task": "colsum",
+ "values": {
+  "code1": "G4V-3523",
+  "code2": "E9Q-9748",
+  "w_last": "nettlecombe",
+  "w_name": "umberfield",
+  "w_desk": "thistledown",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Jacinta Ravensworth",
+  "family": "gemstones",
+  "members": [
+   "amethysts",
+   "zircons",
+   "agates",
+   "opals",
+   "rubies",
+   "topazes",
+   "garnets",
+   "emeralds",
+   "pearls",
+   "sapphires"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.24645775000482414,
+   "body": "Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "file_index": 0,
+   "frac_actual": 0.0726,
+   "line": 31,
+   "hits": 1,
+   "file": "reading2/gvv494/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.08156180773250343,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "file_index": 1,
+   "frac_actual": 0.4506,
+   "line": 247,
+   "hits": 1,
+   "file": "reading2/gvv494/02-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed E9Q-9748",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7202706744765403,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed E9Q-9748`.",
+   "probe": "run closed E9Q-9748",
+   "file_index": 1,
+   "frac_actual": 0.9505,
+   "line": 392,
+   "hits": 1,
+   "file": "reading2/gvv494/02-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.4028958105198589,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 0,
+   "frac_actual": 0.4128,
+   "line": 198,
+   "hits": 1,
+   "file": "reading2/gvv494/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.37001640502371697,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 1,
+   "frac_actual": 0.3733,
+   "line": 199,
+   "hits": 1,
+   "file": "reading2/gvv494/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 13,
+   "frac": 0.34405522237644115,
+   "body": "Tally for Wick: 13 amethysts.",
+   "probe": "Tally for Wick: 13 amethysts.",
+   "file_index": 0,
+   "frac_actual": 0.387,
+   "line": 177,
+   "hits": 1,
+   "file": "reading2/gvv494/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 11,
+   "frac": 0.43163943657790976,
+   "body": "11 zircons were logged at the Corrie gate.",
+   "probe": "11 zircons were logged at the Corrie gate.",
+   "file_index": 0,
+   "frac_actual": 0.4322,
+   "line": 222,
+   "hits": 1,
+   "file": "reading2/gvv494/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 7,
+   "frac": 0.1326945870305003,
+   "body": "A box of 7 agates came through Quay Nine.",
+   "probe": "A box of 7 agates came through Quay Nine.",
+   "file_index": 1,
+   "frac_actual": 0.1625,
+   "line": 79,
+   "hits": 1,
+   "file": "reading2/gvv494/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "opals",
+   "n": 3,
+   "frac": 0.631701983714687,
+   "body": "Osk desk entered 3 opals on the sheet.",
+   "probe": "Osk desk entered 3 opals on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.6256,
+   "line": 297,
+   "hits": 1,
+   "file": "reading2/gvv494/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 18,
+   "frac": 0.8183519888088151,
+   "body": "Received at Tamsin Row, 18 rubies.",
+   "probe": "Received at Tamsin Row, 18 rubies.",
+   "file_index": 1,
+   "frac_actual": 0.8238,
+   "line": 358,
+   "hits": 1,
+   "file": "reading2/gvv494/02-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 52
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,119 @@
+{
+ "0": {
+  "id": "jpu944",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 230,
+    "s": 181
+   }
+  ]
+ },
+ "1": {
+  "id": "pjcjub",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 232,
+    "s": 113
+   }
+  ]
+ },
+ "2": {
+  "id": "ra5tbq",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 115,
+    "s": 2
+   }
+  ]
+ },
+ "3": {
+  "id": "vkebcz",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "e": 161,
+    "s": 13
+   }
+  ]
+ },
+ "4": {
+  "id": "yhxjr9",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 143,
+    "s": 13
+   }
+  ]
+ },
+ "5": {
+  "id": "nk7ywk",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 200,
+    "s": 156
+   }
+  ]
+ },
+ "6": {
+  "id": "smp25m",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 166,
+    "s": 63
+   }
+  ]
+ },
+ "7": {
+  "id": "fn6y5j",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 42,
+    "s": 25
+   }
+  ]
+ },
+ "8": {
+  "id": "zk78b8",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "e": 87,
+    "s": 45
+   }
+  ]
+ },
+ "9": {
+  "id": "yepha5",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/rulebooks__root.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "lines": "1-34"
+   }
+  ]
+ }
+}

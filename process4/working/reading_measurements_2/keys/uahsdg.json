@@ -1,0 +1,588 @@
+{
+ "id": "uahsdg",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 7,
+ "files": [
+  "reading2/uahsdg/01-layerflow-test.mjs",
+  "reading2/uahsdg/02-joined.mjs",
+  "reading2/uahsdg/03-joined.md",
+  "reading2/uahsdg/04-lanes-owner-documents.md",
+  "reading2/uahsdg/05-joined.mjs",
+  "reading2/uahsdg/06-joined.mjs",
+  "reading2/uahsdg/07-joined.md",
+  "reading2/uahsdg/08-joined.md",
+  "reading2/uahsdg/09-joined.mjs",
+  "reading2/uahsdg/10-point5-288-lines.md",
+  "reading2/uahsdg/11-job.mjs",
+  "reading2/uahsdg/12-audit2-feasibility.md",
+  "reading2/uahsdg/13-v3-notes.md",
+  "reading2/uahsdg/14-joined.mjs",
+  "reading2/uahsdg/15-joined.mjs",
+  "reading2/uahsdg/16-audit-ledger.md",
+  "reading2/uahsdg/17-joined.mjs",
+  "reading2/uahsdg/18-joined.md",
+  "reading2/uahsdg/19-joined.mjs",
+  "reading2/uahsdg/20-later-requirements.md",
+  "reading2/uahsdg/21-layerflow-test.mjs",
+  "reading2/uahsdg/22-joined.md",
+  "reading2/uahsdg/23-sweep-test.mjs",
+  "reading2/uahsdg/24-joined.md",
+  "reading2/uahsdg/25-joined.mjs",
+  "reading2/uahsdg/26-ledger-lines.md",
+  "reading2/uahsdg/27-p3.mjs",
+  "reading2/uahsdg/28-merge-test.mjs",
+  "reading2/uahsdg/29-census.mjs",
+  "reading2/uahsdg/30-point4-release.md",
+  "reading2/uahsdg/31-levers-github-cloudflare-pro.md",
+  "reading2/uahsdg/32-coordinator-findings-3-4nov.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "requirements",
+  "code",
+  "design",
+  "code",
+  "principles",
+  "code",
+  "requirements",
+  "code",
+  "code",
+  "code",
+  "design",
+  "design",
+  "logs"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1963,
+    "e": 2096
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "s": 395,
+    "e": 468
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "s": 0,
+    "e": 74
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "s": 111,
+    "e": 141
+   },
+   {
+    "doc": "design/notes__receipt-regate-options.md",
+    "s": 0,
+    "e": 91
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "s": 168,
+    "e": 179
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "s": 0,
+    "e": 97
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 1058,
+    "e": 1082
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "s": 151,
+    "e": 236
+   },
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "s": 0,
+    "e": 35
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 73,
+    "e": 89
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "s": 0,
+    "e": 178
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "s": 14,
+    "e": 81
+   },
+   {
+    "doc": "design/notes__restart-speed-options.md",
+    "s": 0,
+    "e": 51
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 161,
+    "e": 165
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 689,
+    "e": 741
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 377,
+    "e": 403
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "s": 35,
+    "e": 66
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "s": 0,
+    "e": 195
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 251,
+    "e": 350
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1024,
+    "e": 1167
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 118,
+    "e": 180
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "s": 47,
+    "e": 185
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "s": 146,
+    "e": 195
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 0,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 170,
+    "e": 200
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 581,
+    "e": 628
+   },
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 303,
+    "e": 406
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "s": 0,
+    "e": 6
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 136,
+    "e": 198
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 993,
+    "e": 1017
+   },
+   {
+    "doc": "code/tool__test__rulebooks.test.mjs",
+    "s": 0,
+    "e": 95
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "s": 0,
+    "e": 51
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 221,
+    "e": 227
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 348,
+    "e": 419
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 526,
+    "e": 538
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__pass.test.mjs",
+    "s": 23,
+    "e": 205
+   },
+   {
+    "doc": "code/tool__test__tranche.test.mjs",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 0,
+    "e": 69
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1243,
+    "e": 1400
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__gate-map-4nov.md",
+    "s": 98,
+    "e": 104
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 274,
+    "e": 336
+   },
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "s": 0,
+    "e": 14
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 0,
+    "e": 195
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 262,
+    "e": 292
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 289,
+    "e": 343
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 178,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "s": 0,
+    "e": 156
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 684,
+    "e": 844
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 155,
+    "e": 305
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 541,
+    "e": 732
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 0,
+    "e": 173
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 150,
+    "e": 203
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 92,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 298,
+    "e": 323
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 389352,
+ "lines": 4292,
+ "task": "wordtop",
+ "values": {
+  "code1": "J2A-4520",
+  "code2": "T4T-5767",
+  "w_last": "yarrow",
+  "w_name": "hollowell",
+  "w_desk": "saltmarsh",
+  "name_a": "Maren Oduya",
+  "name_b": "Ruairi Mactavish",
+  "family": "birds",
+  "members": [
+   "robins",
+   "plovers",
+   "owls",
+   "larks",
+   "cranes",
+   "gulls",
+   "wrens",
+   "herons",
+   "swifts",
+   "finches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref J2A-4520",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.3367707286969822,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref J2A-4520`.",
+   "probe": "# ref J2A-4520",
+   "file_index": 0,
+   "frac_actual": 0.0752,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/uahsdg/01-layerflow-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under yarrow",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7622239484237581,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under yarrow`.",
+   "probe": "-- filed under yarrow",
+   "file_index": 16,
+   "frac_actual": 0.55,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/uahsdg/17-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8656528080866686,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "file_index": 31,
+   "frac_actual": 0.9475,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/uahsdg/32-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.14155025559051237,
+   "value": "reviewer: Maren Oduya",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "file_index": 4,
+   "frac_actual": 0.1411,
+   "line": 30,
+   "hits": 1,
+   "file": "reading2/uahsdg/05-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.678642934119917,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 20,
+   "frac_actual": 0.681,
+   "line": 114,
+   "hits": 1,
+   "file": "reading2/uahsdg/21-layerflow-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 8,
+   "frac": 0.7938146754477531,
+   "body": "Tally for Eyre: 8 robins.",
+   "probe": "Tally for Eyre: 8 robins.",
+   "file_index": 1,
+   "frac_actual": 0.7925,
+   "line": 138,
+   "hits": 1,
+   "file": "reading2/uahsdg/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 18,
+   "frac": 0.19464926287282647,
+   "body": "Yarm desk entered 18 plovers on the sheet.",
+   "probe": "Yarm desk entered 18 plovers on the sheet.",
+   "file_index": 12,
+   "frac_actual": 0.1934,
+   "line": 43,
+   "hits": 1,
+   "file": "reading2/uahsdg/13-v3-notes.md"
+  },
+  {
+   "what": "count",
+   "member": "owls",
+   "n": 13,
+   "frac": 0.3810519876848436,
+   "body": "The Pell store took in 13 owls.",
+   "probe": "The Pell store took in 13 owls.",
+   "file_index": 18,
+   "frac_actual": 0.3807,
+   "line": 87,
+   "hits": 1,
+   "file": "reading2/uahsdg/19-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 14,
+   "frac": 0.26173043668074314,
+   "body": "Received at Tamsin Row, 14 larks.",
+   "probe": "Received at Tamsin Row, 14 larks.",
+   "file_index": 20,
+   "frac_actual": 0.2652,
+   "line": 44,
+   "hits": 1,
+   "file": "reading2/uahsdg/21-layerflow-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 6,
+   "frac": 0.46061042807885466,
+   "body": "6 cranes were logged at the Thorpe gate.",
+   "probe": "6 cranes were logged at the Thorpe gate.",
+   "file_index": 27,
+   "frac_actual": 0.4608,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/uahsdg/28-merge-test.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 59
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,43 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/uahsdg/01-layerflow-test.mjs
+- reading2/uahsdg/02-joined.mjs
+- reading2/uahsdg/03-joined.md
+- reading2/uahsdg/04-lanes-owner-documents.md
+- reading2/uahsdg/05-joined.mjs
+- reading2/uahsdg/06-joined.mjs
+- reading2/uahsdg/07-joined.md
+- reading2/uahsdg/08-joined.md
+- reading2/uahsdg/09-joined.mjs
+- reading2/uahsdg/10-point5-288-lines.md
+- reading2/uahsdg/11-job.mjs
+- reading2/uahsdg/12-audit2-feasibility.md
+- reading2/uahsdg/13-v3-notes.md
+- reading2/uahsdg/14-joined.mjs
+- reading2/uahsdg/15-joined.mjs
+- reading2/uahsdg/16-audit-ledger.md
+- reading2/uahsdg/17-joined.mjs
+- reading2/uahsdg/18-joined.md
+- reading2/uahsdg/19-joined.mjs
+- reading2/uahsdg/20-later-requirements.md
+- reading2/uahsdg/21-layerflow-test.mjs
+- reading2/uahsdg/22-joined.md
+- reading2/uahsdg/23-sweep-test.mjs
+- reading2/uahsdg/24-joined.md
+- reading2/uahsdg/25-joined.mjs
+- reading2/uahsdg/26-ledger-lines.md
+- reading2/uahsdg/27-p3.mjs
+- reading2/uahsdg/28-merge-test.mjs
+- reading2/uahsdg/29-census.mjs
+- reading2/uahsdg/30-point4-release.md
+- reading2/uahsdg/31-levers-github-cloudflare-pro.md
+- reading2/uahsdg/32-coordinator-findings-3-4nov.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/uahsdg/wordtop.py. It reads all of standard input. A word is a longest run of the letters A to Z in either case; words are compared in lower case. It prints the three most frequent words, one per line as `word count`, most frequent first, with ties in count broken by alphabetical order. If there are fewer than three different words it prints those there are. Example: the input `The cat and the hat. The end, and so on.` gives `the 3`, `and 2`, `cat 1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/uahsdg: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

@@ -1,0 +1,226 @@
+{
+ "id": "htqgvk",
+ "ladder": "single",
+ "size": 192000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__test__ledger-count.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__slots.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__state-race.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__product-neutral.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__merge.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__pin.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ghaudit.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lane-plain.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__hold.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__state.mjs",
+   "lines": "1-292"
+  }
+ ],
+ "files": [
+  "reading2/htqgvk/module.mjs"
+ ],
+ "bytes": 192008,
+ "lines": 2627,
+ "task": "dedupe",
+ "values": {
+  "code1": "K4J-7008",
+  "code2": "A2W-8308",
+  "w_last": "foxglove",
+  "w_name": "dunmore",
+  "w_desk": "yarrow",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Kwabena Asantewaa",
+  "family": "hand tools",
+  "members": [
+   "chisels",
+   "hammers",
+   "spanners",
+   "handsaws",
+   "rasps",
+   "mallets",
+   "wrenches",
+   "trowels",
+   "pliers",
+   "awls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under foxglove",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.02137592249849367,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under foxglove`.",
+   "probe": "-- filed under foxglove",
+   "frac_actual": 0.0223,
+   "line": 72,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed A2W-8308",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5464237125905171,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed A2W-8308`.",
+   "probe": "run closed A2W-8308",
+   "frac_actual": 0.5497,
+   "line": 1498,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "dunmore-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9558019669300022,
+   "body": "Every job must note: the job's handover note is saved under the file name `dunmore-relay.md`, and under no other name.",
+   "probe": "dunmore-relay.md",
+   "frac_actual": 0.9317,
+   "line": 2431,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.17189402980240331,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.1696,
+   "line": 525,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7631147854538092,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "frac_actual": 0.7633,
+   "line": 1994,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 19,
+   "frac": 0.14572187571085116,
+   "body": "Received at Thorpe, 19 chisels.",
+   "probe": "Received at Thorpe, 19 chisels.",
+   "frac_actual": 0.1526,
+   "line": 473,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 18,
+   "frac": 0.24503599271155316,
+   "body": "18 hammers were logged at the Corrie gate.",
+   "probe": "18 hammers were logged at the Corrie gate.",
+   "frac_actual": 0.2439,
+   "line": 738,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 15,
+   "frac": 0.47489560126086827,
+   "body": "A box of 15 spanners came through Osk.",
+   "probe": "A box of 15 spanners came through Osk.",
+   "frac_actual": 0.473,
+   "line": 1274,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 11,
+   "frac": 0.6076524033993151,
+   "body": "At Pell the clerk wrote down 11 handsaws.",
+   "probe": "At Pell the clerk wrote down 11 handsaws.",
+   "frac_actual": 0.6137,
+   "line": 1659,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 12,
+   "frac": 0.7314484958918511,
+   "body": "Dunn desk entered 12 rasps on the sheet.",
+   "probe": "Dunn desk entered 12 rasps on the sheet.",
+   "frac_actual": 0.7366,
+   "line": 1921,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 14,
+   "frac": 0.9007598618506425,
+   "body": "Tally for Yarm: 14 mallets.",
+   "probe": "Tally for Yarm: 14 mallets.",
+   "frac_actual": 0.8979,
+   "line": 2339,
+   "hits": 1,
+   "file": "reading2/htqgvk/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 89
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

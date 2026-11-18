@@ -1,0 +1,199 @@
+{
+ "id": "jq7tv2",
+ "ladder": "start",
+ "size": 131072,
+ "index": 2,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__root-prompt.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/CLAUDE.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__HANDOFF.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__lane-charters.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__probes-pin-for-bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations.md",
+   "lines": "1-205"
+  }
+ ],
+ "files": [],
+ "bytes": 130501,
+ "lines": 1018,
+ "task": "minutes",
+ "values": {
+  "code1": "L3G-8610",
+  "code2": "D8D-6684",
+  "w_last": "larkspur",
+  "w_name": "bramblewick",
+  "w_desk": "quillon",
+  "name_a": "Saoirse Kinsella",
+  "name_b": "Lucinda Abernathy",
+  "family": "hand tools",
+  "members": [
+   "awls",
+   "hammers",
+   "mallets",
+   "chisels",
+   "trowels",
+   "wrenches",
+   "handsaws",
+   "rasps",
+   "pliers",
+   "spanners"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09900372083010638,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.0979,
+   "line": 154,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref L3G-8610",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4605165415282549,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref L3G-8610`.",
+   "probe": "# ref L3G-8610",
+   "frac_actual": 0.4609,
+   "line": 587,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed D8D-6684",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9686698469285999,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed D8D-6684`.",
+   "probe": "run closed D8D-6684",
+   "frac_actual": 0.9688,
+   "line": 994,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.30131713244309416,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.3013,
+   "line": 410,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7163132135802379,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.7303,
+   "line": 865,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 3,
+   "frac": 0.1200643722708253,
+   "body": "A box of 3 awls came through Uller.",
+   "probe": "A box of 3 awls came through Uller.",
+   "frac_actual": 0.1203,
+   "line": 186,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 10,
+   "frac": 0.32012407664500364,
+   "body": "Rigg sent word of 10 hammers on hand.",
+   "probe": "Rigg sent word of 10 hammers on hand.",
+   "frac_actual": 0.3208,
+   "line": 447,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 18,
+   "frac": 0.5346473369166463,
+   "body": "Received at Wick, 18 mallets.",
+   "probe": "Received at Wick, 18 mallets.",
+   "frac_actual": 0.5369,
+   "line": 706,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 9,
+   "frac": 0.8375209988525777,
+   "body": "Tally for Hale End: 9 chisels.",
+   "probe": "Tally for Hale End: 9 chisels.",
+   "frac_actual": 0.8374,
+   "line": 934,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

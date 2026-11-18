@@ -1,0 +1,178 @@
+{
+ "id": "wps2bh",
+ "ladder": "single",
+ "size": 192000,
+ "index": 4,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_counterarguments.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point2_process_rule.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__audit_D_central.md",
+   "lines": "1-60"
+  }
+ ],
+ "files": [
+  "reading2/wps2bh/design.md"
+ ],
+ "bytes": 191736,
+ "lines": 1627,
+ "task": "wordtop",
+ "values": {
+  "code1": "E3R-5103",
+  "code2": "H5B-8970",
+  "w_last": "harrowgate",
+  "w_name": "bellwether",
+  "w_desk": "greywether",
+  "name_a": "Priya Venkataram",
+  "name_b": "Liesel Hartmannsdorf",
+  "family": "fish",
+  "members": [
+   "herring",
+   "eels",
+   "cod",
+   "trout",
+   "perch",
+   "mackerel",
+   "carp",
+   "bream",
+   "salmon",
+   "pike"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref E3R-5103",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04697013385014373,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref E3R-5103`.",
+   "probe": "# ref E3R-5103",
+   "frac_actual": 0.047,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: greywether",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5249730639867813,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: greywether`.",
+   "probe": "desk: greywether",
+   "frac_actual": 0.5253,
+   "line": 856,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under harrowgate",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9395570740006763,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under harrowgate`.",
+   "probe": "-- filed under harrowgate",
+   "frac_actual": 0.9373,
+   "line": 1534,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16493870011380146,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.1653,
+   "line": 282,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8156265861103797,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Liesel Hartmannsdorf`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "frac_actual": 0.8165,
+   "line": 1408,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "herring",
+   "n": 7,
+   "frac": 0.08660463623204567,
+   "body": "The Yarm store took in 7 herring.",
+   "probe": "The Yarm store took in 7 herring.",
+   "frac_actual": 0.0861,
+   "line": 154,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 16,
+   "frac": 0.29949384165411497,
+   "body": "Received at Pell, 16 eels.",
+   "probe": "Received at Pell, 16 eels.",
+   "frac_actual": 0.2986,
+   "line": 463,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 4,
+   "frac": 0.6520650667446178,
+   "body": "4 cod were logged at the Uller gate.",
+   "probe": "4 cod were logged at the Uller gate.",
+   "frac_actual": 0.6517,
+   "line": 1129,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 15,
+   "frac": 0.8154015111706792,
+   "body": "Thorpe desk entered 15 trout on the sheet.",
+   "probe": "Thorpe desk entered 15 trout on the sheet.",
+   "frac_actual": 0.8169,
+   "line": 1413,
+   "hits": 1,
+   "file": "reading2/wps2bh/design.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

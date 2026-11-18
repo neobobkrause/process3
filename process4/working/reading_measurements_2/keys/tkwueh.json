@@ -1,0 +1,191 @@
+{
+ "id": "tkwueh",
+ "ladder": "start",
+ "size": 131072,
+ "index": 6,
+ "kind": "requirements",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "requirements/governing__ledger-map-proposed-changes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__evidence__ledger_map.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__working__audit2_requirements.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__working__decisions_memo_d3.md",
+   "lines": "all"
+  },
+  {
+   "doc": "requirements/process4__working__session2__later_requirements.md",
+   "lines": "1-156"
+  }
+ ],
+ "files": [],
+ "bytes": 130517,
+ "lines": 913,
+ "task": "colsum",
+ "values": {
+  "code1": "F8X-5784",
+  "code2": "B5Q-2335",
+  "w_last": "vetiver",
+  "w_name": "galloway",
+  "w_desk": "pennant",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Lucinda Abernathy",
+  "family": "gemstones",
+  "members": [
+   "pearls",
+   "garnets",
+   "rubies",
+   "zircons",
+   "emeralds",
+   "opals",
+   "agates",
+   "topazes",
+   "amethysts",
+   "sapphires"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: pennant",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09790595606644227,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: pennant`.",
+   "probe": "desk: pennant",
+   "frac_actual": 0.0965,
+   "line": 146,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref F8X-5784",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5463710526971031,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref F8X-5784`.",
+   "probe": "# ref F8X-5784",
+   "frac_actual": 0.5475,
+   "line": 640,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed B5Q-2335",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9580640774625451,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed B5Q-2335`.",
+   "probe": "run closed B5Q-2335",
+   "frac_actual": 0.9593,
+   "line": 871,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3896529925606026,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.39,
+   "line": 492,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7870914151737308,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.7864,
+   "line": 788,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 15,
+   "frac": 0.15728951925965523,
+   "body": "Quay Nine desk entered 15 pearls on the sheet.",
+   "probe": "Quay Nine desk entered 15 pearls on the sheet.",
+   "frac_actual": 0.1561,
+   "line": 289,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "garnets",
+   "n": 2,
+   "frac": 0.31062620021378085,
+   "body": "Tally for Brae: 2 garnets.",
+   "probe": "Tally for Brae: 2 garnets.",
+   "frac_actual": 0.3092,
+   "line": 421,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 7,
+   "frac": 0.43098027922097415,
+   "body": "7 rubies were logged at the Wick gate.",
+   "probe": "7 rubies were logged at the Wick gate.",
+   "frac_actual": 0.4361,
+   "line": 536,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 6,
+   "frac": 0.6563588777850751,
+   "body": "The Yarm store took in 6 zircons.",
+   "probe": "The Yarm store took in 6 zircons.",
+   "frac_actual": 0.6569,
+   "line": 695,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 5,
+   "frac": 0.9457458759596189,
+   "body": "Varnel sent word of 5 emeralds on hand.",
+   "probe": "Varnel sent word of 5 emeralds on hand.",
+   "frac_actual": 0.9508,
+   "line": 862,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 35
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

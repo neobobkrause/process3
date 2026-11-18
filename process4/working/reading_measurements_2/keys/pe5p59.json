@@ -1,0 +1,253 @@
+{
+ "id": "pe5p59",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 2,
+ "files": [
+  "reading2/pe5p59/01-joined.mjs",
+  "reading2/pe5p59/02-joined.mjs",
+  "reading2/pe5p59/03-coordinator-findings-3-4nov.md",
+  "reading2/pe5p59/04-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "logs",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 108,
+    "e": 282
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "s": 0,
+    "e": 146
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "s": 0,
+    "e": 106
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 0,
+    "e": 259
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 538,
+    "e": 575
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 0,
+    "e": 429
+   },
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "s": 0,
+    "e": 164
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1078,
+    "e": 1184
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lane.test.mjs",
+    "s": 97,
+    "e": 149
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "s": 0,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 0,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "s": 0,
+    "e": 116
+   },
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "s": 0,
+    "e": 53
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 192996,
+ "lines": 2181,
+ "task": "sumby",
+ "values": {
+  "code1": "J7A-9355",
+  "code2": "B4E-3424",
+  "w_last": "sandalwood",
+  "w_name": "larkspur",
+  "w_desk": "harrowgate",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Liesel Hartmannsdorf",
+  "family": "gemstones",
+  "members": [
+   "emeralds",
+   "sapphires",
+   "opals",
+   "agates",
+   "rubies",
+   "zircons",
+   "topazes",
+   "amethysts",
+   "garnets",
+   "pearls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under sandalwood",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.24124022042216098,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under sandalwood`.",
+   "probe": "-- filed under sandalwood",
+   "file_index": 0,
+   "frac_actual": 0.0856,
+   "line": 73,
+   "hits": 1,
+   "file": "reading2/pe5p59/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: harrowgate",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5008493162749392,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.",
+   "probe": "desk: harrowgate",
+   "file_index": 2,
+   "frac_actual": 0.4987,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/pe5p59/03-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref J7A-9355",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.6157949191461709,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref J7A-9355`.",
+   "probe": "# ref J7A-9355",
+   "file_index": 3,
+   "frac_actual": 0.9096,
+   "line": 665,
+   "hits": 1,
+   "file": "reading2/pe5p59/04-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7336479120766894,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "file_index": 0,
+   "frac_actual": 0.7494,
+   "line": 555,
+   "hits": 1,
+   "file": "reading2/pe5p59/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5872677969474454,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Liesel Hartmannsdorf`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "file_index": 3,
+   "frac_actual": 0.5543,
+   "line": 423,
+   "hits": 1,
+   "file": "reading2/pe5p59/04-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 8,
+   "frac": 0.4069900073310577,
+   "body": "A box of 8 emeralds came through Yarm.",
+   "probe": "A box of 8 emeralds came through Yarm.",
+   "file_index": 0,
+   "frac_actual": 0.3979,
+   "line": 289,
+   "hits": 1,
+   "file": "reading2/pe5p59/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 14,
+   "frac": 0.06951181229490676,
+   "body": "Tally for Marsh Lane: 14 sapphires.",
+   "probe": "Tally for Marsh Lane: 14 sapphires.",
+   "file_index": 1,
+   "frac_actual": 0.0585,
+   "line": 44,
+   "hits": 1,
+   "file": "reading2/pe5p59/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "opals",
+   "n": 2,
+   "frac": 0.06638266424808854,
+   "body": "Uller desk entered 2 opals on the sheet.",
+   "probe": "Uller desk entered 2 opals on the sheet.",
+   "file_index": 2,
+   "frac_actual": 0.0685,
+   "line": 9,
+   "hits": 1,
+   "file": "reading2/pe5p59/03-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 5,
+   "frac": 0.6853867328426304,
+   "body": "Stane sent word of 5 agates on hand.",
+   "probe": "Stane sent word of 5 agates on hand.",
+   "file_index": 3,
+   "frac_actual": 0.6753,
+   "line": 500,
+   "hits": 1,
+   "file": "reading2/pe5p59/04-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 29
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

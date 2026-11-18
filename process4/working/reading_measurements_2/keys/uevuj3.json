@@ -1,0 +1,853 @@
+{
+ "id": "uevuj3",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 12000,
+ "n_files": 64,
+ "index": 3,
+ "files": [
+  "reading2/uevuj3/01-merge-waits-test.mjs",
+  "reading2/uevuj3/02-audit-c.md",
+  "reading2/uevuj3/03-joined.md",
+  "reading2/uevuj3/04-status.mjs",
+  "reading2/uevuj3/05-audit-a.md",
+  "reading2/uevuj3/06-joined.md",
+  "reading2/uevuj3/07-job-test.mjs",
+  "reading2/uevuj3/08-decisions.md",
+  "reading2/uevuj3/09-joined.md",
+  "reading2/uevuj3/10-03-tick.md",
+  "reading2/uevuj3/11-point5-288-lines.md",
+  "reading2/uevuj3/12-joined.mjs",
+  "reading2/uevuj3/13-assessment-doc.md",
+  "reading2/uevuj3/14-gate-test.mjs",
+  "reading2/uevuj3/15-joined.md",
+  "reading2/uevuj3/16-review.md",
+  "reading2/uevuj3/17-job-sync-test.mjs",
+  "reading2/uevuj3/18-util.mjs",
+  "reading2/uevuj3/19-process4-disposition.md",
+  "reading2/uevuj3/20-joined.mjs",
+  "reading2/uevuj3/21-joined.mjs",
+  "reading2/uevuj3/22-job-test.mjs",
+  "reading2/uevuj3/23-ledger-lines.md",
+  "reading2/uevuj3/24-coordinator-findings-3-4nov.md",
+  "reading2/uevuj3/25-coordinator-findings-3-4nov.md",
+  "reading2/uevuj3/26-setup.mjs",
+  "reading2/uevuj3/27-joined.md",
+  "reading2/uevuj3/28-audit2-requirements.md",
+  "reading2/uevuj3/29-attack-feasibility.md",
+  "reading2/uevuj3/30-audit-d-central.md",
+  "reading2/uevuj3/31-joined.mjs",
+  "reading2/uevuj3/32-joined.mjs",
+  "reading2/uevuj3/33-audit-ledger.md",
+  "reading2/uevuj3/34-study.md",
+  "reading2/uevuj3/35-coordinator-findings-3-4nov.md",
+  "reading2/uevuj3/36-setup-test.mjs",
+  "reading2/uevuj3/37-coordinator-findings-3-4nov.md",
+  "reading2/uevuj3/38-joined.mjs",
+  "reading2/uevuj3/39-joined.md",
+  "reading2/uevuj3/40-report.mjs",
+  "reading2/uevuj3/41-gateclass-test.mjs",
+  "reading2/uevuj3/42-coordinator-findings-3-4nov.md",
+  "reading2/uevuj3/43-self-ending-test.mjs",
+  "reading2/uevuj3/44-job-test.mjs",
+  "reading2/uevuj3/45-permissions-inventory.md",
+  "reading2/uevuj3/46-joined.mjs",
+  "reading2/uevuj3/47-canon-analysis.md",
+  "reading2/uevuj3/48-process4-disposition.md",
+  "reading2/uevuj3/49-layerflow.mjs",
+  "reading2/uevuj3/50-status-test.mjs",
+  "reading2/uevuj3/51-setup-test.mjs",
+  "reading2/uevuj3/52-readme.md",
+  "reading2/uevuj3/53-joined.md",
+  "reading2/uevuj3/54-sweep.mjs",
+  "reading2/uevuj3/55-point1-tranche-end.md",
+  "reading2/uevuj3/56-workflows.mjs",
+  "reading2/uevuj3/57-lanes-process3-record.md",
+  "reading2/uevuj3/58-coordinator-findings-3-4nov.md",
+  "reading2/uevuj3/59-joined.mjs",
+  "reading2/uevuj3/60-generated-plain-test.mjs",
+  "reading2/uevuj3/61-gate-test.mjs",
+  "reading2/uevuj3/62-register-notes.md",
+  "reading2/uevuj3/63-assessment-doc.md",
+  "reading2/uevuj3/64-layerflow.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "design",
+  "code",
+  "design",
+  "principles",
+  "code",
+  "requirements",
+  "design",
+  "logs",
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "code",
+  "code",
+  "requirements",
+  "logs",
+  "logs",
+  "code",
+  "logs",
+  "requirements",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design",
+  "logs",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "code",
+  "code",
+  "principles",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "s": 0,
+    "e": 190
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 46,
+    "e": 76
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 406,
+    "e": 419
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "s": 117,
+    "e": 197
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 950,
+    "e": 989
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 295,
+    "e": 438
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 0,
+    "e": 54
+   }
+  ],
+  [
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "s": 122,
+    "e": 195
+   },
+   {
+    "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1268,
+    "e": 1437
+   }
+  ],
+  [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 0,
+    "e": 61
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 633,
+    "e": 685
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 211,
+    "e": 283
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "s": 31,
+    "e": 242
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 174,
+    "e": 251
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "s": 39,
+    "e": 55
+   },
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "s": 0,
+    "e": 175
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 274,
+    "e": 281
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 126,
+    "e": 209
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 348,
+    "e": 524
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 479,
+    "e": 517
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "s": 70,
+    "e": 136
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 274,
+    "e": 384
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 202,
+    "e": 375
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 361,
+    "e": 550
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 61,
+    "e": 124
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "s": 27,
+    "e": 154
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "s": 0,
+    "e": 39
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "s": 34,
+    "e": 95
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "s": 151,
+    "e": 236
+   },
+   {
+    "doc": "code/tool__lib__pushcheck.mjs",
+    "s": 0,
+    "e": 5
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 593,
+    "e": 759
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 1412,
+    "e": 1565
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 642,
+    "e": 663
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 174,
+    "e": 200
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 0,
+    "e": 184
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "s": 23,
+    "e": 45
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-c.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "s": 0,
+    "e": 24
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 0,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 189,
+    "e": 301
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 394,
+    "e": 478
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ready.test.mjs",
+    "s": 101,
+    "e": 217
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "s": 0,
+    "e": 58
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "s": 60,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "s": 0,
+    "e": 53
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 71,
+    "e": 136
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 81,
+    "e": 211
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 200,
+    "e": 225
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 534,
+    "e": 713
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 274,
+    "e": 298
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 236,
+    "e": 282
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 170,
+    "e": 277
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "s": 165,
+    "e": 169
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 108,
+    "e": 209
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 526,
+    "e": 549
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 0,
+    "e": 179
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 330,
+    "e": 467
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 225,
+    "e": 253
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "s": 0,
+    "e": 147
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 185,
+    "e": 385
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 62,
+    "e": 191
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "s": 265,
+    "e": 326
+   },
+   {
+    "doc": "code/tool__test__generated.test.mjs",
+    "s": 0,
+    "e": 105
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 536,
+    "e": 615
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 0,
+    "e": 61
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 895,
+    "e": 1045
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 41,
+    "e": 203
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 366,
+    "e": 534
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 82,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "s": 37,
+    "e": 96
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "s": 0,
+    "e": 3
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "s": 0,
+    "e": 156
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "s": 0,
+    "e": 103
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "s": 73,
+    "e": 283
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 91,
+    "e": 165
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 253,
+    "e": 274
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1344,
+    "e": 1385
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1351,
+    "e": 1408
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "s": 529,
+    "e": 592
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "s": 187,
+    "e": 373
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 168,
+    "e": 348
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "s": 0,
+    "e": 121
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 272,
+    "e": 334
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 465,
+    "e": 611
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 782418,
+ "lines": 7867,
+ "task": "wordtop",
+ "values": {
+  "code1": "Z7X-5505",
+  "code2": "M4A-3857",
+  "w_last": "bellwether",
+  "w_name": "fennimore",
+  "w_desk": "saltmarsh",
+  "name_a": "Dmitri Volkonsky",
+  "name_b": "Odette Fairweather",
+  "family": "gemstones",
+  "members": [
+   "amethysts",
+   "emeralds",
+   "pearls",
+   "zircons",
+   "sapphires",
+   "garnets",
+   "topazes",
+   "rubies",
+   "agates",
+   "opals"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.6758646049404918,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "file_index": 0,
+   "frac_actual": 0.0982,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/uevuj3/01-merge-waits-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref Z7X-5505",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.1988816009079935,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref Z7X-5505`.",
+   "probe": "# ref Z7X-5505",
+   "file_index": 32,
+   "frac_actual": 0.4717,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/uevuj3/33-audit-ledger.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed M4A-3857",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7624133136762212,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed M4A-3857`.",
+   "probe": "run closed M4A-3857",
+   "file_index": 63,
+   "frac_actual": 0.9038,
+   "line": 135,
+   "hits": 1,
+   "file": "reading2/uevuj3/64-layerflow.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.23801587536471588,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Dmitri Volkonsky`.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 11,
+   "frac_actual": 0.2328,
+   "line": 47,
+   "hits": 1,
+   "file": "reading2/uevuj3/12-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.1287124786258816,
+   "value": "reviewer: Odette Fairweather",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Dmitri Volkonsky is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 40,
+   "frac_actual": 0.1273,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/uevuj3/41-gateclass-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 17,
+   "frac": 0.17028580758045145,
+   "body": "Tally for Uller: 17 amethysts.",
+   "probe": "Tally for Uller: 17 amethysts.",
+   "file_index": 0,
+   "frac_actual": 0.1724,
+   "line": 42,
+   "hits": 1,
+   "file": "reading2/uevuj3/01-merge-waits-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "emeralds",
+   "n": 16,
+   "frac": 0.09380040950687657,
+   "body": "The Tamsin Row store took in 16 emeralds.",
+   "probe": "The Tamsin Row store took in 16 emeralds.",
+   "file_index": 17,
+   "frac_actual": 0.0906,
+   "line": 18,
+   "hits": 1,
+   "file": "reading2/uevuj3/18-util.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 13,
+   "frac": 0.7074811165708117,
+   "body": "Stane desk entered 13 pearls on the sheet.",
+   "probe": "Stane desk entered 13 pearls on the sheet.",
+   "file_index": 38,
+   "frac_actual": 0.7249,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/uevuj3/39-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "zircons",
+   "n": 18,
+   "frac": 0.7840328731681688,
+   "body": "Thorpe sent word of 18 zircons on hand.",
+   "probe": "Thorpe sent word of 18 zircons on hand.",
+   "file_index": 50,
+   "frac_actual": 0.7858,
+   "line": 133,
+   "hits": 1,
+   "file": "reading2/uevuj3/51-setup-test.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 64
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

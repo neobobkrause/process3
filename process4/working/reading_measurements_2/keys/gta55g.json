@@ -1,0 +1,317 @@
+{
+ "id": "gta55g",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 3,
+ "files": [
+  "reading2/gta55g/01-joined.md",
+  "reading2/gta55g/02-joined.mjs",
+  "reading2/gta55g/03-joined.mjs",
+  "reading2/gta55g/04-coordinator-findings-3-4nov.md",
+  "reading2/gta55g/05-joined.mjs",
+  "reading2/gta55g/06-joined.md",
+  "reading2/gta55g/07-joined.mjs",
+  "reading2/gta55g/08-audit-d-central.md"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 135,
+    "e": 220
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "s": 0,
+    "e": 96
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "s": 0,
+    "e": 49
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 0,
+    "e": 54
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 129,
+    "e": 282
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 0,
+    "e": 472
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "s": 108,
+    "e": 191
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "s": 0,
+    "e": 346
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 0,
+    "e": 231
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 0,
+    "e": 30
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 945,
+    "e": 1078
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 89,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "s": 0,
+    "e": 429
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "s": 0,
+    "e": 71
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 307,
+    "e": 352
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 0,
+    "e": 283
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "s": 241,
+    "e": 301
+   },
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "s": 0,
+    "e": 438
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 592,
+    "e": 822
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 66,
+    "e": 452
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 383483,
+ "lines": 3834,
+ "task": "rle",
+ "values": {
+  "code1": "A4M-8450",
+  "code2": "X7Y-4421",
+  "w_last": "pennant",
+  "w_name": "larkspur",
+  "w_desk": "kestrel",
+  "name_a": "Saoirse Kinsella",
+  "name_b": "Greta Lindqvist",
+  "family": "vegetables",
+  "members": [
+   "beets",
+   "onions",
+   "marrows",
+   "turnips",
+   "cabbages",
+   "parsnips",
+   "leeks",
+   "shallots",
+   "carrots",
+   "radishes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref A4M-8450",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5230362806583959,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref A4M-8450`.",
+   "probe": "# ref A4M-8450",
+   "file_index": 0,
+   "frac_actual": 0.0945,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/gta55g/01-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under pennant",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7474153444752507,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under pennant`.",
+   "probe": "-- filed under pennant",
+   "file_index": 4,
+   "frac_actual": 0.5073,
+   "line": 273,
+   "hits": 1,
+   "file": "reading2/gta55g/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "larkspur-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.462016240631945,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `larkspur-relay.md`, and under no other name.",
+   "probe": "larkspur-relay.md",
+   "file_index": 7,
+   "frac_actual": 0.9075,
+   "line": 365,
+   "hits": 1,
+   "file": "reading2/gta55g/08-audit-d-central.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.41552855181781545,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "file_index": 3,
+   "frac_actual": 0.4199,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/gta55g/04-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.33555629220274136,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "file_index": 7,
+   "frac_actual": 0.3547,
+   "line": 138,
+   "hits": 1,
+   "file": "reading2/gta55g/08-audit-d-central.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 13,
+   "frac": 0.7275003776468312,
+   "body": "A box of 13 beets came through Quay Nine.",
+   "probe": "A box of 13 beets came through Quay Nine.",
+   "file_index": 0,
+   "frac_actual": 0.7248,
+   "line": 257,
+   "hits": 1,
+   "file": "reading2/gta55g/01-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 12,
+   "frac": 0.9073668037784376,
+   "body": "Corrie desk entered 12 onions on the sheet.",
+   "probe": "Corrie desk entered 12 onions on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.8709,
+   "line": 571,
+   "hits": 1,
+   "file": "reading2/gta55g/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 15,
+   "frac": 0.11507716082130724,
+   "body": "15 marrows were logged at the Osk gate.",
+   "probe": "15 marrows were logged at the Osk gate.",
+   "file_index": 4,
+   "frac_actual": 0.114,
+   "line": 61,
+   "hits": 1,
+   "file": "reading2/gta55g/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 10,
+   "frac": 0.8567348826206804,
+   "body": "The Eyre store took in 10 turnips.",
+   "probe": "The Eyre store took in 10 turnips.",
+   "file_index": 6,
+   "frac_actual": 0.8865,
+   "line": 670,
+   "hits": 1,
+   "file": "reading2/gta55g/07-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 17,
+   "frac": 0.5749256132022259,
+   "body": "At Thorpe the clerk wrote down 17 cabbages.",
+   "probe": "At Thorpe the clerk wrote down 17 cabbages.",
+   "file_index": 7,
+   "frac_actual": 0.5837,
+   "line": 208,
+   "hits": 1,
+   "file": "reading2/gta55g/08-audit-d-central.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 67
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

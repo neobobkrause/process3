@@ -1,0 +1,155 @@
+{
+ "id": "rfmkkj",
+ "ladder": "single",
+ "size": 24000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "s": 973,
+   "e": 1037
+  }
+ ],
+ "files": [
+  "reading2/rfmkkj/log.md"
+ ],
+ "bytes": 23982,
+ "lines": 88,
+ "task": "minutes",
+ "values": {
+  "code1": "L3K-9422",
+  "code2": "R6Q-4869",
+  "w_last": "marlowe",
+  "w_name": "quillon",
+  "w_desk": "quarrystone",
+  "name_a": "Saoirse Kinsella",
+  "name_b": "Tobias Hallworth",
+  "family": "trees",
+  "members": [
+   "elms",
+   "cedars",
+   "alders",
+   "maples",
+   "oaks",
+   "beeches",
+   "pines",
+   "willows",
+   "larches",
+   "birches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref L3K-9422",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.05793230101683851,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref L3K-9422`.",
+   "probe": "# ref L3K-9422",
+   "frac_actual": 0.0689,
+   "line": 9,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under marlowe",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.45165292362591797,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under marlowe`.",
+   "probe": "-- filed under marlowe",
+   "frac_actual": 0.454,
+   "line": 45,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "quillon-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9279242456547436,
+   "body": "Every job must note: the job's handover note is saved under the file name `quillon-relay.md`, and under no other name.",
+   "probe": "quillon-relay.md",
+   "frac_actual": 0.9276,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.13502893461135865,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.1378,
+   "line": 17,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6934367065502895,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.7012,
+   "line": 62,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 7,
+   "frac": 0.18666779525421834,
+   "body": "At Rigg the clerk wrote down 7 elms.",
+   "probe": "At Rigg the clerk wrote down 7 elms.",
+   "frac_actual": 0.177,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 12,
+   "frac": 0.47966345778972164,
+   "body": "Received at Pell, 12 cedars.",
+   "probe": "Received at Pell, 12 cedars.",
+   "frac_actual": 0.481,
+   "line": 50,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 2,
+   "frac": 0.7388171911615895,
+   "body": "Tally for Varnel: 2 alders.",
+   "probe": "Tally for Varnel: 2 alders.",
+   "frac_actual": 0.7488,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/rfmkkj/log.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 21
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

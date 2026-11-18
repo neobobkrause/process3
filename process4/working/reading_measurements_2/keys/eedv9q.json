@@ -1,0 +1,167 @@
+{
+ "id": "eedv9q",
+ "ladder": "single",
+ "size": 96000,
+ "index": 4,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__evidence__canon_analysis.md",
+   "s": 8,
+   "e": 741
+  }
+ ],
+ "files": [
+  "reading2/eedv9q/design.md"
+ ],
+ "bytes": 94722,
+ "lines": 760,
+ "task": "wordtop",
+ "values": {
+  "code1": "U8Y-1866",
+  "code2": "H8Y-5825",
+  "w_last": "quillon",
+  "w_name": "alderney",
+  "w_desk": "thistledown",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Noor Al-Tamimi",
+  "family": "hand tools",
+  "members": [
+   "rasps",
+   "awls",
+   "chisels",
+   "handsaws",
+   "hammers",
+   "wrenches",
+   "trowels",
+   "pliers",
+   "mallets",
+   "spanners"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed H8Y-5825",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.046628936330753185,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed H8Y-5825`.",
+   "probe": "run closed H8Y-5825",
+   "frac_actual": 0.0429,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "alderney-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4827330282802743,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `alderney-relay.md`, and under no other name.",
+   "probe": "alderney-relay.md",
+   "frac_actual": 0.4901,
+   "line": 331,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: thistledown",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.911393904909572,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: thistledown`.",
+   "probe": "desk: thistledown",
+   "frac_actual": 0.921,
+   "line": 706,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.374885310095322,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "frac_actual": 0.408,
+   "line": 230,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.705975107223602,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.7032,
+   "line": 580,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 5,
+   "frac": 0.1685997256094442,
+   "body": "Varnel sent word of 5 rasps on hand.",
+   "probe": "Varnel sent word of 5 rasps on hand.",
+   "frac_actual": 0.0752,
+   "line": 65,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 9,
+   "frac": 0.4150731805277178,
+   "body": "At Osk the clerk wrote down 9 awls.",
+   "probe": "At Osk the clerk wrote down 9 awls.",
+   "frac_actual": 0.4114,
+   "line": 239,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 18,
+   "frac": 0.6896832517126699,
+   "body": "Received at Uller, 18 chisels.",
+   "probe": "Received at Uller, 18 chisels.",
+   "frac_actual": 0.6875,
+   "line": 568,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 2,
+   "frac": 0.8458942002608375,
+   "body": "2 handsaws were logged at the Rigg gate.",
+   "probe": "2 handsaws were logged at the Rigg gate.",
+   "frac_actual": 0.8633,
+   "line": 671,
+   "hits": 1,
+   "file": "reading2/eedv9q/design.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 34
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

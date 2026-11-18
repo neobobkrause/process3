@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/kkwcuk/01-record.mjs
+- reading2/kkwcuk/02-joined.mjs
+- reading2/kkwcuk/03-decisions-memo-d3.md
+- reading2/kkwcuk/04-joined.md
+- reading2/kkwcuk/05-coordinator-findings-3-4nov.md
+- reading2/kkwcuk/06-joined.mjs
+- reading2/kkwcuk/07-audit-a.md
+- reading2/kkwcuk/08-coordinator-findings-3-4nov.md
+- reading2/kkwcuk/09-joined.md
+- reading2/kkwcuk/10-joined.md
+- reading2/kkwcuk/11-roles.mjs
+- reading2/kkwcuk/12-p3.mjs
+- reading2/kkwcuk/13-wfyaml.mjs
+- reading2/kkwcuk/14-job-sync-test.mjs
+- reading2/kkwcuk/15-ledger-lines.md
+- reading2/kkwcuk/16-coordinator-findings-3-4nov.md
+- reading2/kkwcuk/17-notice.mjs
+- reading2/kkwcuk/18-trial-plan-facts.md
+- reading2/kkwcuk/19-audit-ledger.md
+- reading2/kkwcuk/20-setup.mjs
+- reading2/kkwcuk/21-point1-tranche-end.md
+- reading2/kkwcuk/22-readme.md
+- reading2/kkwcuk/23-attack-corruption.md
+- reading2/kkwcuk/24-joined.mjs
+- reading2/kkwcuk/25-foundations.md
+- reading2/kkwcuk/26-deploy-test.mjs
+- reading2/kkwcuk/27-layerflow.mjs
+- reading2/kkwcuk/28-joined.md
+- reading2/kkwcuk/29-layer-early-test.mjs
+- reading2/kkwcuk/30-state.mjs
+- reading2/kkwcuk/31-process4-five-points.md
+- reading2/kkwcuk/32-roundnext.mjs
+- reading2/kkwcuk/33-audit-b.md
+- reading2/kkwcuk/34-joined.mjs
+- reading2/kkwcuk/35-coordinator-findings-3-4nov.md
+- reading2/kkwcuk/36-ghshare.mjs
+- reading2/kkwcuk/37-round-next-test.mjs
+- reading2/kkwcuk/38-layerflow-test.mjs
+- reading2/kkwcuk/39-branches.mjs
+- reading2/kkwcuk/40-layerflow-test.mjs
+- reading2/kkwcuk/41-joined.mjs
+- reading2/kkwcuk/42-rerun-more-test.mjs
+- reading2/kkwcuk/43-joined.mjs
+- reading2/kkwcuk/44-process4-counterarguments.md
+- reading2/kkwcuk/45-ledger-lines.md
+- reading2/kkwcuk/46-process4-definition-appendix.md
+- reading2/kkwcuk/47-canon-analysis.md
+- reading2/kkwcuk/48-joined.md
+- reading2/kkwcuk/49-joined.mjs
+- reading2/kkwcuk/50-audit2-corruption.md
+- reading2/kkwcuk/51-joined.mjs
+- reading2/kkwcuk/52-merge-test.mjs
+- reading2/kkwcuk/53-foundations.md
+- reading2/kkwcuk/54-foundations.md
+- reading2/kkwcuk/55-readme.md
+- reading2/kkwcuk/56-coordinator-findings-3-4nov.md
+- reading2/kkwcuk/57-joined.mjs
+- reading2/kkwcuk/58-coordinator-findings-3-4nov.md
+- reading2/kkwcuk/59-roles-root-coordinator.md
+- reading2/kkwcuk/60-change-sample.md
+- reading2/kkwcuk/61-status.mjs
+- reading2/kkwcuk/62-gate-test.mjs
+- reading2/kkwcuk/63-joined.mjs
+- reading2/kkwcuk/64-joined.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/kkwcuk/dedupe.py. It reads lines from standard input. Blank lines are ignored. It prints each different line once, in the order of first appearance, followed by a space, the letter x and the number of times that line appears in the input. Example: the input lines `red`, `blue`, `red` give the output lines `red x2` then `blue x1`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/kkwcuk: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

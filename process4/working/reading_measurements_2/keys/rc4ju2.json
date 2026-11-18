@@ -1,0 +1,262 @@
+{
+ "id": "rc4ju2",
+ "ladder": "single",
+ "size": 384000,
+ "index": 2,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__00-index.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/CLAUDE.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__root.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__bob.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__root-prompt.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__02-tests.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/rulebooks__layer-branch.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/README.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/governing__foundations.md",
+   "lines": "1-62"
+  }
+ ],
+ "files": [
+  "reading2/rc4ju2/principles.md"
+ ],
+ "bytes": 383863,
+ "lines": 2101,
+ "task": "minutes",
+ "values": {
+  "code1": "G3R-6419",
+  "code2": "M3D-6695",
+  "w_last": "saltmarsh",
+  "w_name": "kestrel",
+  "w_desk": "sandalwood",
+  "name_a": "Mikko Rantanen",
+  "name_b": "Lucinda Abernathy",
+  "family": "birds",
+  "members": [
+   "larks",
+   "plovers",
+   "finches",
+   "gulls",
+   "robins",
+   "herons",
+   "wrens",
+   "swifts",
+   "cranes",
+   "owls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "kestrel-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0262165339573104,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `kestrel-relay.md`, and under no other name.",
+   "probe": "kestrel-relay.md",
+   "frac_actual": 0.0256,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: sandalwood",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4669870276288567,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: sandalwood`.",
+   "probe": "desk: sandalwood",
+   "frac_actual": 0.4683,
+   "line": 1534,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref G3R-6419",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9263424082140918,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref G3R-6419`.",
+   "probe": "# ref G3R-6419",
+   "frac_actual": 0.9265,
+   "line": 1951,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.27138535850817264,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Mikko Rantanen`.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.2715,
+   "line": 915,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.871126657596331,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Mikko Rantanen is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "frac_actual": 0.8941,
+   "line": 1897,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 10,
+   "frac": 0.17602785432056617,
+   "body": "At Marsh Lane the clerk wrote down 10 larks.",
+   "probe": "At Marsh Lane the clerk wrote down 10 larks.",
+   "frac_actual": 0.1761,
+   "line": 643,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 13,
+   "frac": 0.2530038618458983,
+   "body": "Received at Thorpe, 13 plovers.",
+   "probe": "Received at Thorpe, 13 plovers.",
+   "frac_actual": 0.2526,
+   "line": 856,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 11,
+   "frac": 0.45834286313665074,
+   "body": "A box of 11 finches came through Osk.",
+   "probe": "A box of 11 finches came through Osk.",
+   "frac_actual": 0.4586,
+   "line": 1508,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 14,
+   "frac": 0.5655981782985867,
+   "body": "The Brae store took in 14 gulls.",
+   "probe": "The Brae store took in 14 gulls.",
+   "frac_actual": 0.5653,
+   "line": 1712,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 19,
+   "frac": 0.7055224501812856,
+   "body": "Tally for Corrie: 19 robins.",
+   "probe": "Tally for Corrie: 19 robins.",
+   "frac_actual": 0.6382,
+   "line": 1828,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "herons",
+   "n": 4,
+   "frac": 0.9393168707781735,
+   "body": "Uller sent word of 4 herons on hand.",
+   "probe": "Uller sent word of 4 herons on hand.",
+   "frac_actual": 0.94,
+   "line": 1986,
+   "hits": 1,
+   "file": "reading2/rc4ju2/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 71
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

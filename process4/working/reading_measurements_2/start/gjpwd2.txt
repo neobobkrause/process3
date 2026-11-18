@@ -1,0 +1,27 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/gjpwd2/01-joined.mjs
+- reading2/gjpwd2/02-coordinator-findings-3-4nov.md
+- reading2/gjpwd2/03-assessment-doc.md
+- reading2/gjpwd2/04-coordinator-findings-3-4nov.md
+- reading2/gjpwd2/05-joined.mjs
+- reading2/gjpwd2/06-joined.md
+- reading2/gjpwd2/07-joined.mjs
+- reading2/gjpwd2/08-joined.mjs
+- reading2/gjpwd2/09-permissions-inventory.md
+- reading2/gjpwd2/10-joined.mjs
+- reading2/gjpwd2/11-coordinator-findings-3-4nov.md
+- reading2/gjpwd2/12-joined.md
+- reading2/gjpwd2/13-coordinator-findings-3-4nov.md
+- reading2/gjpwd2/14-joined.md
+- reading2/gjpwd2/15-joined.md
+- reading2/gjpwd2/16-point5-288-lines.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/gjpwd2/minutes.py. It reads lines from standard input, each a duration written as hours and minutes in the forms `1h30m`, `45m` or `2h`. Blank lines are ignored. For each line it prints the duration in whole minutes, and after the last it prints `total N`, where N is the sum. Example: the input lines `1h30m`, `45m`, `2h` give the output lines `90`, `45`, `120`, `total 255`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/gjpwd2: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

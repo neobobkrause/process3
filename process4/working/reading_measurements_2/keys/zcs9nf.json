@@ -1,0 +1,211 @@
+{
+ "id": "zcs9nf",
+ "ladder": "start",
+ "size": 131072,
+ "index": 1,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/setup__DEVELOPER.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__00-index.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__02-tests.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "lines": "1-282"
+  }
+ ],
+ "files": [],
+ "bytes": 130449,
+ "lines": 1112,
+ "task": "merge",
+ "values": {
+  "code1": "V8J-2346",
+  "code2": "B9P-9674",
+  "w_last": "fennimore",
+  "w_name": "juniper",
+  "w_desk": "kestrel",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Calum Drysdale",
+  "family": "fruit",
+  "members": [
+   "pears",
+   "peaches",
+   "plums",
+   "limes",
+   "cherries",
+   "figs",
+   "mangoes",
+   "apricots",
+   "quinces",
+   "lemons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "juniper-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04850142626020597,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `juniper-relay.md`, and under no other name.",
+   "probe": "juniper-relay.md",
+   "frac_actual": 0.0475,
+   "line": 61,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under fennimore",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5480192404673871,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
+   "probe": "-- filed under fennimore",
+   "frac_actual": 0.5483,
+   "line": 571,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: kestrel",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9066795185509349,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: kestrel`.",
+   "probe": "desk: kestrel",
+   "frac_actual": 0.9059,
+   "line": 1009,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.31215344535423006,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.314,
+   "line": 370,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7889710402234438,
+   "value": "reviewer: Calum Drysdale",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.7884,
+   "line": 890,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 13,
+   "frac": 0.1337669549604663,
+   "body": "The Brae store took in 13 pears.",
+   "probe": "The Brae store took in 13 pears.",
+   "frac_actual": 0.1339,
+   "line": 168,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 18,
+   "frac": 0.22695565617309216,
+   "body": "Tally for Thorpe: 18 peaches.",
+   "probe": "Tally for Thorpe: 18 peaches.",
+   "frac_actual": 0.2273,
+   "line": 269,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 17,
+   "frac": 0.4596974676979484,
+   "body": "A box of 17 plums came through Lund.",
+   "probe": "A box of 17 plums came through Lund.",
+   "frac_actual": 0.4644,
+   "line": 479,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 15,
+   "frac": 0.5144070086137176,
+   "body": "Dunn sent word of 15 limes on hand.",
+   "probe": "Dunn sent word of 15 limes on hand.",
+   "frac_actual": 0.5145,
+   "line": 531,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 14,
+   "frac": 0.7348985614847626,
+   "body": "Received at Corrie, 14 cherries.",
+   "probe": "Received at Corrie, 14 cherries.",
+   "frac_actual": 0.7346,
+   "line": 844,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 16,
+   "frac": 0.9613080219964518,
+   "body": "16 figs were logged at the Pell gate.",
+   "probe": "16 figs were logged at the Pell gate.",
+   "frac_actual": 0.9602,
+   "line": 1053,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 93
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

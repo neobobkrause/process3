@@ -1,0 +1,210 @@
+{
+ "id": "vfwsuk",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 5,
+ "files": [
+  "reading2/vfwsuk/01-joined.mjs",
+  "reading2/vfwsuk/02-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 80,
+    "e": 584
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 0,
+    "e": 157
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1869,
+    "e": 2244
+   },
+   {
+    "doc": "code/tool__lib__carry.mjs",
+    "s": 0,
+    "e": 57
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "s": 0,
+    "e": 120
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "s": 0,
+    "e": 14
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 96103,
+ "lines": 1276,
+ "task": "minutes",
+ "values": {
+  "code1": "K9F-9447",
+  "code2": "X4Q-6470",
+  "w_last": "fennimore",
+  "w_name": "hollowell",
+  "w_desk": "elderwood",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Kwabena Asantewaa",
+  "family": "trees",
+  "members": [
+   "willows",
+   "maples",
+   "pines",
+   "cedars",
+   "elms",
+   "beeches",
+   "alders",
+   "birches",
+   "oaks",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref K9F-9447",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.4834698105836792,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref K9F-9447`.",
+   "probe": "# ref K9F-9447",
+   "file_index": 0,
+   "frac_actual": 0.0885,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/vfwsuk/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under fennimore",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.022497502706903802,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under fennimore`.",
+   "probe": "-- filed under fennimore",
+   "file_index": 1,
+   "frac_actual": 0.45,
+   "line": 253,
+   "hits": 1,
+   "file": "reading2/vfwsuk/02-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: elderwood",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.802605680416827,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: elderwood`.",
+   "probe": "desk: elderwood",
+   "file_index": 1,
+   "frac_actual": 0.9769,
+   "line": 579,
+   "hits": 1,
+   "file": "reading2/vfwsuk/02-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7449312297585935,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "file_index": 0,
+   "frac_actual": 0.7481,
+   "line": 520,
+   "hits": 1,
+   "file": "reading2/vfwsuk/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4587533079021083,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "file_index": 1,
+   "frac_actual": 0.3522,
+   "line": 195,
+   "hits": 1,
+   "file": "reading2/vfwsuk/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "willows",
+   "n": 2,
+   "frac": 0.20676192921985875,
+   "body": "Brae desk entered 2 willows on the sheet.",
+   "probe": "Brae desk entered 2 willows on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.2065,
+   "line": 134,
+   "hits": 1,
+   "file": "reading2/vfwsuk/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 9,
+   "frac": 0.31668143639270474,
+   "body": "Tally for Osk: 9 maples.",
+   "probe": "Tally for Osk: 9 maples.",
+   "file_index": 0,
+   "frac_actual": 0.3141,
+   "line": 210,
+   "hits": 1,
+   "file": "reading2/vfwsuk/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 5,
+   "frac": 0.631281316687094,
+   "body": "5 pines were logged at the Yarm gate.",
+   "probe": "5 pines were logged at the Yarm gate.",
+   "file_index": 1,
+   "frac_actual": 0.6138,
+   "line": 333,
+   "hits": 1,
+   "file": "reading2/vfwsuk/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 14,
+   "frac": 0.19246359292136483,
+   "body": "Received at Pell, 14 cedars.",
+   "probe": "Received at Pell, 14 cedars.",
+   "file_index": 1,
+   "frac_actual": 0.1175,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/vfwsuk/02-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 30
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

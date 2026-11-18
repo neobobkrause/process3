@@ -1,0 +1,350 @@
+{
+ "id": "pxewfk",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 1,
+ "files": [
+  "reading2/pxewfk/01-joined.mjs",
+  "reading2/pxewfk/02-joined.mjs",
+  "reading2/pxewfk/03-joined.md",
+  "reading2/pxewfk/04-joined.mjs",
+  "reading2/pxewfk/05-coordinator-findings-3-4nov.md",
+  "reading2/pxewfk/06-coordinator-findings-3-4nov.md",
+  "reading2/pxewfk/07-joined.mjs",
+  "reading2/pxewfk/08-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "code",
+  "logs",
+  "logs",
+  "code",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 123,
+    "e": 406
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 0,
+    "e": 234
+   },
+   {
+    "doc": "code/tool__test__rounds.test.mjs",
+    "s": 0,
+    "e": 49
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 0,
+    "e": 202
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "s": 0,
+    "e": 326
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "s": 0,
+    "e": 55
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "s": 0,
+    "e": 58
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 27,
+    "e": 306
+   },
+   {
+    "doc": "design/process4__working__audit2_common.md",
+    "s": 0,
+    "e": 44
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "s": 0,
+    "e": 131
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 630,
+    "e": 763
+   },
+   {
+    "doc": "code/tool__test__setup-speed.test.mjs",
+    "s": 0,
+    "e": 181
+   },
+   {
+    "doc": "code/tool__lib__measures.mjs",
+    "s": 0,
+    "e": 115
+   },
+   {
+    "doc": "code/tool__lib__basered.mjs",
+    "s": 0,
+    "e": 287
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 809,
+    "e": 945
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ghaudit.mjs",
+    "s": 129,
+    "e": 137
+   },
+   {
+    "doc": "code/tool__test__sweep-sessions.test.mjs",
+    "s": 0,
+    "e": 139
+   },
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 0,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "s": 0,
+    "e": 201
+   },
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "s": 0,
+    "e": 108
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "s": 69,
+    "e": 91
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 0,
+    "e": 345
+   },
+   {
+    "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+    "s": 0,
+    "e": 5
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 386321,
+ "lines": 3739,
+ "task": "merge",
+ "values": {
+  "code1": "Y6F-7328",
+  "code2": "Z4R-3773",
+  "w_last": "kestrel",
+  "w_name": "foxglove",
+  "w_desk": "cinnabar",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Lucinda Abernathy",
+  "family": "vegetables",
+  "members": [
+   "carrots",
+   "turnips",
+   "leeks",
+   "parsnips",
+   "shallots",
+   "cabbages",
+   "onions",
+   "beets",
+   "radishes",
+   "marrows"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "foxglove-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.8922373044436703,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `foxglove-relay.md`, and under no other name.",
+   "probe": "foxglove-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.075,
+   "line": 49,
+   "hits": 1,
+   "file": "reading2/pxewfk/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: cinnabar",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4344107505488274,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: cinnabar`.",
+   "probe": "desk: cinnabar",
+   "file_index": 4,
+   "frac_actual": 0.4596,
+   "line": 71,
+   "hits": 1,
+   "file": "reading2/pxewfk/05-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Z4R-3773",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.37919159158439497,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed Z4R-3773`.",
+   "probe": "run closed Z4R-3773",
+   "file_index": 7,
+   "frac_actual": 0.9016,
+   "line": 369,
+   "hits": 1,
+   "file": "reading2/pxewfk/08-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.4272553499633128,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 3,
+   "frac_actual": 0.4273,
+   "line": 328,
+   "hits": 1,
+   "file": "reading2/pxewfk/04-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8922199493481962,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Lucinda Abernathy`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 7,
+   "frac_actual": 0.8905,
+   "line": 358,
+   "hits": 1,
+   "file": "reading2/pxewfk/08-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 12,
+   "frac": 0.7982629676781274,
+   "body": "Brae sent word of 12 carrots on hand.",
+   "probe": "Brae sent word of 12 carrots on hand.",
+   "file_index": 0,
+   "frac_actual": 0.8286,
+   "line": 489,
+   "hits": 1,
+   "file": "reading2/pxewfk/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "turnips",
+   "n": 7,
+   "frac": 0.11869348573381265,
+   "body": "At Pell the clerk wrote down 7 turnips.",
+   "probe": "At Pell the clerk wrote down 7 turnips.",
+   "file_index": 1,
+   "frac_actual": 0.115,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/pxewfk/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 8,
+   "frac": 0.08352530253697857,
+   "body": "Received at Marsh Lane, 8 leeks.",
+   "probe": "Received at Marsh Lane, 8 leeks.",
+   "file_index": 3,
+   "frac_actual": 0.0809,
+   "line": 52,
+   "hits": 1,
+   "file": "reading2/pxewfk/04-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "parsnips",
+   "n": 14,
+   "frac": 0.6373748960796869,
+   "body": "A box of 14 parsnips came through Wick.",
+   "probe": "A box of 14 parsnips came through Wick.",
+   "file_index": 5,
+   "frac_actual": 0.6334,
+   "line": 79,
+   "hits": 1,
+   "file": "reading2/pxewfk/06-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 5,
+   "frac": 0.07157766742601632,
+   "body": "5 shallots were logged at the Thorpe gate.",
+   "probe": "5 shallots were logged at the Thorpe gate.",
+   "file_index": 6,
+   "frac_actual": 0.0782,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/pxewfk/07-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 11,
+   "frac": 0.7997022631538565,
+   "body": "Eyre desk entered 11 cabbages on the sheet.",
+   "probe": "Eyre desk entered 11 cabbages on the sheet.",
+   "file_index": 7,
+   "frac_actual": 0.802,
+   "line": 330,
+   "hits": 1,
+   "file": "reading2/pxewfk/08-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 57
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

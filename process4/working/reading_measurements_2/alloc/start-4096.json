@@ -1,0 +1,112 @@
+{
+ "0": {
+  "id": "mtax8d",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "e": 27,
+    "s": 6
+   }
+  ]
+ },
+ "1": {
+  "id": "wk6db6",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 67,
+    "s": 52
+   }
+  ]
+ },
+ "2": {
+  "id": "vxfdu4",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "e": 51,
+    "s": 30
+   }
+  ]
+ },
+ "3": {
+  "id": "zfakyj",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/rulebooks__root.md",
+    "e": 20,
+    "s": 11
+   }
+  ]
+ },
+ "4": {
+  "id": "zj5kmr",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "e": 18,
+    "s": 9
+   }
+  ]
+ },
+ "5": {
+  "id": "ptbhrj",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "e": 86,
+    "s": 62
+   }
+  ]
+ },
+ "6": {
+  "id": "get7g8",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 191,
+    "s": 178
+   }
+  ]
+ },
+ "7": {
+  "id": "de3tex",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "e": 25,
+    "s": 2
+   }
+  ]
+ },
+ "8": {
+  "id": "tnhyp2",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "e": 83,
+    "s": 60
+   }
+  ]
+ },
+ "9": {
+  "id": "fx9829",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 164,
+    "s": 148
+   }
+  ]
+ }
+}

@@ -1,0 +1,4692 @@
+{
+ "0": {
+  "id": "md9b33",
+  "members": [
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "e": 112,
+    "s": 42
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "e": 87,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "e": 236,
+    "s": 59
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 340,
+    "s": 323
+   },
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "e": 160,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+    "e": 186,
+    "s": 83
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+    "e": 29,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "e": 14,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 465,
+    "s": 319
+   },
+   {
+    "doc": "code/tool__lib__layerbase.mjs",
+    "e": 135,
+    "s": 133
+   },
+   {
+    "doc": "code/tool__test__audit-restores.test.mjs",
+    "e": 63,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__ghaudit.mjs",
+    "e": 88,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "e": 231,
+    "s": 60
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 377,
+    "s": 295
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 113,
+    "s": 89
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 639,
+    "s": 565
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 541,
+    "s": 366
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "e": 54,
+    "s": 10
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "e": 9,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 255,
+    "s": 190
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "e": 872,
+    "s": 847
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "e": 425,
+    "s": 347
+   },
+   {
+    "doc": "code/tool__test__rulebooks.test.mjs",
+    "e": 74,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1098,
+    "s": 1070
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "e": 103,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 586,
+    "s": 438
+   },
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "e": 169,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "e": 457,
+    "s": 375
+   },
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "e": 73,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "e": 344,
+    "s": 266
+   },
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "e": 47,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 198,
+    "s": 136
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "e": 250,
+    "s": 116
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 180,
+    "s": 118
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "e": 195,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "e": 112,
+    "s": 90
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "e": 30,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+    "e": 47,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "e": 11,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "e": 139,
+    "s": 33
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "e": 36,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "e": 157,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 163,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1205,
+    "s": 1176
+   },
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "e": 154,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "e": 195,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "e": 225,
+    "s": 7
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 821,
+    "s": 690
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 691,
+    "s": 663
+   },
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "e": 74,
+    "s": 72
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "e": 398,
+    "s": 320
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "e": 91,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "e": 89,
+    "s": 86
+   },
+   {
+    "doc": "code/tool__test__prompt-caps.test.mjs",
+    "e": 98,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "e": 92,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "e": 248,
+    "s": 214
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "e": 277,
+    "s": 241
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "e": 120,
+    "s": 103
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 618,
+    "s": 581
+   },
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "e": 162,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "e": 66,
+    "s": 19
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "e": 265,
+    "s": 173
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "e": 110,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 361,
+    "s": 305
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 936,
+    "s": 759
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "e": 68,
+    "s": 42
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "e": 21,
+    "s": 0
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "e": 4,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "e": 189,
+    "s": 101
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "e": 280,
+    "s": 205
+   },
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "e": 253,
+    "s": 160
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 328,
+    "s": 174
+   },
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "e": 125,
+    "s": 0
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 120,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 490,
+    "s": 450
+   },
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "e": 68,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 410,
+    "s": 361
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "e": 305,
+    "s": 271
+   },
+   {
+    "doc": "code/tool__lib__exports.mjs",
+    "e": 381,
+    "s": 225
+   },
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "e": 12,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "e": 96,
+    "s": 62
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "e": 58,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 366,
+    "s": 198
+   },
+   {
+    "doc": "code/tool__lib__release.mjs",
+    "e": 147,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 292,
+    "s": 246
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "e": 52,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 350,
+    "s": 251
+   },
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "e": 122,
+    "s": 61
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "e": 28,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "e": 7,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "e": 340,
+    "s": 169
+   },
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "e": 129,
+    "s": 68
+   },
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "e": 253,
+    "s": 160
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "e": 176,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 305,
+    "s": 242
+   },
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "e": 185,
+    "s": 47
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 289,
+    "s": 190
+   }
+  ]
+ },
+ "1": {
+  "id": "uwttd4",
+  "members": [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "e": 330,
+    "s": 176
+   },
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "e": 204,
+    "s": 190
+   },
+   {
+    "doc": "code/tool__lib__carry.mjs",
+    "e": 57,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "e": 109,
+    "s": 0
+   },
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "e": 200,
+    "s": 148
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "e": 67,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+    "e": 26,
+    "s": 22
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov.md",
+    "e": 14,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+    "e": 83,
+    "s": 0
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 76,
+    "s": 70
+   },
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "e": 373,
+    "s": 204
+   },
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "e": 1,
+    "s": 0
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 112,
+    "s": 89
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "e": 69,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 138,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "e": 263,
+    "s": 145
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 575,
+    "s": 567
+   },
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "e": 299,
+    "s": 157
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 1093,
+    "s": 1091
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "e": 350,
+    "s": 266
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 82,
+    "s": 76
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 267,
+    "s": 227
+   },
+   {
+    "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+    "e": 20,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "e": 181,
+    "s": 70
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "e": 389,
+    "s": 376
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "e": 779,
+    "s": 601
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "e": 589,
+    "s": 519
+   },
+   {
+    "doc": "code/tool__lib__suite.mjs",
+    "e": 93,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1268,
+    "s": 1236
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 530,
+    "s": 348
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 276,
+    "s": 261
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_map.md",
+    "e": 166,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "e": 189,
+    "s": 86
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "e": 271,
+    "s": 73
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 526,
+    "s": 443
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 782,
+    "s": 741
+   },
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "e": 228,
+    "s": 125
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 684,
+    "s": 519
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "e": 254,
+    "s": 236
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+    "e": 24,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "e": 37,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+    "e": 11,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "e": 246,
+    "s": 105
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "e": 41,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__tranche.test.mjs",
+    "e": 176,
+    "s": 59
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "e": 59,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "e": 159,
+    "s": 103
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-b.md",
+    "e": 32,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "e": 26,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 259,
+    "s": 182
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "e": 89,
+    "s": 29
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "e": 78,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 381,
+    "s": 221
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "e": 113,
+    "s": 58
+   },
+   {
+    "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+    "e": 26,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 348,
+    "s": 186
+   },
+   {
+    "doc": "design/notes__restart-speed-options.md",
+    "e": 51,
+    "s": 32
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "e": 232,
+    "s": 189
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 576,
+    "s": 553
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 323,
+    "s": 298
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 140,
+    "s": 113
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 940,
+    "s": 791
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "e": 133,
+    "s": 69
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "e": 117,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "e": 67,
+    "s": 34
+   },
+   {
+    "doc": "design/notes__velocity-audit-9nov.md",
+    "e": 62,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "e": 198,
+    "s": 193
+   },
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "e": 125,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 2096,
+    "s": 1963
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "e": 162,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 318,
+    "s": 255
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "e": 148,
+    "s": 35
+   },
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "e": 33,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__05-misc.txt",
+    "e": 269,
+    "s": 78
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "e": 29,
+    "s": 0
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 411,
+    "s": 298
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "e": 281,
+    "s": 147
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "e": 146,
+    "s": 87
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 827,
+    "s": 752
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "e": 225,
+    "s": 186
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 424,
+    "s": 350
+   },
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "e": 160,
+    "s": 94
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 88,
+    "s": 47
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 520,
+    "s": 490
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 181,
+    "s": 112
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 168,
+    "s": 119
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "e": 161,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 1625,
+    "s": 1493
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "e": 108,
+    "s": 69
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "e": 340,
+    "s": 337
+   },
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "e": 298,
+    "s": 190
+   },
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "e": 49,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "e": 168,
+    "s": 135
+   },
+   {
+    "doc": "code/tool__test__testdiff.test.mjs",
+    "e": 104,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "e": 34,
+    "s": 0
+   }
+  ]
+ },
+ "2": {
+  "id": "eq69xq",
+  "members": [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 556,
+    "s": 469
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 536,
+    "s": 381
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "e": 189,
+    "s": 91
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 567,
+    "s": 492
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "e": 609,
+    "s": 464
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 174,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "e": 255,
+    "s": 115
+   },
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "e": 303,
+    "s": 154
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 96,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 770,
+    "s": 611
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 970,
+    "s": 935
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "e": 33,
+    "s": 4
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "e": 22,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 246,
+    "s": 244
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 204,
+    "s": 168
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 185,
+    "s": 89
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 1351,
+    "s": 1218
+   },
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "e": 79,
+    "s": 37
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "e": 628,
+    "s": 508
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "e": 10,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 838,
+    "s": 782
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "e": 93,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1098,
+    "s": 940
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "e": 612,
+    "s": 441
+   },
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "e": 177,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "e": 202,
+    "s": 175
+   },
+   {
+    "doc": "code/tool__test__github.test.mjs",
+    "e": 65,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "e": 72,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "e": 505,
+    "s": 389
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "e": 245,
+    "s": 207
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "e": 159,
+    "s": 118
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "e": 169,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layout.test.mjs",
+    "e": 193,
+    "s": 158
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 992,
+    "s": 863
+   },
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "e": 184,
+    "s": 142
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "e": 106,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "e": 19,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1070,
+    "s": 1039
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 1082,
+    "s": 971
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "e": 27,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "e": 143,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 690,
+    "s": 556
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+    "e": 31,
+    "s": 3
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_fresh_context_and_process_self_development.md",
+    "e": 20,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov.md",
+    "e": 30,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "e": 6,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "e": 186,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "e": 304,
+    "s": 141
+   },
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "e": 500,
+    "s": 346
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 115,
+    "s": 76
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "e": 21,
+    "s": 3
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "e": 23,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 238,
+    "s": 189
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "e": 97,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 182,
+    "s": 92
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 554,
+    "s": 520
+   },
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "e": 341,
+    "s": 215
+   },
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "e": 70,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 452,
+    "s": 326
+   },
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "e": 58,
+    "s": 42
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "e": 66,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "e": 381,
+    "s": 195
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 189,
+    "s": 145
+   },
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "e": 206,
+    "s": 76
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "e": 55,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1560,
+    "s": 1400
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "e": 286,
+    "s": 265
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "e": 286,
+    "s": 182
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "e": 367,
+    "s": 339
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1176,
+    "s": 1150
+   },
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "e": 280,
+    "s": 221
+   },
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "e": 105,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "e": 327,
+    "s": 163
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 295,
+    "s": 224
+   },
+   {
+    "doc": "requirements/governing__ledger-map-proposed-changes.md",
+    "e": 22,
+    "s": 1
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1652,
+    "s": 1565
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 469,
+    "s": 373
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 242,
+    "s": 191
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "e": 736,
+    "s": 550
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2057,
+    "s": 1929
+   },
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "e": 80,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "e": 301,
+    "s": 179
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 950,
+    "s": 821
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 59,
+    "s": 50
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "e": 73,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 382,
+    "s": 335
+   }
+  ]
+ },
+ "3": {
+  "id": "uevuj3",
+  "members": [
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "e": 190,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 76,
+    "s": 46
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "e": 419,
+    "s": 406
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "e": 197,
+    "s": 117
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 989,
+    "s": 950
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 438,
+    "s": 295
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "e": 54,
+    "s": 0
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 195,
+    "s": 122
+   },
+   {
+    "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+    "e": 9,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1437,
+    "s": 1268
+   },
+   {
+    "doc": "requirements/DECISIONS.md",
+    "e": 61,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 685,
+    "s": 633
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "e": 283,
+    "s": 211
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "e": 242,
+    "s": 31
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 251,
+    "s": 174
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "e": 55,
+    "s": 39
+   },
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "e": 175,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "e": 281,
+    "s": 274
+   },
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 209,
+    "s": 126
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "e": 524,
+    "s": 348
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "e": 517,
+    "s": 479
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "e": 136,
+    "s": 70
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "e": 384,
+    "s": 274
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "e": 375,
+    "s": 202
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "e": 550,
+    "s": 361
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 124,
+    "s": 61
+   },
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "e": 154,
+    "s": 27
+   },
+   {
+    "doc": "code/tool__test__developer-steps.mjs",
+    "e": 39,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "e": 95,
+    "s": 34
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "e": 236,
+    "s": 151
+   },
+   {
+    "doc": "code/tool__lib__pushcheck.mjs",
+    "e": 5,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 759,
+    "s": 593
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1565,
+    "s": 1412
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 663,
+    "s": 642
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 200,
+    "s": 174
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "e": 184,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov.md",
+    "e": 45,
+    "s": 23
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-c.md",
+    "e": 30,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "e": 24,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "e": 89,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "e": 301,
+    "s": 189
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 478,
+    "s": 394
+   },
+   {
+    "doc": "code/tool__test__ready.test.mjs",
+    "e": 217,
+    "s": 101
+   },
+   {
+    "doc": "code/tool__lib__ready.mjs",
+    "e": 58,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "e": 164,
+    "s": 60
+   },
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "e": 53,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 136,
+    "s": 71
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "e": 211,
+    "s": 81
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 225,
+    "s": 200
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "e": 713,
+    "s": 534
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 298,
+    "s": 274
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "e": 282,
+    "s": 236
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "e": 277,
+    "s": 170
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "e": 169,
+    "s": 165
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "e": 209,
+    "s": 108
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 549,
+    "s": 526
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "e": 179,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "e": 467,
+    "s": 330
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 253,
+    "s": 225
+   },
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "e": 147,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 385,
+    "s": 185
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "e": 191,
+    "s": 62
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "e": 326,
+    "s": 265
+   },
+   {
+    "doc": "code/tool__test__generated.test.mjs",
+    "e": 105,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 615,
+    "s": 536
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 61,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 1045,
+    "s": 895
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "e": 203,
+    "s": 41
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "e": 534,
+    "s": 366
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 89,
+    "s": 82
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "e": 96,
+    "s": 37
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-b.md",
+    "e": 3,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "e": 156,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "e": 103,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "e": 283,
+    "s": 73
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "e": 165,
+    "s": 91
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 274,
+    "s": 253
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 1385,
+    "s": 1344
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 1408,
+    "s": 1351
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "e": 592,
+    "s": 529
+   },
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "e": 373,
+    "s": 187
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "e": 348,
+    "s": 168
+   },
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "e": 121,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 334,
+    "s": 272
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 611,
+    "s": 465
+   }
+  ]
+ },
+ "4": {
+  "id": "uxxqv8",
+  "members": [
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "e": 92,
+    "s": 10
+   },
+   {
+    "doc": "code/tool__test__ready.test.mjs",
+    "e": 101,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 863,
+    "s": 678
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 394,
+    "s": 263
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "e": 369,
+    "s": 256
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1412,
+    "s": 1254
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 493,
+    "s": 466
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "e": 107,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 741,
+    "s": 686
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "e": 34,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "e": 434,
+    "s": 350
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "e": 335,
+    "s": 225
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1474,
+    "s": 1437
+   },
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 536,
+    "s": 472
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1103,
+    "s": 936
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "e": 178,
+    "s": 125
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "e": 791,
+    "s": 725
+   },
+   {
+    "doc": "code/tool__test__lane.test.mjs",
+    "e": 130,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "e": 157,
+    "s": 53
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "e": 60,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "e": 262,
+    "s": 165
+   },
+   {
+    "doc": "code/tool__lib__pushcheck.mjs",
+    "e": 58,
+    "s": 5
+   },
+   {
+    "doc": "code/tool__test__cap.test.mjs",
+    "e": 116,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "e": 508,
+    "s": 347
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 89,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "e": 204,
+    "s": 85
+   },
+   {
+    "doc": "code/tool__test__sweep-sessions.test.mjs",
+    "e": 25,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "e": 153,
+    "s": 71
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 79,
+    "s": 0
+   },
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "e": 23,
+    "s": 13
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "e": 85,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 30,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "e": 295,
+    "s": 145
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2522,
+    "s": 2365
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "e": 957,
+    "s": 779
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "e": 70,
+    "s": 66
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "e": 30,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "e": 54,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "e": 46,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__sweep-sessions.test.mjs",
+    "e": 139,
+    "s": 25
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "e": 36,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "e": 215,
+    "s": 160
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "e": 377,
+    "s": 276
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 233,
+    "s": 107
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "e": 91,
+    "s": 39
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "e": 97,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "e": 208,
+    "s": 110
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "e": 48,
+    "s": 17
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-c.md",
+    "e": 36,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "e": 31,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "e": 183,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-b.md",
+    "e": 30,
+    "s": 6
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "e": 37,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 844,
+    "s": 684
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 190,
+    "s": 85
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "e": 365,
+    "s": 306
+   },
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "e": 86,
+    "s": 0
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "e": 131,
+    "s": 97
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+    "e": 100,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "e": 0,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "e": 88,
+    "s": 44
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 1929,
+    "s": 1777
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 486,
+    "s": 410
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "e": 329,
+    "s": 245
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "e": 306,
+    "s": 263
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "e": 101,
+    "s": 67
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "e": 65,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "e": 39,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 47,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "e": 409,
+    "s": 331
+   },
+   {
+    "doc": "code/tool__test__gate-speed.test.mjs",
+    "e": 237,
+    "s": 175
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1557,
+    "s": 1474
+   },
+   {
+    "doc": "code/tool__lib__fail-reporter.mjs",
+    "e": 37,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "e": 575,
+    "s": 524
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 1777,
+    "s": 1625
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 191,
+    "s": 124
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "e": 151,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 593,
+    "s": 385
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2198,
+    "s": 2057
+   },
+   {
+    "doc": "code/tool__lib__admit.mjs",
+    "e": 130,
+    "s": 28
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "e": 84,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 358,
+    "s": 340
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 145,
+    "s": 90
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "e": 141,
+    "s": 118
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 633,
+    "s": 589
+   },
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "e": 232,
+    "s": 226
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "e": 124,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "e": 205,
+    "s": 151
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 752,
+    "s": 598
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "e": 147,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "e": 203,
+    "s": 150
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "e": 108,
+    "s": 7
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "e": 65,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "e": 359,
+    "s": 170
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2365,
+    "s": 2198
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 128,
+    "s": 0
+   }
+  ]
+ },
+ "5": {
+  "id": "au6pvf",
+  "members": [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "e": 220,
+    "s": 175
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "e": 400,
+    "s": 362
+   },
+   {
+    "doc": "design/notes__restart-speed-options.md",
+    "e": 32,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "e": 160,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "e": 92,
+    "s": 65
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "e": 573,
+    "s": 463
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "e": 213,
+    "s": 194
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 610,
+    "s": 455
+   },
+   {
+    "doc": "code/tool__lib__measures.mjs",
+    "e": 115,
+    "s": 65
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "e": 104,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "e": 151,
+    "s": 136
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 407,
+    "s": 377
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "e": 130,
+    "s": 97
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "e": 119,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 271,
+    "s": 139
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "e": 266,
+    "s": 191
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 498,
+    "s": 317
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "e": 398,
+    "s": 281
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 1337,
+    "s": 1187
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 610,
+    "s": 549
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "e": 21,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 686,
+    "s": 685
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "e": 193,
+    "s": 133
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "e": 492,
+    "s": 328
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "e": 175,
+    "s": 37
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1236,
+    "s": 1205
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 282,
+    "s": 198
+   },
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "e": 207,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 390,
+    "s": 358
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "e": 27,
+    "s": 0
+   },
+   {
+    "doc": "design/notes__defect-sweep-4nov.md",
+    "e": 118,
+    "s": 93
+   },
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "e": 245,
+    "s": 143
+   },
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "e": 115,
+    "s": 30
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "e": 122,
+    "s": 120
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 298,
+    "s": 182
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 287,
+    "s": 238
+   },
+   {
+    "doc": "code/tool__test__scale-fixture.mjs",
+    "e": 204,
+    "s": 77
+   },
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "e": 175,
+    "s": 160
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1294,
+    "s": 1268
+   },
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "e": 153,
+    "s": 89
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 245,
+    "s": 180
+   },
+   {
+    "doc": "design/process4__working__notice_study__judged241.txt",
+    "e": 250,
+    "s": 11
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "e": 274,
+    "s": 168
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 227,
+    "s": 221
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "e": 423,
+    "s": 301
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 476,
+    "s": 411
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "e": 238,
+    "s": 110
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 163,
+    "s": 95
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "e": 86,
+    "s": 0
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "e": 42,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "e": 20,
+    "s": 10
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 324,
+    "s": 274
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 1017,
+    "s": 992
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "e": 395,
+    "s": 301
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "e": 960,
+    "s": 957
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 92,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "e": 84,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "e": 53,
+    "s": 7
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "e": 82,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "e": 86,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "e": 287,
+    "s": 175
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "e": 33,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+    "e": 45,
+    "s": 20
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "e": 108,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "e": 81,
+    "s": 63
+   },
+   {
+    "doc": "design/notes__gate-map-4nov.md",
+    "e": 104,
+    "s": 51
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 358,
+    "s": 333
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 1153,
+    "s": 1093
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "e": 106,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "e": 153,
+    "s": 4
+   },
+   {
+    "doc": "code/tool__test__pin.test.mjs",
+    "e": 35,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "e": 125,
+    "s": 83
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "e": 165,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 264,
+    "s": 181
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "e": 484,
+    "s": 328
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "e": 161,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 500,
+    "s": 411
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "e": 376,
+    "s": 195
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 345,
+    "s": 289
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 289,
+    "s": 259
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 1268,
+    "s": 1103
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "e": 347,
+    "s": 191
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 295,
+    "s": 138
+   },
+   {
+    "doc": "requirements/DECISIONS.md",
+    "e": 184,
+    "s": 154
+   },
+   {
+    "doc": "requirements/governing__ledger-map-proposed-changes.md",
+    "e": 1,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "e": 464,
+    "s": 305
+   },
+   {
+    "doc": "code/tool__test__landed.test.mjs",
+    "e": 87,
+    "s": 48
+   },
+   {
+    "doc": "code/tool__test__pushcheck.test.mjs",
+    "e": 67,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "e": 847,
+    "s": 784
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "e": 83,
+    "s": 54
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 543,
+    "s": 406
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 182,
+    "s": 86
+   },
+   {
+    "doc": "code/tool__test__rounds.test.mjs",
+    "e": 246,
+    "s": 179
+   },
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "e": 256,
+    "s": 180
+   }
+  ]
+ },
+ "6": {
+  "id": "kkwcuk",
+  "members": [
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "e": 184,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "e": 187,
+    "s": 92
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "e": 74,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "e": 44,
+    "s": 0
+   },
+   {
+    "doc": "design/notes__problem-classes.md",
+    "e": 26,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "e": 432,
+    "s": 384
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 466,
+    "s": 443
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 464,
+    "s": 424
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "e": 184,
+    "s": 104
+   },
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "e": 76,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "e": 278,
+    "s": 178
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 581,
+    "s": 554
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "e": 114,
+    "s": 29
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov.md",
+    "e": 27,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "e": 13,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "e": 26,
+    "s": 14
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+    "e": 38,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "e": 35,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "e": 276,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "e": 305,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__lib__wfyaml.mjs",
+    "e": 337,
+    "s": 33
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "e": 202,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 519,
+    "s": 370
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 174,
+    "s": 140
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "e": 172,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "e": 459,
+    "s": 357
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 443,
+    "s": 282
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "e": 347,
+    "s": 184
+   },
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "e": 248,
+    "s": 183
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 50,
+    "s": 40
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "e": 168,
+    "s": 101
+   },
+   {
+    "doc": "code/tool__lib__suite.mjs",
+    "e": 151,
+    "s": 93
+   },
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "e": 138,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 136,
+    "s": 78
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 326,
+    "s": 176
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 895,
+    "s": 770
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 1026,
+    "s": 989
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "e": 571,
+    "s": 459
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "e": 3,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "e": 160,
+    "s": 1
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "e": 170,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_five_points.md",
+    "e": 70,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "e": 191,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 221,
+    "s": 139
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "e": 231,
+    "s": 157
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "e": 265,
+    "s": 172
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 872,
+    "s": 838
+   },
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "e": 180,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__round-next.test.mjs",
+    "e": 163,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1689,
+    "s": 1560
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "e": 157,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 2234,
+    "s": 2096
+   },
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "e": 158,
+    "s": 137
+   },
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "e": 145,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "e": 4,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "e": 407,
+    "s": 204
+   },
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "e": 164,
+    "s": 106
+   },
+   {
+    "doc": "code/tool__lib__github.mjs",
+    "e": 110,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 284,
+    "s": 208
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1095,
+    "s": 980
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 335,
+    "s": 287
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 95,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_common.md",
+    "e": 44,
+    "s": 19
+   },
+   {
+    "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+    "e": 63,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__direct.test.mjs",
+    "e": 131,
+    "s": 99
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "e": 346,
+    "s": 215
+   },
+   {
+    "doc": "code/tool__lib__admit.mjs",
+    "e": 28,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 181,
+    "s": 97
+   },
+   {
+    "doc": "code/tool__test__gate-speed.test.mjs",
+    "e": 329,
+    "s": 237
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "e": 202,
+    "s": 143
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 732,
+    "s": 541
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 183,
+    "s": 136
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 119,
+    "s": 68
+   },
+   {
+    "doc": "principles/README.md",
+    "e": 70,
+    "s": 59
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1123,
+    "s": 1098
+   },
+   {
+    "doc": "code/tool__test__cap.test.mjs",
+    "e": 123,
+    "s": 116
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "e": 108,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "e": 54,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1150,
+    "s": 1123
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 92,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "e": 309,
+    "s": 226
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 874,
+    "s": 725
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "e": 168,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "e": 108,
+    "s": 27
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "e": 40,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "e": 189,
+    "s": 12
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "e": 20,
+    "s": 0
+   }
+  ]
+ },
+ "7": {
+  "id": "zy47cc",
+  "members": [
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "e": 320,
+    "s": 156
+   },
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "e": 190,
+    "s": 12
+   },
+   {
+    "doc": "design/notes__gate-map-4nov.md",
+    "e": 51,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 244,
+    "s": 183
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "e": 226,
+    "s": 159
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "e": 15,
+    "s": 9
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "e": 22,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+    "e": 68,
+    "s": 0
+   },
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "e": 148,
+    "s": 125
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "e": 373,
+    "s": 284
+   },
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "e": 266,
+    "s": 203
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "e": 177,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 703,
+    "s": 543
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 443,
+    "s": 355
+   },
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "e": 240,
+    "s": 153
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "e": 182,
+    "s": 88
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "e": 325,
+    "s": 165
+   },
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "e": 187,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "e": 176,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 40,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "e": 179,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "e": 116,
+    "s": 104
+   },
+   {
+    "doc": "code/tool__lib__release.mjs",
+    "e": 255,
+    "s": 147
+   },
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "e": 42,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 949,
+    "s": 790
+   },
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "e": 196,
+    "s": 190
+   },
+   {
+    "doc": "code/tool__test__helpers.mjs",
+    "e": 167,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 971,
+    "s": 949
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "e": 169,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "e": 463,
+    "s": 325
+   },
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "e": 183,
+    "s": 103
+   },
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "e": 201,
+    "s": 70
+   },
+   {
+    "doc": "code/tool__test__generated-plain.test.mjs",
+    "e": 399,
+    "s": 373
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "e": 529,
+    "s": 359
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 118,
+    "s": 69
+   },
+   {
+    "doc": "code/tool__test__workflow-limits.test.mjs",
+    "e": 171,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "e": 97,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__ghaudit.test.mjs",
+    "e": 141,
+    "s": 55
+   },
+   {
+    "doc": "code/tool__test__start-fixes.test.mjs",
+    "e": 70,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "e": 33,
+    "s": 24
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-b.md",
+    "e": 26,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "e": 103,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 69,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "e": 239,
+    "s": 231
+   },
+   {
+    "doc": "code/tool__test__pass.test.mjs",
+    "e": 180,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "e": 156,
+    "s": 55
+   },
+   {
+    "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+    "e": 30,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "e": 164,
+    "s": 121
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+    "e": 3,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__roles.mjs",
+    "e": 429,
+    "s": 377
+   },
+   {
+    "doc": "code/tool__test__state-push.test.mjs",
+    "e": 55,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__measures.mjs",
+    "e": 65,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1039,
+    "s": 1010
+   },
+   {
+    "doc": "design/notes__receipt-regate-options.md",
+    "e": 91,
+    "s": 74
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "e": 348,
+    "s": 309
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "e": 10,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "e": 278,
+    "s": 213
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "e": 85,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "e": 91,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 1091,
+    "s": 907
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 860,
+    "s": 703
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "e": 170,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "e": 183,
+    "s": 108
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__02-open.txt",
+    "e": 165,
+    "s": 46
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-f.md",
+    "e": 17,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "e": 145,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "e": 165,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "e": 179,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__register.test.mjs",
+    "e": 174,
+    "s": 0
+   },
+   {
+    "doc": "requirements/DECISIONS.md",
+    "e": 110,
+    "s": 61
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 1024,
+    "s": 860
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "e": 242,
+    "s": 109
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "e": 306,
+    "s": 283
+   },
+   {
+    "doc": "design/notes__r17c-settings.md",
+    "e": 226,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__rounds.test.mjs",
+    "e": 139,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-d.md",
+    "e": 45,
+    "s": 35
+   },
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "e": 42,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "e": 139,
+    "s": 88
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 490,
+    "s": 464
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "e": 179,
+    "s": 120
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 450,
+    "s": 424
+   },
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "e": 226,
+    "s": 82
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "e": 71,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 565,
+    "s": 486
+   },
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "e": 151,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 107,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 424,
+    "s": 382
+   }
+  ]
+ },
+ "8": {
+  "id": "mkww45",
+  "members": [
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "e": 149,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "e": 113,
+    "s": 7
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "e": 209,
+    "s": 102
+   },
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "e": 115,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "e": 361,
+    "s": 169
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1400,
+    "s": 1243
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "e": 116,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "e": 278,
+    "s": 169
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "e": 763,
+    "s": 713
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "e": 7,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "e": 146,
+    "s": 71
+   },
+   {
+    "doc": "code/tool__test__direct.test.mjs",
+    "e": 99,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "e": 325,
+    "s": 281
+   },
+   {
+    "doc": "code/tool__lib__start.mjs",
+    "e": 128,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "e": 236,
+    "s": 11
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 68,
+    "s": 40
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "e": 174,
+    "s": 79
+   },
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "e": 205,
+    "s": 74
+   },
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "e": 37,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "e": 88,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "e": 333,
+    "s": 245
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "e": 144,
+    "s": 20
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "e": 331,
+    "s": 304
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 305,
+    "s": 155
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "e": 468,
+    "s": 367
+   },
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "e": 215,
+    "s": 162
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "e": 320,
+    "s": 179
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 597,
+    "s": 576
+   },
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "e": 262,
+    "s": 208
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "e": 479,
+    "s": 465
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 589,
+    "s": 500
+   },
+   {
+    "doc": "code/tool__test__rerun-more.test.mjs",
+    "e": 204,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "e": 145,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "e": 85,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 190,
+    "s": 92
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "e": 601,
+    "s": 407
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "e": 499,
+    "s": 340
+   },
+   {
+    "doc": "code/tool__lib__exports.mjs",
+    "e": 225,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "e": 245,
+    "s": 192
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "e": 1042,
+    "s": 874
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1703,
+    "s": 1652
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "e": 261,
+    "s": 155
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 382,
+    "s": 358
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "e": 184,
+    "s": 130
+   },
+   {
+    "doc": "design/notes__receipt-regate-options.md",
+    "e": 74,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "e": 328,
+    "s": 162
+   },
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 272,
+    "s": 209
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "e": 263,
+    "s": 185
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "e": 59,
+    "s": 31
+   },
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "e": 142,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 224,
+    "s": 128
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 46,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__rulebooks.test.mjs",
+    "e": 95,
+    "s": 74
+   },
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "e": 406,
+    "s": 303
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "e": 519,
+    "s": 499
+   },
+   {
+    "doc": "code/tool__test__product-neutral.test.mjs",
+    "e": 100,
+    "s": 24
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "e": 108,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "e": 234,
+    "s": 202
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "e": 538,
+    "s": 484
+   },
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "e": 60,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 78,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 186,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "e": 194,
+    "s": 138
+   },
+   {
+    "doc": "code/tool__test__layer-join.test.mjs",
+    "e": 108,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "e": 274,
+    "s": 149
+   },
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "e": 285,
+    "s": 262
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "e": 406,
+    "s": 348
+   },
+   {
+    "doc": "design/process4__working__session2__point3_first_hour.md",
+    "e": 231,
+    "s": 198
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 405,
+    "s": 382
+   },
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "e": 262,
+    "s": 248
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 455,
+    "s": 305
+   },
+   {
+    "doc": "requirements/DECISIONS.md",
+    "e": 154,
+    "s": 110
+   },
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "e": 790,
+    "s": 610
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "e": 366,
+    "s": 177
+   },
+   {
+    "doc": "design/process4__working__replay__appendix_commits.md",
+    "e": 97,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__lane.test.mjs",
+    "e": 149,
+    "s": 130
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "e": 532,
+    "s": 467
+   },
+   {
+    "doc": "code/tool__lib__deploycfg.mjs",
+    "e": 38,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "e": 37,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "e": 90,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "e": 301,
+    "s": 253
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "e": 725,
+    "s": 609
+   },
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "e": 692,
+    "s": 592
+   },
+   {
+    "doc": "code/tool__test__fetch-cheap.test.mjs",
+    "e": 65,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__product-neutral.test.mjs",
+    "e": 24,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "e": 194,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 1243,
+    "s": 1098
+   },
+   {
+    "doc": "code/tool__test__session-safety.test.mjs",
+    "e": 203,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "e": 314,
+    "s": 256
+   },
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "e": 135,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "e": 189,
+    "s": 54
+   },
+   {
+    "doc": "code/tool__test__lane-plain.test.mjs",
+    "e": 51,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "e": 12,
+    "s": 0
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "e": 364,
+    "s": 259
+   }
+  ]
+ },
+ "9": {
+  "id": "uhp45f",
+  "members": [
+   {
+    "doc": "design/process4__working__v5_notes.md",
+    "e": 69,
+    "s": 51
+   },
+   {
+    "doc": "design/process4__definition__process4_notice.md",
+    "e": 68,
+    "s": 0
+   },
+   {
+    "doc": "design/notes__problem-classes.md",
+    "e": 0,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "e": 182,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "e": 505,
+    "s": 391
+   },
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 706,
+    "s": 639
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 139,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "e": 198,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "e": 256,
+    "s": 168
+   },
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "e": 120,
+    "s": 11
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "e": 31,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "e": 150,
+    "s": 107
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "e": 214,
+    "s": 161
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "e": 235,
+    "s": 225
+   },
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "e": 160,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__working__codex_context_fidelity_research_handoff.md",
+    "e": 42,
+    "s": 26
+   },
+   {
+    "doc": "logs/notes__account-switch-review.md",
+    "e": 24,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__account-switch-canary.md",
+    "e": 69,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 791,
+    "s": 637
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "e": 247,
+    "s": 242
+   },
+   {
+    "doc": "code/tool__lib__basered.mjs",
+    "e": 355,
+    "s": 193
+   },
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "e": 7,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 317,
+    "s": 184
+   },
+   {
+    "doc": "design/process4__working__live_docs.md",
+    "e": 104,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__account-switch-canary.md",
+    "e": 77,
+    "s": 69
+   },
+   {
+    "doc": "logs/notes__records-inventory.md",
+    "e": 22,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-b.md",
+    "e": 27,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_16_17nov_codex_development.md",
+    "e": 29,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "e": 274,
+    "s": 161
+   },
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "e": 584,
+    "s": 575
+   },
+   {
+    "doc": "code/tool__test__lane-qualify.test.mjs",
+    "e": 125,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__live_docs.md",
+    "e": 164,
+    "s": 104
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "e": 242,
+    "s": 203
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "e": 2579,
+    "s": 2522
+   },
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "e": 71,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "e": 342,
+    "s": 262
+   },
+   {
+    "doc": "design/notes__train-throughput-study.md",
+    "e": 265,
+    "s": 119
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__03-tick.txt",
+    "e": 317,
+    "s": 242
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-d.md",
+    "e": 25,
+    "s": 0
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_c.md",
+    "e": 63,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "e": 62,
+    "s": 3
+   },
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "e": 637,
+    "s": 498
+   },
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "e": 190,
+    "s": 160
+   },
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "e": 137,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "e": 101,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__main-gate.test.mjs",
+    "e": 215,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "e": 1033,
+    "s": 960
+   },
+   {
+    "doc": "code/tool__lib__slots.mjs",
+    "e": 57,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__tranche.test.mjs",
+    "e": 59,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "e": 339,
+    "s": 179
+   },
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "e": 919,
+    "s": 736
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "e": 81,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "e": 55,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "e": 101,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "e": 125,
+    "s": 84
+   },
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "e": 294,
+    "s": 183
+   },
+   {
+    "doc": "code/tool__test__admit.test.mjs",
+    "e": 11,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "e": 185,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "e": 71,
+    "s": 0
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "e": 69,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 1167,
+    "s": 1024
+   },
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "e": 227,
+    "s": 226
+   },
+   {
+    "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+    "e": 54,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "e": 61,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_owner_documents.md",
+    "e": 192,
+    "s": 97
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "e": 141,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 1342,
+    "s": 1167
+   },
+   {
+    "doc": "code/tool__test__layer-join.test.mjs",
+    "e": 162,
+    "s": 108
+   },
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "e": 104,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 903,
+    "s": 872
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "e": 70,
+    "s": 40
+   },
+   {
+    "doc": "code/tool__lib__size.mjs",
+    "e": 129,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__carry.test.mjs",
+    "e": 27,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 274,
+    "s": 174
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "e": 90,
+    "s": 13
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1254,
+    "s": 1095
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "e": 173,
+    "s": 0
+   },
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "e": 125,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "e": 336,
+    "s": 324
+   },
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "e": 226,
+    "s": 125
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+    "e": 40,
+    "s": 11
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov.md",
+    "e": 35,
+    "s": 0
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-9nov-c.md",
+    "e": 22,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "e": 678,
+    "s": 530
+   },
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "e": 131,
+    "s": 113
+   },
+   {
+    "doc": "design/process4__working__v5_notes.md",
+    "e": 51,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "e": 195,
+    "s": 172
+   },
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "e": 155,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 57,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "e": 72,
+    "s": 49
+   },
+   {
+    "doc": "code/tool__lib__layerbase.mjs",
+    "e": 133,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "e": 391,
+    "s": 250
+   },
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "e": 296,
+    "s": 283
+   },
+   {
+    "doc": "code/tool__test__setup-speed.test.mjs",
+    "e": 181,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "e": 1344,
+    "s": 1342
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "e": 685,
+    "s": 615
+   },
+   {
+    "doc": "code/tool__test__generated.test.mjs",
+    "e": 151,
+    "s": 105
+   },
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "e": 59,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "e": 73,
+    "s": 0
+   },
+   {
+    "doc": "code/tool__lib__start.mjs",
+    "e": 150,
+    "s": 128
+   },
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "e": 172,
+    "s": 0
+   },
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "e": 126,
+    "s": 57
+   }
+  ]
+ }
+}

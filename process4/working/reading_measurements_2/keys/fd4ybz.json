@@ -1,0 +1,491 @@
+{
+ "id": "fd4ybz",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 8,
+ "files": [
+  "reading2/fd4ybz/01-joined.mjs",
+  "reading2/fd4ybz/02-joined.md",
+  "reading2/fd4ybz/03-joined.mjs",
+  "reading2/fd4ybz/04-joined.md",
+  "reading2/fd4ybz/05-joined.mjs",
+  "reading2/fd4ybz/06-joined.md",
+  "reading2/fd4ybz/07-layerflow.mjs",
+  "reading2/fd4ybz/08-joined.md",
+  "reading2/fd4ybz/09-joined.md",
+  "reading2/fd4ybz/10-joined.mjs",
+  "reading2/fd4ybz/11-joined.md",
+  "reading2/fd4ybz/12-joined.mjs",
+  "reading2/fd4ybz/13-layerflow-test.mjs",
+  "reading2/fd4ybz/14-joined.md",
+  "reading2/fd4ybz/15-joined.md",
+  "reading2/fd4ybz/16-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "design",
+  "code",
+  "principles",
+  "design",
+  "code",
+  "principles",
+  "code",
+  "code",
+  "principles",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 784,
+    "e": 933
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "s": 0,
+    "e": 190
+   },
+   {
+    "doc": "code/tool__test__merge-waits.test.mjs",
+    "s": 0,
+    "e": 257
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 479,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 339,
+    "e": 610
+   },
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "s": 0,
+    "e": 81
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "s": 196,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "s": 0,
+    "e": 125
+   },
+   {
+    "doc": "code/tool__test__layout.test.mjs",
+    "s": 0,
+    "e": 193
+   },
+   {
+    "doc": "code/tool__lib__release.mjs",
+    "s": 0,
+    "e": 244
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 117,
+    "e": 268
+   },
+   {
+    "doc": "design/process4__evidence__audit_A.md",
+    "s": 0,
+    "e": 123
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 229,
+    "e": 234
+   },
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "s": 0,
+    "e": 153
+   },
+   {
+    "doc": "code/tool__test__self-ending.test.mjs",
+    "s": 0,
+    "e": 237
+   },
+   {
+    "doc": "code/tool__test__suite-budget.test.mjs",
+    "s": 0,
+    "e": 59
+   },
+   {
+    "doc": "code/tool__lib__layerbase.mjs",
+    "s": 0,
+    "e": 135
+   },
+   {
+    "doc": "code/tool__lib__cap.mjs",
+    "s": 0,
+    "e": 28
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "s": 102,
+    "e": 232
+   },
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 0,
+    "e": 217
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 0,
+    "e": 614
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 330,
+    "e": 369
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 0,
+    "e": 211
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "s": 75,
+    "e": 167
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 0,
+    "e": 308
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "s": 81,
+    "e": 692
+   },
+   {
+    "doc": "code/tool__test__measures.test.mjs",
+    "s": 0,
+    "e": 102
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+    "s": 0,
+    "e": 100
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "s": 0,
+    "e": 86
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "s": 0,
+    "e": 91
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "s": 0,
+    "e": 54
+   },
+   {
+    "doc": "principles/rulebooks__bob.md",
+    "s": 0,
+    "e": 23
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "s": 0,
+    "e": 79
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "s": 225,
+    "e": 242
+   },
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "s": 0,
+    "e": 206
+   },
+   {
+    "doc": "code/tool__test__fetch-cheap.test.mjs",
+    "s": 0,
+    "e": 65
+   },
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "s": 0,
+    "e": 116
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "s": 0,
+    "e": 106
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "s": 0,
+    "e": 196
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 0,
+    "e": 644
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 226,
+    "e": 306
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+    "s": 0,
+    "e": 97
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "s": 0,
+    "e": 195
+   },
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "s": 0,
+    "e": 45
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "s": 61,
+    "e": 131
+   },
+   {
+    "doc": "design/notes__r17c-settings.md",
+    "s": 0,
+    "e": 244
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 0,
+    "e": 294
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 182,
+    "e": 352
+   },
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 0,
+    "e": 96
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 765831,
+ "lines": 8212,
+ "task": "wordtop",
+ "values": {
+  "code1": "E5U-1614",
+  "code2": "M4S-7754",
+  "w_last": "alderney",
+  "w_name": "tamarind",
+  "w_desk": "quillon",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Ines Carrowby",
+  "family": "fish",
+  "members": [
+   "mackerel",
+   "cod",
+   "trout",
+   "eels",
+   "salmon",
+   "herring",
+   "bream",
+   "carp",
+   "perch",
+   "pike"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under alderney",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.8224371539771175,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under alderney`.",
+   "probe": "-- filed under alderney",
+   "file_index": 0,
+   "frac_actual": 0.0204,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/fd4ybz/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "tamarind-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6839328081685879,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `tamarind-relay.md`, and under no other name.",
+   "probe": "tamarind-relay.md",
+   "file_index": 8,
+   "frac_actual": 0.5443,
+   "line": 239,
+   "hits": 1,
+   "file": "reading2/fd4ybz/09-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref E5U-1614",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.12705889569757056,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref E5U-1614`.",
+   "probe": "# ref E5U-1614",
+   "file_index": 15,
+   "frac_actual": 0.9063,
+   "line": 252,
+   "hits": 1,
+   "file": "reading2/fd4ybz/16-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7611806782903172,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "file_index": 7,
+   "frac_actual": 0.7604,
+   "line": 219,
+   "hits": 1,
+   "file": "reading2/fd4ybz/08-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6459753382974945,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ines Carrowby`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "file_index": 10,
+   "frac_actual": 0.6495,
+   "line": 342,
+   "hits": 1,
+   "file": "reading2/fd4ybz/11-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 9,
+   "frac": 0.46467437638544806,
+   "body": "9 mackerel were logged at the Marsh Lane gate.",
+   "probe": "9 mackerel were logged at the Marsh Lane gate.",
+   "file_index": 1,
+   "frac_actual": 0.5001,
+   "line": 188,
+   "hits": 1,
+   "file": "reading2/fd4ybz/02-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 5,
+   "frac": 0.3081696805556264,
+   "body": "The Stane store took in 5 cod.",
+   "probe": "The Stane store took in 5 cod.",
+   "file_index": 4,
+   "frac_actual": 0.2923,
+   "line": 209,
+   "hits": 1,
+   "file": "reading2/fd4ybz/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "trout",
+   "n": 17,
+   "frac": 0.5036995203788454,
+   "body": "A box of 17 trout came through Quay Nine.",
+   "probe": "A box of 17 trout came through Quay Nine.",
+   "file_index": 10,
+   "frac_actual": 0.5014,
+   "line": 274,
+   "hits": 1,
+   "file": "reading2/fd4ybz/11-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "eels",
+   "n": 16,
+   "frac": 0.19853108459710334,
+   "body": "Tally for Tamsin Row: 16 eels.",
+   "probe": "Tally for Tamsin Row: 16 eels.",
+   "file_index": 15,
+   "frac_actual": 0.2045,
+   "line": 51,
+   "hits": 1,
+   "file": "reading2/fd4ybz/16-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,90 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+| | Coordinator | ROOT |
+| --- | --- | --- |
+| Purpose | Build and fix Process3; decide process technical matters; the owner's conversation | Create BOB; hourly sweep; later create the watcher and the coordinator |
+| Repository | process3 (branch `start/coordinator-4nov`) | The product (tranche tip commit), process as the `.process` pin |
+
+Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed X6R-4197`.
+
+| Who starts it | The owner, then predecessors, then ROOT (from 5 Nov 23:54Z) | Designed: the owner. Actual: a coordinator 4 times (2 of them through a short session), watcher takeover 2, the owner 3, not recorded 2 (see 1.3) |
+| What it creates | Builders, short product sessions (pin moves, config changes), its own scheduled tasks; ROOT on 4 and 5 Nov; its own successor until 5 Nov | BOB, the watcher and its daily task, its own sweep task, the MERGER (5 to 6 Nov), the coordinator |
+
+Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.
+
+| What it decides | "Process technical decisions are the coordinator's" (AUD-5, 6 Nov; PD-1 to PD-25) | Nothing: "do only what [the sweep] prints"; "Technical choices ... are the coordinator's, never Bob's" |
+| Does the owner converse with it | Yes, all day | No. He pastes its first message; after that it only push-notifies him |
+| Context | Fills in 4 to 8 hours | "Keep your context empty" |
+| Depth | See below | See below |
+
+**Depth, as written and as run.**
+
+- 31 Oct (LL SES-1, PLT-5 original): ROOT at depth 0; "Sessions are started only from depth 0 or 1, so depth never grows past 2." No coordinator.
+- 3 Nov 19:30Z (LL PLT-5 note, "written in by the coordinator"): "depth stays at most 3 (coordinator, ROOT, BOB, job), as ran on 3 Nov when the explore and review jobs merged at depth 3." Coordinator at 0, ROOT at 1.
+- 5 Nov 17:02Z, measured (LOG L629): "Bob's desktop session depth 0; coordinator chain 1,2; ROOT 3 (started by a coordinator); jobs 5 of 8." The "8" is the only number in the record that reads as a platform bound; "3" is the process's own rule (PLT-5: "Depth stays well inside what the platform allows").
+
+The Brae store took in 5 trout.
+
+- 6 Nov (DEC PD-1, the coordinator's decision): "ROOT runs at depth 0 from Bob's app and starts BOB, the watcher and the coordinator; BOB starts jobs and lanes". So ROOT 0; coordinator, BOB, watcher 1; jobs, lanes, builders, short sessions 2.
+- 7 Nov 19:07Z to 8 Nov 19:00Z: ROOT was the former watcher, one level down.
+
+**The prior review's sentence, checked.** RV: "The Foundations name ROOT, BOB, jobs, lanes and workers. The coordinator appears nowhere in the original design. By 4 Nov it owned every 'process technical decision'".
+
+- Correct for the 31 Oct Ledger (SES-1, PLT-5) and for the roles table and diagram ("6 boxes, depth 0 to 2"), which never gained a coordinator row, in F-early or F-tip.
+- Not exact for the Foundations text as it stood by 3 to 4 Nov, which names the coordinator four times without defining it: the property row "depth never exceeds 3 (coordinator, ROOT, BOB, job)"; the watcher row "Whoever starts the first ROOT (you, or the coordinator)"; "a fresh coordinator reached 2 in its first minutes (measured 3 Nov)"; and Setup, "So the coordinator is started with the product repository only".
+
+Every job must note: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.
+
+- That last sentence does not match what ran: the coordinators of 3 and 4 Nov were started on process3 (`start/coordinator-3nov-2` is a process3 branch at tranche commit `cf440d5`; HO-4nov, "On neobobkrause/process3"). It matches only if "the product" there means process3, which the first handoff's wording supports ("You are BOB, the Process3 coordinator"). The record does not settle which was meant.
+
+Pell sent word of 11 bream on hand.
+
+
+**How the role appeared and grew, dated.**
+
+1. 2 Nov: "coordinator" in the tool means a job's superior, that is BOB (`d85a6e5`). 3 Nov 01:21Z: ROOT's prompt says "Your coordinator is Bob, the person who started you" (`0acc0e3`).
+2. 3 Nov 19:30Z: the PLT-5 note puts a coordinator above ROOT.
+3. 3 Nov 21:44Z (`c7ba5d2`): ROOT's prompt names "the coordinator session named by `coordinator` in process/config.json"; "ROOT sends technical questions to the coordinator session, not to Bob."
+4. 4 Nov 00:15Z (LOG L21): the owner asks "why does BOB keep handing him non-decisions"; the P17 purpose/mechanism rule follows.
+5. 4 Nov 01:23Z to 01:38Z (`ca9f3b2`, `d33d324`, `940b4d1`): ROOT and the watcher get a send act to the coordinator; an escalation chain; BOB takes the coordinator's words directly.
+6. 4 Nov 04:11Z (LOG L87): "the coordinator alone starts pin moves".
+7. 5 Nov: its own hourly task; the MERGER; `p3 hold`; five studies. LOG L325: "the coordinator role has no checks".
+8. 5 Nov 17:02Z: PR 162, a tool-printed prompt and an address file for it.
+9. 6 Nov: the owner keeps AUD-5 on the Keep and Drop page; PD-1 restates the Foundations: "BOB decides the product's technical matters, the coordinator the process's". `DECISIONS.md` begins.
+
+17 pike were logged at the Stane gate.
+
+10. 6 to 9 Nov: standing builders, a problem-class register (`notes/problem-classes.md`), an hourly budget and audit report, PD-17 rehearsals.
+
+Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Jacinta Ravensworth`, and the name Tobias Hallworth is no longer written anywhere in a handover note.
+
+11. 8 Nov, DEC BD-R2, the owner's words: "Having the coordinator as the front door has been working well. Let's continue to do so if that's possible."
+
+**Whom the owner talked to.**
+
+- Day to day: the coordinator. Every "Bob, in this session" entry is in the coordinator's log.
+- (a) Product. Also the coordinator. Product decisions were given there and relayed: LOG L1171 "BOB'S DECISION (Bob, in this session) BD-R1"; L1060 "Q9 ANSWERS ... Sent to BOB for the copy's DECISIONS.md"; BD-R2 "relays Bob's words to it quoted and dated". Two side channels: lanes showed him claude.ai artifacts (LOG L651, his words: "design documents that lanes create/update/interact with me using are CC artifacts"), and decision pages. BOB's prompt allows a push notification to him; no conversation with BOB is recorded.
+- (b) Process. The coordinator, plus his own website commits to `CLAUDE.md` and settings.
+- ROOT: he pasted its first message three times and, on 8 Nov, "Bob asks ROOT to hand BOB over" (LOG L1190).
+
+---
+
+## 3. Start-up and restart as actually done
+
+To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref K8W-5776`.
+
+
+### 3.1 A fresh start (the sequence the tip encodes; run in full on 8 Nov 19:00Z, and on 5 Nov 18:41Z without step 6)
+
+1. The owner commits his approvals to the product's `CLAUDE.md` on GitHub's website. Every role's prompt pins the approvals hash, so every role stops at its next wake.
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/xxu64x/dates.py. It reads lines from standard input. Blank lines are ignored. For each line it prints `valid` if the line is a real calendar date written exactly as `YYYY-MM-DD` (four, two and two digits, leap years by the Gregorian rule) and `invalid` otherwise. After the last it prints `valid=N invalid=M` with the two counts. Example: the input lines `2024-02-29`, `2023-02-29`, `2023-7-01` give `valid`, `invalid`, `invalid`, `valid=1 invalid=2`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/xxu64x: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

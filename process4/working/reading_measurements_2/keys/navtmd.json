@@ -1,0 +1,179 @@
+{
+ "id": "navtmd",
+ "ladder": "single",
+ "size": 12000,
+ "index": 6,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "code/tool__test__bootstrap-close.test.mjs",
+   "s": 17,
+   "e": 174
+  }
+ ],
+ "files": [
+  "reading2/navtmd/module.mjs"
+ ],
+ "bytes": 11861,
+ "lines": 192,
+ "task": "dedupe",
+ "values": {
+  "code1": "F9H-5567",
+  "code2": "Q6X-9818",
+  "w_last": "varnish",
+  "w_name": "dunmore",
+  "w_desk": "rosehip",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Ines Carrowby",
+  "family": "musical instruments",
+  "members": [
+   "cellos",
+   "oboes",
+   "banjos",
+   "harps",
+   "violins",
+   "bassoons",
+   "clarinets",
+   "tubas",
+   "flutes",
+   "trumpets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under varnish",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.05963496403534452,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under varnish`.",
+   "probe": "-- filed under varnish",
+   "frac_actual": 0.0575,
+   "line": 11,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: rosehip",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.46189404912714316,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: rosehip`.",
+   "probe": "desk: rosehip",
+   "frac_actual": 0.4632,
+   "line": 92,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Q6X-9818",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9102028119199249,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed Q6X-9818`.",
+   "probe": "run closed Q6X-9818",
+   "frac_actual": 0.9162,
+   "line": 172,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.32517519001540873,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "frac_actual": 0.3225,
+   "line": 65,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6434138743711434,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ines Carrowby`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.6464,
+   "line": 127,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 16,
+   "frac": 0.07748283199068323,
+   "body": "Wick desk entered 16 cellos on the sheet.",
+   "probe": "Wick desk entered 16 cellos on the sheet.",
+   "frac_actual": 0.0781,
+   "line": 16,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 5,
+   "frac": 0.2244597220893715,
+   "body": "The Varnel store took in 5 oboes.",
+   "probe": "The Varnel store took in 5 oboes.",
+   "frac_actual": 0.2254,
+   "line": 42,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 10,
+   "frac": 0.5398427966068498,
+   "body": "Pell sent word of 10 banjos on hand.",
+   "probe": "Pell sent word of 10 banjos on hand.",
+   "frac_actual": 0.538,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 3,
+   "frac": 0.7180779010092673,
+   "body": "Received at Uller, 3 harps.",
+   "probe": "Received at Uller, 3 harps.",
+   "frac_actual": 0.7204,
+   "line": 143,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 15,
+   "frac": 0.9370623279071899,
+   "body": "15 violins were logged at the Marsh Lane gate.",
+   "probe": "15 violins were logged at the Marsh Lane gate.",
+   "frac_actual": 0.9395,
+   "line": 180,
+   "hits": 1,
+   "file": "reading2/navtmd/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 49
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

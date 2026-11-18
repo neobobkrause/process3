@@ -1,0 +1,123 @@
+{
+ "0": {
+  "id": "abu9z7",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 266,
+    "s": 161
+   }
+  ]
+ },
+ "1": {
+  "id": "xw9jjv",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "e": 322,
+    "s": 161
+   }
+  ]
+ },
+ "2": {
+  "id": "mp6tr4",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 285,
+    "s": 98
+   }
+  ]
+ },
+ "3": {
+  "id": "vu5p66",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 194,
+    "s": 103
+   }
+  ]
+ },
+ "4": {
+  "id": "eus88k",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "e": 357,
+    "s": 218
+   }
+  ]
+ },
+ "5": {
+  "id": "we9cct",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "e": 374,
+    "s": 164
+   }
+  ]
+ },
+ "6": {
+  "id": "xezkgs",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "e": 430,
+    "s": 93
+   }
+  ]
+ },
+ "7": {
+  "id": "dzapnb",
+  "kind": "code",
+  "members": [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "e": 465,
+    "s": 204
+   }
+  ]
+ },
+ "8": {
+  "id": "rfmkkj",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "e": 1037,
+    "s": 973
+   }
+  ]
+ },
+ "9": {
+  "id": "cdf7jk",
+  "kind": "logs",
+  "members": [
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-c.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-g.md",
+    "lines": "all"
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__04-reads.txt",
+    "lines": "1-51"
+   }
+  ]
+ }
+}

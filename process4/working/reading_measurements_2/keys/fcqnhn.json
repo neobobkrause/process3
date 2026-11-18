@@ -1,0 +1,358 @@
+{
+ "id": "fcqnhn",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 12000,
+ "n_files": 16,
+ "index": 2,
+ "files": [
+  "reading2/fcqnhn/01-joined.mjs",
+  "reading2/fcqnhn/02-joined.mjs",
+  "reading2/fcqnhn/03-record-test.mjs",
+  "reading2/fcqnhn/04-joined.mjs",
+  "reading2/fcqnhn/05-product-side.md",
+  "reading2/fcqnhn/06-joined.mjs",
+  "reading2/fcqnhn/07-joined.md",
+  "reading2/fcqnhn/08-point1-tranche-end.md",
+  "reading2/fcqnhn/09-joined.mjs",
+  "reading2/fcqnhn/10-joined.mjs",
+  "reading2/fcqnhn/11-audit-c.md",
+  "reading2/fcqnhn/12-notice-test.mjs",
+  "reading2/fcqnhn/13-coordinator-findings-3-4nov.md",
+  "reading2/fcqnhn/14-switch.mjs",
+  "reading2/fcqnhn/15-gate-test.mjs",
+  "reading2/fcqnhn/16-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "requirements"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__pushcheck.test.mjs",
+    "s": 51,
+    "e": 67
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 484,
+    "e": 538
+   },
+   {
+    "doc": "code/tool__test__slots.test.mjs",
+    "s": 0,
+    "e": 96
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "s": 58,
+    "e": 144
+   },
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "s": 0,
+    "e": 63
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 0,
+    "e": 214
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "s": 151,
+    "e": 232
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "s": 0,
+    "e": 84
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "s": 0,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "s": 96,
+    "e": 116
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 0,
+    "e": 124
+   },
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "s": 0,
+    "e": 42
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 146,
+    "e": 227
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 589,
+    "e": 598
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "s": 183,
+    "e": 248
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 148,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__test__found.test.mjs",
+    "s": 0,
+    "e": 27
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record-tranche-merge.test.mjs",
+    "s": 103,
+    "e": 175
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 274,
+    "e": 325
+   },
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "s": 0,
+    "e": 68
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 174,
+    "e": 274
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 678,
+    "e": 863
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 89,
+    "e": 113
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__switch.mjs",
+    "s": 0,
+    "e": 145
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 348,
+    "e": 524
+   }
+  ],
+  [
+   {
+    "doc": "requirements/DECISIONS.md",
+    "s": 183,
+    "e": 184
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_map.md",
+    "s": 0,
+    "e": 192
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 195254,
+ "lines": 2418,
+ "task": "dates",
+ "values": {
+  "code1": "Y9K-6957",
+  "code2": "J2V-5273",
+  "w_last": "ostler",
+  "w_name": "ironbark",
+  "w_desk": "foxglove",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Noor Al-Tamimi",
+  "family": "hand tools",
+  "members": [
+   "handsaws",
+   "mallets",
+   "spanners",
+   "rasps",
+   "awls",
+   "trowels",
+   "pliers",
+   "wrenches",
+   "chisels",
+   "hammers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed J2V-5273",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7725990345077791,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed J2V-5273`.",
+   "probe": "run closed J2V-5273",
+   "file_index": 0,
+   "frac_actual": 0.0989,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/fcqnhn/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under ostler",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.1491680585814099,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under ostler`.",
+   "probe": "-- filed under ostler",
+   "file_index": 8,
+   "frac_actual": 0.45,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/fcqnhn/09-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "ironbark-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.418828382255641,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `ironbark-relay.md`, and under no other name.",
+   "probe": "ironbark-relay.md",
+   "file_index": 15,
+   "frac_actual": 0.9249,
+   "line": 182,
+   "hits": 1,
+   "file": "reading2/fcqnhn/16-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.11975857325497358,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 1,
+   "frac_actual": 0.1182,
+   "line": 24,
+   "hits": 1,
+   "file": "reading2/fcqnhn/02-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.2152199768914904,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "file_index": 9,
+   "frac_actual": 0.2098,
+   "line": 50,
+   "hits": 1,
+   "file": "reading2/fcqnhn/10-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 8,
+   "frac": 0.8947386461049398,
+   "body": "8 handsaws were logged at the Uller gate.",
+   "probe": "8 handsaws were logged at the Uller gate.",
+   "file_index": 1,
+   "frac_actual": 0.8929,
+   "line": 144,
+   "hits": 1,
+   "file": "reading2/fcqnhn/02-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 18,
+   "frac": 0.19968736825954536,
+   "body": "Brae sent word of 18 mallets on hand.",
+   "probe": "Brae sent word of 18 mallets on hand.",
+   "file_index": 7,
+   "frac_actual": 0.1949,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/fcqnhn/08-point1-tranche-end.md"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 16,
+   "frac": 0.8030829293112522,
+   "body": "Quay Nine desk entered 16 spanners on the sheet.",
+   "probe": "Quay Nine desk entered 16 spanners on the sheet.",
+   "file_index": 13,
+   "frac_actual": 0.801,
+   "line": 122,
+   "hits": 1,
+   "file": "reading2/fcqnhn/14-switch.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 42
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

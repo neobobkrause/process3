@@ -1,0 +1,274 @@
+{
+ "id": "fgkshz",
+ "ladder": "single",
+ "size": 768000,
+ "index": 2,
+ "kind": "design",
+ "kind_wanted": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__enforcement_levers.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__redteam_corruption.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__problem-classes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__velocity-audit-9nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__k_evidence.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__change_sample.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__v4_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_common.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__notice_study__proof_outcome.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__v5_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_counterarguments.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__train-robust-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__no_layers_width.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__lanes_owner_documents.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point1_tranche_end.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__codex-context-avoidance-experiment-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__attack_corruption.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__product_side.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__appendix_recount.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__redteam_feasibility.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__review.txt",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_corruption.md",
+   "lines": "1-262"
+  }
+ ],
+ "files": [
+  "reading2/fgkshz/design.md"
+ ],
+ "bytes": 767865,
+ "lines": 6032,
+ "task": "minutes",
+ "values": {
+  "code1": "C8H-8411",
+  "code2": "D9L-9174",
+  "w_last": "galloway",
+  "w_name": "dunmore",
+  "w_desk": "ostler",
+  "name_a": "Calum Drysdale",
+  "name_b": "Yasmin Benhaddou",
+  "family": "vegetables",
+  "members": [
+   "shallots",
+   "radishes",
+   "carrots",
+   "cabbages",
+   "beets",
+   "parsnips",
+   "leeks",
+   "marrows",
+   "onions",
+   "turnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: ostler",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06746475788944616,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: ostler`.",
+   "probe": "desk: ostler",
+   "frac_actual": 0.0677,
+   "line": 333,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed D9L-9174",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5160707588517237,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed D9L-9174`.",
+   "probe": "run closed D9L-9174",
+   "frac_actual": 0.5159,
+   "line": 2943,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref C8H-8411",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9663175097743213,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref C8H-8411`.",
+   "probe": "# ref C8H-8411",
+   "frac_actual": 0.9662,
+   "line": 5859,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.15879993652485322,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.1597,
+   "line": 859,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8750955260420974,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Yasmin Benhaddou`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.8748,
+   "line": 5195,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 4,
+   "frac": 0.04803631282151691,
+   "body": "Lund sent word of 4 shallots on hand.",
+   "probe": "Lund sent word of 4 shallots on hand.",
+   "frac_actual": 0.0479,
+   "line": 253,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 3,
+   "frac": 0.4010513132361213,
+   "body": "Yarm desk entered 3 radishes on the sheet.",
+   "probe": "Yarm desk entered 3 radishes on the sheet.",
+   "frac_actual": 0.4009,
+   "line": 2068,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 5,
+   "frac": 0.6457424354794901,
+   "body": "At Eyre the clerk wrote down 5 carrots.",
+   "probe": "At Eyre the clerk wrote down 5 carrots.",
+   "frac_actual": 0.6459,
+   "line": 3786,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 19,
+   "frac": 0.9222771045437312,
+   "body": "A box of 19 cabbages came through Thorpe.",
+   "probe": "A box of 19 cabbages came through Thorpe.",
+   "frac_actual": 0.9227,
+   "line": 5531,
+   "hits": 1,
+   "file": "reading2/fgkshz/design.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 31
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

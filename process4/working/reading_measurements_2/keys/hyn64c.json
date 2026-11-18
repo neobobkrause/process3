@@ -1,0 +1,487 @@
+{
+ "id": "hyn64c",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 5,
+ "files": [
+  "reading2/hyn64c/01-joined.mjs",
+  "reading2/hyn64c/02-joined.mjs",
+  "reading2/hyn64c/03-joined.mjs",
+  "reading2/hyn64c/04-change-sample.md",
+  "reading2/hyn64c/05-joined.mjs",
+  "reading2/hyn64c/06-ledger-lines.md",
+  "reading2/hyn64c/07-joined.md",
+  "reading2/hyn64c/08-joined.md",
+  "reading2/hyn64c/09-joined.md",
+  "reading2/hyn64c/10-levers-github-cloudflare-pro.md",
+  "reading2/hyn64c/11-joined.md",
+  "reading2/hyn64c/12-joined.mjs",
+  "reading2/hyn64c/13-notice-test.mjs",
+  "reading2/hyn64c/14-joined.md",
+  "reading2/hyn64c/15-joined.mjs",
+  "reading2/hyn64c/16-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "code",
+  "design",
+  "code",
+  "requirements",
+  "design",
+  "design",
+  "design",
+  "design",
+  "design",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 530,
+    "e": 589
+   },
+   {
+    "doc": "code/tool__test__checks.test.mjs",
+    "s": 0,
+    "e": 91
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "s": 0,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__lib__notice.mjs",
+    "s": 0,
+    "e": 326
+   },
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 0,
+    "e": 30
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "s": 112,
+    "e": 239
+   },
+   {
+    "doc": "code/tool__lib__triggers.mjs",
+    "s": 0,
+    "e": 145
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 706,
+    "e": 1117
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "s": 71,
+    "e": 168
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "s": 0,
+    "e": 398
+   },
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "s": 0,
+    "e": 184
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 33,
+    "e": 247
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 309,
+    "e": 464
+   },
+   {
+    "doc": "code/tool__test__lead.test.mjs",
+    "s": 0,
+    "e": 277
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 0,
+    "e": 207
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 497,
+    "e": 1070
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__enforcement_levers.md",
+    "s": 122,
+    "e": 266
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+    "s": 0,
+    "e": 20
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 0,
+    "e": 130
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 227,
+    "e": 390
+   },
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "s": 0,
+    "e": 186
+   },
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "s": 0,
+    "e": 34
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 21,
+    "e": 113
+   },
+   {
+    "doc": "design/process4__working__notice_study__judged241.txt",
+    "s": 0,
+    "e": 250
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 811,
+    "e": 1026
+   },
+   {
+    "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+    "s": 0,
+    "e": 54
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "s": 0,
+    "e": 90
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 0,
+    "e": 407
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 438,
+    "e": 490
+   },
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 0,
+    "e": 220
+   },
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "s": 0,
+    "e": 61
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "s": 80,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 0,
+    "e": 124
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 0,
+    "e": 299
+   },
+   {
+    "doc": "code/tool__test__restart-speed.test.mjs",
+    "s": 0,
+    "e": 177
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice.test.mjs",
+    "s": 268,
+    "e": 935
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "s": 30,
+    "e": 93
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 0,
+    "e": 133
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ghhook.test.mjs",
+    "s": 13,
+    "e": 205
+   },
+   {
+    "doc": "code/tool__lib__ends.mjs",
+    "s": 0,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__lib__rounds.mjs",
+    "s": 0,
+    "e": 229
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layout.mjs",
+    "s": 81,
+    "e": 158
+   },
+   {
+    "doc": "code/tool__lib__exports.mjs",
+    "s": 0,
+    "e": 381
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 0,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__lib__branches.mjs",
+    "s": 0,
+    "e": 83
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 762089,
+ "lines": 8572,
+ "task": "merge",
+ "values": {
+  "code1": "L8S-8445",
+  "code2": "M6J-8251",
+  "w_last": "orrery",
+  "w_name": "pennant",
+  "w_desk": "rosehip",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Dmitri Volkonsky",
+  "family": "hand tools",
+  "members": [
+   "trowels",
+   "rasps",
+   "handsaws",
+   "hammers",
+   "awls",
+   "wrenches",
+   "chisels",
+   "pliers",
+   "mallets",
+   "spanners"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref L8S-8445",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5831741680546689,
+   "body": "Every job must note: every file the job writes begins with this exact first line: `# ref L8S-8445`.",
+   "probe": "# ref L8S-8445",
+   "file_index": 0,
+   "frac_actual": 0.0398,
+   "line": 31,
+   "hits": 1,
+   "file": "reading2/hyn64c/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed M6J-8251",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7169162055911718,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed M6J-8251`.",
+   "probe": "run closed M6J-8251",
+   "file_index": 8,
+   "frac_actual": 0.5494,
+   "line": 446,
+   "hits": 1,
+   "file": "reading2/hyn64c/09-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under orrery",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.547486479619741,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under orrery`.",
+   "probe": "-- filed under orrery",
+   "file_index": 15,
+   "frac_actual": 0.9301,
+   "line": 700,
+   "hits": 1,
+   "file": "reading2/hyn64c/16-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2801568261187029,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "file_index": 6,
+   "frac_actual": 0.2728,
+   "line": 101,
+   "hits": 1,
+   "file": "reading2/hyn64c/07-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.38980222899860184,
+   "value": "reviewer: Dmitri Volkonsky",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Dmitri Volkonsky`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Dmitri Volkonsky`",
+   "file_index": 9,
+   "frac_actual": 0.3958,
+   "line": 147,
+   "hits": 1,
+   "file": "reading2/hyn64c/10-levers-github-cloudflare-pro.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 18,
+   "frac": 0.07280195923159105,
+   "body": "18 trowels were logged at the Uller gate.",
+   "probe": "18 trowels were logged at the Uller gate.",
+   "file_index": 0,
+   "frac_actual": 0.1152,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/hyn64c/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 11,
+   "frac": 0.7747986112188532,
+   "body": "Marsh Lane sent word of 11 rasps on hand.",
+   "probe": "Marsh Lane sent word of 11 rasps on hand.",
+   "file_index": 4,
+   "frac_actual": 0.7448,
+   "line": 474,
+   "hits": 1,
+   "file": "reading2/hyn64c/05-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 13,
+   "frac": 0.23663065373443393,
+   "body": "Tally for Pell: 13 handsaws.",
+   "probe": "Tally for Pell: 13 handsaws.",
+   "file_index": 5,
+   "frac_actual": 0.2403,
+   "line": 159,
+   "hits": 1,
+   "file": "reading2/hyn64c/06-ledger-lines.md"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 6,
+   "frac": 0.2804848663502183,
+   "body": "Lund desk entered 6 hammers on the sheet.",
+   "probe": "Lund desk entered 6 hammers on the sheet.",
+   "file_index": 10,
+   "frac_actual": 0.2813,
+   "line": 101,
+   "hits": 1,
+   "file": "reading2/hyn64c/11-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 5,
+   "frac": 0.23901410406053603,
+   "body": "The Dunn store took in 5 awls.",
+   "probe": "The Dunn store took in 5 awls.",
+   "file_index": 11,
+   "frac_actual": 0.238,
+   "line": 180,
+   "hits": 1,
+   "file": "reading2/hyn64c/12-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 8,
+   "frac": 0.6979019299755189,
+   "body": "At Wick the clerk wrote down 8 wrenches.",
+   "probe": "At Wick the clerk wrote down 8 wrenches.",
+   "file_index": 15,
+   "frac_actual": 0.6963,
+   "line": 565,
+   "hits": 1,
+   "file": "reading2/hyn64c/16-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 61
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

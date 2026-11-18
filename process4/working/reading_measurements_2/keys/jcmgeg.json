@@ -1,0 +1,188 @@
+{
+ "id": "jcmgeg",
+ "ladder": "start",
+ "size": 131072,
+ "index": 4,
+ "kind": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__process4_disposition.md",
+   "s": 36,
+   "e": 696
+  }
+ ],
+ "files": [],
+ "bytes": 129415,
+ "lines": 706,
+ "task": "wordtop",
+ "values": {
+  "code1": "B2K-3333",
+  "code2": "B5N-7860",
+  "w_last": "varnish",
+  "w_name": "alderney",
+  "w_desk": "greywether",
+  "name_a": "Mikko Rantanen",
+  "name_b": "Soren Achterberg",
+  "family": "fruit",
+  "members": [
+   "pears",
+   "limes",
+   "figs",
+   "plums",
+   "peaches",
+   "lemons",
+   "mangoes",
+   "apricots",
+   "quinces",
+   "cherries"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under varnish",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07057907271829561,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under varnish`.",
+   "probe": "-- filed under varnish",
+   "frac_actual": 0.0624,
+   "line": 40,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed B5N-7860",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.48343643381275575,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed B5N-7860`.",
+   "probe": "run closed B5N-7860",
+   "frac_actual": 0.475,
+   "line": 308,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: greywether",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9193260845569557,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: greywether`.",
+   "probe": "desk: greywether",
+   "frac_actual": 0.9096,
+   "line": 628,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.21923343260059308,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Mikko Rantanen`.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.2194,
+   "line": 151,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7805916253975087,
+   "value": "reviewer: Soren Achterberg",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Soren Achterberg`, and the name Mikko Rantanen is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.7968,
+   "line": 533,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 13,
+   "frac": 0.11484179777514274,
+   "body": "A box of 13 pears came through Varnel.",
+   "probe": "A box of 13 pears came through Varnel.",
+   "frac_actual": 0.111,
+   "line": 78,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 16,
+   "frac": 0.24694517715232386,
+   "body": "16 limes were logged at the Quay Nine gate.",
+   "probe": "16 limes were logged at the Quay Nine gate.",
+   "frac_actual": 0.2545,
+   "line": 173,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 15,
+   "frac": 0.4758006855180299,
+   "body": "Received at Tamsin Row, 15 figs.",
+   "probe": "Received at Tamsin Row, 15 figs.",
+   "frac_actual": 0.4748,
+   "line": 303,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 10,
+   "frac": 0.5719593310880887,
+   "body": "Tally for Yarm: 10 plums.",
+   "probe": "Tally for Yarm: 10 plums.",
+   "frac_actual": 0.5702,
+   "line": 361,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 8,
+   "frac": 0.7793499372916867,
+   "body": "Stane desk entered 8 peaches on the sheet.",
+   "probe": "Stane desk entered 8 peaches on the sheet.",
+   "frac_actual": 0.7628,
+   "line": 514,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 2,
+   "frac": 0.9558990784732088,
+   "body": "The Lund store took in 2 lemons.",
+   "probe": "The Lund store took in 2 lemons.",
+   "frac_actual": 0.9681,
+   "line": 662,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 64
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

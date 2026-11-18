@@ -1,0 +1,177 @@
+{
+ "id": "pbvm4t",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 48000,
+ "n_files": 2,
+ "index": 3,
+ "files": [
+  "reading2/pbvm4t/01-coordinator-findings-3-4nov.md",
+  "reading2/pbvm4t/02-layerflow.mjs"
+ ],
+ "file_kinds": [
+  "logs",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 110,
+    "e": 220
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 614,
+    "e": 1171
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 98120,
+ "lines": 695,
+ "task": "sumby",
+ "values": {
+  "code1": "F6F-6882",
+  "code2": "J2T-7110",
+  "w_last": "rosehip",
+  "w_name": "varnish",
+  "w_desk": "saltmarsh",
+  "name_a": "Hamish Colquhoun",
+  "name_b": "Kwabena Asantewaa",
+  "family": "vegetables",
+  "members": [
+   "beets",
+   "carrots",
+   "shallots",
+   "leeks",
+   "radishes",
+   "marrows",
+   "onions",
+   "turnips",
+   "cabbages",
+   "parsnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "varnish-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.2017857967172529,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `varnish-relay.md`, and under no other name.",
+   "probe": "varnish-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.092,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/pbvm4t/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: saltmarsh",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.11352316449352581,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: saltmarsh`.",
+   "probe": "desk: saltmarsh",
+   "file_index": 1,
+   "frac_actual": 0.4505,
+   "line": 262,
+   "hits": 1,
+   "file": "reading2/pbvm4t/02-layerflow.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under rosehip",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.8932670176982038,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under rosehip`.",
+   "probe": "-- filed under rosehip",
+   "file_index": 1,
+   "frac_actual": 0.9015,
+   "line": 514,
+   "hits": 1,
+   "file": "reading2/pbvm4t/02-layerflow.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6338650048730086,
+   "value": "reviewer: Hamish Colquhoun",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.",
+   "probe": "`reviewer: Hamish Colquhoun`",
+   "file_index": 0,
+   "frac_actual": 0.6361,
+   "line": 81,
+   "hits": 1,
+   "file": "reading2/pbvm4t/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.44631841845575215,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "file_index": 1,
+   "frac_actual": 0.4489,
+   "line": 256,
+   "hits": 1,
+   "file": "reading2/pbvm4t/02-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 12,
+   "frac": 0.7778239833942837,
+   "body": "Received at Hale End, 12 beets.",
+   "probe": "Received at Hale End, 12 beets.",
+   "file_index": 0,
+   "frac_actual": 0.7741,
+   "line": 99,
+   "hits": 1,
+   "file": "reading2/pbvm4t/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 4,
+   "frac": 0.659282185094995,
+   "body": "The Pell store took in 4 carrots.",
+   "probe": "The Pell store took in 4 carrots.",
+   "file_index": 0,
+   "frac_actual": 0.6585,
+   "line": 86,
+   "hits": 1,
+   "file": "reading2/pbvm4t/01-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 11,
+   "frac": 0.7895284748685144,
+   "body": "Corrie sent word of 11 shallots on hand.",
+   "probe": "Corrie sent word of 11 shallots on hand.",
+   "file_index": 1,
+   "frac_actual": 0.7905,
+   "line": 454,
+   "hits": 1,
+   "file": "reading2/pbvm4t/02-layerflow.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

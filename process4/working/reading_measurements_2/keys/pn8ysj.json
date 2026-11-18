@@ -1,0 +1,461 @@
+{
+ "id": "pn8ysj",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 0,
+ "files": [
+  "reading2/pn8ysj/01-joined.mjs",
+  "reading2/pn8ysj/02-merge-test.mjs",
+  "reading2/pn8ysj/03-joined.md",
+  "reading2/pn8ysj/04-joined.md",
+  "reading2/pn8ysj/05-job-test.mjs",
+  "reading2/pn8ysj/06-layerflow.mjs",
+  "reading2/pn8ysj/07-joined.md",
+  "reading2/pn8ysj/08-joined.mjs",
+  "reading2/pn8ysj/09-joined.mjs",
+  "reading2/pn8ysj/10-joined.md",
+  "reading2/pn8ysj/11-joined.md",
+  "reading2/pn8ysj/12-joined.mjs",
+  "reading2/pn8ysj/13-joined.mjs",
+  "reading2/pn8ysj/14-joined.md",
+  "reading2/pn8ysj/15-coordinator-findings-3-4nov.md",
+  "reading2/pn8ysj/16-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "requirements",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "s": 255,
+    "e": 305
+   },
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "s": 0,
+    "e": 301
+   },
+   {
+    "doc": "code/tool__lib__ghshare.mjs",
+    "s": 0,
+    "e": 313
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 0,
+    "e": 706
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 70,
+    "e": 331
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_map.md",
+    "s": 0,
+    "e": 94
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 308,
+    "e": 419
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "s": 0,
+    "e": 67
+   },
+   {
+    "doc": "design/notes__velocity-audit-9nov.md",
+    "s": 0,
+    "e": 62
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "s": 0,
+    "e": 28
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 0,
+    "e": 47
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 750,
+    "e": 1396
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 614,
+    "e": 1171
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 366,
+    "e": 597
+   },
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 0,
+    "e": 39
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "s": 171,
+    "e": 204
+   },
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 2350,
+    "e": 2579
+   },
+   {
+    "doc": "code/tool__test__generated.test.mjs",
+    "s": 0,
+    "e": 151
+   },
+   {
+    "doc": "code/tool__test__deploy.test.mjs",
+    "s": 0,
+    "e": 212
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 405,
+    "e": 872
+   },
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1396,
+    "e": 1557
+   },
+   {
+    "doc": "code/tool__lib__admit.mjs",
+    "s": 0,
+    "e": 32
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 301,
+    "e": 353
+   },
+   {
+    "doc": "design/process4__evidence__product_side.md",
+    "s": 0,
+    "e": 246
+   },
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 0,
+    "e": 111
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 217,
+    "e": 400
+   },
+   {
+    "doc": "design/process4__working__codex-gpt6-context-window-investigation-20261117.md",
+    "s": 0,
+    "e": 56
+   },
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 0,
+    "e": 98
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "s": 110,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__lib__hold.mjs",
+    "s": 0,
+    "e": 278
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 0,
+    "e": 166
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 580,
+    "e": 584
+   },
+   {
+    "doc": "code/tool__test__status.test.mjs",
+    "s": 0,
+    "e": 285
+   },
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "s": 0,
+    "e": 194
+   },
+   {
+    "doc": "code/tool__test__register.test.mjs",
+    "s": 0,
+    "e": 186
+   },
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "s": 0,
+    "e": 23
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__live_docs.md",
+    "s": 119,
+    "e": 230
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 0,
+    "e": 248
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-result-20261117.md",
+    "s": 0,
+    "e": 8
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "s": 90,
+    "e": 150
+   },
+   {
+    "doc": "design/notes__train-robust-options.md",
+    "s": 0,
+    "e": 274
+   },
+   {
+    "doc": "design/process4__working__cross-tree-front-door-test-result-20261117.md",
+    "s": 0,
+    "e": 24
+   },
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "s": 0,
+    "e": 75
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 765928,
+ "lines": 7930,
+ "task": "wordtop",
+ "values": {
+  "code1": "E2E-8544",
+  "code2": "A4G-3192",
+  "w_last": "alderney",
+  "w_name": "drumlin",
+  "w_desk": "fennimore",
+  "name_a": "Odette Fairweather",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "musical instruments",
+  "members": [
+   "flutes",
+   "clarinets",
+   "tubas",
+   "violins",
+   "harps",
+   "bassoons",
+   "cellos",
+   "trumpets",
+   "banjos",
+   "oboes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed A4G-3192",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7966722557068389,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed A4G-3192`.",
+   "probe": "run closed A4G-3192",
+   "file_index": 0,
+   "frac_actual": 0.0988,
+   "line": 80,
+   "hits": 1,
+   "file": "reading2/pn8ysj/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: fennimore",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7503501802405593,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: fennimore`.",
+   "probe": "desk: fennimore",
+   "file_index": 8,
+   "frac_actual": 0.5498,
+   "line": 362,
+   "hits": 1,
+   "file": "reading2/pn8ysj/09-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref E2E-8544",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.18780242579923578,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref E2E-8544`.",
+   "probe": "# ref E2E-8544",
+   "file_index": 15,
+   "frac_actual": 0.9042,
+   "line": 428,
+   "hits": 1,
+   "file": "reading2/pn8ysj/16-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.26728549206601426,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Odette Fairweather`.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "file_index": 4,
+   "frac_actual": 0.271,
+   "line": 192,
+   "hits": 1,
+   "file": "reading2/pn8ysj/05-job-test.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.399858974617761,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Odette Fairweather is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 8,
+   "frac_actual": 0.4185,
+   "line": 277,
+   "hits": 1,
+   "file": "reading2/pn8ysj/09-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 18,
+   "frac": 0.8776516339067061,
+   "body": "18 flutes were logged at the Lund gate.",
+   "probe": "18 flutes were logged at the Lund gate.",
+   "file_index": 0,
+   "frac_actual": 0.8637,
+   "line": 592,
+   "hits": 1,
+   "file": "reading2/pn8ysj/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 8,
+   "frac": 0.8228940237632234,
+   "body": "Rigg desk entered 8 clarinets on the sheet.",
+   "probe": "Rigg desk entered 8 clarinets on the sheet.",
+   "file_index": 7,
+   "frac_actual": 0.8323,
+   "line": 534,
+   "hits": 1,
+   "file": "reading2/pn8ysj/08-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 11,
+   "frac": 0.369292305432425,
+   "body": "At Eyre the clerk wrote down 11 tubas.",
+   "probe": "At Eyre the clerk wrote down 11 tubas.",
+   "file_index": 10,
+   "frac_actual": 0.372,
+   "line": 126,
+   "hits": 1,
+   "file": "reading2/pn8ysj/11-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 7,
+   "frac": 0.733945681522656,
+   "body": "A box of 7 violins came through Tamsin Row.",
+   "probe": "A box of 7 violins came through Tamsin Row.",
+   "file_index": 12,
+   "frac_actual": 0.7435,
+   "line": 535,
+   "hits": 1,
+   "file": "reading2/pn8ysj/13-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 44
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

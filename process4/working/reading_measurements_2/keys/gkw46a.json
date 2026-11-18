@@ -1,0 +1,535 @@
+{
+ "id": "gkw46a",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 5,
+ "files": [
+  "reading2/gkw46a/01-record-test.mjs",
+  "reading2/gkw46a/02-gate.mjs",
+  "reading2/gkw46a/03-joined.md",
+  "reading2/gkw46a/04-canon-analysis.md",
+  "reading2/gkw46a/05-ledger-map.md",
+  "reading2/gkw46a/06-gate.mjs",
+  "reading2/gkw46a/07-readme.md",
+  "reading2/gkw46a/08-attack-corruption.md",
+  "reading2/gkw46a/09-joined.mjs",
+  "reading2/gkw46a/10-ledger-lines.md",
+  "reading2/gkw46a/11-joined.mjs",
+  "reading2/gkw46a/12-trial-plan-facts.md",
+  "reading2/gkw46a/13-process4-counterarguments.md",
+  "reading2/gkw46a/14-record-test.mjs",
+  "reading2/gkw46a/15-setup.mjs",
+  "reading2/gkw46a/16-joined.md",
+  "reading2/gkw46a/17-coordinator-findings-3-4nov.md",
+  "reading2/gkw46a/18-layerflow-test.mjs",
+  "reading2/gkw46a/19-joined.md",
+  "reading2/gkw46a/20-audit-d-central.md",
+  "reading2/gkw46a/21-joined.md",
+  "reading2/gkw46a/22-coordinator-findings-3-4nov.md",
+  "reading2/gkw46a/23-sweep.mjs",
+  "reading2/gkw46a/24-joined.mjs",
+  "reading2/gkw46a/25-process4-counterarguments.md",
+  "reading2/gkw46a/26-process4-disposition.md",
+  "reading2/gkw46a/27-workflow-limits.mjs",
+  "reading2/gkw46a/28-layerflow.mjs",
+  "reading2/gkw46a/29-joined.md",
+  "reading2/gkw46a/30-point4-release.md",
+  "reading2/gkw46a/31-state.mjs",
+  "reading2/gkw46a/32-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "design",
+  "requirements",
+  "code",
+  "principles",
+  "design",
+  "code",
+  "requirements",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "principles",
+  "design",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "code",
+  "principles",
+  "design",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 214,
+    "e": 407
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 145,
+    "e": 295
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__k_evidence.md",
+    "s": 362,
+    "e": 400
+   },
+   {
+    "doc": "design/process4__working__dot-versus-owner-front-door-feasibility-20261117.md",
+    "s": 0,
+    "e": 45
+   },
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 685,
+    "e": 689
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 221,
+    "e": 381
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_map.md",
+    "s": 29,
+    "e": 246
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 441,
+    "e": 612
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 0,
+    "e": 20
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 0,
+    "e": 101
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 561,
+    "e": 573
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "s": 0,
+    "e": 154
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 0,
+    "e": 107
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "s": 3,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "s": 0,
+    "e": 11
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 690,
+    "e": 821
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__record.test.mjs",
+    "s": 407,
+    "e": 601
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 347,
+    "e": 508
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__r17c-settings.md",
+    "s": 236,
+    "e": 244
+   },
+   {
+    "doc": "design/process4__working__attack_common.md",
+    "s": 0,
+    "e": 39
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "s": 189,
+    "e": 232
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 241,
+    "e": 249
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1070,
+    "e": 1098
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 2096,
+    "e": 2234
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+    "s": 26,
+    "e": 100
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "s": 0,
+    "e": 33
+   },
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 185,
+    "e": 263
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 204,
+    "e": 220
+   },
+   {
+    "doc": "design/notes__problem-classes.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "s": 0,
+    "e": 51
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 424,
+    "e": 464
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__sweep.mjs",
+    "s": 0,
+    "e": 156
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "s": 196,
+    "e": 215
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 347,
+    "e": 425
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "s": 0,
+    "e": 58
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 556,
+    "e": 690
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 639,
+    "e": 706
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__workflow-limits.mjs",
+    "s": 59,
+    "e": 237
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 2057,
+    "e": 2198
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "s": 0,
+    "e": 101
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "s": 0,
+    "e": 16
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 266,
+    "e": 344
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__state.mjs",
+    "s": 359,
+    "e": 529
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__size.mjs",
+    "s": 48,
+    "e": 129
+   },
+   {
+    "doc": "code/tool__test__ready.test.mjs",
+    "s": 0,
+    "e": 116
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 390710,
+ "lines": 4174,
+ "task": "minutes",
+ "values": {
+  "code1": "N7J-1515",
+  "code2": "R9S-2745",
+  "w_last": "larkspur",
+  "w_name": "quillon",
+  "w_desk": "drumlin",
+  "name_a": "Noor Al-Tamimi",
+  "name_b": "Tobias Hallworth",
+  "family": "musical instruments",
+  "members": [
+   "cellos",
+   "banjos",
+   "harps",
+   "bassoons",
+   "violins",
+   "clarinets",
+   "flutes",
+   "tubas",
+   "trumpets",
+   "oboes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: drumlin",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7153627581604969,
+   "body": "A requirement on what a job hands in: the job's handover note carries, on a line of its own, exactly: `desk: drumlin`.",
+   "probe": "desk: drumlin",
+   "file_index": 0,
+   "frac_actual": 0.0923,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/gkw46a/01-record-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under larkspur",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6937596131748465,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under larkspur`.",
+   "probe": "-- filed under larkspur",
+   "file_index": 16,
+   "frac_actual": 0.5203,
+   "line": 16,
+   "hits": 1,
+   "file": "reading2/gkw46a/17-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed R9S-2745",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.6849904044655372,
+   "body": "To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed R9S-2745`.",
+   "probe": "run closed R9S-2745",
+   "file_index": 31,
+   "frac_actual": 0.9085,
+   "line": 186,
+   "hits": 1,
+   "file": "reading2/gkw46a/32-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.6907800955629677,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "file_index": 12,
+   "frac_actual": 0.6932,
+   "line": 104,
+   "hits": 1,
+   "file": "reading2/gkw46a/13-process4-counterarguments.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.1918639178109535,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "file_index": 25,
+   "frac_actual": 0.1962,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/gkw46a/26-process4-disposition.md"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 11,
+   "frac": 0.1003037450257388,
+   "body": "Tally for Yarm: 11 cellos.",
+   "probe": "Tally for Yarm: 11 cellos.",
+   "file_index": 6,
+   "frac_actual": 0.0645,
+   "line": 10,
+   "hits": 1,
+   "file": "reading2/gkw46a/07-readme.md"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 15,
+   "frac": 0.0899144313781452,
+   "body": "Uller desk entered 15 banjos on the sheet.",
+   "probe": "Uller desk entered 15 banjos on the sheet.",
+   "file_index": 11,
+   "frac_actual": 0.1063,
+   "line": 18,
+   "hits": 1,
+   "file": "reading2/gkw46a/12-trial-plan-facts.md"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 5,
+   "frac": 0.6306837448725142,
+   "body": "A box of 5 harps came through Thorpe.",
+   "probe": "A box of 5 harps came through Thorpe.",
+   "file_index": 21,
+   "frac_actual": 0.6259,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/gkw46a/22-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 16,
+   "frac": 0.3336228713216183,
+   "body": "Received at Dunn, 16 bassoons.",
+   "probe": "Received at Dunn, 16 bassoons.",
+   "file_index": 29,
+   "frac_actual": 0.2731,
+   "line": 34,
+   "hits": 1,
+   "file": "reading2/gkw46a/30-point4-release.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

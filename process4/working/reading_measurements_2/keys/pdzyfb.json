@@ -1,0 +1,234 @@
+{
+ "id": "pdzyfb",
+ "ladder": "single",
+ "size": 384000,
+ "index": 5,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "design/process4__working__codex-first-class-feasibility-20261117.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__definition__process4_five_points.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__train-plain-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__replay__appendix_commits.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__velocity-audit-9nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__evidence__change_sample.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__lanes_owner_documents.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__v3_notes.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__audit2_common.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__trust-layer-review-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point5_288_lines.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__train-robust-options.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__defect-sweep-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/notes__gate-map-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "design/process4__working__session2__point1_tranche_end.md",
+   "lines": "1-85"
+  }
+ ],
+ "files": [
+  "reading2/pdzyfb/design.md"
+ ],
+ "bytes": 383820,
+ "lines": 2890,
+ "task": "dates",
+ "values": {
+  "code1": "V4Q-5870",
+  "code2": "R2T-2452",
+  "w_last": "saltmarsh",
+  "w_name": "pemberley",
+  "w_desk": "kestrel",
+  "name_a": "Maren Oduya",
+  "name_b": "Noor Al-Tamimi",
+  "family": "hand tools",
+  "members": [
+   "handsaws",
+   "trowels",
+   "wrenches",
+   "spanners",
+   "mallets",
+   "chisels",
+   "pliers",
+   "rasps",
+   "awls",
+   "hammers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed R2T-2452",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09410016985622434,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed R2T-2452`.",
+   "probe": "run closed R2T-2452",
+   "frac_actual": 0.0941,
+   "line": 251,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "pemberley-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5478080270273319,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `pemberley-relay.md`, and under no other name.",
+   "probe": "pemberley-relay.md",
+   "frac_actual": 0.5378,
+   "line": 1377,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref V4Q-5870",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9794594866767876,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref V4Q-5870`.",
+   "probe": "# ref V4Q-5870",
+   "frac_actual": 0.9804,
+   "line": 2819,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.30227670163866294,
+   "value": "reviewer: Maren Oduya",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.3058,
+   "line": 784,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.589347068489498,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.5895,
+   "line": 1583,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 5,
+   "frac": 0.032525195492587235,
+   "body": "Received at Hale End, 5 handsaws.",
+   "probe": "Received at Hale End, 5 handsaws.",
+   "frac_actual": 0.0325,
+   "line": 54,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 13,
+   "frac": 0.3627200352325054,
+   "body": "The Thorpe store took in 13 trowels.",
+   "probe": "The Thorpe store took in 13 trowels.",
+   "frac_actual": 0.3613,
+   "line": 941,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "count",
+   "member": "wrenches",
+   "n": 14,
+   "frac": 0.5131212459996312,
+   "body": "14 wrenches were logged at the Marsh Lane gate.",
+   "probe": "14 wrenches were logged at the Marsh Lane gate.",
+   "frac_actual": 0.5145,
+   "line": 1287,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 7,
+   "frac": 0.6646972162005901,
+   "body": "Varnel desk entered 7 spanners on the sheet.",
+   "probe": "Varnel desk entered 7 spanners on the sheet.",
+   "frac_actual": 0.6651,
+   "line": 1865,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 8,
+   "frac": 0.7906269933143535,
+   "body": "At Uller the clerk wrote down 8 mallets.",
+   "probe": "At Uller the clerk wrote down 8 mallets.",
+   "frac_actual": 0.7895,
+   "line": 2212,
+   "hits": 1,
+   "file": "reading2/pdzyfb/design.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

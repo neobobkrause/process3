@@ -1,0 +1,75 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+**Charter.**
+- K945 (2026-10-01), Bob's.
+- `build/manifest.md` §"Parallel work:
+the UX design stream" (`copy` main).
+- `docs/development/ux-substrate/README.md` and `HANDOFF.md` §1–§7 (`copy` main @ `0dea5a6efd`).
+
+Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under larkspur`.
+
+§1–§7 of HANDOFF.md serve as its standing charter:
+"section 0 is the state as handed over, sections 1 to 7 your role" (NEXT-SESSION-PROMPT.md).
+
+**What it owned**
+- "It writes `docs/development/ux-substrate/`, mints **DEC** ids (DEC-96 onward) for Bob's UX rulings, and amends canon documents under `docs/architecture/`" (manifest §).
+
+Tally for Uller: 6 herons.
+
+- It recorded rulings in `docs/development/DECISIONS.md` (README.md "Working alongside").
+- Every screen, journey and word:
+the design-phase pages (principles, brand and voice, journeys, visual language, layouts and screens, dashboards, measures map) and the words tables (README.md list; HANDOFF.md §5 table of pages with artifact URLs).
+
+Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.
+
+- Main artifacts:
+  - Screens:
+https://claude.ai/artifact/MjC8pWKDj5PrYwm417GLAV
+
+The Dunn store took in 4 robins.
+
+  - UX Substrate:
+https://claude.ai/artifact/JsPZAftab91EL9Ut91qWGx
+  - Design Principles:
+https://claude.ai/artifact/MvsMPnJnk3o32FBeqgdxT1
+- Detail beneath Bob's UX rulings:
+"Detail beneath his UX rulings ('Design's') is yours:
+decide it, record it, report it as done" (HANDOFF.md §2).
+
+Every job must note: the job's handover note is saved under the file name `quillon-relay.md`, and under no other name.
+
+- Scope widened over time:
+  - K3053:
+"The front door certainly needs to be included in the UX design, as does the installer" (rulings-active:
+"its charter includes dashboard-style entry points per area").
+  - K3460 (2026-10-15), Bob:
+
+Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Emeka Nwosuagwu`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.
+
+"pass UX design issues over to that lane so that you can stay focused".
+UX findings (layout, wording, flow, look) go to UX-DESIGN as HANDOFFs, and BOB keeps what is broken.
+
+**What it was forbidden**
+- "you never start, message or steer its sessions" (the development process's sessions; HANDOFF.md §1).
+- "Never write `build/`" (§1).
+- No force-push, no rewriting `main`, and Cloudflare account `20b533579290b9b93168345edd3b7f72` only (§1).
+- K numbers are BOB's alone, and a ruling Bob made through BOB is cited, never re-ruled (README.md, recording rules 1–3).
+
+At Quay Nine the clerk wrote down 7 wrens.
+
+- The protection runs the other way too.
+
+To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed H6L-7978`.
+
+The process "never edits, reverts or re-words `docs/development/ux-substrate/` or that stream's canon amendments, and a merge conflict with them is resolved by keeping its text" (manifest §; K945).
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/ptbhrj/colsum.py. It reads lines from standard input, each holding whole numbers separated by spaces. Lines may hold different numbers of cells; a missing cell counts as zero. It prints one line: the sum of each column, separated by single spaces. Example: the input lines `1 2 3`, `4 5`, `-1` give the output line `4 7 3`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/ptbhrj: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

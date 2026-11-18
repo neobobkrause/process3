@@ -1,0 +1,191 @@
+{
+ "id": "kmta7v",
+ "ladder": "single",
+ "size": 12000,
+ "index": 2,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "s": 31,
+   "e": 95
+  }
+ ],
+ "files": [
+  "reading2/kmta7v/principles.md"
+ ],
+ "bytes": 11888,
+ "lines": 97,
+ "task": "rle",
+ "values": {
+  "code1": "X9H-6126",
+  "code2": "Y6H-3862",
+  "w_last": "quarrystone",
+  "w_name": "quillon",
+  "w_desk": "elderwood",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Ines Carrowby",
+  "family": "hand tools",
+  "members": [
+   "chisels",
+   "hammers",
+   "trowels",
+   "handsaws",
+   "rasps",
+   "mallets",
+   "awls",
+   "spanners",
+   "wrenches",
+   "pliers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed Y6H-3862",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.020084259410526162,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed Y6H-3862`.",
+   "probe": "run closed Y6H-3862",
+   "frac_actual": 0.0366,
+   "line": 3,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under quarrystone",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.46811972416246656,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under quarrystone`.",
+   "probe": "-- filed under quarrystone",
+   "frac_actual": 0.4636,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "quillon-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.97431144232354,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `quillon-relay.md`, and under no other name.",
+   "probe": "quillon-relay.md",
+   "frac_actual": 0.9743,
+   "line": 90,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.14921345053795168,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.1802,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.85831806555162,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ines Carrowby`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.8606,
+   "line": 76,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 15,
+   "frac": 0.08122163802223303,
+   "body": "Brae sent word of 15 chisels on hand.",
+   "probe": "Brae sent word of 15 chisels on hand.",
+   "frac_actual": 0.0518,
+   "line": 9,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 10,
+   "frac": 0.2822727923442583,
+   "body": "Received at Dunn, 10 hammers.",
+   "probe": "Received at Dunn, 10 hammers.",
+   "frac_actual": 0.2825,
+   "line": 18,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 8,
+   "frac": 0.407629142609264,
+   "body": "A box of 8 trowels came through Corrie.",
+   "probe": "A box of 8 trowels came through Corrie.",
+   "frac_actual": 0.4077,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 3,
+   "frac": 0.5369200157105453,
+   "body": "3 handsaws were logged at the Uller gate.",
+   "probe": "3 handsaws were logged at the Uller gate.",
+   "frac_actual": 0.533,
+   "line": 47,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "rasps",
+   "n": 18,
+   "frac": 0.7185314835205171,
+   "body": "Thorpe desk entered 18 rasps on the sheet.",
+   "probe": "Thorpe desk entered 18 rasps on the sheet.",
+   "frac_actual": 0.7153,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 5,
+   "frac": 0.9089436575211166,
+   "body": "The Wick store took in 5 mallets.",
+   "probe": "The Wick store took in 5 mallets.",
+   "frac_actual": 0.8965,
+   "line": 84,
+   "hits": 1,
+   "file": "reading2/kmta7v/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 59
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

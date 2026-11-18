@@ -1,0 +1,468 @@
+{
+ "id": "mju9se",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 48000,
+ "n_files": 16,
+ "index": 4,
+ "files": [
+  "reading2/mju9se/01-util.mjs",
+  "reading2/mju9se/02-joined.mjs",
+  "reading2/mju9se/03-joined.mjs",
+  "reading2/mju9se/04-joined.mjs",
+  "reading2/mju9se/05-audit2-corruption.md",
+  "reading2/mju9se/06-canon-analysis.md",
+  "reading2/mju9se/07-process4-counterarguments.md",
+  "reading2/mju9se/08-ledger-lines.md",
+  "reading2/mju9se/09-joined.md",
+  "reading2/mju9se/10-joined.mjs",
+  "reading2/mju9se/11-joined.md",
+  "reading2/mju9se/12-joined.md",
+  "reading2/mju9se/13-joined.mjs",
+  "reading2/mju9se/14-joined.md",
+  "reading2/mju9se/15-joined.mjs",
+  "reading2/mju9se/16-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "code",
+  "code",
+  "design",
+  "design",
+  "design",
+  "requirements",
+  "design",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "logs",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__util.mjs",
+    "s": 73,
+    "e": 784
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "s": 30,
+    "e": 36
+   },
+   {
+    "doc": "code/tool__lib__start.mjs",
+    "s": 0,
+    "e": 150
+   },
+   {
+    "doc": "code/tool__test__lane.test.mjs",
+    "s": 0,
+    "e": 149
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 0,
+    "e": 359
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "s": 80,
+    "e": 146
+   },
+   {
+    "doc": "code/tool__test__pace.test.mjs",
+    "s": 0,
+    "e": 538
+   },
+   {
+    "doc": "code/tool__test__sweep-sessions.test.mjs",
+    "s": 0,
+    "e": 51
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 1117,
+    "e": 1153
+   },
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "s": 0,
+    "e": 215
+   },
+   {
+    "doc": "code/tool__lib__lane.mjs",
+    "s": 0,
+    "e": 309
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 0,
+    "e": 339
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 0,
+    "e": 366
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 367,
+    "e": 811
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 1070,
+    "e": 1672
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 200,
+    "e": 267
+   },
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 0,
+    "e": 379
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 359,
+    "e": 532
+   },
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "s": 0,
+    "e": 294
+   },
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "s": 0,
+    "e": 182
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "s": 34,
+    "e": 129
+   },
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 0,
+    "e": 353
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__draft-approvals-biosmoke-8nov.md",
+    "s": 1,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov.md",
+    "s": 0,
+    "e": 14
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-e.md",
+    "s": 0,
+    "e": 40
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_compaction_avoidance.md",
+    "s": 0,
+    "e": 23
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_17nov_codex_context.md",
+    "s": 0,
+    "e": 31
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "s": 0,
+    "e": 26
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov.md",
+    "s": 0,
+    "e": 35
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-8nov-d.md",
+    "s": 0,
+    "e": 33
+   },
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "s": 0,
+    "e": 54
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-c.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 207,
+    "e": 763
+   },
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 0,
+    "e": 150
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_notice_session.md",
+    "s": 9,
+    "e": 114
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__01-vocab.txt",
+    "s": 0,
+    "e": 159
+   },
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "s": 0,
+    "e": 112
+   },
+   {
+    "doc": "logs/notes__merge-train-trial.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__records-inventory.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "logs/process4__owner_words__bob_words_14nov_b.md",
+    "s": 0,
+    "e": 37
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-g.md",
+    "s": 0,
+    "e": 21
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "s": 0,
+    "e": 95
+   },
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 0,
+    "e": 530
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 166,
+    "e": 202
+   },
+   {
+    "doc": "code/tool__test__state-push.test.mjs",
+    "s": 0,
+    "e": 55
+   },
+   {
+    "doc": "code/tool__test__pushcheck.test.mjs",
+    "s": 0,
+    "e": 67
+   },
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1166,
+    "e": 1385
+   },
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 0,
+    "e": 317
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 762695,
+ "lines": 8889,
+ "task": "sumby",
+ "values": {
+  "code1": "N4C-5236",
+  "code2": "A2C-4597",
+  "w_last": "quarrystone",
+  "w_name": "marlowe",
+  "w_desk": "vetiver",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Noor Al-Tamimi",
+  "family": "fruit",
+  "members": [
+   "cherries",
+   "figs",
+   "limes",
+   "apricots",
+   "quinces",
+   "mangoes",
+   "plums",
+   "pears",
+   "lemons",
+   "peaches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under quarrystone",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.5146448403114263,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under quarrystone`.",
+   "probe": "-- filed under quarrystone",
+   "file_index": 0,
+   "frac_actual": 0.0009,
+   "line": 5,
+   "hits": 1,
+   "file": "reading2/mju9se/01-util.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref N4C-5236",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6767342713979663,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref N4C-5236`.",
+   "probe": "# ref N4C-5236",
+   "file_index": 8,
+   "frac_actual": 0.5358,
+   "line": 246,
+   "hits": 1,
+   "file": "reading2/mju9se/09-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed A2C-4597",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.45920371747009503,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed A2C-4597`.",
+   "probe": "run closed A2C-4597",
+   "file_index": 15,
+   "frac_actual": 0.9109,
+   "line": 655,
+   "hits": 1,
+   "file": "reading2/mju9se/16-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.49617370517636894,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 1,
+   "frac_actual": 0.4971,
+   "line": 357,
+   "hits": 1,
+   "file": "reading2/mju9se/02-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.863162914114496,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "file_index": 14,
+   "frac_actual": 0.8826,
+   "line": 555,
+   "hits": 1,
+   "file": "reading2/mju9se/15-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 6,
+   "frac": 0.8120679394431457,
+   "body": "Tally for Quay Nine: 6 cherries.",
+   "probe": "Tally for Quay Nine: 6 cherries.",
+   "file_index": 3,
+   "frac_actual": 0.7998,
+   "line": 486,
+   "hits": 1,
+   "file": "reading2/mju9se/04-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 15,
+   "frac": 0.07283380728409138,
+   "body": "15 figs were logged at the Marsh Lane gate.",
+   "probe": "15 figs were logged at the Marsh Lane gate.",
+   "file_index": 10,
+   "frac_actual": 0.0756,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/mju9se/11-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 12,
+   "frac": 0.3078695874012376,
+   "body": "At Corrie the clerk wrote down 12 limes.",
+   "probe": "At Corrie the clerk wrote down 12 limes.",
+   "file_index": 11,
+   "frac_actual": 0.3093,
+   "line": 82,
+   "hits": 1,
+   "file": "reading2/mju9se/12-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 33
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

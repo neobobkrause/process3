@@ -1,0 +1,900 @@
+{
+ "id": "md9b33",
+ "ladder": "set",
+ "size": 768000,
+ "piece": 12000,
+ "n_files": 64,
+ "index": 0,
+ "files": [
+  "reading2/md9b33/01-joined.mjs",
+  "reading2/md9b33/02-shims-test.mjs",
+  "reading2/md9b33/03-coordinator-findings-3-4nov.md",
+  "reading2/md9b33/04-direct.mjs",
+  "reading2/md9b33/05-joined.md",
+  "reading2/md9b33/06-layerflow.mjs",
+  "reading2/md9b33/07-joined.mjs",
+  "reading2/md9b33/08-register.mjs",
+  "reading2/md9b33/09-causal-forensics.md",
+  "reading2/md9b33/10-coordinator-findings-3-4nov.md",
+  "reading2/md9b33/11-process4-disposition.md",
+  "reading2/md9b33/12-merge-test.mjs",
+  "reading2/md9b33/13-joined.md",
+  "reading2/md9b33/14-process4-definition-v6.md",
+  "reading2/md9b33/15-joined.mjs",
+  "reading2/md9b33/16-coordinator-findings-3-4nov.md",
+  "reading2/md9b33/17-bob-naming.md",
+  "reading2/md9b33/18-status.mjs",
+  "reading2/md9b33/19-joined.mjs",
+  "reading2/md9b33/20-point4-release.md",
+  "reading2/md9b33/21-v3-notes.md",
+  "reading2/md9b33/22-audit-ledger.md",
+  "reading2/md9b33/23-interface-and-cycle.md",
+  "reading2/md9b33/24-audit2-feasibility.md",
+  "reading2/md9b33/25-sweep-test.mjs",
+  "reading2/md9b33/26-joined.md",
+  "reading2/md9b33/27-joined.mjs",
+  "reading2/md9b33/28-layerflow.mjs",
+  "reading2/md9b33/29-coordinator-findings-3-4nov.md",
+  "reading2/md9b33/30-release-test.mjs",
+  "reading2/md9b33/31-branches-test.mjs",
+  "reading2/md9b33/32-testdiff.mjs",
+  "reading2/md9b33/33-process4-counterarguments.md",
+  "reading2/md9b33/34-coordinator-findings-3-4nov.md",
+  "reading2/md9b33/35-joined.mjs",
+  "reading2/md9b33/36-joined.mjs",
+  "reading2/md9b33/37-joined.md",
+  "reading2/md9b33/38-coordinator-findings-3-4nov.md",
+  "reading2/md9b33/39-checks.mjs",
+  "reading2/md9b33/40-joined.mjs",
+  "reading2/md9b33/41-appendix-recount.md",
+  "reading2/md9b33/42-process4-disposition.md",
+  "reading2/md9b33/43-job-test.mjs",
+  "reading2/md9b33/44-joined.md",
+  "reading2/md9b33/45-process4-definition-main.md",
+  "reading2/md9b33/46-joined.mjs",
+  "reading2/md9b33/47-triage.mjs",
+  "reading2/md9b33/48-no-layers-width.md",
+  "reading2/md9b33/49-developer.md",
+  "reading2/md9b33/50-joined.md",
+  "reading2/md9b33/51-process4-disposition.md",
+  "reading2/md9b33/52-joined.mjs",
+  "reading2/md9b33/53-joined.md",
+  "reading2/md9b33/54-merge-test.mjs",
+  "reading2/md9b33/55-release.mjs",
+  "reading2/md9b33/56-joined.md",
+  "reading2/md9b33/57-point5-288-lines.md",
+  "reading2/md9b33/58-joined.md",
+  "reading2/md9b33/59-pace.mjs",
+  "reading2/md9b33/60-joined.md",
+  "reading2/md9b33/61-gateclass-test.mjs",
+  "reading2/md9b33/62-process4-disposition.md",
+  "reading2/md9b33/63-v3-notes.md",
+  "reading2/md9b33/64-roles-root-coordinator.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "logs",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "requirements",
+  "code",
+  "principles",
+  "design",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design",
+  "design",
+  "design",
+  "design",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "principles",
+  "design",
+  "code",
+  "code",
+  "design",
+  "principles",
+  "design",
+  "requirements",
+  "code",
+  "design",
+  "code",
+  "code",
+  "principles",
+  "design",
+  "design",
+  "code",
+  "design",
+  "code",
+  "requirements",
+  "design",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__no-code.test.mjs",
+    "s": 42,
+    "e": 112
+   },
+   {
+    "doc": "code/tool__lib__ghhook.mjs",
+    "s": 0,
+    "e": 87
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 59,
+    "e": 236
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 323,
+    "e": 340
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__direct.mjs",
+    "s": 0,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__07-methods-b.txt",
+    "s": 83,
+    "e": 186
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-5nov-d.md",
+    "s": 0,
+    "e": 29
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov.md",
+    "s": 0,
+    "e": 14
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 319,
+    "e": 465
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerbase.mjs",
+    "s": 133,
+    "e": 135
+   },
+   {
+    "doc": "code/tool__test__audit-restores.test.mjs",
+    "s": 0,
+    "e": 63
+   },
+   {
+    "doc": "code/tool__lib__ghaudit.mjs",
+    "s": 0,
+    "e": 88
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "s": 60,
+    "e": 231
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__causal_forensics.md",
+    "s": 295,
+    "e": 377
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 89,
+    "e": 113
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 565,
+    "e": 639
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 366,
+    "e": 541
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "s": 10,
+    "e": 54
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 190,
+    "e": 255
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 847,
+    "e": 872
+   },
+   {
+    "doc": "code/tool__lib__roundnext.mjs",
+    "s": 347,
+    "e": 425
+   },
+   {
+    "doc": "code/tool__test__rulebooks.test.mjs",
+    "s": 0,
+    "e": 74
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1070,
+    "e": 1098
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 0,
+    "e": 103
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 438,
+    "e": 586
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__fresh-branch.test.mjs",
+    "s": 155,
+    "e": 169
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 375,
+    "e": 457
+   },
+   {
+    "doc": "code/tool__lib__workflows.mjs",
+    "s": 0,
+    "e": 73
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 266,
+    "e": 344
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "s": 0,
+    "e": 47
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 136,
+    "e": 198
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__interface_and_cycle.md",
+    "s": 116,
+    "e": 250
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 118,
+    "e": 180
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 0,
+    "e": 195
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__owner_words_ideas_18nov.md",
+    "s": 90,
+    "e": 112
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-e.md",
+    "s": 0,
+    "e": 30
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-4nov-c.md",
+    "s": 0,
+    "e": 47
+   },
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+    "s": 0,
+    "e": 11
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "s": 33,
+    "e": 139
+   },
+   {
+    "doc": "code/tool__test__walkcfg.test.mjs",
+    "s": 0,
+    "e": 36
+   },
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 155,
+    "e": 157
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 0,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1176,
+    "e": 1205
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__release.test.mjs",
+    "s": 0,
+    "e": 154
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__branches.test.mjs",
+    "s": 0,
+    "e": 195
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "s": 7,
+    "e": 225
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 690,
+    "e": 821
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 663,
+    "e": 691
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "s": 72,
+    "e": 74
+   },
+   {
+    "doc": "code/tool__test__switch.test.mjs",
+    "s": 320,
+    "e": 398
+   },
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "s": 0,
+    "e": 91
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__session-call.test.mjs",
+    "s": 86,
+    "e": 89
+   },
+   {
+    "doc": "code/tool__test__prompt-caps.test.mjs",
+    "s": 0,
+    "e": 98
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "s": 0,
+    "e": 92
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 214,
+    "e": 248
+   },
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 241,
+    "e": 277
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 103,
+    "e": 120
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 581,
+    "e": 618
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "s": 0,
+    "e": 162
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__walkcfg.mjs",
+    "s": 19,
+    "e": 66
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 173,
+    "e": 265
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__appendix_recount.md",
+    "s": 0,
+    "e": 110
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 305,
+    "e": 361
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 759,
+    "e": 936
+   }
+  ],
+  [
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "s": 42,
+    "e": 68
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 21
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "s": 0,
+    "e": 4
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_main.md",
+    "s": 101,
+    "e": 189
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "s": 205,
+    "e": 280
+   },
+   {
+    "doc": "code/tool__test__report-right.test.mjs",
+    "s": 160,
+    "e": 253
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 174,
+    "e": 328
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__no_layers_width.md",
+    "s": 0,
+    "e": 125
+   }
+  ],
+  [
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "s": 0,
+    "e": 120
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 450,
+    "e": 490
+   },
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "s": 0,
+    "e": 68
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 361,
+    "e": 410
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__take-in-record.test.mjs",
+    "s": 271,
+    "e": 305
+   },
+   {
+    "doc": "code/tool__lib__exports.mjs",
+    "s": 225,
+    "e": 381
+   },
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 0,
+    "e": 12
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "s": 62,
+    "e": 96
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 0,
+    "e": 58
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 198,
+    "e": 366
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__release.mjs",
+    "s": 0,
+    "e": 147
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 246,
+    "e": 292
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "s": 0,
+    "e": 52
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 251,
+    "e": 350
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__session_brief.md",
+    "s": 61,
+    "e": 122
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "s": 0,
+    "e": 28
+   },
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "s": 0,
+    "e": 7
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 169,
+    "e": 340
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "s": 68,
+    "e": 129
+   },
+   {
+    "doc": "design/notes__trust-layer-review-4nov.md",
+    "s": 160,
+    "e": 253
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 0,
+    "e": 176
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 242,
+    "e": 305
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "s": 47,
+    "e": 185
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "s": 190,
+    "e": 289
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 779975,
+ "lines": 7862,
+ "task": "merge",
+ "values": {
+  "code1": "G6T-2436",
+  "code2": "H7X-1794",
+  "w_last": "thistledown",
+  "w_name": "wainscot",
+  "w_desk": "dunmore",
+  "name_a": "Liesel Hartmannsdorf",
+  "name_b": "Noor Al-Tamimi",
+  "family": "fruit",
+  "members": [
+   "cherries",
+   "apricots",
+   "plums",
+   "lemons",
+   "pears",
+   "limes",
+   "peaches",
+   "mangoes",
+   "quinces",
+   "figs"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref G6T-2436",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7820367478932386,
+   "body": "Kept by every job without exception: every file the job writes begins with this exact first line: `# ref G6T-2436`.",
+   "probe": "# ref G6T-2436",
+   "file_index": 0,
+   "frac_actual": 0.0912,
+   "line": 19,
+   "hits": 1,
+   "file": "reading2/md9b33/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under thistledown",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.7379450781503757,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under thistledown`.",
+   "probe": "-- filed under thistledown",
+   "file_index": 32,
+   "frac_actual": 0.5202,
+   "line": 75,
+   "hits": 1,
+   "file": "reading2/md9b33/33-process4-counterarguments.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "wainscot-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9133784462342112,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `wainscot-relay.md`, and under no other name.",
+   "probe": "wainscot-relay.md",
+   "file_index": 63,
+   "frac_actual": 0.9139,
+   "line": 87,
+   "hits": 1,
+   "file": "reading2/md9b33/64-roles-root-coordinator.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5088687420890453,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Liesel Hartmannsdorf`.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "file_index": 14,
+   "frac_actual": 0.508,
+   "line": 106,
+   "hits": 1,
+   "file": "reading2/md9b33/15-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7228008292165986,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Liesel Hartmannsdorf is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "file_index": 46,
+   "frac_actual": 0.7202,
+   "line": 106,
+   "hits": 1,
+   "file": "reading2/md9b33/47-triage.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 2,
+   "frac": 0.29399374364216535,
+   "body": "The Quay Nine store took in 2 cherries.",
+   "probe": "The Quay Nine store took in 2 cherries.",
+   "file_index": 14,
+   "frac_actual": 0.2905,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/md9b33/15-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 18,
+   "frac": 0.37277186132067586,
+   "body": "Received at Rigg, 18 apricots.",
+   "probe": "Received at Rigg, 18 apricots.",
+   "file_index": 37,
+   "frac_actual": 0.376,
+   "line": 15,
+   "hits": 1,
+   "file": "reading2/md9b33/38-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "plums",
+   "n": 3,
+   "frac": 0.6131375694069179,
+   "body": "At Varnel the clerk wrote down 3 plums.",
+   "probe": "At Varnel the clerk wrote down 3 plums.",
+   "file_index": 42,
+   "frac_actual": 0.6131,
+   "line": 115,
+   "hits": 1,
+   "file": "reading2/md9b33/43-job-test.mjs"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 23
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

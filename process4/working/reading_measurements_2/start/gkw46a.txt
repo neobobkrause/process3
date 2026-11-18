@@ -1,0 +1,43 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/gkw46a/01-record-test.mjs
+- reading2/gkw46a/02-gate.mjs
+- reading2/gkw46a/03-joined.md
+- reading2/gkw46a/04-canon-analysis.md
+- reading2/gkw46a/05-ledger-map.md
+- reading2/gkw46a/06-gate.mjs
+- reading2/gkw46a/07-readme.md
+- reading2/gkw46a/08-attack-corruption.md
+- reading2/gkw46a/09-joined.mjs
+- reading2/gkw46a/10-ledger-lines.md
+- reading2/gkw46a/11-joined.mjs
+- reading2/gkw46a/12-trial-plan-facts.md
+- reading2/gkw46a/13-process4-counterarguments.md
+- reading2/gkw46a/14-record-test.mjs
+- reading2/gkw46a/15-setup.mjs
+- reading2/gkw46a/16-joined.md
+- reading2/gkw46a/17-coordinator-findings-3-4nov.md
+- reading2/gkw46a/18-layerflow-test.mjs
+- reading2/gkw46a/19-joined.md
+- reading2/gkw46a/20-audit-d-central.md
+- reading2/gkw46a/21-joined.md
+- reading2/gkw46a/22-coordinator-findings-3-4nov.md
+- reading2/gkw46a/23-sweep.mjs
+- reading2/gkw46a/24-joined.mjs
+- reading2/gkw46a/25-process4-counterarguments.md
+- reading2/gkw46a/26-process4-disposition.md
+- reading2/gkw46a/27-workflow-limits.mjs
+- reading2/gkw46a/28-layerflow.mjs
+- reading2/gkw46a/29-joined.md
+- reading2/gkw46a/30-point4-release.md
+- reading2/gkw46a/31-state.mjs
+- reading2/gkw46a/32-joined.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/gkw46a/minutes.py. It reads lines from standard input, each a duration written as hours and minutes in the forms `1h30m`, `45m` or `2h`. Blank lines are ignored. For each line it prints the duration in whole minutes, and after the last it prints `total N`, where N is the sum. Example: the input lines `1h30m`, `45m`, `2h` give the output lines `90`, `45`, `120`, `total 255`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/gkw46a: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

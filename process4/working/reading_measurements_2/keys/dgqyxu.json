@@ -1,0 +1,282 @@
+{
+ "id": "dgqyxu",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 1,
+ "files": [
+  "reading2/dgqyxu/01-merge-test.mjs",
+  "reading2/dgqyxu/02-joined.md",
+  "reading2/dgqyxu/03-study.md",
+  "reading2/dgqyxu/04-joined.mjs",
+  "reading2/dgqyxu/05-joined.md",
+  "reading2/dgqyxu/06-close-workflows-test.mjs",
+  "reading2/dgqyxu/07-job.mjs",
+  "reading2/dgqyxu/08-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "logs",
+  "design",
+  "code",
+  "principles",
+  "code",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 198,
+    "e": 366
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__codex_design_conversation_register_20261117.md",
+    "s": 25,
+    "e": 70
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-7nov-c-switch.md",
+    "s": 0,
+    "e": 45
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__study.md",
+    "s": 0,
+    "e": 81
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 130,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__test__scale-fixture.mjs",
+    "s": 0,
+    "e": 107
+   }
+  ],
+  [
+   {
+    "doc": "principles/CLAUDE.md",
+    "s": 3,
+    "e": 15
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "s": 0,
+    "e": 67
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__close-workflows.test.mjs",
+    "s": 0,
+    "e": 207
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 703,
+    "e": 860
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_feasibility.md",
+    "s": 167,
+    "e": 220
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 478,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__definition__process4_notice.md",
+    "s": 0,
+    "e": 15
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 97711,
+ "lines": 1086,
+ "task": "rle",
+ "values": {
+  "code1": "C4E-4134",
+  "code2": "C5F-4477",
+  "w_last": "greywether",
+  "w_name": "thistledown",
+  "w_desk": "quillon",
+  "name_a": "Lucinda Abernathy",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "musical instruments",
+  "members": [
+   "bassoons",
+   "harps",
+   "tubas",
+   "cellos",
+   "oboes",
+   "banjos",
+   "violins",
+   "clarinets",
+   "flutes",
+   "trumpets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under greywether",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.3116916570224979,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under greywether`.",
+   "probe": "-- filed under greywether",
+   "file_index": 0,
+   "frac_actual": 0.0948,
+   "line": 26,
+   "hits": 1,
+   "file": "reading2/dgqyxu/01-merge-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.8313898371386185,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "file_index": 4,
+   "frac_actual": 0.521,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/dgqyxu/05-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "thistledown-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.4959272870390353,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `thistledown-relay.md`, and under no other name.",
+   "probe": "thistledown-relay.md",
+   "file_index": 7,
+   "frac_actual": 0.9022,
+   "line": 80,
+   "hits": 1,
+   "file": "reading2/dgqyxu/08-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.7884286959389056,
+   "value": "reviewer: Lucinda Abernathy",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Lucinda Abernathy`.",
+   "probe": "`reviewer: Lucinda Abernathy`",
+   "file_index": 1,
+   "frac_actual": 0.7866,
+   "line": 79,
+   "hits": 1,
+   "file": "reading2/dgqyxu/02-joined.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6650923741075344,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Lucinda Abernathy is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 5,
+   "frac_actual": 0.6645,
+   "line": 153,
+   "hits": 1,
+   "file": "reading2/dgqyxu/06-close-workflows-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 7,
+   "frac": 0.06320296520774389,
+   "body": "At Uller the clerk wrote down 7 bassoons.",
+   "probe": "At Uller the clerk wrote down 7 bassoons.",
+   "file_index": 0,
+   "frac_actual": 0.0628,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/dgqyxu/01-merge-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 12,
+   "frac": 0.5542278342434882,
+   "body": "Brae desk entered 12 harps on the sheet.",
+   "probe": "Brae desk entered 12 harps on the sheet.",
+   "file_index": 2,
+   "frac_actual": 0.503,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/dgqyxu/03-study.md"
+  },
+  {
+   "what": "count",
+   "member": "tubas",
+   "n": 18,
+   "frac": 0.38371968067713563,
+   "body": "A box of 18 tubas came through Stane.",
+   "probe": "A box of 18 tubas came through Stane.",
+   "file_index": 4,
+   "frac_actual": 0.3932,
+   "line": 13,
+   "hits": 1,
+   "file": "reading2/dgqyxu/05-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 6,
+   "frac": 0.7809692428327226,
+   "body": "6 cellos were logged at the Tamsin Row gate.",
+   "probe": "6 cellos were logged at the Tamsin Row gate.",
+   "file_index": 5,
+   "frac_actual": 0.7781,
+   "line": 181,
+   "hits": 1,
+   "file": "reading2/dgqyxu/06-close-workflows-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 4,
+   "frac": 0.8479142508190755,
+   "body": "The Corrie store took in 4 oboes.",
+   "probe": "The Corrie store took in 4 oboes.",
+   "file_index": 6,
+   "frac_actual": 0.8453,
+   "line": 135,
+   "hits": 1,
+   "file": "reading2/dgqyxu/07-job.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

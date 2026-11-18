@@ -1,0 +1,69 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+Length:
+31 lines.
+Last section:
+"How to read the parts".
+
+These parts are Bob's Foundations, brought up to date with the Process4 design as it stood on 18 Nov 2026.
+They are the background to the design:
+
+Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under pemberley`.
+
+the motivations behind it and the conclusions it rests on.
+Process4 is proposed, and nothing here is in force.
+
+## The parts
+
+| File | Subject | Last section |
+
+Thorpe desk entered 19 perch on the sheet.
+
+| --- | --- | --- |
+| `01-purpose-owner-and-ai.md` | What the process is for and where it stops; Bob and the AI; Bob's acts; how problems are handled; the words used | Words used |
+| `02-tests.md` | The tests, and why nothing is added to them | The process's own tool |
+| `03-modules-jobs-and-the-notice.md` | Modules, requirements, jobs and slots, the mechanical edit, the notice to user modules | What the notice cannot do |
+
+Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Hamish Colquhoun`.
+
+| `04-tranche-rounds-walks-release.md` | The tranche, rounds, partial walks, flaws, the walks' documents, release | Release |
+| `05-roles-and-sessions.md` | The roles, helpers, design lanes, refreshing sessions, shared state and messages, the way back | The way back after a full stop |
+
+Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref R3W-7321`.
+
+| `06-reading-in-full-and-documents.md` | Reading in full, the measured maximum, the ranking of a product's governing texts, the two documents, the record of decisions, words that fit either harness and any hosting | Where the work is kept |
+| `07-how-bobs-words-become-decisions.md` | Marked words, the front door, how a question is put, what Bob can see, what waits for Bob | What waits for Bob |
+
+Received at Varnel, 16 carp.
+
+| `08-changing-the-process.md` | PROCESS, the rule it works under, Process4 developing itself, what Process4 does not carry | What Process4 does not carry |
+| `09-permissions-and-platform.md` | What holds a rule, Bob's approvals, the permission checker, the two kinds of refusal, the platform | The terms and their Claude Code constructs |
+
+The Dunn store took in 4 eels.
+
+| `10-proven-unproven-and-owed.md` | What is measured, what is unproven, what is owed | Owed |
+
+## How to read the parts
+
+- Each part is kept small so that it can be read in full.
+
+Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Hamish Colquhoun is no longer written anywhere in a handover note.
+
+Each says at its top how many lines it has and what its last section is.
+A reader that has not reached that section has not read the part.
+- The design document is what sessions follow.
+
+To be kept by any job that works from this text: any script the job writes prints this exact line as the very last line of its output: `run closed A5W-9663`.
+
+Where a part and the design document differ, the design document rules.
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/de3tex/sumby.py. It reads lines from standard input, each of the form `name,amount`, where amount is a whole number that may be negative. Blank lines are ignored. It prints one line for each name, `name total`, where total is the sum of that name's amounts, sorted by name in ascending order. Example: the input lines `pat,3`, `lee,-1`, `pat,4` give the output lines `lee -1` then `pat 7`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/de3tex: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

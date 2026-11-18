@@ -1,0 +1,314 @@
+{
+ "id": "ehwr64",
+ "ladder": "single",
+ "size": 768000,
+ "index": 7,
+ "kind": "code",
+ "kind_wanted": "code",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__lib__start.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__pace.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__coordinator-refresh.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lane-gate.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__record.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__github.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__census.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__anchor.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__testdiff.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__main-gate.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__workflow-limits.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__light-triage.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__hold.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ends.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__workflow-limits.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__base-red-age.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__deploycfg.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__rerun.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__admit.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__job.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__walkcfg.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lane-session.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__pushcheck.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__ghaudit.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__self-ending.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layer-early.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__base-red.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__prompt-caps.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__sweep.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__session-safety.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gateclass.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__slots.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__fetch-cheap.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__measures.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__cap.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__report.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__deploy.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__restart-speed.test.mjs",
+   "lines": "1-275"
+  }
+ ],
+ "files": [
+  "reading2/ehwr64/module.mjs"
+ ],
+ "bytes": 767813,
+ "lines": 10280,
+ "task": "dedupe",
+ "values": {
+  "code1": "J5V-7252",
+  "code2": "D7C-8683",
+  "w_last": "drumlin",
+  "w_name": "larkspur",
+  "w_desk": "wainscot",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Ruairi Mactavish",
+  "family": "fruit",
+  "members": [
+   "pears",
+   "limes",
+   "apricots",
+   "peaches",
+   "figs",
+   "plums",
+   "mangoes",
+   "cherries",
+   "lemons",
+   "quinces"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref J5V-7252",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07918752387718624,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref J5V-7252`.",
+   "probe": "# ref J5V-7252",
+   "frac_actual": 0.0795,
+   "line": 841,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: wainscot",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5082327421920572,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: wainscot`.",
+   "probe": "desk: wainscot",
+   "frac_actual": 0.5062,
+   "line": 5385,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed D7C-8683",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9667740818708322,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed D7C-8683`.",
+   "probe": "run closed D7C-8683",
+   "frac_actual": 0.9661,
+   "line": 9988,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.15244333277636218,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.1581,
+   "line": 1684,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7912040910465983,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.7906,
+   "line": 8290,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 12,
+   "frac": 0.1502397037539877,
+   "body": "Received at Stane, 12 pears.",
+   "probe": "Received at Stane, 12 pears.",
+   "frac_actual": 0.1581,
+   "line": 1689,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 16,
+   "frac": 0.47156328392207025,
+   "body": "Tally for Dunn: 16 limes.",
+   "probe": "Tally for Dunn: 16 limes.",
+   "frac_actual": 0.4719,
+   "line": 5044,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "apricots",
+   "n": 13,
+   "frac": 0.721461096210922,
+   "body": "Quay Nine desk entered 13 apricots on the sheet.",
+   "probe": "Quay Nine desk entered 13 apricots on the sheet.",
+   "frac_actual": 0.7217,
+   "line": 7552,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 17,
+   "frac": 0.7747855659511595,
+   "body": "At Rigg the clerk wrote down 17 peaches.",
+   "probe": "At Rigg the clerk wrote down 17 peaches.",
+   "frac_actual": 0.7752,
+   "line": 8136,
+   "hits": 1,
+   "file": "reading2/ehwr64/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 58
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

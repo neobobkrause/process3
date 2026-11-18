@@ -1,0 +1,302 @@
+{
+ "id": "ygx8h5",
+ "ladder": "single",
+ "size": 768000,
+ "index": 4,
+ "kind": "code",
+ "kind_wanted": "design",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "code/tool__lib__tranche.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__basered.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__settings-policy.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__lane-plain.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__testdiff.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__landed.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__setup.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__merge.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__rounds.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__layerflow.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__gateclass.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__developer-steps.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__fail-reporter.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__wfyaml.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__checks.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__layout.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__census.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__shallow-mergebase.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__register.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__release.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__merge-waits.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__lib__roles.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ready.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__ghhook.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__scale-fixture.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__rulebooks.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__take-in-record.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__no-code.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__roles.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__record-tranche-merge.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__gate-speed.test.mjs",
+   "lines": "all"
+  },
+  {
+   "doc": "code/tool__test__pin.test.mjs",
+   "lines": "all"
+  }
+ ],
+ "files": [
+  "reading2/ygx8h5/module.mjs"
+ ],
+ "bytes": 765381,
+ "lines": 10404,
+ "task": "wordtop",
+ "values": {
+  "code1": "V2U-8610",
+  "code2": "Y9T-1526",
+  "w_last": "bramblewick",
+  "w_name": "umberfield",
+  "w_desk": "quillon",
+  "name_a": "Ines Carrowby",
+  "name_b": "Tamsin Polkinghorne",
+  "family": "trees",
+  "members": [
+   "elms",
+   "cedars",
+   "larches",
+   "pines",
+   "oaks",
+   "beeches",
+   "willows",
+   "birches",
+   "maples",
+   "alders"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed Y9T-1526",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.054699116628475805,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed Y9T-1526`.",
+   "probe": "run closed Y9T-1526",
+   "frac_actual": 0.053,
+   "line": 569,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5398246250690123,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "frac_actual": 0.5351,
+   "line": 5274,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9624530063359802,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.9627,
+   "line": 10029,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.17083787457230176,
+   "value": "reviewer: Ines Carrowby",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ines Carrowby`.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.1703,
+   "line": 1886,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7713139710736472,
+   "value": "reviewer: Tamsin Polkinghorne",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tamsin Polkinghorne`, and the name Ines Carrowby is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tamsin Polkinghorne`",
+   "frac_actual": 0.7709,
+   "line": 7928,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 15,
+   "frac": 0.06929568022762309,
+   "body": "At Lund the clerk wrote down 15 elms.",
+   "probe": "At Lund the clerk wrote down 15 elms.",
+   "frac_actual": 0.0693,
+   "line": 762,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 5,
+   "frac": 0.251638297063586,
+   "body": "Quay Nine sent word of 5 cedars on hand.",
+   "probe": "Quay Nine sent word of 5 cedars on hand.",
+   "frac_actual": 0.2501,
+   "line": 2671,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 3,
+   "frac": 0.5509357084163498,
+   "body": "3 larches were logged at the Dunn gate.",
+   "probe": "3 larches were logged at the Dunn gate.",
+   "frac_actual": 0.5462,
+   "line": 5380,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 11,
+   "frac": 0.7186916074326914,
+   "body": "Received at Hale End, 11 pines.",
+   "probe": "Received at Hale End, 11 pines.",
+   "frac_actual": 0.7186,
+   "line": 7368,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  },
+  {
+   "what": "count",
+   "member": "oaks",
+   "n": 13,
+   "frac": 0.9445470771544837,
+   "body": "The Stane store took in 13 oaks.",
+   "probe": "The Stane store took in 13 oaks.",
+   "frac_actual": 0.9457,
+   "line": 9805,
+   "hits": 1,
+   "file": "reading2/ygx8h5/module.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 47
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

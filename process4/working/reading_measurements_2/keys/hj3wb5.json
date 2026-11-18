@@ -1,0 +1,191 @@
+{
+ "id": "hj3wb5",
+ "ladder": "single",
+ "size": 96000,
+ "index": 8,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/notes__coordinator-findings-3-4nov.md",
+   "s": 430,
+   "e": 656
+  }
+ ],
+ "files": [
+  "reading2/hj3wb5/log.md"
+ ],
+ "bytes": 95107,
+ "lines": 259,
+ "task": "sumby",
+ "values": {
+  "code1": "R3T-2313",
+  "code2": "X2M-5844",
+  "w_last": "rosehip",
+  "w_name": "bellwether",
+  "w_desk": "wainscot",
+  "name_a": "Noor Al-Tamimi",
+  "name_b": "Odette Fairweather",
+  "family": "fruit",
+  "members": [
+   "cherries",
+   "lemons",
+   "figs",
+   "limes",
+   "pears",
+   "quinces",
+   "plums",
+   "apricots",
+   "mangoes",
+   "peaches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: wainscot",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.02477297881376268,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: wainscot`.",
+   "probe": "desk: wainscot",
+   "frac_actual": 0.0237,
+   "line": 11,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "bellwether-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.48562941641921203,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `bellwether-relay.md`, and under no other name.",
+   "probe": "bellwether-relay.md",
+   "frac_actual": 0.4887,
+   "line": 140,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under rosehip",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.925661355487736,
+   "body": "A requirement on what a job hands in: the job's handover note ends with this exact last line: `-- filed under rosehip`.",
+   "probe": "-- filed under rosehip",
+   "frac_actual": 0.9253,
+   "line": 247,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1913589103021871,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Noor Al-Tamimi`.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.1932,
+   "line": 57,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.48208348272124374,
+   "value": "reviewer: Odette Fairweather",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Odette Fairweather`, and the name Noor Al-Tamimi is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Odette Fairweather`",
+   "frac_actual": 0.4782,
+   "line": 136,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "count",
+   "member": "cherries",
+   "n": 14,
+   "frac": 0.1289188580486858,
+   "body": "Received at Osk, 14 cherries.",
+   "probe": "Received at Osk, 14 cherries.",
+   "frac_actual": 0.1292,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "count",
+   "member": "lemons",
+   "n": 7,
+   "frac": 0.29754755687713497,
+   "body": "The Wick store took in 7 lemons.",
+   "probe": "The Wick store took in 7 lemons.",
+   "frac_actual": 0.2925,
+   "line": 82,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 12,
+   "frac": 0.4736783786895813,
+   "body": "12 figs were logged at the Eyre gate.",
+   "probe": "12 figs were logged at the Eyre gate.",
+   "frac_actual": 0.4749,
+   "line": 132,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 2,
+   "frac": 0.6313555021165861,
+   "body": "At Hale End the clerk wrote down 2 limes.",
+   "probe": "At Hale End the clerk wrote down 2 limes.",
+   "frac_actual": 0.6301,
+   "line": 172,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 18,
+   "frac": 0.7214489473724647,
+   "body": "A box of 18 pears came through Varnel.",
+   "probe": "A box of 18 pears came through Varnel.",
+   "frac_actual": 0.721,
+   "line": 197,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  },
+  {
+   "what": "count",
+   "member": "quinces",
+   "n": 17,
+   "frac": 0.8763556545971667,
+   "body": "Tally for Rigg: 17 quinces.",
+   "probe": "Tally for Rigg: 17 quinces.",
+   "frac_actual": 0.8737,
+   "line": 236,
+   "hits": 1,
+   "file": "reading2/hj3wb5/log.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 70
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,543 @@
+{
+ "id": "tf6nrd",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 2,
+ "files": [
+  "reading2/tf6nrd/01-joined.mjs",
+  "reading2/tf6nrd/02-point1-tranche-end.md",
+  "reading2/tf6nrd/03-setup-test.mjs",
+  "reading2/tf6nrd/04-coordinator-findings-3-4nov.md",
+  "reading2/tf6nrd/05-point4-release.md",
+  "reading2/tf6nrd/06-gate-test.mjs",
+  "reading2/tf6nrd/07-merge-test.mjs",
+  "reading2/tf6nrd/08-coordinator-findings-3-4nov.md",
+  "reading2/tf6nrd/09-joined.mjs",
+  "reading2/tf6nrd/10-layerflow-test.mjs",
+  "reading2/tf6nrd/11-trial-plan-facts.md",
+  "reading2/tf6nrd/12-process4-disposition.md",
+  "reading2/tf6nrd/13-joined.mjs",
+  "reading2/tf6nrd/14-joined.mjs",
+  "reading2/tf6nrd/15-merge-test.mjs",
+  "reading2/tf6nrd/16-merge.mjs",
+  "reading2/tf6nrd/17-joined.mjs",
+  "reading2/tf6nrd/18-joined.mjs",
+  "reading2/tf6nrd/19-coordinator-findings-3-4nov.md",
+  "reading2/tf6nrd/20-merge-test.mjs",
+  "reading2/tf6nrd/21-point5-288-lines.md",
+  "reading2/tf6nrd/22-joined.mjs",
+  "reading2/tf6nrd/23-foundations.md",
+  "reading2/tf6nrd/24-joined.md",
+  "reading2/tf6nrd/25-lanes-process3-record.md",
+  "reading2/tf6nrd/26-foundations.md",
+  "reading2/tf6nrd/27-joined.mjs",
+  "reading2/tf6nrd/28-permissions-inventory.md",
+  "reading2/tf6nrd/29-job.mjs",
+  "reading2/tf6nrd/30-decisions-memo-d3.md",
+  "reading2/tf6nrd/31-assessment-doc.md",
+  "reading2/tf6nrd/32-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "code",
+  "logs",
+  "design",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "design",
+  "code",
+  "principles",
+  "design",
+  "design",
+  "principles",
+  "code",
+  "design",
+  "code",
+  "requirements",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__lane.test.mjs",
+    "s": 32,
+    "e": 149
+   },
+   {
+    "doc": "code/tool__lib__anchor.mjs",
+    "s": 0,
+    "e": 64
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point1_tranche_end.md",
+    "s": 183,
+    "e": 248
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 177,
+    "e": 366
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1123,
+    "e": 1150
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point4_release.md",
+    "s": 80,
+    "e": 150
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate.test.mjs",
+    "s": 0,
+    "e": 168
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 907,
+    "e": 1091
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 691,
+    "e": 741
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__sweep.test.mjs",
+    "s": 385,
+    "e": 505
+   },
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "s": 0,
+    "e": 30
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1560,
+    "e": 1689
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 110,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 305,
+    "e": 361
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__gate-speed.test.mjs",
+    "s": 307,
+    "e": 329
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 499,
+    "e": 589
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 609,
+    "e": 638
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "s": 52,
+    "e": 209
+   },
+   {
+    "doc": "code/tool__test__temp-cleanup.test.mjs",
+    "s": 0,
+    "e": 22
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 732,
+    "e": 907
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__merge.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__anchor.test.mjs",
+    "s": 30,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__test__pushcheck.test.mjs",
+    "s": 0,
+    "e": 67
+   },
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 0,
+    "e": 34
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 1437,
+    "e": 1557
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 301,
+    "e": 328
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 140,
+    "e": 174
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 198,
+    "e": 366
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 350,
+    "e": 424
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "s": 190,
+    "e": 196
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "s": 0,
+    "e": 59
+   },
+   {
+    "doc": "code/tool__test__state-writes.test.mjs",
+    "s": 0,
+    "e": 114
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 0,
+    "e": 68
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 592,
+    "e": 597
+   },
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 309,
+    "e": 348
+   },
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 950,
+    "e": 1017
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "s": 262,
+    "e": 342
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "s": 136,
+    "e": 183
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__checks.mjs",
+    "s": 166,
+    "e": 341
+   },
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 1351,
+    "e": 1361
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 62,
+    "e": 191
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 1167,
+    "e": 1342
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "s": 0,
+    "e": 44
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__assessment_doc.txt",
+    "s": 209,
+    "e": 272
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "s": 40,
+    "e": 194
+   },
+   {
+    "doc": "code/tool__test__gateclass.test.mjs",
+    "s": 467,
+    "e": 477
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 390848,
+ "lines": 3993,
+ "task": "dedupe",
+ "values": {
+  "code1": "V7C-1229",
+  "code2": "P7G-5079",
+  "w_last": "vetiver",
+  "w_name": "quillon",
+  "w_desk": "kestrel",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Kwabena Asantewaa",
+  "family": "musical instruments",
+  "members": [
+   "clarinets",
+   "cellos",
+   "oboes",
+   "violins",
+   "trumpets",
+   "banjos",
+   "tubas",
+   "flutes",
+   "harps",
+   "bassoons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed P7G-5079",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.41802725312209466,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed P7G-5079`.",
+   "probe": "run closed P7G-5079",
+   "file_index": 0,
+   "frac_actual": 0.0985,
+   "line": 21,
+   "hits": 1,
+   "file": "reading2/tf6nrd/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under vetiver",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5343336408714524,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under vetiver`.",
+   "probe": "-- filed under vetiver",
+   "file_index": 16,
+   "frac_actual": 0.5322,
+   "line": 104,
+   "hits": 1,
+   "file": "reading2/tf6nrd/17-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: kestrel",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7624952334751155,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: kestrel`.",
+   "probe": "desk: kestrel",
+   "file_index": 31,
+   "frac_actual": 0.9008,
+   "line": 155,
+   "hits": 1,
+   "file": "reading2/tf6nrd/32-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16416338657416418,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "file_index": 7,
+   "frac_actual": 0.165,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/tf6nrd/08-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.4312436310686836,
+   "value": "reviewer: Kwabena Asantewaa",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Kwabena Asantewaa`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Kwabena Asantewaa`",
+   "file_index": 17,
+   "frac_actual": 0.4327,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/tf6nrd/18-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 8,
+   "frac": 0.21989333260787142,
+   "body": "The Corrie store took in 8 clarinets.",
+   "probe": "The Corrie store took in 8 clarinets.",
+   "file_index": 3,
+   "frac_actual": 0.2288,
+   "line": 7,
+   "hits": 1,
+   "file": "reading2/tf6nrd/04-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "cellos",
+   "n": 16,
+   "frac": 0.19298417635292403,
+   "body": "Received at Varnel, 16 cellos.",
+   "probe": "Received at Varnel, 16 cellos.",
+   "file_index": 7,
+   "frac_actual": 0.1918,
+   "line": 21,
+   "hits": 1,
+   "file": "reading2/tf6nrd/08-coordinator-findings-3-4nov.md"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 5,
+   "frac": 0.6438117942286844,
+   "body": "A box of 5 oboes came through Wick.",
+   "probe": "A box of 5 oboes came through Wick.",
+   "file_index": 14,
+   "frac_actual": 0.6435,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/tf6nrd/15-merge-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 10,
+   "frac": 0.29612115592303495,
+   "body": "At Stane the clerk wrote down 10 violins.",
+   "probe": "At Stane the clerk wrote down 10 violins.",
+   "file_index": 20,
+   "frac_actual": 0.2919,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/tf6nrd/21-point5-288-lines.md"
+  },
+  {
+   "what": "count",
+   "member": "trumpets",
+   "n": 13,
+   "frac": 0.27583921984055676,
+   "body": "Quay Nine desk entered 13 trumpets on the sheet.",
+   "probe": "Quay Nine desk entered 13 trumpets on the sheet.",
+   "file_index": 26,
+   "frac_actual": 0.2765,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/tf6nrd/27-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 52
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,155 @@
+{
+ "id": "wx3t4r",
+ "ladder": "single",
+ "size": 48000,
+ "index": 5,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__working__attack_feasibility.md",
+   "s": 18,
+   "e": 423
+  }
+ ],
+ "files": [
+  "reading2/wx3t4r/design.md"
+ ],
+ "bytes": 47441,
+ "lines": 429,
+ "task": "merge",
+ "values": {
+  "code1": "J5E-4006",
+  "code2": "E3E-6145",
+  "w_last": "bramblewick",
+  "w_name": "cinnabar",
+  "w_desk": "bellwether",
+  "name_a": "Soren Achterberg",
+  "name_b": "Octavio Montenegro",
+  "family": "musical instruments",
+  "members": [
+   "harps",
+   "flutes",
+   "oboes",
+   "clarinets",
+   "banjos",
+   "tubas",
+   "cellos",
+   "bassoons",
+   "trumpets",
+   "violins"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under bramblewick",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.03703650570376624,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under bramblewick`.",
+   "probe": "-- filed under bramblewick",
+   "frac_actual": 0.0161,
+   "line": 11,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed E3E-6145",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5004244074156154,
+   "body": "Binding on all jobs: any script the job writes prints this exact line as the very last line of its output: `run closed E3E-6145`.",
+   "probe": "run closed E3E-6145",
+   "frac_actual": 0.5027,
+   "line": 197,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref J5E-4006",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9672887286713595,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref J5E-4006`.",
+   "probe": "# ref J5E-4006",
+   "frac_actual": 0.9646,
+   "line": 412,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.22660421354104116,
+   "value": "reviewer: Soren Achterberg",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Soren Achterberg`.",
+   "probe": "`reviewer: Soren Achterberg`",
+   "frac_actual": 0.2282,
+   "line": 78,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6665796860795239,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Soren Achterberg is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.6662,
+   "line": 264,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 16,
+   "frac": 0.042061345300822145,
+   "body": "Received at Osk, 16 harps.",
+   "probe": "Received at Osk, 16 harps.",
+   "frac_actual": 0.0759,
+   "line": 23,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "count",
+   "member": "flutes",
+   "n": 13,
+   "frac": 0.4809186141807874,
+   "body": "Pell sent word of 13 flutes on hand.",
+   "probe": "Pell sent word of 13 flutes on hand.",
+   "frac_actual": 0.483,
+   "line": 182,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 7,
+   "frac": 0.8388249558596829,
+   "body": "Brae desk entered 7 oboes on the sheet.",
+   "probe": "Brae desk entered 7 oboes on the sheet.",
+   "frac_actual": 0.8398,
+   "line": 352,
+   "hits": 1,
+   "file": "reading2/wx3t4r/design.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 36
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

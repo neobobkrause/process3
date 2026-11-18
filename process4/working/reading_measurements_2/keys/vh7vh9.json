@@ -1,0 +1,167 @@
+{
+ "id": "vh7vh9",
+ "ladder": "single",
+ "size": 48000,
+ "index": 4,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__working__session2__lanes_owner_documents.md",
+   "s": 35,
+   "e": 312
+  }
+ ],
+ "files": [
+  "reading2/vh7vh9/design.md"
+ ],
+ "bytes": 47439,
+ "lines": 304,
+ "task": "sumby",
+ "values": {
+  "code1": "K7Q-1845",
+  "code2": "X6D-8502",
+  "w_last": "orrery",
+  "w_name": "greywether",
+  "w_desk": "vetiver",
+  "name_a": "Maren Oduya",
+  "name_b": "Ines Carrowby",
+  "family": "fruit",
+  "members": [
+   "limes",
+   "pears",
+   "peaches",
+   "figs",
+   "plums",
+   "cherries",
+   "apricots",
+   "lemons",
+   "quinces",
+   "mangoes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: vetiver",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.06736313206256439,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: vetiver`.",
+   "probe": "desk: vetiver",
+   "frac_actual": 0.0648,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under orrery",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5105561120337073,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under orrery`.",
+   "probe": "-- filed under orrery",
+   "frac_actual": 0.5269,
+   "line": 191,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref K7Q-1845",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9008794620873846,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref K7Q-1845`.",
+   "probe": "# ref K7Q-1845",
+   "frac_actual": 0.9095,
+   "line": 279,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.19922852137102426,
+   "value": "reviewer: Maren Oduya",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Maren Oduya`.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.198,
+   "line": 74,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.5147205934014479,
+   "value": "reviewer: Ines Carrowby",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ines Carrowby`, and the name Maren Oduya is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ines Carrowby`",
+   "frac_actual": 0.529,
+   "line": 196,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "count",
+   "member": "limes",
+   "n": 14,
+   "frac": 0.14722294812210782,
+   "body": "14 limes were logged at the Uller gate.",
+   "probe": "14 limes were logged at the Uller gate.",
+   "frac_actual": 0.1559,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "count",
+   "member": "pears",
+   "n": 3,
+   "frac": 0.48402383318596265,
+   "body": "Hale End desk entered 3 pears on the sheet.",
+   "probe": "Hale End desk entered 3 pears on the sheet.",
+   "frac_actual": 0.4722,
+   "line": 178,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "count",
+   "member": "peaches",
+   "n": 17,
+   "frac": 0.5376785792180073,
+   "body": "The Brae store took in 17 peaches.",
+   "probe": "The Brae store took in 17 peaches.",
+   "frac_actual": 0.5311,
+   "line": 201,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  },
+  {
+   "what": "count",
+   "member": "figs",
+   "n": 6,
+   "frac": 0.7562036477193783,
+   "body": "At Marsh Lane the clerk wrote down 6 figs.",
+   "probe": "At Marsh Lane the clerk wrote down 6 figs.",
+   "frac_actual": 0.7518,
+   "line": 238,
+   "hits": 1,
+   "file": "reading2/vh7vh9/design.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fruit, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

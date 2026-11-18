@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/au6pvf/01-joined.md
+- reading2/au6pvf/02-report-right-test.mjs
+- reading2/au6pvf/03-joined.mjs
+- reading2/au6pvf/04-merge.mjs
+- reading2/au6pvf/05-joined.mjs
+- reading2/au6pvf/06-joined.md
+- reading2/au6pvf/07-train-throughput-study.md
+- reading2/au6pvf/08-job.mjs
+- reading2/au6pvf/09-permissions-inventory.md
+- reading2/au6pvf/10-layerflow-test.mjs
+- reading2/au6pvf/11-p3.mjs
+- reading2/au6pvf/12-lane.mjs
+- reading2/au6pvf/13-layerflow.mjs
+- reading2/au6pvf/14-joined.md
+- reading2/au6pvf/15-point3-first-hour.md
+- reading2/au6pvf/16-triage.mjs
+- reading2/au6pvf/17-hold-test.mjs
+- reading2/au6pvf/18-coordinator-findings-3-4nov.md
+- reading2/au6pvf/19-audit-ledger.md
+- reading2/au6pvf/20-close-workflows-test.mjs
+- reading2/au6pvf/21-joined.md
+- reading2/au6pvf/22-enforcement-levers.md
+- reading2/au6pvf/23-joined.md
+- reading2/au6pvf/24-levers-github-cloudflare-pro.md
+- reading2/au6pvf/25-process4-definition-appendix.md
+- reading2/au6pvf/26-joined.mjs
+- reading2/au6pvf/27-coordinator-findings-3-4nov.md
+- reading2/au6pvf/28-audit2-requirements.md
+- reading2/au6pvf/29-audit2-feasibility.md
+- reading2/au6pvf/30-joined.md
+- reading2/au6pvf/31-attack-feasibility.md
+- reading2/au6pvf/32-process4-definition-v6.md
+- reading2/au6pvf/33-trial-plan-facts.md
+- reading2/au6pvf/34-canon-analysis.md
+- reading2/au6pvf/35-joined.md
+- reading2/au6pvf/36-joined.md
+- reading2/au6pvf/37-joined.mjs
+- reading2/au6pvf/38-levers-github-cloudflare-pro.md
+- reading2/au6pvf/39-enforcement-levers.md
+- reading2/au6pvf/40-joined.md
+- reading2/au6pvf/41-attack-feasibility.md
+- reading2/au6pvf/42-joined.mjs
+- reading2/au6pvf/43-joined.md
+- reading2/au6pvf/44-joined.md
+- reading2/au6pvf/45-joined.mjs
+- reading2/au6pvf/46-joined.mjs
+- reading2/au6pvf/47-audit-a.md
+- reading2/au6pvf/48-hold.mjs
+- reading2/au6pvf/49-audit2-corruption.md
+- reading2/au6pvf/50-pace-test.mjs
+- reading2/au6pvf/51-verify-numbers.md
+- reading2/au6pvf/52-levers-github-cloudflare-pro.md
+- reading2/au6pvf/53-sweep-test.mjs
+- reading2/au6pvf/54-joined.md
+- reading2/au6pvf/55-job-test.mjs
+- reading2/au6pvf/56-roundnext.mjs
+- reading2/au6pvf/57-status.mjs
+- reading2/au6pvf/58-joined.md
+- reading2/au6pvf/59-p3.mjs
+- reading2/au6pvf/60-joined.mjs
+- reading2/au6pvf/61-audit-a.md
+- reading2/au6pvf/62-job.mjs
+- reading2/au6pvf/63-audit-foundations.md
+- reading2/au6pvf/64-joined.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/au6pvf/colsum.py. It reads lines from standard input, each holding whole numbers separated by spaces. Lines may hold different numbers of cells; a missing cell counts as zero. It prints one line: the sum of each column, separated by single spaces. Example: the input lines `1 2 3`, `4 5`, `-1` give the output line `4 7 3`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/au6pvf: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

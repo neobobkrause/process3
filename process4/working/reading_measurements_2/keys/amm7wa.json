@@ -1,0 +1,522 @@
+{
+ "id": "amm7wa",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 6,
+ "files": [
+  "reading2/amm7wa/01-joined.mjs",
+  "reading2/amm7wa/02-audit2-corruption.md",
+  "reading2/amm7wa/03-joined.mjs",
+  "reading2/amm7wa/04-canon-analysis.md",
+  "reading2/amm7wa/05-results.md",
+  "reading2/amm7wa/06-pace.mjs",
+  "reading2/amm7wa/07-layerflow.mjs",
+  "reading2/amm7wa/08-job.mjs",
+  "reading2/amm7wa/09-record.mjs",
+  "reading2/amm7wa/10-foundations.md",
+  "reading2/amm7wa/11-joined.mjs",
+  "reading2/amm7wa/12-census-test.mjs",
+  "reading2/amm7wa/13-canon-analysis.md",
+  "reading2/amm7wa/14-ledger-lines.md",
+  "reading2/amm7wa/15-joined.mjs",
+  "reading2/amm7wa/16-v3-notes.md",
+  "reading2/amm7wa/17-live-docs.md",
+  "reading2/amm7wa/18-joined.mjs",
+  "reading2/amm7wa/19-joined.mjs",
+  "reading2/amm7wa/20-attack-feasibility.md",
+  "reading2/amm7wa/21-audit2-feasibility.md",
+  "reading2/amm7wa/22-point2-process-rule.md",
+  "reading2/amm7wa/23-point5-288-lines.md",
+  "reading2/amm7wa/24-joined.md",
+  "reading2/amm7wa/25-permissions-inventory.md",
+  "reading2/amm7wa/26-joined.mjs",
+  "reading2/amm7wa/27-readme.md",
+  "reading2/amm7wa/28-audit2-requirements.md",
+  "reading2/amm7wa/29-joined.mjs",
+  "reading2/amm7wa/30-audit-foundations.md",
+  "reading2/amm7wa/31-joined.md",
+  "reading2/amm7wa/32-process4-audit2.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "code",
+  "principles",
+  "code",
+  "code",
+  "design",
+  "requirements",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design",
+  "design",
+  "design",
+  "design",
+  "design",
+  "code",
+  "principles",
+  "requirements",
+  "code",
+  "principles",
+  "logs",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "s": 167,
+    "e": 206
+   },
+   {
+    "doc": "code/tool__test__light-triage.test.mjs",
+    "s": 182,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 713,
+    "e": 736
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 264,
+    "e": 355
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__coordinator-refresh.test.mjs",
+    "s": 165,
+    "e": 204
+   },
+   {
+    "doc": "code/tool__lib__suite.mjs",
+    "s": 0,
+    "e": 145
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 381,
+    "e": 536
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__replay__results.md",
+    "s": 115,
+    "e": 255
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 169,
+    "e": 340
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 0,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 860,
+    "e": 1024
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__record.mjs",
+    "s": 184,
+    "e": 346
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 204,
+    "e": 259
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerbase.mjs",
+    "s": 114,
+    "e": 135
+   },
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 1091,
+    "e": 1153
+   },
+   {
+    "doc": "code/tool__test__lane-session.test.mjs",
+    "s": 0,
+    "e": 79
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__census.test.mjs",
+    "s": 0,
+    "e": 151
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 163,
+    "e": 221
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 980,
+    "e": 1095
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__state.test.mjs",
+    "s": 5,
+    "e": 157
+   },
+   {
+    "doc": "code/tool__test__open-by.test.mjs",
+    "s": 0,
+    "e": 39
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "s": 0,
+    "e": 47
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__live_docs.md",
+    "s": 0,
+    "e": 104
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 186,
+    "e": 282
+   },
+   {
+    "doc": "code/tool__lib__gateclass.mjs",
+    "s": 151,
+    "e": 232
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__testdiff.mjs",
+    "s": 81,
+    "e": 235
+   },
+   {
+    "doc": "code/tool__test__notice-slots.test.mjs",
+    "s": 0,
+    "e": 52
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__attack_feasibility.md",
+    "s": 0,
+    "e": 86
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_feasibility.md",
+    "s": 69,
+    "e": 118
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "s": 298,
+    "e": 348
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__session2__point5_288_lines.md",
+    "s": 0,
+    "e": 79
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 132,
+    "e": 179
+   },
+   {
+    "doc": "design/process4__working__attack_corruption.md",
+    "s": 465,
+    "e": 517
+   },
+   {
+    "doc": "design/process4__evidence__levers_github_cloudflare_product.md",
+    "s": 589,
+    "e": 590
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 0,
+    "e": 62
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__shallow.test.mjs",
+    "s": 108,
+    "e": 168
+   },
+   {
+    "doc": "code/tool__lib__found.mjs",
+    "s": 183,
+    "e": 272
+   }
+  ],
+  [
+   {
+    "doc": "principles/README.md",
+    "s": 40,
+    "e": 50
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 89,
+    "e": 153
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layout.test.mjs",
+    "s": 134,
+    "e": 193
+   },
+   {
+    "doc": "code/tool__test__checks.test.mjs",
+    "s": 0,
+    "e": 91
+   },
+   {
+    "doc": "code/tool__lib__review.mjs",
+    "s": 0,
+    "e": 26
+   }
+  ],
+  [
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "s": 259,
+    "e": 364
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__draft-approvals-split-8nov.md",
+    "s": 24,
+    "e": 58
+   },
+   {
+    "doc": "logs/notes__coordinator-handoff-6nov-b.md",
+    "s": 0,
+    "e": 38
+   },
+   {
+    "doc": "logs/notes__bob-workflow-diffs-4nov.md",
+    "s": 0,
+    "e": 3
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_audit2.md",
+    "s": 71,
+    "e": 153
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 391261,
+ "lines": 3843,
+ "task": "rle",
+ "values": {
+  "code1": "C2L-5190",
+  "code2": "D2R-9057",
+  "w_last": "varnish",
+  "w_name": "ostler",
+  "w_desk": "kestrel",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "fish",
+  "members": [
+   "cod",
+   "perch",
+   "salmon",
+   "eels",
+   "bream",
+   "mackerel",
+   "trout",
+   "herring",
+   "carp",
+   "pike"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed D2R-9057",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.8569167267597378,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed D2R-9057`.",
+   "probe": "run closed D2R-9057",
+   "file_index": 0,
+   "frac_actual": 0.0914,
+   "line": 27,
+   "hits": 1,
+   "file": "reading2/amm7wa/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under varnish",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.8316355489152646,
+   "body": "Rule for jobs: the job's handover note ends with this exact last line: `-- filed under varnish`.",
+   "probe": "-- filed under varnish",
+   "file_index": 16,
+   "frac_actual": 0.5202,
+   "line": 61,
+   "hits": 1,
+   "file": "reading2/amm7wa/17-live-docs.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "ostler-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.3960491284758495,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `ostler-relay.md`, and under no other name.",
+   "probe": "ostler-relay.md",
+   "file_index": 31,
+   "frac_actual": 0.9051,
+   "line": 80,
+   "hits": 1,
+   "file": "reading2/amm7wa/32-process4-audit2.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8956958325843968,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 1,
+   "frac_actual": 0.8875,
+   "line": 87,
+   "hits": 1,
+   "file": "reading2/amm7wa/02-audit2-corruption.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.3209490592551195,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 27,
+   "frac_actual": 0.3374,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/amm7wa/28-audit2-requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 2,
+   "frac": 0.40819079660627566,
+   "body": "At Uller the clerk wrote down 2 cod.",
+   "probe": "At Uller the clerk wrote down 2 cod.",
+   "file_index": 4,
+   "frac_actual": 0.4055,
+   "line": 54,
+   "hits": 1,
+   "file": "reading2/amm7wa/05-results.md"
+  },
+  {
+   "what": "count",
+   "member": "perch",
+   "n": 7,
+   "frac": 0.24362812967398645,
+   "body": "Brae desk entered 7 perch on the sheet.",
+   "probe": "Brae desk entered 7 perch on the sheet.",
+   "file_index": 17,
+   "frac_actual": 0.2434,
+   "line": 48,
+   "hits": 1,
+   "file": "reading2/amm7wa/18-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 18,
+   "frac": 0.654632738771319,
+   "body": "Received at Rigg, 18 salmon.",
+   "probe": "Received at Rigg, 18 salmon.",
+   "file_index": 22,
+   "frac_actual": 0.6158,
+   "line": 58,
+   "hits": 1,
+   "file": "reading2/amm7wa/23-point5-288-lines.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 27
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

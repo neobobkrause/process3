@@ -1,0 +1,75 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/uhp45f/01-joined.md
+- reading2/uhp45f/02-light-triage-test.mjs
+- reading2/uhp45f/03-interface-and-cycle.md
+- reading2/uhp45f/04-process4-disposition.md
+- reading2/uhp45f/05-job.mjs
+- reading2/uhp45f/06-merge-test.mjs
+- reading2/uhp45f/07-attack-corruption.md
+- reading2/uhp45f/08-joined.mjs
+- reading2/uhp45f/09-joined.md
+- reading2/uhp45f/10-joined.mjs
+- reading2/uhp45f/11-joined.md
+- reading2/uhp45f/12-layerflow-test.mjs
+- reading2/uhp45f/13-joined.mjs
+- reading2/uhp45f/14-layerflow-test.mjs
+- reading2/uhp45f/15-live-docs.md
+- reading2/uhp45f/16-joined.md
+- reading2/uhp45f/17-review.md
+- reading2/uhp45f/18-joined.mjs
+- reading2/uhp45f/19-live-docs.md
+- reading2/uhp45f/20-joined.mjs
+- reading2/uhp45f/21-lanes-process3-record.md
+- reading2/uhp45f/22-train-throughput-study.md
+- reading2/uhp45f/23-joined.md
+- reading2/uhp45f/24-v4-notes.md
+- reading2/uhp45f/25-layerflow-test.mjs
+- reading2/uhp45f/26-joined.mjs
+- reading2/uhp45f/27-attack-corruption.md
+- reading2/uhp45f/28-main-gate-test.mjs
+- reading2/uhp45f/29-joined.mjs
+- reading2/uhp45f/30-metrics.mjs
+- reading2/uhp45f/31-util.mjs
+- reading2/uhp45f/32-study.md
+- reading2/uhp45f/33-redteam-corruption.md
+- reading2/uhp45f/34-process4-definition-main.md
+- reading2/uhp45f/35-joined.mjs
+- reading2/uhp45f/36-job-test.mjs
+- reading2/uhp45f/37-process4-audit2.md
+- reading2/uhp45f/38-later-requirements.md
+- reading2/uhp45f/39-job.mjs
+- reading2/uhp45f/40-joined.md
+- reading2/uhp45f/41-lanes-owner-documents.md
+- reading2/uhp45f/42-lead.mjs
+- reading2/uhp45f/43-job.mjs
+- reading2/uhp45f/44-joined.mjs
+- reading2/uhp45f/45-coordinator-findings-3-4nov.md
+- reading2/uhp45f/46-joined.mjs
+- reading2/uhp45f/47-audit-c.md
+- reading2/uhp45f/48-owner-words-ideas-18nov.md
+- reading2/uhp45f/49-ledger-lines.md
+- reading2/uhp45f/50-census.mjs
+- reading2/uhp45f/51-lane-charters.md
+- reading2/uhp45f/52-joined.md
+- reading2/uhp45f/53-joined.md
+- reading2/uhp45f/54-notice-test.mjs
+- reading2/uhp45f/55-joined.md
+- reading2/uhp45f/56-joined.mjs
+- reading2/uhp45f/57-assessment-doc.md
+- reading2/uhp45f/58-joined.mjs
+- reading2/uhp45f/59-interface-and-cycle.md
+- reading2/uhp45f/60-joined.mjs
+- reading2/uhp45f/61-canon-analysis.md
+- reading2/uhp45f/62-joined.mjs
+- reading2/uhp45f/63-joined.mjs
+- reading2/uhp45f/64-assessment-doc.md
+
+Task:
+1. Write a Python 3 script at /home/user/out/uhp45f/minutes.py. It reads lines from standard input, each a duration written as hours and minutes in the forms `1h30m`, `45m` or `2h`. Blank lines are ignored. For each line it prints the duration in whole minutes, and after the last it prints `total N`, where N is the sum. Example: the input lines `1h30m`, `45m`, `2h` give the output lines `90`, `45`, `120`, `total 255`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/uhp45f: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

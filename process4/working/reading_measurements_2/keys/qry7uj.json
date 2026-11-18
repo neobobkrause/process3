@@ -1,0 +1,155 @@
+{
+ "id": "qry7uj",
+ "ladder": "single",
+ "size": 48000,
+ "index": 3,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "s": 4,
+   "e": 349
+  }
+ ],
+ "files": [
+  "reading2/qry7uj/principles.md"
+ ],
+ "bytes": 47479,
+ "lines": 369,
+ "task": "dedupe",
+ "values": {
+  "code1": "C2K-5820",
+  "code2": "A9E-1996",
+  "w_last": "pemberley",
+  "w_name": "galloway",
+  "w_desk": "kestrel",
+  "name_a": "Ruairi Mactavish",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "trees",
+  "members": [
+   "beeches",
+   "larches",
+   "maples",
+   "cedars",
+   "elms",
+   "pines",
+   "alders",
+   "birches",
+   "oaks",
+   "willows"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "galloway-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09319830375217998,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `galloway-relay.md`, and under no other name.",
+   "probe": "galloway-relay.md",
+   "frac_actual": 0.0962,
+   "line": 39,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed A9E-1996",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.52386959805366,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed A9E-1996`.",
+   "probe": "run closed A9E-1996",
+   "frac_actual": 0.5267,
+   "line": 196,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: kestrel",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9146004124976178,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: kestrel`.",
+   "probe": "desk: kestrel",
+   "frac_actual": 0.9425,
+   "line": 351,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.34088000792620743,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Ruairi Mactavish`.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "frac_actual": 0.3462,
+   "line": 123,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6341445334665422,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Ruairi Mactavish is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.6354,
+   "line": 227,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 17,
+   "frac": 0.19607503255477654,
+   "body": "Eyre desk entered 17 beeches on the sheet.",
+   "probe": "Eyre desk entered 17 beeches on the sheet.",
+   "frac_actual": 0.1878,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "larches",
+   "n": 18,
+   "frac": 0.37752985238801284,
+   "body": "18 larches were logged at the Thorpe gate.",
+   "probe": "18 larches were logged at the Thorpe gate.",
+   "frac_actual": 0.3852,
+   "line": 138,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 15,
+   "frac": 0.7731565571839435,
+   "body": "Received at Lund, 15 maples.",
+   "probe": "Received at Lund, 15 maples.",
+   "frac_actual": 0.7749,
+   "line": 279,
+   "hits": 1,
+   "file": "reading2/qry7uj/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 50
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

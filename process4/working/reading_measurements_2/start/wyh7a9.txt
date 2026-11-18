@@ -1,0 +1,15 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/wyh7a9/01-joined.mjs
+- reading2/wyh7a9/02-merge-test.mjs
+- reading2/wyh7a9/03-process4-definition-v6.md
+- reading2/wyh7a9/04-joined.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/wyh7a9/merge.py. It reads lines from standard input, each holding two whole numbers `start end` with start not greater than end, a closed range. Blank lines are ignored. It merges ranges that overlap or that touch (one ends at n and another starts at n+1) and prints the merged ranges, one per line as `start end`, sorted by start. Example: the input lines `5 8`, `1 3`, `4 4`, `10 12` give the output lines `1 8` then `10 12`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/wyh7a9: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

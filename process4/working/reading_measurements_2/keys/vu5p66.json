@@ -1,0 +1,155 @@
+{
+ "id": "vu5p66",
+ "ladder": "single",
+ "size": 24000,
+ "index": 3,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__foundations.md",
+   "s": 103,
+   "e": 194
+  }
+ ],
+ "files": [
+  "reading2/vu5p66/principles.md"
+ ],
+ "bytes": 23901,
+ "lines": 115,
+ "task": "dates",
+ "values": {
+  "code1": "Q7H-5509",
+  "code2": "Z4C-9612",
+  "w_last": "drumlin",
+  "w_name": "thistledown",
+  "w_desk": "quillon",
+  "name_a": "Bartholomew Finch-Hatton",
+  "name_b": "Calum Drysdale",
+  "family": "trees",
+  "members": [
+   "birches",
+   "beeches",
+   "pines",
+   "willows",
+   "cedars",
+   "elms",
+   "larches",
+   "oaks",
+   "alders",
+   "maples"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed Z4C-9612",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.09458572052061842,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed Z4C-9612`.",
+   "probe": "run closed Z4C-9612",
+   "frac_actual": 0.0916,
+   "line": 15,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "thistledown-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5323989169688934,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `thistledown-relay.md`, and under no other name.",
+   "probe": "thistledown-relay.md",
+   "frac_actual": 0.5144,
+   "line": 75,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quillon",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9264165053003733,
+   "body": "Binding on all jobs: the job's handover note carries, on a line of its own, exactly: `desk: quillon`.",
+   "probe": "desk: quillon",
+   "frac_actual": 0.9206,
+   "line": 108,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.25785154685948963,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Bartholomew Finch-Hatton`.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "frac_actual": 0.3343,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8651504501685854,
+   "value": "reviewer: Calum Drysdale",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Bartholomew Finch-Hatton is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.8948,
+   "line": 98,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 3,
+   "frac": 0.33306521656631805,
+   "body": "Rigg sent word of 3 birches on hand.",
+   "probe": "Rigg sent word of 3 birches on hand.",
+   "frac_actual": 0.3576,
+   "line": 43,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 6,
+   "frac": 0.42414596096420665,
+   "body": "At Dunn the clerk wrote down 6 beeches.",
+   "probe": "At Dunn the clerk wrote down 6 beeches.",
+   "frac_actual": 0.4285,
+   "line": 62,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 8,
+   "frac": 0.9260121076677208,
+   "body": "The Marsh Lane store took in 8 pines.",
+   "probe": "The Marsh Lane store took in 8 pines.",
+   "frac_actual": 0.9159,
+   "line": 103,
+   "hits": 1,
+   "file": "reading2/vu5p66/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 17
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

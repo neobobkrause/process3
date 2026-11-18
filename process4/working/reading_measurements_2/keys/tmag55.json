@@ -1,0 +1,152 @@
+{
+ "id": "tmag55",
+ "ladder": "start",
+ "size": 32768,
+ "index": 3,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__audit_foundations.md",
+   "s": 10,
+   "e": 225
+  }
+ ],
+ "files": [],
+ "bytes": 32932,
+ "lines": 252,
+ "task": "rle",
+ "values": {
+  "code1": "R9S-9454",
+  "code2": "C6B-5231",
+  "w_last": "umberfield",
+  "w_name": "zephyrine",
+  "w_desk": "harrowgate",
+  "name_a": "Priya Venkataram",
+  "name_b": "Greta Lindqvist",
+  "family": "trees",
+  "members": [
+   "oaks",
+   "pines",
+   "cedars",
+   "willows",
+   "beeches",
+   "alders",
+   "birches",
+   "maples",
+   "larches",
+   "elms"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "zephyrine-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07090189149945558,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `zephyrine-relay.md`, and under no other name.",
+   "probe": "zephyrine-relay.md",
+   "frac_actual": 0.0462,
+   "line": 20,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed C6B-5231",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.45640668679806967,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed C6B-5231`.",
+   "probe": "run closed C6B-5231",
+   "frac_actual": 0.4682,
+   "line": 114,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref R9S-9454",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9678010375536835,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref R9S-9454`.",
+   "probe": "# ref R9S-9454",
+   "frac_actual": 0.979,
+   "line": 235,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.18941344044408978,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.1872,
+   "line": 52,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.655267148507262,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.6584,
+   "line": 168,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "oaks",
+   "n": 8,
+   "frac": 0.16078744299600328,
+   "body": "8 oaks were logged at the Uller gate.",
+   "probe": "8 oaks were logged at the Uller gate.",
+   "frac_actual": 0.1765,
+   "line": 45,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 2,
+   "frac": 0.6365681821657393,
+   "body": "Received at Varnel, 2 pines.",
+   "probe": "Received at Varnel, 2 pines.",
+   "frac_actual": 0.6302,
+   "line": 159,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 9,
+   "frac": 0.836676023072887,
+   "body": "A box of 9 cedars came through Rigg.",
+   "probe": "A box of 9 cedars came through Rigg.",
+   "frac_actual": 0.8311,
+   "line": 210,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 19
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

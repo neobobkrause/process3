@@ -1,0 +1,179 @@
+{
+ "id": "xem7qu",
+ "ladder": "single",
+ "size": 12000,
+ "index": 9,
+ "kind": "logs",
+ "kind_wanted": "logs",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "logs/process4__working__notice_study__trial_ai_runs__blocks__06-methods-a.txt",
+   "s": 0,
+   "e": 197
+  }
+ ],
+ "files": [
+  "reading2/xem7qu/log.md"
+ ],
+ "bytes": 11831,
+ "lines": 227,
+ "task": "minutes",
+ "values": {
+  "code1": "K5N-2030",
+  "code2": "A4X-5114",
+  "w_last": "varnish",
+  "w_name": "drumlin",
+  "w_desk": "pennant",
+  "name_a": "Calum Drysdale",
+  "name_b": "Saoirse Kinsella",
+  "family": "birds",
+  "members": [
+   "larks",
+   "wrens",
+   "gulls",
+   "cranes",
+   "plovers",
+   "owls",
+   "swifts",
+   "finches",
+   "robins",
+   "herons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "drumlin-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.041161879275363786,
+   "body": "To be kept by any job that works from this text: the job's handover note is saved under the file name `drumlin-relay.md`, and under no other name.",
+   "probe": "drumlin-relay.md",
+   "frac_actual": 0.0432,
+   "line": 8,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: pennant",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5087322067834624,
+   "body": "Kept by every job without exception: the job's handover note carries, on a line of its own, exactly: `desk: pennant`.",
+   "probe": "desk: pennant",
+   "frac_actual": 0.5112,
+   "line": 119,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref K5N-2030",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9114125353193415,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref K5N-2030`.",
+   "probe": "# ref K5N-2030",
+   "frac_actual": 0.9147,
+   "line": 208,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.18087428384532972,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Calum Drysdale`.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.1791,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.47598410204847696,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Calum Drysdale is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.4792,
+   "line": 110,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 4,
+   "frac": 0.1245634096428492,
+   "body": "Stane sent word of 4 larks on hand.",
+   "probe": "Stane sent word of 4 larks on hand.",
+   "frac_actual": 0.125,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "wrens",
+   "n": 18,
+   "frac": 0.27470891136582687,
+   "body": "At Lund the clerk wrote down 18 wrens.",
+   "probe": "At Lund the clerk wrote down 18 wrens.",
+   "frac_actual": 0.2732,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 15,
+   "frac": 0.47884759789791065,
+   "body": "15 gulls were logged at the Rigg gate.",
+   "probe": "15 gulls were logged at the Rigg gate.",
+   "frac_actual": 0.4717,
+   "line": 106,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "cranes",
+   "n": 13,
+   "frac": 0.643270631056551,
+   "body": "Received at Marsh Lane, 13 cranes.",
+   "probe": "Received at Marsh Lane, 13 cranes.",
+   "frac_actual": 0.6438,
+   "line": 143,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  },
+  {
+   "what": "count",
+   "member": "plovers",
+   "n": 7,
+   "frac": 0.8965871341228961,
+   "body": "Hale End desk entered 7 plovers on the sheet.",
+   "probe": "Hale End desk entered 7 plovers on the sheet.",
+   "frac_actual": 0.9012,
+   "line": 202,
+   "hits": 1,
+   "file": "reading2/xem7qu/log.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 57
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

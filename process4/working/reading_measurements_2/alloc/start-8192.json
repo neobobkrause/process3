@@ -1,0 +1,112 @@
+{
+ "0": {
+  "id": "px8p5f",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "e": 57,
+    "s": 4
+   }
+  ]
+ },
+ "1": {
+  "id": "ugxfne",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "e": 75,
+    "s": 2
+   }
+  ]
+ },
+ "2": {
+  "id": "yfmszt",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__04-tranche-rounds-walks-release.md",
+    "e": 97,
+    "s": 16
+   }
+  ]
+ },
+ "3": {
+  "id": "xxu64x",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "e": 218,
+    "s": 165
+   }
+  ]
+ },
+ "4": {
+  "id": "bgy8b8",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "e": 40,
+    "s": 6
+   }
+  ]
+ },
+ "5": {
+  "id": "yekr4z",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "e": 83,
+    "s": 8
+   }
+  ]
+ },
+ "6": {
+  "id": "nc5hhk",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "e": 93,
+    "s": 30
+   }
+  ]
+ },
+ "7": {
+  "id": "rnpyuf",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/governing__foundations.md",
+    "e": 284,
+    "s": 248
+   }
+  ]
+ },
+ "8": {
+  "id": "uyufz9",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "e": 229,
+    "s": 203
+   }
+  ]
+ },
+ "9": {
+  "id": "hmuqbj",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "e": 135,
+    "s": 62
+   }
+  ]
+ }
+}

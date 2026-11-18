@@ -1,0 +1,548 @@
+{
+ "id": "sm8mb2",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 12000,
+ "n_files": 32,
+ "index": 9,
+ "files": [
+  "reading2/sm8mb2/01-review.md",
+  "reading2/sm8mb2/02-tranche.mjs",
+  "reading2/sm8mb2/03-joined.md",
+  "reading2/sm8mb2/04-coordinator-findings-3-4nov.md",
+  "reading2/sm8mb2/05-joined.md",
+  "reading2/sm8mb2/06-coordinator-findings-3-4nov.md",
+  "reading2/sm8mb2/07-joined.mjs",
+  "reading2/sm8mb2/08-layerflow-test.mjs",
+  "reading2/sm8mb2/09-job-test.mjs",
+  "reading2/sm8mb2/10-change-sample.md",
+  "reading2/sm8mb2/11-audit-b.md",
+  "reading2/sm8mb2/12-status.mjs",
+  "reading2/sm8mb2/13-joined.mjs",
+  "reading2/sm8mb2/14-audit-d-central.md",
+  "reading2/sm8mb2/15-joined.mjs",
+  "reading2/sm8mb2/16-joined.mjs",
+  "reading2/sm8mb2/17-joined.md",
+  "reading2/sm8mb2/18-audit2-corruption.md",
+  "reading2/sm8mb2/19-joined.md",
+  "reading2/sm8mb2/20-p3.mjs",
+  "reading2/sm8mb2/21-joined.mjs",
+  "reading2/sm8mb2/22-joined.md",
+  "reading2/sm8mb2/23-layerflow-test.mjs",
+  "reading2/sm8mb2/24-gate.mjs",
+  "reading2/sm8mb2/25-layerflow.mjs",
+  "reading2/sm8mb2/26-deploy.mjs",
+  "reading2/sm8mb2/27-process4-disposition.md",
+  "reading2/sm8mb2/28-job.mjs",
+  "reading2/sm8mb2/29-coordinator-findings-3-4nov.md",
+  "reading2/sm8mb2/30-joined.md",
+  "reading2/sm8mb2/31-audit-d-central.md",
+  "reading2/sm8mb2/32-redteam-corruption.md"
+ ],
+ "file_kinds": [
+  "design",
+  "code",
+  "design",
+  "logs",
+  "principles",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "design",
+  "design",
+  "code",
+  "code",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design",
+  "design",
+  "code",
+  "code",
+  "logs",
+  "code",
+  "code",
+  "code",
+  "code",
+  "requirements",
+  "code",
+  "logs",
+  "design",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "design/process4__evidence__review.txt",
+    "s": 161,
+    "e": 274
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__tranche.mjs",
+    "s": 0,
+    "e": 155
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__notice_study__result.md",
+    "s": 108,
+    "e": 131
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "s": 0,
+    "e": 27
+   },
+   {
+    "doc": "design/process4__working__trial_plan_facts.md",
+    "s": 459,
+    "e": 526
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1236,
+    "e": 1268
+   }
+  ],
+  [
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "s": 9,
+    "e": 26
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 520,
+    "e": 554
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__size.test.mjs",
+    "s": 178,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "s": 0,
+    "e": 190
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 317,
+    "e": 498
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__job.test.mjs",
+    "s": 936,
+    "e": 1103
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__change_sample.md",
+    "s": 73,
+    "e": 118
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 47,
+    "e": 88
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 138,
+    "e": 295
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 275,
+    "e": 286
+   },
+   {
+    "doc": "code/tool__test__state-race.test.mjs",
+    "s": 186,
+    "e": 333
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 0,
+    "e": 89
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__rerun.test.mjs",
+    "s": 34,
+    "e": 124
+   },
+   {
+    "doc": "code/tool__test__stale-generated.test.mjs",
+    "s": 0,
+    "e": 70
+   },
+   {
+    "doc": "code/tool__test__shims.test.mjs",
+    "s": 0,
+    "e": 4
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__flow-control.test.mjs",
+    "s": 53,
+    "e": 116
+   },
+   {
+    "doc": "code/tool__test__review-trigger-fixes.test.mjs",
+    "s": 0,
+    "e": 105
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 447,
+    "e": 493
+   },
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 553,
+    "e": 592
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 443,
+    "e": 526
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 99,
+    "e": 113
+   },
+   {
+    "doc": "design/process4__working__notice_study__proof_outcome.md",
+    "s": 0,
+    "e": 49
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 103,
+    "e": 132
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 305,
+    "e": 464
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 86,
+    "e": 202
+   },
+   {
+    "doc": "code/tool__test__setup-speed.test.mjs",
+    "s": 0,
+    "e": 33
+   }
+  ],
+  [
+   {
+    "doc": "logs/process4__working__notice_study__trial_ai_runs__interface_changes_log_pr96.txt",
+    "s": 77,
+    "e": 96
+   },
+   {
+    "doc": "logs/process4__working__register_notes.md",
+    "s": 121,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1822,
+    "e": 1963
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__gate.mjs",
+    "s": 0,
+    "e": 145
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 1337,
+    "e": 1493
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__deploy.mjs",
+    "s": 325,
+    "e": 463
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "s": 242,
+    "e": 305
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 703,
+    "e": 860
+   }
+  ],
+  [
+   {
+    "doc": "logs/notes__coordinator-findings-3-4nov.md",
+    "s": 1010,
+    "e": 1039
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+    "s": 5,
+    "e": 54
+   },
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 0,
+    "e": 107
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "s": 394,
+    "e": 478
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "s": 55,
+    "e": 156
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 391052,
+ "lines": 3775,
+ "task": "colsum",
+ "values": {
+  "code1": "L7D-7354",
+  "code2": "N4A-7888",
+  "w_last": "ironbark",
+  "w_name": "drumlin",
+  "w_desk": "juniper",
+  "name_a": "Jacinta Ravensworth",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "hand tools",
+  "members": [
+   "trowels",
+   "hammers",
+   "chisels",
+   "awls",
+   "pliers",
+   "spanners",
+   "rasps",
+   "handsaws",
+   "wrenches",
+   "mallets"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref L7D-7354",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.24577330605880734,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref L7D-7354`.",
+   "probe": "# ref L7D-7354",
+   "file_index": 0,
+   "frac_actual": 0.0954,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/sm8mb2/01-review.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "drumlin-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5096934103212929,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `drumlin-relay.md`, and under no other name.",
+   "probe": "drumlin-relay.md",
+   "file_index": 16,
+   "frac_actual": 0.506,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/sm8mb2/17-joined.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed N4A-7888",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.7984098457414842,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed N4A-7888`.",
+   "probe": "run closed N4A-7888",
+   "file_index": 31,
+   "frac_actual": 0.9228,
+   "line": 91,
+   "hits": 1,
+   "file": "reading2/sm8mb2/32-redteam-corruption.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3370440554404939,
+   "value": "reviewer: Jacinta Ravensworth",
+   "body": "To be kept by any job that works from this text: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Jacinta Ravensworth`.",
+   "probe": "`reviewer: Jacinta Ravensworth`",
+   "file_index": 13,
+   "frac_actual": 0.3203,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/sm8mb2/14-audit-d-central.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.15383746354200786,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Jacinta Ravensworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 29,
+   "frac_actual": 0.1571,
+   "line": 30,
+   "hits": 1,
+   "file": "reading2/sm8mb2/30-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "trowels",
+   "n": 13,
+   "frac": 0.18664104277802507,
+   "body": "Dunn desk entered 13 trowels on the sheet.",
+   "probe": "Dunn desk entered 13 trowels on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.1824,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/sm8mb2/02-tranche.mjs"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 17,
+   "frac": 0.13808026167651333,
+   "body": "The Brae store took in 17 hammers.",
+   "probe": "The Brae store took in 17 hammers.",
+   "file_index": 7,
+   "frac_actual": 0.1395,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/sm8mb2/08-layerflow-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 9,
+   "frac": 0.5535806625934265,
+   "body": "Tally for Quay Nine: 9 chisels.",
+   "probe": "Tally for Quay Nine: 9 chisels.",
+   "file_index": 18,
+   "frac_actual": 0.5667,
+   "line": 64,
+   "hits": 1,
+   "file": "reading2/sm8mb2/19-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 16,
+   "frac": 0.6624750675870982,
+   "body": "16 awls were logged at the Lund gate.",
+   "probe": "16 awls were logged at the Lund gate.",
+   "file_index": 22,
+   "frac_actual": 0.6599,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/sm8mb2/23-layerflow-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 8,
+   "frac": 0.47141222638943153,
+   "body": "Uller sent word of 8 pliers on hand.",
+   "probe": "Uller sent word of 8 pliers on hand.",
+   "file_index": 29,
+   "frac_actual": 0.5358,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/sm8mb2/30-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 63
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

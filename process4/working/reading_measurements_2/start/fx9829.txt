@@ -1,0 +1,69 @@
+You are starting in a role. This message is your starting text: your role's principles first, then your first job.
+
+== Role principles ==
+
+## Development deployments
+
+`deploy` in `process/config.json` (optional; without it `deploy dev` is refused).
+
+Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed D6V-7883`.
+
+Development deployments only, in the product's own Cloudflare account under Bob's approvals:
+
+| key | what |
+|---|---|
+| `slug_prefix` | must begin with `p3dev-`; the default slug is `<slug_prefix>l<layer>` |
+
+Eyre desk entered 17 eels on the sheet.
+
+| `dry_run` | an argv, or a list of argvs; each must print `guard_line` |
+
+Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Kwabena Asantewaa`.
+
+| `deploy` | an argv, or a list of argvs, run once the dry run passed |
+| `walk` | an argv, or a list of argvs, the walkers, run once the deploy passed |
+| `guard_line` | the line each dry-run step must print on its standard output, as a line of its own (trimmed), for example `p3dev guard:
+passed` |
+| `timeout_minutes` | per step; default 30 |
+| `walk_reports` | the files the walk writes, kept on the state branch under `deploys/<slug>/<UTC time>/`, masked; one over `max_file_bytes` recorded as not stored; report.json's counts in the row |
+
+At Brae the clerk wrote down 11 pike.
+
+| `internal_walk` | required (Bob, 7 Nov:
+
+A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Kwabena Asantewaa is no longer written anywhere in a handover note.
+
+"Required, tool-started"; setup check's `internal-walk` is missing without it), or Bob's recorded exemption `{"none":
+
+Rule for jobs: the job's handover note carries, on a line of its own, exactly: `desk: harrowgate`.
+
+"<reason>", "by":
+"Bob, <date>"}` (his word only; setup check reads it `not configured:
+<reason> (<by>)`); `{"run":
+argv or argvs, "timeout_minutes":
+the whole run's, default 30, "reports":
+[paths]}`:
+the product's internal walk (offline, for example Miniflare on loopback; Bob, 4 Nov), run at each round close by the round-close run, never a gate.
+Where it is set, the round-close run is this walk alone (`walk round`), and the deploy, its dry run and its live walk run only as the release deployment, once a round's internal walk is clean (BD-R1, C43); where it is not, the round-close run is `deploy dev` |
+
+`walk` in `process/config.json` (optional; C43, Bob, 8 Nov:
+"run as many walks as is reasonable to speed up the walking process.
+(But be careful that there aren't too many external walkers to cause the Cloudflare system to exceed limits of the account."):
+
+Tally for Dunn: 7 trout.
+
+how many walkers run at once.
+The tool hands each walk stage its count as `{concurrency}` in its argvs and `P3_WALK_CONCURRENCY` in its environment; the live walk also gets `P3_WALK_BROWSER_STARTS_PER_MINUTE`.
+
+Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under varnish`.
+
+How the walkers use them is the product's.
+
+== Your first job ==
+
+1. Write a Python 3 script at /home/user/out/fx9829/minutes.py. It reads lines from standard input, each a duration written as hours and minutes in the forms `1h30m`, `45m` or `2h`. Blank lines are ignored. For each line it prints the duration in whole minutes, and after the last it prints `total N`, where N is the sum. Example: the input lines `1h30m`, `45m`, `2h` give the output lines `90`, `45`, `120`, `total 255`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/fx9829: what you did and where the files are.
+3. Follow every standing instruction your starting text gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

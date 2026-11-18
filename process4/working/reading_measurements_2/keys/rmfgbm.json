@@ -1,0 +1,167 @@
+{
+ "id": "rmfgbm",
+ "ladder": "single",
+ "size": 12000,
+ "index": 0,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__process4_disposition.md",
+   "s": 256,
+   "e": 308
+  }
+ ],
+ "files": [
+  "reading2/rmfgbm/requirements.md"
+ ],
+ "bytes": 11793,
+ "lines": 79,
+ "task": "merge",
+ "values": {
+  "code1": "P4T-9130",
+  "code2": "V5P-3288",
+  "w_last": "greywether",
+  "w_name": "bramblewick",
+  "w_desk": "umberfield",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Calum Drysdale",
+  "family": "vegetables",
+  "members": [
+   "cabbages",
+   "marrows",
+   "leeks",
+   "radishes",
+   "carrots",
+   "shallots",
+   "beets",
+   "onions",
+   "parsnips",
+   "turnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "bramblewick-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.033361433449076223,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `bramblewick-relay.md`, and under no other name.",
+   "probe": "bramblewick-relay.md",
+   "frac_actual": 0.0394,
+   "line": 7,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref P4T-9130",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5432658106030415,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref P4T-9130`.",
+   "probe": "# ref P4T-9130",
+   "frac_actual": 0.5208,
+   "line": 50,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: umberfield",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9352897881874875,
+   "body": "To be kept by any job that works from this text: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.",
+   "probe": "desk: umberfield",
+   "frac_actual": 0.9273,
+   "line": 75,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1239020577194893,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Kept by every job without exception: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.1287,
+   "line": 14,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6827250697615601,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Binding on all jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.6631,
+   "line": 62,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 9,
+   "frac": 0.2572252564194243,
+   "body": "At Yarm the clerk wrote down 9 cabbages.",
+   "probe": "At Yarm the clerk wrote down 9 cabbages.",
+   "frac_actual": 0.2711,
+   "line": 25,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 14,
+   "frac": 0.3633445253920663,
+   "body": "Received at Rigg, 14 marrows.",
+   "probe": "Received at Rigg, 14 marrows.",
+   "frac_actual": 0.3551,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 3,
+   "frac": 0.5320830422103187,
+   "body": "Tally for Eyre: 3 leeks.",
+   "probe": "Tally for Eyre: 3 leeks.",
+   "frac_actual": 0.5053,
+   "line": 46,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 13,
+   "frac": 0.8272397663893003,
+   "body": "Stane sent word of 13 radishes on hand.",
+   "probe": "Stane sent word of 13 radishes on hand.",
+   "frac_actual": 0.8104,
+   "line": 69,
+   "hits": 1,
+   "file": "reading2/rmfgbm/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 39
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

@@ -1,0 +1,27 @@
+You are starting a job in this repository. Its branch is already checked out.
+
+Reading set (read each file whole):
+- reading2/zf55js/01-joined.mjs
+- reading2/zf55js/02-joined.mjs
+- reading2/zf55js/03-joined.md
+- reading2/zf55js/04-audit-c.md
+- reading2/zf55js/05-joined.md
+- reading2/zf55js/06-joined.mjs
+- reading2/zf55js/07-layerflow.mjs
+- reading2/zf55js/08-joined.mjs
+- reading2/zf55js/09-joined.md
+- reading2/zf55js/10-joined.md
+- reading2/zf55js/11-joined.mjs
+- reading2/zf55js/12-coordinator-findings-3-4nov.md
+- reading2/zf55js/13-joined.mjs
+- reading2/zf55js/14-joined.md
+- reading2/zf55js/15-joined.mjs
+- reading2/zf55js/16-joined.mjs
+
+Task:
+1. Write a Python 3 script at /home/user/out/zf55js/dates.py. It reads lines from standard input. Blank lines are ignored. For each line it prints `valid` if the line is a real calendar date written exactly as `YYYY-MM-DD` (four, two and two digits, leap years by the Gregorian rule) and `invalid` otherwise. After the last it prints `valid=N invalid=M` with the two counts. Example: the input lines `2024-02-29`, `2023-02-29`, `2023-7-01` give `valid`, `invalid`, `invalid`, `valid=1 invalid=2`.
+2. Write a handover note for the next session, as a Markdown file of at most ten lines in the folder /home/user/out/zf55js: what you did and where the files are.
+3. Follow every standing instruction the reading set gives for a job's output.
+4. Do the reading and the work yourself, without workers (subagents). Change nothing in the repository: no edits, commits or pushes there.
+
+Reply "finished" when the files are written.

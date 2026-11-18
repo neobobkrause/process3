@@ -1,0 +1,191 @@
+{
+ "id": "xw9jjv",
+ "ladder": "single",
+ "size": 24000,
+ "index": 1,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__working__audit2_requirements.md",
+   "s": 161,
+   "e": 322
+  }
+ ],
+ "files": [
+  "reading2/xw9jjv/requirements.md"
+ ],
+ "bytes": 23951,
+ "lines": 194,
+ "task": "rle",
+ "values": {
+  "code1": "V7R-5354",
+  "code2": "Z3C-2838",
+  "w_last": "juniper",
+  "w_name": "orrery",
+  "w_desk": "cinnabar",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Greta Lindqvist",
+  "family": "musical instruments",
+  "members": [
+   "oboes",
+   "harps",
+   "bassoons",
+   "banjos",
+   "clarinets",
+   "violins",
+   "trumpets",
+   "cellos",
+   "tubas",
+   "flutes"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under juniper",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07774057462785533,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under juniper`.",
+   "probe": "-- filed under juniper",
+   "frac_actual": 0.0467,
+   "line": 12,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "orrery-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4761849941445884,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `orrery-relay.md`, and under no other name.",
+   "probe": "orrery-relay.md",
+   "frac_actual": 0.4843,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed Z3C-2838",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9478126621003382,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed Z3C-2838`.",
+   "probe": "run closed Z3C-2838",
+   "frac_actual": 0.9466,
+   "line": 183,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.161988035969764,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.177,
+   "line": 33,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8567893724988191,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Every job must note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.8771,
+   "line": 159,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "oboes",
+   "n": 6,
+   "frac": 0.17333989861164673,
+   "body": "Tally for Brae: 6 oboes.",
+   "probe": "Tally for Brae: 6 oboes.",
+   "frac_actual": 0.1809,
+   "line": 38,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "harps",
+   "n": 9,
+   "frac": 0.25791673680114646,
+   "body": "At Hale End the clerk wrote down 9 harps.",
+   "probe": "At Hale End the clerk wrote down 9 harps.",
+   "frac_actual": 0.2779,
+   "line": 59,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "bassoons",
+   "n": 18,
+   "frac": 0.4654171502333556,
+   "body": "18 bassoons were logged at the Corrie gate.",
+   "probe": "18 bassoons were logged at the Corrie gate.",
+   "frac_actual": 0.4968,
+   "line": 98,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "banjos",
+   "n": 2,
+   "frac": 0.592009921082536,
+   "body": "Received at Osk, 2 banjos.",
+   "probe": "Received at Osk, 2 banjos.",
+   "frac_actual": 0.5065,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "clarinets",
+   "n": 5,
+   "frac": 0.668707048077135,
+   "body": "A box of 5 clarinets came through Marsh Lane.",
+   "probe": "A box of 5 clarinets came through Marsh Lane.",
+   "frac_actual": 0.7222,
+   "line": 125,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "violins",
+   "n": 13,
+   "frac": 0.9043130193775123,
+   "body": "The Varnel store took in 13 violins.",
+   "probe": "The Varnel store took in 13 violins.",
+   "frac_actual": 0.8793,
+   "line": 164,
+   "hits": 1,
+   "file": "reading2/xw9jjv/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 53
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of musical instruments, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

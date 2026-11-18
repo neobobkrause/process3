@@ -1,0 +1,191 @@
+{
+ "id": "yp864g",
+ "ladder": "single",
+ "size": 96000,
+ "index": 2,
+ "kind": "principles",
+ "kind_wanted": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/README.md",
+   "s": 23,
+   "e": 91
+  }
+ ],
+ "files": [
+  "reading2/yp864g/principles.md"
+ ],
+ "bytes": 95210,
+ "lines": 101,
+ "task": "minutes",
+ "values": {
+  "code1": "U5K-5716",
+  "code2": "E5S-7129",
+  "w_last": "harrowgate",
+  "w_name": "umberfield",
+  "w_desk": "quillon",
+  "name_a": "Saoirse Kinsella",
+  "name_b": "Calum Drysdale",
+  "family": "gemstones",
+  "members": [
+   "pearls",
+   "rubies",
+   "amethysts",
+   "topazes",
+   "agates",
+   "sapphires",
+   "opals",
+   "emeralds",
+   "garnets",
+   "zircons"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under harrowgate",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.07588206740263254,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under harrowgate`.",
+   "probe": "-- filed under harrowgate",
+   "frac_actual": 0.0734,
+   "line": 17,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref U5K-5716",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4770436354583303,
+   "body": "Binding on all jobs: every file the job writes begins with this exact first line: `# ref U5K-5716`.",
+   "probe": "# ref U5K-5716",
+   "frac_actual": 0.4789,
+   "line": 62,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "umberfield-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.924239700245577,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `umberfield-relay.md`, and under no other name.",
+   "probe": "umberfield-relay.md",
+   "frac_actual": 0.9187,
+   "line": 93,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.30356787441794064,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Saoirse Kinsella`.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "frac_actual": 0.3105,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8529540434145819,
+   "value": "reviewer: Calum Drysdale",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Calum Drysdale`, and the name Saoirse Kinsella is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Calum Drysdale`",
+   "frac_actual": 0.8515,
+   "line": 86,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "pearls",
+   "n": 13,
+   "frac": 0.11886994811585393,
+   "body": "A box of 13 pearls came through Osk.",
+   "probe": "A box of 13 pearls came through Osk.",
+   "frac_actual": 0.1203,
+   "line": 22,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "rubies",
+   "n": 7,
+   "frac": 0.21580803596730352,
+   "body": "Lund sent word of 7 rubies on hand.",
+   "probe": "Lund sent word of 7 rubies on hand.",
+   "frac_actual": 0.2213,
+   "line": 32,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "amethysts",
+   "n": 14,
+   "frac": 0.43957738438574023,
+   "body": "At Uller the clerk wrote down 14 amethysts.",
+   "probe": "At Uller the clerk wrote down 14 amethysts.",
+   "frac_actual": 0.4389,
+   "line": 54,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "topazes",
+   "n": 6,
+   "frac": 0.560724151229448,
+   "body": "6 topazes were logged at the Brae gate.",
+   "probe": "6 topazes were logged at the Brae gate.",
+   "frac_actual": 0.5837,
+   "line": 67,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "agates",
+   "n": 3,
+   "frac": 0.7515888181020186,
+   "body": "The Pell store took in 3 agates.",
+   "probe": "The Pell store took in 3 agates.",
+   "frac_actual": 0.7444,
+   "line": 79,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  },
+  {
+   "what": "count",
+   "member": "sapphires",
+   "n": 18,
+   "frac": 0.9590715036352621,
+   "body": "Tally for Marsh Lane: 18 sapphires.",
+   "probe": "Tally for Marsh Lane: 18 sapphires.",
+   "frac_actual": 0.9757,
+   "line": 97,
+   "hits": 1,
+   "file": "reading2/yp864g/principles.md"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 61
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of gemstones, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

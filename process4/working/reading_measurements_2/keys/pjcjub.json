@@ -1,0 +1,176 @@
+{
+ "id": "pjcjub",
+ "ladder": "start",
+ "size": 16384,
+ "index": 1,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "s": 113,
+   "e": 232
+  }
+ ],
+ "files": [],
+ "bytes": 16490,
+ "lines": 162,
+ "task": "dates",
+ "values": {
+  "code1": "U9Y-2612",
+  "code2": "F8R-1836",
+  "w_last": "drumlin",
+  "w_name": "sandalwood",
+  "w_desk": "pemberley",
+  "name_a": "Priya Venkataram",
+  "name_b": "Octavio Montenegro",
+  "family": "trees",
+  "members": [
+   "birches",
+   "maples",
+   "pines",
+   "alders",
+   "cedars",
+   "oaks",
+   "larches",
+   "beeches",
+   "elms",
+   "willows"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under drumlin",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0708084975824283,
+   "body": "Binding on all jobs: the job's handover note ends with this exact last line: `-- filed under drumlin`.",
+   "probe": "-- filed under drumlin",
+   "frac_actual": 0.0694,
+   "line": 6,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref U9Y-2612",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4628628358414428,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref U9Y-2612`.",
+   "probe": "# ref U9Y-2612",
+   "frac_actual": 0.5265,
+   "line": 77,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "sandalwood-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9369020809544277,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note is saved under the file name `sandalwood-relay.md`, and under no other name.",
+   "probe": "sandalwood-relay.md",
+   "frac_actual": 0.9342,
+   "line": 142,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2654933632357587,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.3002,
+   "line": 38,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6549038682235332,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.6805,
+   "line": 100,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "birches",
+   "n": 2,
+   "frac": 0.0784627959417875,
+   "body": "At Stane the clerk wrote down 2 birches.",
+   "probe": "At Stane the clerk wrote down 2 birches.",
+   "frac_actual": 0.1148,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 11,
+   "frac": 0.4038041321324014,
+   "body": "Received at Pell, 11 maples.",
+   "probe": "Received at Pell, 11 maples.",
+   "frac_actual": 0.3945,
+   "line": 55,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 7,
+   "frac": 0.4992893723420875,
+   "body": "Tally for Thorpe: 7 pines.",
+   "probe": "Tally for Thorpe: 7 pines.",
+   "frac_actual": 0.5289,
+   "line": 82,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 18,
+   "frac": 0.6177882201412737,
+   "body": "Yarm desk entered 18 alders on the sheet.",
+   "probe": "Yarm desk entered 18 alders on the sheet.",
+   "frac_actual": 0.612,
+   "line": 93,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "cedars",
+   "n": 6,
+   "frac": 0.8872533398422724,
+   "body": "The Hale End store took in 6 cedars.",
+   "probe": "The Hale End store took in 6 cedars.",
+   "frac_actual": 0.8574,
+   "line": 130,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 44
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

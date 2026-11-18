@@ -1,0 +1,152 @@
+{
+ "id": "tnhyp2",
+ "ladder": "start",
+ "size": 4096,
+ "index": 8,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+   "s": 60,
+   "e": 83
+  }
+ ],
+ "files": [],
+ "bytes": 4161,
+ "lines": 78,
+ "task": "merge",
+ "values": {
+  "code1": "E6R-9548",
+  "code2": "A2B-4764",
+  "w_last": "quillon",
+  "w_name": "copperfield",
+  "w_desk": "umberfield",
+  "name_a": "Priya Venkataram",
+  "name_b": "Octavio Montenegro",
+  "family": "trees",
+  "members": [
+   "elms",
+   "maples",
+   "alders",
+   "oaks",
+   "birches",
+   "cedars",
+   "beeches",
+   "willows",
+   "pines",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: umberfield",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0644001845514206,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: umberfield`.",
+   "probe": "desk: umberfield",
+   "frac_actual": 0.0679,
+   "line": 7,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "copperfield-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4807030511382791,
+   "body": "A requirement on what a job hands in: the job's handover note is saved under the file name `copperfield-relay.md`, and under no other name.",
+   "probe": "copperfield-relay.md",
+   "frac_actual": 0.478,
+   "line": 28,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref E6R-9548",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9137882349089986,
+   "body": "To be kept by any job that works from this text: every file the job writes begins with this exact first line: `# ref E6R-9548`.",
+   "probe": "# ref E6R-9548",
+   "frac_actual": 0.929,
+   "line": 62,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.16554918704603389,
+   "value": "reviewer: Priya Venkataram",
+   "body": "Note for jobs, in force until withdrawn: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Priya Venkataram`.",
+   "probe": "`reviewer: Priya Venkataram`",
+   "frac_actual": 0.1662,
+   "line": 13,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6477006797148454,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Octavio Montenegro`, and the name Priya Venkataram is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "frac_actual": 0.6605,
+   "line": 41,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 3,
+   "frac": 0.04345163751431438,
+   "body": "Tally for Dunn: 3 elms.",
+   "probe": "Tally for Dunn: 3 elms.",
+   "frac_actual": 0.0353,
+   "line": 3,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 13,
+   "frac": 0.5273085626715355,
+   "body": "Lund sent word of 13 maples on hand.",
+   "probe": "Lund sent word of 13 maples on hand.",
+   "frac_actual": 0.5309,
+   "line": 33,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 17,
+   "frac": 0.6798152882803769,
+   "body": "A box of 17 alders came through Brae.",
+   "probe": "A box of 17 alders came through Brae.",
+   "frac_actual": 0.6799,
+   "line": 45,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 33
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

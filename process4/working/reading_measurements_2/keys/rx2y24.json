@@ -1,0 +1,167 @@
+{
+ "id": "rx2y24",
+ "ladder": "single",
+ "size": 96000,
+ "index": 0,
+ "kind": "requirements",
+ "kind_wanted": "requirements",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "requirements/process4__evidence__process4_disposition.md",
+   "s": 150,
+   "e": 641
+  }
+ ],
+ "files": [
+  "reading2/rx2y24/requirements.md"
+ ],
+ "bytes": 95039,
+ "lines": 518,
+ "task": "sumby",
+ "values": {
+  "code1": "T8K-2692",
+  "code2": "V4P-3281",
+  "w_last": "copperfield",
+  "w_name": "nettlecombe",
+  "w_desk": "larkspur",
+  "name_a": "Mikko Rantanen",
+  "name_b": "Greta Lindqvist",
+  "family": "birds",
+  "members": [
+   "gulls",
+   "finches",
+   "robins",
+   "larks",
+   "wrens",
+   "herons",
+   "cranes",
+   "swifts",
+   "owls",
+   "plovers"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed V4P-3281",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.033713363148869496,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed V4P-3281`.",
+   "probe": "run closed V4P-3281",
+   "frac_actual": 0.0164,
+   "line": 15,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "nettlecombe-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4753902145311232,
+   "body": "Jobs working from this file, take note: the job's handover note is saved under the file name `nettlecombe-relay.md`, and under no other name.",
+   "probe": "nettlecombe-relay.md",
+   "frac_actual": 0.4564,
+   "line": 216,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: larkspur",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9259880191890586,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: larkspur`.",
+   "probe": "desk: larkspur",
+   "frac_actual": 0.9189,
+   "line": 481,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.320948093382433,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Mikko Rantanen`.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.3098,
+   "line": 152,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6461033712385642,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Greta Lindqvist`, and the name Mikko Rantanen is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "frac_actual": 0.6266,
+   "line": 287,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "gulls",
+   "n": 7,
+   "frac": 0.20178103835819167,
+   "body": "Tally for Lund: 7 gulls.",
+   "probe": "Tally for Lund: 7 gulls.",
+   "frac_actual": 0.2206,
+   "line": 100,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "finches",
+   "n": 14,
+   "frac": 0.43969734736860566,
+   "body": "14 finches were logged at the Rigg gate.",
+   "probe": "14 finches were logged at the Rigg gate.",
+   "frac_actual": 0.4362,
+   "line": 203,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "robins",
+   "n": 10,
+   "frac": 0.5078056535821346,
+   "body": "A box of 10 robins came through Uller.",
+   "probe": "A box of 10 robins came through Uller.",
+   "frac_actual": 0.5272,
+   "line": 242,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  },
+  {
+   "what": "count",
+   "member": "larks",
+   "n": 3,
+   "frac": 0.745152178842214,
+   "body": "Corrie sent word of 3 larks on hand.",
+   "probe": "Corrie sent word of 3 larks on hand.",
+   "frac_actual": 0.7484,
+   "line": 370,
+   "hits": 1,
+   "file": "reading2/rx2y24/requirements.md"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 34
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of birds, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

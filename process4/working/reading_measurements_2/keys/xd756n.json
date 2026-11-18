@@ -1,0 +1,302 @@
+{
+ "id": "xd756n",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 7,
+ "files": [
+  "reading2/xd756n/01-layerflow-test.mjs",
+  "reading2/xd756n/02-joined.md",
+  "reading2/xd756n/03-process4-definition-appendix.md",
+  "reading2/xd756n/04-joined.md",
+  "reading2/xd756n/05-job.mjs",
+  "reading2/xd756n/06-joined.mjs",
+  "reading2/xd756n/07-joined.mjs",
+  "reading2/xd756n/08-process4-counterarguments.md"
+ ],
+ "file_kinds": [
+  "code",
+  "design",
+  "design",
+  "design",
+  "code",
+  "code",
+  "code",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__layerflow.test.mjs",
+    "s": 1247,
+    "e": 1822
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__v3_notes.md",
+    "s": 86,
+    "e": 186
+   },
+   {
+    "doc": "design/process4__working__notice_study__judged241.txt",
+    "s": 0,
+    "e": 250
+   },
+   {
+    "doc": "design/process4__definition__process4_lanes.md",
+    "s": 0,
+    "e": 113
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "s": 0,
+    "e": 217
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_appendix_v5.md",
+    "s": 0,
+    "e": 238
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_notes.md",
+    "s": 131,
+    "e": 150
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "s": 0,
+    "e": 28
+   },
+   {
+    "doc": "design/process4__evidence__permissions_inventory.md",
+    "s": 0,
+    "e": 291
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__job.mjs",
+    "s": 543,
+    "e": 1166
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 1147,
+    "e": 1153
+   },
+   {
+    "doc": "code/tool__test__job-sync.test.mjs",
+    "s": 0,
+    "e": 457
+   },
+   {
+    "doc": "code/tool__p3.mjs",
+    "s": 0,
+    "e": 206
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__layer-flow-messages.test.mjs",
+    "s": 302,
+    "e": 384
+   },
+   {
+    "doc": "code/tool__lib__report.mjs",
+    "s": 0,
+    "e": 395
+   },
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 0,
+    "e": 98
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_counterarguments.md",
+    "s": 0,
+    "e": 367
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 386069,
+ "lines": 4140,
+ "task": "dedupe",
+ "values": {
+  "code1": "Y2B-5401",
+  "code2": "E6W-2645",
+  "w_last": "vetiver",
+  "w_name": "ironbark",
+  "w_desk": "quarrystone",
+  "name_a": "Annelise Brouwer",
+  "name_b": "Saoirse Kinsella",
+  "family": "vegetables",
+  "members": [
+   "radishes",
+   "leeks",
+   "cabbages",
+   "beets",
+   "marrows",
+   "shallots",
+   "parsnips",
+   "turnips",
+   "carrots",
+   "onions"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref Y2B-5401",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.7172658012650865,
+   "body": "A requirement on what a job hands in: every file the job writes begins with this exact first line: `# ref Y2B-5401`.",
+   "probe": "# ref Y2B-5401",
+   "file_index": 0,
+   "frac_actual": 0.0833,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/xd756n/01-layerflow-test.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_last",
+   "value": "-- filed under vetiver",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.47229541883601245,
+   "body": "To be kept by any job that works from this text: the job's handover note ends with this exact last line: `-- filed under vetiver`.",
+   "probe": "-- filed under vetiver",
+   "file_index": 4,
+   "frac_actual": 0.4729,
+   "line": 300,
+   "hits": 1,
+   "file": "reading2/xd756n/05-job.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: quarrystone",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.37369538772372757,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note carries, on a line of its own, exactly: `desk: quarrystone`.",
+   "probe": "desk: quarrystone",
+   "file_index": 7,
+   "frac_actual": 0.9089,
+   "line": 343,
+   "hits": 1,
+   "file": "reading2/xd756n/08-process4-counterarguments.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.5802820060155757,
+   "value": "reviewer: Annelise Brouwer",
+   "body": "Rule for jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Annelise Brouwer`.",
+   "probe": "`reviewer: Annelise Brouwer`",
+   "file_index": 0,
+   "frac_actual": 0.5636,
+   "line": 368,
+   "hits": 1,
+   "file": "reading2/xd756n/01-layerflow-test.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.574389036822993,
+   "value": "reviewer: Saoirse Kinsella",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Saoirse Kinsella`, and the name Annelise Brouwer is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Saoirse Kinsella`",
+   "file_index": 5,
+   "frac_actual": 0.5911,
+   "line": 450,
+   "hits": 1,
+   "file": "reading2/xd756n/06-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 18,
+   "frac": 0.33074347259512676,
+   "body": "Received at Quay Nine, 18 radishes.",
+   "probe": "Received at Quay Nine, 18 radishes.",
+   "file_index": 0,
+   "frac_actual": 0.3386,
+   "line": 217,
+   "hits": 1,
+   "file": "reading2/xd756n/01-layerflow-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 19,
+   "frac": 0.8943183115702706,
+   "body": "Tally for Yarm: 19 leeks.",
+   "probe": "Tally for Yarm: 19 leeks.",
+   "file_index": 2,
+   "frac_actual": 0.3162,
+   "line": 117,
+   "hits": 1,
+   "file": "reading2/xd756n/03-process4-definition-appendix.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 16,
+   "frac": 0.6037397726180135,
+   "body": "At Brae the clerk wrote down 16 cabbages.",
+   "probe": "At Brae the clerk wrote down 16 cabbages.",
+   "file_index": 3,
+   "frac_actual": 0.5898,
+   "line": 221,
+   "hits": 1,
+   "file": "reading2/xd756n/04-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 4,
+   "frac": 0.1511218242686948,
+   "body": "Marsh Lane sent word of 4 beets on hand.",
+   "probe": "Marsh Lane sent word of 4 beets on hand.",
+   "file_index": 5,
+   "frac_actual": 0.1714,
+   "line": 148,
+   "hits": 1,
+   "file": "reading2/xd756n/06-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 12,
+   "frac": 0.3629938350540019,
+   "body": "Stane desk entered 12 marrows on the sheet.",
+   "probe": "Stane desk entered 12 marrows on the sheet.",
+   "file_index": 6,
+   "frac_actual": 0.3673,
+   "line": 256,
+   "hits": 1,
+   "file": "reading2/xd756n/07-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 69
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

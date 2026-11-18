@@ -1,0 +1,261 @@
+{
+ "id": "wyh7a9",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 3,
+ "files": [
+  "reading2/wyh7a9/01-joined.mjs",
+  "reading2/wyh7a9/02-merge-test.mjs",
+  "reading2/wyh7a9/03-process4-definition-v6.md",
+  "reading2/wyh7a9/04-joined.mjs"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__lib__setup.mjs",
+    "s": 262,
+    "e": 628
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "s": 0,
+    "e": 59
+   },
+   {
+    "doc": "code/tool__test__bootstrap-close.test.mjs",
+    "s": 0,
+    "e": 206
+   },
+   {
+    "doc": "code/tool__test__status-acts.test.mjs",
+    "s": 0,
+    "e": 22
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__merge.test.mjs",
+    "s": 0,
+    "e": 706
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__definition__process4_definition_v6.md",
+    "s": 0,
+    "e": 300
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__lane-gate.test.mjs",
+    "s": 182,
+    "e": 194
+   },
+   {
+    "doc": "code/tool__test__github.test.mjs",
+    "s": 0,
+    "e": 65
+   },
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "s": 0,
+    "e": 242
+   },
+   {
+    "doc": "code/tool__test__roles.test.mjs",
+    "s": 0,
+    "e": 146
+   },
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 0,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__test__hold.test.mjs",
+    "s": 0,
+    "e": 128
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 190643,
+ "lines": 2405,
+ "task": "merge",
+ "values": {
+  "code1": "M4F-7148",
+  "code2": "V2B-8793",
+  "w_last": "juniper",
+  "w_name": "marlowe",
+  "w_desk": "lodestone",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Ruairi Mactavish",
+  "family": "vegetables",
+  "members": [
+   "marrows",
+   "onions",
+   "beets",
+   "cabbages",
+   "leeks",
+   "radishes",
+   "shallots",
+   "turnips",
+   "carrots",
+   "parsnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_line",
+   "value": "desk: lodestone",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.2060438699087108,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: lodestone`.",
+   "probe": "desk: lodestone",
+   "file_index": 0,
+   "frac_actual": 0.0684,
+   "line": 41,
+   "hits": 1,
+   "file": "reading2/wyh7a9/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref M4F-7148",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.49920848750519364,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref M4F-7148`.",
+   "probe": "# ref M4F-7148",
+   "file_index": 2,
+   "frac_actual": 0.5001,
+   "line": 187,
+   "hits": 1,
+   "file": "reading2/wyh7a9/03-process4-definition-v6.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed V2B-8793",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.41268441663553057,
+   "body": "Kept by every job without exception: any script the job writes prints this exact line as the very last line of its output: `run closed V2B-8793`.",
+   "probe": "run closed V2B-8793",
+   "file_index": 3,
+   "frac_actual": 0.9111,
+   "line": 659,
+   "hits": 1,
+   "file": "reading2/wyh7a9/04-joined.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.2642438164816075,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "file_index": 1,
+   "frac_actual": 0.2581,
+   "line": 203,
+   "hits": 1,
+   "file": "reading2/wyh7a9/02-merge-test.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7645834398190553,
+   "value": "reviewer: Ruairi Mactavish",
+   "body": "Jobs working from this file, take note: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Ruairi Mactavish`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Ruairi Mactavish`",
+   "file_index": 2,
+   "frac_actual": 0.7752,
+   "line": 261,
+   "hits": 1,
+   "file": "reading2/wyh7a9/03-process4-definition-v6.md"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 17,
+   "frac": 0.1192333996153919,
+   "body": "The Uller store took in 17 marrows.",
+   "probe": "The Uller store took in 17 marrows.",
+   "file_index": 0,
+   "frac_actual": 0.107,
+   "line": 68,
+   "hits": 1,
+   "file": "reading2/wyh7a9/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "onions",
+   "n": 6,
+   "frac": 0.5603984359881105,
+   "body": "A box of 6 onions came through Marsh Lane.",
+   "probe": "A box of 6 onions came through Marsh Lane.",
+   "file_index": 1,
+   "frac_actual": 0.5613,
+   "line": 401,
+   "hits": 1,
+   "file": "reading2/wyh7a9/02-merge-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 8,
+   "frac": 0.4650102859095406,
+   "body": "8 beets were logged at the Brae gate.",
+   "probe": "8 beets were logged at the Brae gate.",
+   "file_index": 1,
+   "frac_actual": 0.4591,
+   "line": 336,
+   "hits": 1,
+   "file": "reading2/wyh7a9/02-merge-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 14,
+   "frac": 0.6855767428858995,
+   "body": "Tally for Pell: 14 cabbages.",
+   "probe": "Tally for Pell: 14 cabbages.",
+   "file_index": 2,
+   "frac_actual": 0.6783,
+   "line": 226,
+   "hits": 1,
+   "file": "reading2/wyh7a9/03-process4-definition-v6.md"
+  },
+  {
+   "what": "count",
+   "member": "leeks",
+   "n": 19,
+   "frac": 0.10103834128075298,
+   "body": "Received at Tamsin Row, 19 leeks.",
+   "probe": "Received at Tamsin Row, 19 leeks.",
+   "file_index": 3,
+   "frac_actual": 0.1028,
+   "line": 85,
+   "hits": 1,
+   "file": "reading2/wyh7a9/04-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 64
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

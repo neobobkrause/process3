@@ -1,0 +1,266 @@
+{
+ "id": "dsvgcz",
+ "ladder": "set",
+ "size": 192000,
+ "piece": 48000,
+ "n_files": 4,
+ "index": 8,
+ "files": [
+  "reading2/dsvgcz/01-joined.mjs",
+  "reading2/dsvgcz/02-status.mjs",
+  "reading2/dsvgcz/03-audit2-corruption.md",
+  "reading2/dsvgcz/04-joined.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "design",
+  "principles"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__shallow-mergebase.test.mjs",
+    "s": 102,
+    "e": 189
+   },
+   {
+    "doc": "code/tool__test__layer-early.test.mjs",
+    "s": 0,
+    "e": 190
+   },
+   {
+    "doc": "code/tool__lib__layer.mjs",
+    "s": 0,
+    "e": 108
+   },
+   {
+    "doc": "code/tool__lib__register.mjs",
+    "s": 0,
+    "e": 239
+   },
+   {
+    "doc": "code/tool__lib__metrics.mjs",
+    "s": 0,
+    "e": 48
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__status.mjs",
+    "s": 583,
+    "e": 1213
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "s": 0,
+    "e": 339
+   }
+  ],
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 204,
+    "e": 306
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "s": 0,
+    "e": 54
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "s": 0,
+    "e": 68
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+    "s": 0,
+    "e": 68
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "s": 0,
+    "e": 22
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "s": 0,
+    "e": 10
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 192717,
+ "lines": 2033,
+ "task": "colsum",
+ "values": {
+  "code1": "N4E-5503",
+  "code2": "E4J-5478",
+  "w_last": "tamarind",
+  "w_name": "harrowgate",
+  "w_desk": "foxglove",
+  "name_a": "Greta Lindqvist",
+  "name_b": "Bartholomew Finch-Hatton",
+  "family": "fish",
+  "members": [
+   "carp",
+   "herring",
+   "mackerel",
+   "salmon",
+   "cod",
+   "eels",
+   "pike",
+   "bream",
+   "perch",
+   "trout"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under tamarind",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.8905697422778412,
+   "body": "Note for jobs, in force until withdrawn: the job's handover note ends with this exact last line: `-- filed under tamarind`.",
+   "probe": "-- filed under tamarind",
+   "file_index": 0,
+   "frac_actual": 0.096,
+   "line": 83,
+   "hits": 1,
+   "file": "reading2/dsvgcz/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_name",
+   "value": "harrowgate-relay.md",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.6005077818779968,
+   "body": "Rule for jobs: the job's handover note is saved under the file name `harrowgate-relay.md`, and under no other name.",
+   "probe": "harrowgate-relay.md",
+   "file_index": 2,
+   "frac_actual": 0.5499,
+   "line": 187,
+   "hits": 1,
+   "file": "reading2/dsvgcz/03-audit2-corruption.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "script_last",
+   "value": "run closed E4J-5478",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.4013394985124151,
+   "body": "Jobs working from this file, take note: any script the job writes prints this exact line as the very last line of its output: `run closed E4J-5478`.",
+   "probe": "run closed E4J-5478",
+   "file_index": 3,
+   "frac_actual": 0.9401,
+   "line": 334,
+   "hits": 1,
+   "file": "reading2/dsvgcz/04-joined.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.4608471342830124,
+   "value": "reviewer: Greta Lindqvist",
+   "body": "Every job must note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Greta Lindqvist`.",
+   "probe": "`reviewer: Greta Lindqvist`",
+   "file_index": 0,
+   "frac_actual": 0.4465,
+   "line": 318,
+   "hits": 1,
+   "file": "reading2/dsvgcz/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8008185527665842,
+   "value": "reviewer: Bartholomew Finch-Hatton",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Bartholomew Finch-Hatton`, and the name Greta Lindqvist is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Bartholomew Finch-Hatton`",
+   "file_index": 2,
+   "frac_actual": 0.8005,
+   "line": 280,
+   "hits": 1,
+   "file": "reading2/dsvgcz/03-audit2-corruption.md"
+  },
+  {
+   "what": "count",
+   "member": "carp",
+   "n": 13,
+   "frac": 0.3900549339618841,
+   "body": "Pell sent word of 13 carp on hand.",
+   "probe": "Pell sent word of 13 carp on hand.",
+   "file_index": 0,
+   "frac_actual": 0.3923,
+   "line": 275,
+   "hits": 1,
+   "file": "reading2/dsvgcz/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "herring",
+   "n": 19,
+   "frac": 0.08997489417353449,
+   "body": "Lund desk entered 19 herring on the sheet.",
+   "probe": "Lund desk entered 19 herring on the sheet.",
+   "file_index": 1,
+   "frac_actual": 0.0903,
+   "line": 56,
+   "hits": 1,
+   "file": "reading2/dsvgcz/02-status.mjs"
+  },
+  {
+   "what": "count",
+   "member": "mackerel",
+   "n": 5,
+   "frac": 0.7804466993523337,
+   "body": "The Varnel store took in 5 mackerel.",
+   "probe": "The Varnel store took in 5 mackerel.",
+   "file_index": 2,
+   "frac_actual": 0.7841,
+   "line": 269,
+   "hits": 1,
+   "file": "reading2/dsvgcz/03-audit2-corruption.md"
+  },
+  {
+   "what": "count",
+   "member": "salmon",
+   "n": 12,
+   "frac": 0.9357243024468229,
+   "body": "Tally for Rigg: 12 salmon.",
+   "probe": "Tally for Rigg: 12 salmon.",
+   "file_index": 2,
+   "frac_actual": 0.9182,
+   "line": 328,
+   "hits": 1,
+   "file": "reading2/dsvgcz/03-audit2-corruption.md"
+  },
+  {
+   "what": "count",
+   "member": "cod",
+   "n": 2,
+   "frac": 0.6464361354175922,
+   "body": "A box of 2 cod came through Brae.",
+   "probe": "A box of 2 cod came through Brae.",
+   "file_index": 3,
+   "frac_actual": 0.6475,
+   "line": 178,
+   "hits": 1,
+   "file": "reading2/dsvgcz/04-joined.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 51
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of fish, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

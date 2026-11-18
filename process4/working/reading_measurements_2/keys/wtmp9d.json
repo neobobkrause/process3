@@ -1,0 +1,280 @@
+{
+ "id": "wtmp9d",
+ "ladder": "set",
+ "size": 96000,
+ "piece": 12000,
+ "n_files": 8,
+ "index": 9,
+ "files": [
+  "reading2/wtmp9d/01-foundations.md",
+  "reading2/wtmp9d/02-layerflow.mjs",
+  "reading2/wtmp9d/03-canon-analysis.md",
+  "reading2/wtmp9d/04-joined.md",
+  "reading2/wtmp9d/05-ledger-lines.md",
+  "reading2/wtmp9d/06-setup-test.mjs",
+  "reading2/wtmp9d/07-joined.mjs",
+  "reading2/wtmp9d/08-triage.mjs"
+ ],
+ "file_kinds": [
+  "principles",
+  "code",
+  "design",
+  "design",
+  "requirements",
+  "code",
+  "code",
+  "code"
+ ],
+ "members": [
+  [
+   {
+    "doc": "principles/governing__foundations.md",
+    "s": 68,
+    "e": 119
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__layerflow.mjs",
+    "s": 163,
+    "e": 319
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__canon_analysis.md",
+    "s": 95,
+    "e": 163
+   }
+  ],
+  [
+   {
+    "doc": "design/notes__train-spec-plan.md",
+    "s": 154,
+    "e": 209
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "s": 103,
+    "e": 160
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "s": 980,
+    "e": 1095
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__setup.test.mjs",
+    "s": 0,
+    "e": 177
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__triggers.test.mjs",
+    "s": 150,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__lib__pin.mjs",
+    "s": 0,
+    "e": 101
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__lib__triage.mjs",
+    "s": 174,
+    "e": 328
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 98343,
+ "lines": 995,
+ "task": "rle",
+ "values": {
+  "code1": "Z4V-2761",
+  "code2": "J7L-6879",
+  "w_last": "pemberley",
+  "w_name": "galloway",
+  "w_desk": "foxglove",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Tobias Hallworth",
+  "family": "vegetables",
+  "members": [
+   "marrows",
+   "beets",
+   "radishes",
+   "cabbages",
+   "shallots",
+   "carrots",
+   "onions",
+   "turnips",
+   "leeks",
+   "parsnips"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_last",
+   "value": "-- filed under pemberley",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.35903233695926395,
+   "body": "Every job must note: the job's handover note ends with this exact last line: `-- filed under pemberley`.",
+   "probe": "-- filed under pemberley",
+   "file_index": 0,
+   "frac_actual": 0.0536,
+   "line": 3,
+   "hits": 1,
+   "file": "reading2/wtmp9d/01-foundations.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "first_line",
+   "value": "# ref Z4V-2761",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.14286266259797495,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref Z4V-2761`.",
+   "probe": "# ref Z4V-2761",
+   "file_index": 4,
+   "frac_actual": 0.4517,
+   "line": 63,
+   "hits": 1,
+   "file": "reading2/wtmp9d/05-ledger-lines.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_name",
+   "value": "galloway-relay.md",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.31202529093123477,
+   "body": "Kept by every job without exception: the job's handover note is saved under the file name `galloway-relay.md`, and under no other name.",
+   "probe": "galloway-relay.md",
+   "file_index": 7,
+   "frac_actual": 0.9046,
+   "line": 142,
+   "hits": 1,
+   "file": "reading2/wtmp9d/08-triage.mjs"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.1795745880314449,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "file_index": 2,
+   "frac_actual": 0.1801,
+   "line": 15,
+   "hits": 1,
+   "file": "reading2/wtmp9d/03-canon-analysis.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8028795599671693,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Rule for jobs: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "file_index": 7,
+   "frac_actual": 0.8018,
+   "line": 124,
+   "hits": 1,
+   "file": "reading2/wtmp9d/08-triage.mjs"
+  },
+  {
+   "what": "count",
+   "member": "marrows",
+   "n": 12,
+   "frac": 0.5348831668317452,
+   "body": "Marsh Lane desk entered 12 marrows on the sheet.",
+   "probe": "Marsh Lane desk entered 12 marrows on the sheet.",
+   "file_index": 0,
+   "frac_actual": 0.4782,
+   "line": 29,
+   "hits": 1,
+   "file": "reading2/wtmp9d/01-foundations.md"
+  },
+  {
+   "what": "count",
+   "member": "beets",
+   "n": 7,
+   "frac": 0.7196439400467912,
+   "body": "Tally for Eyre: 7 beets.",
+   "probe": "Tally for Eyre: 7 beets.",
+   "file_index": 1,
+   "frac_actual": 0.7213,
+   "line": 116,
+   "hits": 1,
+   "file": "reading2/wtmp9d/02-layerflow.mjs"
+  },
+  {
+   "what": "count",
+   "member": "radishes",
+   "n": 15,
+   "frac": 0.5078167971448423,
+   "body": "A box of 15 radishes came through Varnel.",
+   "probe": "A box of 15 radishes came through Varnel.",
+   "file_index": 3,
+   "frac_actual": 0.57,
+   "line": 74,
+   "hits": 1,
+   "file": "reading2/wtmp9d/04-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "cabbages",
+   "n": 17,
+   "frac": 0.17351961484963424,
+   "body": "Received at Stane, 17 cabbages.",
+   "probe": "Received at Stane, 17 cabbages.",
+   "file_index": 5,
+   "frac_actual": 0.1747,
+   "line": 35,
+   "hits": 1,
+   "file": "reading2/wtmp9d/06-setup-test.mjs"
+  },
+  {
+   "what": "count",
+   "member": "shallots",
+   "n": 13,
+   "frac": 0.5057449050785697,
+   "body": "The Quay Nine store took in 13 shallots.",
+   "probe": "The Quay Nine store took in 13 shallots.",
+   "file_index": 6,
+   "frac_actual": 0.5097,
+   "line": 65,
+   "hits": 1,
+   "file": "reading2/wtmp9d/07-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "carrots",
+   "n": 18,
+   "frac": 0.2485653518646117,
+   "body": "Tamsin Row sent word of 18 carrots on hand.",
+   "probe": "Tamsin Row sent word of 18 carrots on hand.",
+   "file_index": 6,
+   "frac_actual": 0.2471,
+   "line": 44,
+   "hits": 1,
+   "file": "reading2/wtmp9d/07-joined.mjs"
+  }
+ ],
+ "count": {
+  "entries": 6,
+  "total": 82
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of vegetables, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

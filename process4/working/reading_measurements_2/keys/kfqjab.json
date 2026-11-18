@@ -1,0 +1,179 @@
+{
+ "id": "kfqjab",
+ "ladder": "single",
+ "size": 12000,
+ "index": 4,
+ "kind": "design",
+ "kind_wanted": "design",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "design/process4__working__session2__lanes_owner_documents.md",
+   "s": 33,
+   "e": 111
+  }
+ ],
+ "files": [
+  "reading2/kfqjab/design.md"
+ ],
+ "bytes": 12117,
+ "lines": 108,
+ "task": "dates",
+ "values": {
+  "code1": "A3X-9135",
+  "code2": "Y8C-6831",
+  "w_last": "rosehip",
+  "w_name": "bellwether",
+  "w_desk": "larkspur",
+  "name_a": "Tobias Hallworth",
+  "name_b": "Maren Oduya",
+  "family": "hand tools",
+  "members": [
+   "hammers",
+   "spanners",
+   "pliers",
+   "mallets",
+   "chisels",
+   "trowels",
+   "handsaws",
+   "rasps",
+   "wrenches",
+   "awls"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref A3X-9135",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.0821933376104022,
+   "body": "Rule for jobs: every file the job writes begins with this exact first line: `# ref A3X-9135`.",
+   "probe": "# ref A3X-9135",
+   "frac_actual": 0.0799,
+   "line": 16,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed Y8C-6831",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.5308486159660799,
+   "body": "A requirement on what a job hands in: any script the job writes prints this exact line as the very last line of its output: `run closed Y8C-6831`.",
+   "probe": "run closed Y8C-6831",
+   "frac_actual": 0.5257,
+   "line": 59,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under rosehip",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9385773362415352,
+   "body": "Kept by every job without exception: the job's handover note ends with this exact last line: `-- filed under rosehip`.",
+   "probe": "-- filed under rosehip",
+   "frac_actual": 0.9646,
+   "line": 105,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.23936955920840983,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "Jobs working from this file, take note: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Tobias Hallworth`.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.2308,
+   "line": 33,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.7765442084150971,
+   "value": "reviewer: Maren Oduya",
+   "body": "Note for jobs, in force until withdrawn: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Maren Oduya`, and the name Tobias Hallworth is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Maren Oduya`",
+   "frac_actual": 0.7776,
+   "line": 88,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 11,
+   "frac": 0.08450823302486704,
+   "body": "Tally for Thorpe: 11 hammers.",
+   "probe": "Tally for Thorpe: 11 hammers.",
+   "frac_actual": 0.0953,
+   "line": 20,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 19,
+   "frac": 0.3025863584523707,
+   "body": "19 spanners were logged at the Rigg gate.",
+   "probe": "19 spanners were logged at the Rigg gate.",
+   "frac_actual": 0.2751,
+   "line": 40,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "count",
+   "member": "pliers",
+   "n": 15,
+   "frac": 0.5184956983481469,
+   "body": "A box of 15 pliers came through Quay Nine.",
+   "probe": "A box of 15 pliers came through Quay Nine.",
+   "frac_actual": 0.5207,
+   "line": 55,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 16,
+   "frac": 0.6232538232568284,
+   "body": "The Varnel store took in 16 mallets.",
+   "probe": "The Varnel store took in 16 mallets.",
+   "frac_actual": 0.6197,
+   "line": 69,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  },
+  {
+   "what": "count",
+   "member": "chisels",
+   "n": 18,
+   "frac": 0.9039183528926005,
+   "body": "At Dunn the clerk wrote down 18 chisels.",
+   "probe": "At Dunn the clerk wrote down 18 chisels.",
+   "frac_actual": 0.8958,
+   "line": 101,
+   "hits": 1,
+   "file": "reading2/kfqjab/design.md"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 79
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

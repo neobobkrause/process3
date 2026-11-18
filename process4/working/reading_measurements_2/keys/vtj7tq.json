@@ -1,0 +1,164 @@
+{
+ "id": "vtj7tq",
+ "ladder": "start",
+ "size": 32768,
+ "index": 1,
+ "kind": "principles",
+ "how": "one document",
+ "members": [
+  {
+   "doc": "principles/README.md",
+   "s": 27,
+   "e": 53
+  }
+ ],
+ "files": [],
+ "bytes": 32442,
+ "lines": 66,
+ "task": "merge",
+ "values": {
+  "code1": "P3H-8327",
+  "code2": "U6N-7850",
+  "w_last": "quarrystone",
+  "w_name": "pemberley",
+  "w_desk": "galloway",
+  "name_a": "Mikko Rantanen",
+  "name_b": "Tobias Hallworth",
+  "family": "trees",
+  "members": [
+   "elms",
+   "maples",
+   "alders",
+   "pines",
+   "beeches",
+   "birches",
+   "cedars",
+   "larches",
+   "willows",
+   "oaks"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "script_last",
+   "value": "run closed U6N-7850",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.04792187931319864,
+   "body": "Note for jobs, in force until withdrawn: any script the job writes prints this exact line as the very last line of its output: `run closed U6N-7850`.",
+   "probe": "run closed U6N-7850",
+   "frac_actual": 0.0561,
+   "line": 7,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "handover_line",
+   "value": "desk: galloway",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.4750903873962783,
+   "body": "Every job must note: the job's handover note carries, on a line of its own, exactly: `desk: galloway`.",
+   "probe": "desk: galloway",
+   "frac_actual": 0.4791,
+   "line": 30,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "first_line",
+   "value": "# ref P3H-8327",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9212932734621386,
+   "body": "Jobs working from this file, take note: every file the job writes begins with this exact first line: `# ref P3H-8327`.",
+   "probe": "# ref P3H-8327",
+   "frac_actual": 0.9557,
+   "line": 51,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.14540377112843234,
+   "value": "reviewer: Mikko Rantanen",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Mikko Rantanen`.",
+   "probe": "`reviewer: Mikko Rantanen`",
+   "frac_actual": 0.1433,
+   "line": 14,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.8186095988189508,
+   "value": "reviewer: Tobias Hallworth",
+   "body": "A requirement on what a job hands in: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Tobias Hallworth`, and the name Mikko Rantanen is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Tobias Hallworth`",
+   "frac_actual": 0.7995,
+   "line": 46,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "elms",
+   "n": 4,
+   "frac": 0.21748280248032933,
+   "body": "A box of 4 elms came through Varnel.",
+   "probe": "A box of 4 elms came through Varnel.",
+   "frac_actual": 0.223,
+   "line": 19,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "maples",
+   "n": 17,
+   "frac": 0.39358941536189185,
+   "body": "17 maples were logged at the Rigg gate.",
+   "probe": "17 maples were logged at the Rigg gate.",
+   "frac_actual": 0.368,
+   "line": 24,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 8,
+   "frac": 0.5955635008898923,
+   "body": "Yarm desk entered 8 alders on the sheet.",
+   "probe": "Yarm desk entered 8 alders on the sheet.",
+   "frac_actual": 0.593,
+   "line": 35,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 11,
+   "frac": 0.7851490255942257,
+   "body": "Received at Marsh Lane, 11 pines.",
+   "probe": "Received at Marsh Lane, 11 pines.",
+   "frac_actual": 0.7676,
+   "line": 42,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 4,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

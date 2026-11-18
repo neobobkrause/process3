@@ -1,0 +1,187 @@
+{
+ "id": "zwbqgh",
+ "ladder": "start",
+ "size": 65536,
+ "index": 6,
+ "kind": "principles",
+ "how": "joined documents",
+ "members": [
+  {
+   "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__working__foundations_updated__00-index.md",
+   "lines": "all"
+  },
+  {
+   "doc": "principles/process4__evidence__roles_root_coordinator.md",
+   "lines": "1-320"
+  }
+ ],
+ "files": [],
+ "bytes": 65090,
+ "lines": 557,
+ "task": "colsum",
+ "values": {
+  "code1": "X4Z-6520",
+  "code2": "G8K-3207",
+  "w_last": "bellwether",
+  "w_name": "pennant",
+  "w_desk": "saltmarsh",
+  "name_a": "Yasmin Benhaddou",
+  "name_b": "Noor Al-Tamimi",
+  "family": "hand tools",
+  "members": [
+   "hammers",
+   "awls",
+   "mallets",
+   "spanners",
+   "handsaws",
+   "rasps",
+   "trowels",
+   "pliers",
+   "wrenches",
+   "chisels"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "first_line",
+   "value": "# ref X4Z-6520",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.040742639333628206,
+   "body": "Note for jobs, in force until withdrawn: every file the job writes begins with this exact first line: `# ref X4Z-6520`.",
+   "probe": "# ref X4Z-6520",
+   "frac_actual": 0.0412,
+   "line": 18,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed G8K-3207",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.498987657697529,
+   "body": "Every job must note: any script the job writes prints this exact line as the very last line of its output: `run closed G8K-3207`.",
+   "probe": "run closed G8K-3207",
+   "frac_actual": 0.4953,
+   "line": 275,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_last",
+   "value": "-- filed under bellwether",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9044906243353859,
+   "body": "Jobs working from this file, take note: the job's handover note ends with this exact last line: `-- filed under bellwether`.",
+   "probe": "-- filed under bellwether",
+   "frac_actual": 0.9032,
+   "line": 496,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.3438805433581661,
+   "value": "reviewer: Yasmin Benhaddou",
+   "body": "Binding on all jobs: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Yasmin Benhaddou`.",
+   "probe": "`reviewer: Yasmin Benhaddou`",
+   "frac_actual": 0.3366,
+   "line": 193,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.6296157378649931,
+   "value": "reviewer: Noor Al-Tamimi",
+   "body": "To be kept by any job that works from this text: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Noor Al-Tamimi`, and the name Yasmin Benhaddou is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Noor Al-Tamimi`",
+   "frac_actual": 0.6325,
+   "line": 352,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "hammers",
+   "n": 3,
+   "frac": 0.10173095364401666,
+   "body": "3 hammers were logged at the Dunn gate.",
+   "probe": "3 hammers were logged at the Dunn gate.",
+   "frac_actual": 0.0869,
+   "line": 40,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "awls",
+   "n": 5,
+   "frac": 0.2861421972675322,
+   "body": "Rigg sent word of 5 awls on hand.",
+   "probe": "Rigg sent word of 5 awls on hand.",
+   "frac_actual": 0.2873,
+   "line": 152,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "mallets",
+   "n": 9,
+   "frac": 0.47393491549664757,
+   "body": "The Tamsin Row store took in 9 mallets.",
+   "probe": "The Tamsin Row store took in 9 mallets.",
+   "frac_actual": 0.4708,
+   "line": 261,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "spanners",
+   "n": 16,
+   "frac": 0.6087039013114306,
+   "body": "At Thorpe the clerk wrote down 16 spanners.",
+   "probe": "At Thorpe the clerk wrote down 16 spanners.",
+   "frac_actual": 0.6069,
+   "line": 337,
+   "hits": 1,
+   "file": "(starting text)"
+  },
+  {
+   "what": "count",
+   "member": "handsaws",
+   "n": 17,
+   "frac": 0.7869495241995976,
+   "body": "A box of 17 handsaws came through Brae.",
+   "probe": "A box of 17 handsaws came through Brae.",
+   "frac_actual": 0.7946,
+   "line": 446,
+   "hits": 1,
+   "file": "(starting text)"
+  }
+ ],
+ "count": {
+  "entries": 5,
+  "total": 50
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of hand tools, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

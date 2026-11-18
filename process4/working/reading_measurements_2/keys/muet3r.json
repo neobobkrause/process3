@@ -1,0 +1,341 @@
+{
+ "id": "muet3r",
+ "ladder": "set",
+ "size": 384000,
+ "piece": 48000,
+ "n_files": 8,
+ "index": 0,
+ "files": [
+  "reading2/muet3r/01-joined.mjs",
+  "reading2/muet3r/02-joined.mjs",
+  "reading2/muet3r/03-joined.md",
+  "reading2/muet3r/04-joined.md",
+  "reading2/muet3r/05-joined.mjs",
+  "reading2/muet3r/06-joined.mjs",
+  "reading2/muet3r/07-joined.md",
+  "reading2/muet3r/08-audit-ledger.md"
+ ],
+ "file_kinds": [
+  "code",
+  "code",
+  "requirements",
+  "design",
+  "code",
+  "code",
+  "design",
+  "design"
+ ],
+ "members": [
+  [
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "s": 13,
+    "e": 184
+   },
+   {
+    "doc": "code/tool__test__gate-browser.test.mjs",
+    "s": 0,
+    "e": 164
+   },
+   {
+    "doc": "code/tool__test__exports.test.mjs",
+    "s": 0,
+    "e": 59
+   },
+   {
+    "doc": "code/tool__test__companion.test.mjs",
+    "s": 0,
+    "e": 232
+   },
+   {
+    "doc": "code/tool__test__audit-restores.test.mjs",
+    "s": 0,
+    "e": 5
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__report.test.mjs",
+    "s": 223,
+    "e": 242
+   },
+   {
+    "doc": "code/tool__lib__lead.mjs",
+    "s": 0,
+    "e": 409
+   },
+   {
+    "doc": "code/tool__test__settings-policy.test.mjs",
+    "s": 0,
+    "e": 79
+   },
+   {
+    "doc": "code/tool__lib__expire.mjs",
+    "s": 0,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__test__layer.test.mjs",
+    "s": 0,
+    "e": 13
+   }
+  ],
+  [
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "s": 320,
+    "e": 331
+   },
+   {
+    "doc": "requirements/governing__ledger-map.md",
+    "s": 0,
+    "e": 276
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_map.md",
+    "s": 0,
+    "e": 250
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "s": 0,
+    "e": 56
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_B.md",
+    "s": 54,
+    "e": 267
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "s": 0,
+    "e": 9
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__marks.test.mjs",
+    "s": 120,
+    "e": 153
+   },
+   {
+    "doc": "code/tool__test__ledger-count.test.mjs",
+    "s": 0,
+    "e": 195
+   },
+   {
+    "doc": "code/tool__test__register.test.mjs",
+    "s": 0,
+    "e": 186
+   },
+   {
+    "doc": "code/tool__lib__ledger.mjs",
+    "s": 0,
+    "e": 196
+   },
+   {
+    "doc": "code/tool__test__bookkeeping.test.mjs",
+    "s": 0,
+    "e": 106
+   },
+   {
+    "doc": "code/tool__lib__pace.mjs",
+    "s": 0,
+    "e": 34
+   }
+  ],
+  [
+   {
+    "doc": "code/tool__test__ledger-base.test.mjs",
+    "s": 76,
+    "e": 92
+   },
+   {
+    "doc": "code/tool__test__base-red.test.mjs",
+    "s": 0,
+    "e": 247
+   },
+   {
+    "doc": "code/tool__test__gate-bootstrap.test.mjs",
+    "s": 0,
+    "e": 125
+   },
+   {
+    "doc": "code/tool__test__base-red-age.test.mjs",
+    "s": 0,
+    "e": 48
+   },
+   {
+    "doc": "code/tool__lib__census.mjs",
+    "s": 0,
+    "e": 209
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__evidence__audit_C.md",
+    "s": 106,
+    "e": 336
+   },
+   {
+    "doc": "design/process4__evidence__redteam_corruption.md",
+    "s": 0,
+    "e": 55
+   }
+  ],
+  [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "s": 21,
+    "e": 283
+   }
+  ]
+ ],
+ "pool_reused": false,
+ "bytes": 381909,
+ "lines": 4114,
+ "task": "sumby",
+ "values": {
+  "code1": "V8X-7392",
+  "code2": "Y6W-7275",
+  "w_last": "varnish",
+  "w_name": "bellwether",
+  "w_desk": "fennimore",
+  "name_a": "Octavio Montenegro",
+  "name_b": "Liesel Hartmannsdorf",
+  "family": "trees",
+  "members": [
+   "pines",
+   "alders",
+   "beeches",
+   "cedars",
+   "willows",
+   "oaks",
+   "maples",
+   "birches",
+   "elms",
+   "larches"
+  ]
+ },
+ "placed": [
+  {
+   "what": "rule",
+   "place": "early",
+   "rule": "handover_name",
+   "value": "bellwether-relay.md",
+   "lo": 0.0,
+   "hi": 0.1,
+   "frac": 0.3665555891284076,
+   "body": "Binding on all jobs: the job's handover note is saved under the file name `bellwether-relay.md`, and under no other name.",
+   "probe": "bellwether-relay.md",
+   "file_index": 0,
+   "frac_actual": 0.0901,
+   "line": 84,
+   "hits": 1,
+   "file": "reading2/muet3r/01-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "middle",
+   "rule": "script_last",
+   "value": "run closed Y6W-7275",
+   "lo": 0.45,
+   "hi": 0.55,
+   "frac": 0.49967376074686465,
+   "body": "Rule for jobs: any script the job writes prints this exact line as the very last line of its output: `run closed Y6W-7275`.",
+   "probe": "run closed Y6W-7275",
+   "file_index": 4,
+   "frac_actual": 0.4971,
+   "line": 394,
+   "hits": 1,
+   "file": "reading2/muet3r/05-joined.mjs"
+  },
+  {
+   "what": "rule",
+   "place": "end",
+   "rule": "handover_line",
+   "value": "desk: fennimore",
+   "lo": 0.9,
+   "hi": 1.0,
+   "frac": 0.9225064533166483,
+   "body": "Jobs working from this file, take note: the job's handover note carries, on a line of its own, exactly: `desk: fennimore`.",
+   "probe": "desk: fennimore",
+   "file_index": 7,
+   "frac_actual": 0.9027,
+   "line": 261,
+   "hits": 1,
+   "file": "reading2/muet3r/08-audit-ledger.md"
+  },
+  {
+   "what": "changed-original",
+   "frac": 0.8728519446733617,
+   "value": "reviewer: Octavio Montenegro",
+   "body": "A requirement on what a job hands in: the job's handover note names its reviewer on a line of its own, exactly: `reviewer: Octavio Montenegro`.",
+   "probe": "`reviewer: Octavio Montenegro`",
+   "file_index": 0,
+   "frac_actual": 0.8716,
+   "line": 578,
+   "hits": 1,
+   "file": "reading2/muet3r/01-joined.mjs"
+  },
+  {
+   "what": "changed-later",
+   "frac": 0.10118947547692425,
+   "value": "reviewer: Liesel Hartmannsdorf",
+   "body": "Kept by every job without exception: the reviewer for jobs has changed. Handover notes now carry the line `reviewer: Liesel Hartmannsdorf`, and the name Octavio Montenegro is no longer written anywhere in a handover note.",
+   "probe": "`reviewer: Liesel Hartmannsdorf`",
+   "file_index": 7,
+   "frac_actual": 0.0928,
+   "line": 36,
+   "hits": 1,
+   "file": "reading2/muet3r/08-audit-ledger.md"
+  },
+  {
+   "what": "count",
+   "member": "pines",
+   "n": 16,
+   "frac": 0.7948289456053542,
+   "body": "16 pines were logged at the Lund gate.",
+   "probe": "16 pines were logged at the Lund gate.",
+   "file_index": 0,
+   "frac_actual": 0.7932,
+   "line": 532,
+   "hits": 1,
+   "file": "reading2/muet3r/01-joined.mjs"
+  },
+  {
+   "what": "count",
+   "member": "alders",
+   "n": 13,
+   "frac": 0.11607303136430976,
+   "body": "A box of 13 alders came through Pell.",
+   "probe": "A box of 13 alders came through Pell.",
+   "file_index": 2,
+   "frac_actual": 0.1201,
+   "line": 60,
+   "hits": 1,
+   "file": "reading2/muet3r/03-joined.md"
+  },
+  {
+   "what": "count",
+   "member": "beeches",
+   "n": 11,
+   "frac": 0.13230744200623365,
+   "body": "Quay Nine sent word of 11 beeches on hand.",
+   "probe": "Quay Nine sent word of 11 beeches on hand.",
+   "file_index": 7,
+   "frac_actual": 0.1338,
+   "line": 43,
+   "hits": 1,
+   "file": "reading2/muet3r/08-audit-ledger.md"
+  }
+ ],
+ "count": {
+  "entries": 3,
+  "total": 40
+ },
+ "count_question": "Across everything you were given to read, how many separate entries record a quantity of some kind of trees, and what do those quantities add up to? Answer as: entries=<number> total=<number>",
+ "facts": []
+}

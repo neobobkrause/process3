@@ -1,0 +1,261 @@
+{
+ "0": {
+  "id": "qbtg3d",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/README.md",
+    "e": 164,
+    "s": 3
+   }
+  ]
+ },
+ "1": {
+  "id": "zcs9nf",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__09-permissions-and-platform.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__evidence__roles_root_coordinator.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__bob-files-9nov__copy-CLAUDE.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/setup__DEVELOPER.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__00-index.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__02-tests.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__audit_foundations.md",
+    "lines": "1-282"
+   }
+  ]
+ },
+ "2": {
+  "id": "jq7tv2",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__06-reading-in-full-and-documents.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__root-prompt.txt",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__01-purpose-owner-and-ai.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/CLAUDE.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__07-how-bobs-words-become-decisions.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__03-modules-jobs-and-the-notice.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__HANDOFF.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__lane-charters.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__probes-pin-for-bob.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/governing__foundations.md",
+    "lines": "1-205"
+   }
+  ]
+ },
+ "3": {
+  "id": "xtbknn",
+  "kind": "principles",
+  "members": [
+   {
+    "doc": "principles/process4__working__foundations_updated__05-roles-and-sessions.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__account-switch.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__CLAUDE.md.proposed-copy.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/governing__foundations-proposed-changes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__10-proven-unproven-and-owed.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__root.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/notes__claude-md-approvals-draft-4nov.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/rulebooks__layer-branch.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__working__foundations_updated__08-changing-the-process.md",
+    "lines": "all"
+   },
+   {
+    "doc": "principles/process4__evidence__foundations.md",
+    "lines": "all"
+   }
+  ]
+ },
+ "4": {
+  "id": "jcmgeg",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__process4_disposition.md",
+    "e": 696,
+    "s": 36
+   }
+  ]
+ },
+ "5": {
+  "id": "yrj7wf",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/process4__evidence__ledger_lines.md",
+    "e": 1699,
+    "s": 146
+   }
+  ]
+ },
+ "6": {
+  "id": "tkwueh",
+  "kind": "requirements",
+  "members": [
+   {
+    "doc": "requirements/governing__ledger-map-proposed-changes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "requirements/process4__evidence__ledger_map.md",
+    "lines": "all"
+   },
+   {
+    "doc": "requirements/process4__working__audit2_requirements.md",
+    "lines": "all"
+   },
+   {
+    "doc": "requirements/process4__working__decisions_memo_d3.md",
+    "lines": "all"
+   },
+   {
+    "doc": "requirements/process4__working__session2__later_requirements.md",
+    "lines": "1-156"
+   }
+  ]
+ },
+ "7": {
+  "id": "pmsjxn",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__audit_ledger.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__v4_notes.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-subscription-context-pricing-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__bob_naming.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__verify_numbers.md",
+    "lines": "1-218"
+   }
+  ]
+ },
+ "8": {
+  "id": "gpfys5",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/notes__train-plain-options.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__codex-first-class-session-creation-blocker-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__lanes_process3_record.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__session2__point2_process_rule.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/notes__github-pacing.md",
+    "lines": "1-63"
+   }
+  ]
+ },
+ "9": {
+  "id": "szrb9e",
+  "kind": "design",
+  "members": [
+   {
+    "doc": "design/process4__working__codex_shortcomings_to_fill.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__audit2_corruption.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__working__first-class-session-minimal-owner-test-20261117.md",
+    "lines": "all"
+   },
+   {
+    "doc": "design/process4__evidence__audit_D_central.md",
+    "lines": "1-237"
+   }
+  ]
+ }
+}
