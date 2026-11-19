@@ -1,4 +1,4 @@
-Length: 141 lines. Last section: "5. What the trial cannot show".
+Length: 143 lines. Last section: "5. What the trial cannot show".
 
 # Process4 build text 4: the order of building and trying
 
@@ -40,6 +40,8 @@ Tried:
 2. One read of GitHub by the script: the open pull requests of the trial repository.
 3. One write of GitHub by the script: it makes a test issue, writes a comment on it, then rewrites the same comment in place.
 4. A push to a working branch by the script.
+
+**Run on 19 Nov, once: all four worked.** The forbidden commands were refused to the session before and after the fetch; the script read, wrote and rewrote a comment, and pushed, as the sessions' account; GraphQL was refused and REST worked. The report is `process4/working/trial/stage0_report_19nov.md`. Not shown by one run: the rate at which the permission checker passes these acts, and whether rewriting a comment notifies anyone.
 
 Breaks, if it fails: the tool as each session's only door to GitHub (the design's part 6, section 3), and the shared state as comments on an issue (part 4, section 4). If items 2 or 3 fail, the design must change before anything is built: the tool cannot be the door, and the door would be the harness's own GitHub acts, which the tool cannot hold to one form.
 

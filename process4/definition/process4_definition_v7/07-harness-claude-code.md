@@ -34,7 +34,7 @@ Everything in this part is specific to Claude Code.
 | The shared state | Not carried by the harness. It is on GitHub (part 4, section 4) |
 | Connecting the harness to GitHub | The owner connects his GitHub to Claude and installs Claude's GitHub App on the repository |
 | A session's browser | A browser on the session's own machine. Not shown to reach the development site |
-| A read-only copy of the process | **Unproven:** how a session that holds one repository fetches the process's copy without losing its deny list |
+| A read-only copy of the process | A plain clone of the process's public repository into a folder outside the session's working files. Seen once, 19 Nov: a session holding one repository made it, and its forbidden commands were refused before and after |
 | What the subscription covers; cost | **Open (a session):** where cost can be read is not named anywhere read |
 
 ## 2. Reading, as measured
@@ -50,7 +50,7 @@ From the first measurement of 18 Nov, on one model with a 1,000,000-token window
 - Whether approvals that reach a session after its start count the same as approvals read at the start.
 - Whether a session's browser can reach the development site.
 - How many live sessions the account bears. New starts once failed silently at about fifty.
-- Whether the tool, a program, can still reach GitHub from a session. The earlier process's tool did, through the `gh` program, as its code records. On 18 Nov one session reported that program's sign-in invalid in its environment, and another was told to use it for searching only. If a program cannot reach GitHub, the tool cannot be a session's door to it, and the shared state cannot be carried as the design has it. This is the first thing the trial must show.
+- Whether a program goes on reaching GitHub from a session at a real rate. Seen once, on 19 Nov, in the trial's first stage: with the ordinary push and every `gh` command refused to the session itself, a script run with `node` that started `gh` and `git` read the repository's pull requests, opened an issue, wrote and rewrote a comment in place, and pushed a branch, acting as the sessions' account. GitHub's other interface (GraphQL) was refused by the session's route; only REST calls work. The report is `process4/working/trial/stage0_report_19nov.md`.
 
 ## 4. The owner's acts to start a product
 

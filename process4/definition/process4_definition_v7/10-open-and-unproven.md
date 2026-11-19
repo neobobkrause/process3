@@ -45,7 +45,7 @@ For a session to do, and to report.
 
 Process4 has never run and its tool is not built. Nothing below has been shown to work as this design uses it.
 
-- **The tool,** and merges made by it passing the permission checker at a real rate. First of all: that a program run by a session can reach GitHub at all (part 7, section 3).
+- **The tool,** and merges made by it passing the permission checker at a real rate. That a program run by a session can reach GitHub was seen once, on 19 Nov (part 7, section 3).
 - **The shared state,** and a successor starting only from it.
 - **A ROOT started by a plain prompt** coming up on the owner's newest approvals and acting as ROOT.
 - **Replacing ARCH while jobs are open.**
@@ -62,7 +62,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 - **An edit to the approvals with a restart** that carries a round on.
 - **The notice as part of a running process.** Its method was proven only on made-up modules, and only with 23 refusals in the tool that the owner has not approved; the form this design takes, without them, was never built or run. Picking a told job's related tests is not proven at all.
 - **The owner's acts to start a product** (part 7, section 4), and that nothing physical stops a product's session from changing the process (part 6, section 7).
-- **Everything listed as not proven on Claude Code** in part 7, and a session fetching a read-only copy of the process.
+- **Everything listed as not proven on Claude Code** in part 7 A session fetching a read-only copy of the process was seen once, on 19 Nov.
 - **Everything on Codex not marked measured in part 8.**
 
 ## 4. The trial
