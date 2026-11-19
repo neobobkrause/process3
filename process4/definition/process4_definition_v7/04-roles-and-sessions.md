@@ -39,7 +39,7 @@ What the tool does and what ARCH keeps: whatever has one right answer is done by
 
 - ARCH starts a product's design lanes. **From a session's record:** the Foundations (`foundations_tranche_9nov.md`, line 60, "Bob's answer, Keep and Drop page, 6 Nov").
 - A lane decides design in its area. ARCH decides whether and when a design is built and whether it can be built as given. A design ARCH cannot build goes back to the lane. **From a session's record:** the design state, line 86.
-- **Open (the owner):** he works with a lane through its design pages (**from a session's record:** the design state, line 49). His words: "interacting with lanes is crucial, as this is where architecture and design decisions are made" (`bob_words_16_17nov_codex_development.md`); "Lanes are an important element of the development process" (`bob_words_14nov_c.md`).
+- **Owner:** he works with a lane directly, in its session and through its design pages. His words: "interacting with lanes is crucial, as this is where architecture and design decisions are made" (`bob_words_16_17nov_codex_development.md`); "Lanes are an important element of the development process" (`bob_words_14nov_c.md`).
 
 **Reading:** the rest of this section stands as written; the owner has not confirmed each rule one by one.
 

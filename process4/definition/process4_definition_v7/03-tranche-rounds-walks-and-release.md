@@ -1,6 +1,6 @@
 # Part 3. The tranche, rounds, walks, and release
 
-Length: 76 lines. Last section: "8. Support beyond the process".
+Length: 75 lines. Last section: "8. Support beyond the process".
 
 ## 1. Opening a tranche
 
@@ -49,8 +49,7 @@ The coordinator gives the owner a short account: jobs done, flaws found, flaws c
 - **Reading:** a tranche ends when a round's partial walks, internal and external, both come clean; or, where the owner asked for a full external walk, when that walk is clean.
 - **Open (the owner):** what shows that the journeys named for the tranche do complete at its end, when a round's walks cover only the areas that round changed. **Reading:** in the round that would end the tranche, ARCH adds to the external walk's areas every journey named for the tranche that no earlier round of the tranche walked clean.
 - **Claude decided:** when the tranche ends, ARCH merges the tranche branch into the main branch as a whole, by pull request. None of the tests runs on that pull request.
-- **Open (the owner):** a tranche that does not come clean goes on in rounds until the owner says. He then chooses between merging it with its flaws named, with no release from it, and dropping it (**from a session's record:** the design state, line 62). His words: "So a tranche only ends when an external walk (of a development deployment) completes without flaws." (`bob_words_14nov_b.md`)
-- **Reading:** a tranche merged with its flaws named has not ended in the sense of section 6. Its flaws become work in the next tranche, and a release can be made once a later tranche ends clean.
+- **Owner:** "So a tranche only ends when an external walk (of a development deployment) completes without flaws." (`bob_words_14nov_b.md`). A tranche that does not come clean goes on in rounds, or is dropped on his word. It is never merged into the main branch with flaws. (A session's summary of 18 Nov, the design state line 62, had let him merge it with its flaws named; his typed words rule, and that is withdrawn, 19 Nov.)
 - **Claude decided:** one report is written at the tranche's end, by ARCH, and it lists the UX lane's changes. It is written only from what git and GitHub already hold: time, work done and left, anything deferred and why, cost where it can be read and "unmeasured" otherwise, the overhead share, ARCH's idle time while work was ready, the owner's minutes, and every change the UX lane made during the tranche to the two documents the walks are measured against. No number is a target. Nothing reads the report to decide anything.
 
 ## 6. Release

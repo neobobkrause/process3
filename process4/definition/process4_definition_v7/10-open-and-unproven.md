@@ -1,16 +1,15 @@
 # Part 10. What is open, what is unproven, and the trial
 
-Length: 111 lines. Last section: "6. Risks with no trial".
+Length: 108 lines. Last section: "6. Risks with no trial".
 
 Most items are also marked where they belong in parts 1 to 9. This part gathers them and adds what belongs to no one part.
 
 ## 1. Open with the owner
 
-Each of these is to be put to him in full, with its options, before the design can be called settled.
+Each of these is to be put to him in full, with its options, before the design can be called settled. Items 3, 12 and 13 were settled by his own typed words on 19 Nov (part 3, section 5; part 1, section 4; part 4, section 3); the numbers are kept so that references hold.
 
 1. **The four values** (part 5, section 2): whether the four provisional figures are the ones he meant, and what they become when the second measurement reports.
 2. **How a tranche ends** (part 3, section 5): that clean partial walks end it, and what shows that the journeys named for the tranche complete.
-3. **A tranche merged with its flaws named** (part 3, section 5): that no release follows until a later tranche ends clean.
 4. **Publishing a release** (part 3, section 6): who carries out the act once he has approved; and what "successful" means for the install and the update.
 5. **An urgent fix while a tranche is open** (part 3, section 7).
 6. **A told job's tests** (part 2, section 7): that its own edits count among the changed parts; that tests are chosen by whole file; and that a module the tool cannot follow runs its whole tests.
@@ -19,8 +18,6 @@ Each of these is to be put to him in full, with its options, before the design c
 9. **The walks:** four matters in the build text `03-the-walks.md`, section 9. Which list of journeys counts and the form of the two documents; what "proper results" (`bob_words_14nov_b.md`) means for a journey that uses AI; whether ARCH may set aside a walker's entry as no flaw; and whether a walking session walks by hand what no written step covers.
 10. **What "at most ten rules" counts** is no longer open. **From a session's record:** the handoff, line 48, has him leave it to the AI on 19 Nov; **Claude decided** that it counts numbered rule lines (part 4, section 11). The eight drafted starting texts each have ten or fewer, and each is under 4,096 bytes.
 11. **Codex:** everything part 8 marks not known, from his OpenAI account; and which Codex model the process is to use, which no part states.
-12. **Speaking to lanes** (part 1, section 4; part 4, section 3): the design has him "sometimes" speak to ARCH and the lanes, and work with a lane through its design pages. His words: "interacting with lanes is crucial, as this is where architecture and design decisions are made" (`bob_words_16_17nov_codex_development.md`).
-13. **A tranche merged with its flaws named** (part 3, section 5): the design lets him merge a tranche that does not come clean. His words: "So a tranche only ends when an external walk (of a development deployment) completes without flaws." (`bob_words_14nov_b.md`)
 14. **Architecture bug or implementation error** (part 1, section 6): the design says every problem is either one or the other. His direction of 2 Nov, as the Foundations record it: "Every problem is an architecture bug" (`foundations.md`, line 38).
 
 ## 2. Open design work
