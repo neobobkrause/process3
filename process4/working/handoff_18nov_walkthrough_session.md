@@ -13,7 +13,7 @@ Bob is being walked, one step at a time, through what is needed from him before 
 
 ## Decided by Bob in this session
 
-- The process gets a new public repository of its own (his answer: "A"). He has not yet given its address. The examples use `neobobkrause/process4`.
+- The process gets a new public repository of its own (his answer: "A"). It is `neobobkrause/process4`. On 19 Nov he committed there, on `main`, the first-build approvals and forbidden commands exactly as proposed in `working/design_work_18nov/process_repo_first_build_approvals.md` (read back and compared). The sessions' GitHub login is `believeinoakland`, a collaborator, in his words, "on all the repos you need". Its GitHub settings could not be read from a session.
 
 ## Put to him and not yet answered
 

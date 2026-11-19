@@ -2,7 +2,7 @@ Length: 93 lines. Last section: "5. Not proven".
 
 # The process repository's approvals and forbidden commands for the first build, taken from Process3's own
 
-Written by Claude on 18 Nov 2026. **A proposal. Nothing here is the owner's words unless it is quoted from his Process3 files, and no session has loaded any of it.** It replaces, for the first build only, sections 3c, 3d and 4b of `approvals_proposal_brought_up_to_date.md`, which were written without Process3's own files in hand.
+Written by Claude on 18 Nov 2026. **Accepted by the owner on 19 Nov 2026: he committed both blocks, as they stand here, on `main` of `neobobkrause/process4` through GitHub's website (commits `a89c80c` and `42ca30a`, read back and compared on 19 Nov). No session has yet loaded them.** It replaces, for the first build only, sections 3c, 3d and 4b of `approvals_proposal_brought_up_to_date.md`, which were written without Process3's own files in hand.
 
 ## 1. What was read for this
 
@@ -19,7 +19,7 @@ Start from the owner's own last wording for the process's repository (8 Nov), wh
 ```text
 ## Standing approvals from Bob
 
-Standing approvals from Bob for Process4, the development process, 18 Nov 2026, for process4's own repository only, while its tool is first built. They cover every Claude session working on Process4, including sessions that other sessions started. Each product developed with Process4 carries its own approvals in its own repository. A session's acts on a product's repository, accounts and services are governed only by that product's approvals, and are made only from a session started in that product's repository (one repository per session).
+Standing approvals from Bob for Process4, the development process, 19 Nov 2026, for process4's own repository only, while its tool is first built. They cover every Claude session working on Process4, including sessions that other sessions started. Each product developed with Process4 carries its own approvals in its own repository. A session's acts on a product's repository, accounts and services are governed only by that product's approvals, and are made only from a session started in that product's repository (one repository per session).
 
 Such sessions may, without asking me: subscribe to and unsubscribe from activity on the process's pull requests; notify me by push notification; and create and edit Process4 pages and documents on claude.ai under the Claude account the acting session itself runs under.
 
