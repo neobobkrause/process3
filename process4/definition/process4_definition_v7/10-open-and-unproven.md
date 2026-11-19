@@ -60,7 +60,7 @@ Process4 has never run and its tool is not built. Nothing below has been shown t
 - **An account switch that loses no work.** It failed once.
 - **Two products sharing the slots.**
 - **An edit to the approvals with a restart** that carries a round on.
-- **The notice as part of a running process.** It was proven only on made-up modules. Picking a told job's related tests is not proven at all.
+- **The notice as part of a running process.** Its method was proven only on made-up modules, and only with 23 refusals in the tool that the owner has not approved; the form this design takes, without them, was never built or run. Picking a told job's related tests is not proven at all.
 - **The owner's acts to start a product** (part 7, section 4), and that nothing physical stops a product's session from changing the process (part 6, section 7).
 - **Everything listed as not proven on Claude Code** in part 7, and a session fetching a read-only copy of the process.
 - **Everything on Codex not marked measured in part 8.**
