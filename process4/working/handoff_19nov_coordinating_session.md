@@ -1,8 +1,15 @@
 # Handoff from the coordinating session of 19 Nov 2026
 
-Length: 47 lines. Last section: "6. Practical notes".
+Length: 54 lines. Last section: "6. Practical notes".
 
 Written by Claude (session_012hdw2VXuVnwbRw3NzUotAM) at 36 percent fill, for the session that takes over. It is the latest handoff and rules over the earlier ones where they differ. It passes on facts and where work stands. **It is not a source of rules. The design is.** Read this whole, then the design's eleven parts as they now stand.
+
+## 0. Latest, 02:55 UTC: start here
+
+- Bob's words, last: "There is absolutely no way for me to go through these errors. Instead, I think we're just going to have to discover the other flaws in the design as we continue the process of bootstrapping and testing." Then: "The CLAUDE.md edit is merged." Then: "continue the bootstrap process you began earlier." So the review page is set aside (not to be pushed on him); flaws are found as the trial meets them, and each is put to him then, one at a time, on his page, with the design's words and his in full.
+- His approvals edit is on process4 main, 76f155f (read back: it has the "Decision:" / "Instruction:" sentence). Sessions in process4 may no longer change design/, build/ or starting_texts/ except to carry out a change he chose at PROCESS.
+- Next act: resume the trial's stage 1 session (session_012hdw2VEM4Ko4LLqNhGmuuv, interrupted at his "Stop!") by a message telling it to carry on to twenty merges or more; first read its last events and the job sessions it started. Then on through build text 4's stages. A fault the trial finds in the design or the build texts goes on his page as a matter for him; it is not fixed silently.
+- The process3 CLAUDE.md additions (item 2 below) are still owed to him.
 
 ## 1. What went wrong today, and what Bob said
 
