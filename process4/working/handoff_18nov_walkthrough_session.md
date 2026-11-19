@@ -1,6 +1,6 @@
 # Handoff from the walk-through session of 18 Nov 2026
 
-Length: 61 lines. Last section: "Practical notes".
+Length: 65 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff and rules over `handoff_18nov_design_session.md` where they differ. Read this whole, then that one, then the seventh draft and the five build texts whole.
 
@@ -47,6 +47,10 @@ Process3 had a check that any change to either file was his own website commit. 
 `neobobkrause/process3-probes` is public and is cloned read-only at `/home/user/neobobkrause/process3-probes` (re-clone with `git clone --depth 1`, then fetch `notice-proof` and `phase0/platform-table` by name). Bob gave his approval to mount it; nothing needed attaching.
 
 A worker was comparing the notice proof's forms with build texts 2 and 5, to write `working/readiness_18nov/notice_proof_forms_compared.md`. If that file is not there, the work did not finish: brief a worker again. When it is there, the build texts are to be corrected to the proof's forms, which win.
+
+## The notice's proof, read on 19 Nov
+
+The proof ran with 23 refusals Bob has not approved; the design takes the form recommended after it, without them, which was never built or run. The design says so now (part 2, section 7; part 10, section 3). Build texts 2 and 5 were rewritten to the proof's forms (`working/readiness_18nov/notice_proof_forms_compared.md`, `build_texts_corrected_to_proof.md`). Still to do, because build texts 1 and 2 are within 140 bytes of 24,000 and cannot take the edits: split build text 1 (and likely 2) in two; then make build text 1's `listing` and `notify` agree with the proof's commands; and give the module's entry a place for its interface files, which the proof's listing reads. Two of the proven tool's behaviours contradict the design and were not taken: telling on a changed bound test, and telling a user that hands a function on as a value when the provider accepts more.
 
 ## Still owed, after the walk with Bob
 
