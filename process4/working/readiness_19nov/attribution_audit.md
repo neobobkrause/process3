@@ -1,4 +1,4 @@
-Length: N lines. Last section: "B5. Unmarked rules with no source at all".
+Length: 85 lines. Last section: "B5. Unmarked rules with no source at all".
 
 # What the Process4 design puts in the owner's name, checked against his own words
 
