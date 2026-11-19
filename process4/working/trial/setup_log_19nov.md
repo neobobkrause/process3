@@ -6,3 +6,8 @@ Kept by the coordinating session (session_012hdw2VXuVnwbRw3NzUotAM).
 - Pull request 1 in process4 (design/, build/, starting_texts/, 25 files, compared identical to 164e736) was merged by Bob on GitHub's website: merge commit 1e938be. The ruleset's "unattributed changes" setting did not stop a merge at 0 approvals. Seen once.
 - `add_repo` with push access for neobobkrause/process4 was refused by this session's permission checker. Not retried. process4 is public and is read by plain clone.
 - Build texts 1 and 2 were split (1b: the commands; 2b: the comment and the listing), `listing` and `notify` brought to the proof's commands, and a module entry given `public` for its interface files.
+- Pull requests 2 (stage 1 of the tool) and 3 (texts up to f9fb705) merged by Bob: 61a0e2b, 639677f. The required check on main was first entered as "tool-checks" (a name no run reports), then corrected to "tool-tests".
+- Bob changed his approvals for process4 (pull request 4, merged 5a8ba3e): sessions now merge pull requests into main once their required checks pass, without a person's review. The sentence "They merge nothing. I merge each of their pull requests myself" had been Claude's words, written in his first person in the proposal he committed, and was presented to him as his own; he named it a fabrication.
+- A pull request opened before main had a workflow got no run. With "require branches up to date" off, GitHub shows no Update branch button; closing and reopening the pull request started the run. Seen once.
+- The building session was archived after its three pull requests merged (it had loaded the earlier approvals).
+- 01:43 UTC: the trial's stage 1 session was started on process3-probes, p4-tranche (session_012hdw2VEM4Ko4LLqNhGmuuv), tool at 639677f.

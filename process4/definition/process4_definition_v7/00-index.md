@@ -6,7 +6,7 @@ Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force a
 
 ## 1. What this is
 
-- This is the design of Process4, in eleven parts. It is "the process4 requirements" and is what sessions follow.
+- This is the design of Process4, in eleven parts. It is what sessions follow. **From a session's record:** the design state, line 27, calls it "the process4 requirements"; in his words (`bob_words_14nov_b.md`) that phrase names Process4's requirements, not this document.
 - It states the design as it now stands. It carries no history of how the design came to be, beyond naming where a figure or a quotation comes from. The owner's decisions, in his exact dated words, are kept in the record of decisions (part 5). The reasons and the evidence are in the background document.
 - It names no product. A product's own facts and the steps to bring it under Process4 belong to that product's conversion plan.
 - Parts 1 to 6 name no hosting provider and use harness-neutral terms. A harness is named there only in part 5, where a figure comes from one. Part 7 says what carries each term on Claude Code, part 8 on Codex, part 9 on Cloudflare.
@@ -14,17 +14,26 @@ Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force a
 
 ## 2. Status
 
-Process4 is **proposed** now. It is **on trial** from the owner's acceptance: used for the trial repository and the first real tranche. It is **in force** after the first real tranche ends, on the owner's word.
+Process4 is **proposed** now. **From a session's record:** the design state, line 34: it is **on trial** from the owner's acceptance, used for the trial repository and the first real tranche, and **in force** after the first real tranche ends, on his word. He has not ruled on this in typed words.
 
 ## 3. Marks used in every part
 
-- Words in quotation marks are the owner's, exactly as typed, unless the marks only name a term, a mark or an option. Where a quotation is not among his typed words and comes through an earlier record, the line says which record.
-- **Claude decided:** a technical decision made by the AI and reported here. The owner can overrule any.
-- **Reading:** an interpretation of the owner's words that he has not confirmed.
-- **Open:** not settled. The line says who settles it.
+Every rule carries one mark. A mark at the head of a section, list or table covers each line under it that carries none of its own. **The owner has ruled on nothing marked otherwise than Owner.** A line that states a fact (a measurement, or what a harness, GitHub or a hosting provider does) gives its source instead.
+
+- **Owner:** the rule is in his own typed words, quoted exactly beside it with the file they are in: a file in `process4/owner_words/`; a passage of the Foundations that quotes him ("Bob: ..."); or the standing approvals he wrote and committed himself (Process3's `CLAUDE.md`). A text he committed that Claude wrote is not his words (part 6, section 2).
+- **From a session's record:** the rule rests only on a record a session wrote, not on his typed words. The mark names the record, and quotation marks under it quote that record. The records so named:
+  - **the record of 13 Nov:** a session's record of his decisions of 13 and 14 Nov, `process4/definition/process4_definition_v6.md`, lines 141 to 166, cited by its own line numbers. He called them "my decisions of 13-14 Nov" (`bob_words_14nov_b.md`) without seeing its wording.
+  - **the design state:** `process4/working/design_state_18nov.md`, written by Claude from his answers on 18 Nov. No record of what he typed that day exists.
+  - **the Foundations:** `process4/evidence/foundations.md` and `foundations_tranche_9nov.md`, written by a session from his ledger. Their own sentences, often addressed to him, are of this kind.
+  - **the ledger:** `process4/evidence/ledger_lines.md`.
+  - **the handoff:** `process4/working/handoff_18nov_walkthrough_session.md`, written by Claude on 18 and 19 Nov.
+  - **Process3's decision record:** `DECISIONS.md` on the `tranche` branch of the process3 repository.
+- **Claude decided:** made by the AI, with no source in his words. Among these are the 34 rules carried unmarked from the sixth draft (`process4/working/readiness_18nov/draft7_unmarked_lines_traced.md`, "UNMARKED IN V6"). He can overrule any.
+- **Reading:** an interpretation of his words that he has not confirmed.
+- **Open:** not settled. The line says who settles it. A rule that differs from or understates his typed words is marked **Open (the owner):** with his words quoted beside it, and part 10 lists it.
 - **Unproven:** the rule depends on something never shown to work. Part 10 gathers these.
 
-A rule with no mark is the owner's ruling, or follows from one directly, or is one of 34 rules carried unchanged from the sixth draft, where they stood with no mark. Most of those describe how sessions, permissions and GitHub work. They are listed in `process4/working/readiness_18nov/draft7_unmarked_lines_traced.md`, and the owner has ruled on none of them one by one.
+Words in quotation marks are his only where the file of his words is named beside them. Otherwise they quote the record a mark names, or name a term, a mark, an option or a file. The check behind these marks is `process4/working/readiness_19nov/attribution_audit.md` and `attribution_audit_2.md`.
 
 ## 4. The parts
 
@@ -60,7 +69,7 @@ How the tool, the forms, the walks and each role's starting text are made is wri
 - **Process fault:** **Claude decided** the wording: a fault in the process itself and not in the product: a rule of this design that cannot be kept, a fault in the tool, or a stop that nothing called for.
 - **Architecture bug and implementation error:** **Reading:** an architecture bug is a fault in the design itself; an implementation error is a fault in code or text that does not follow the design (part 1, section 6).
 - **Held merge:** a merge the owner has told the coordinator to hold until he approves it.
-- **Foundations:** the owner's own earlier document of the reasons and evidence behind the process.
+- **Foundations:** the earlier document of the reasons and evidence behind the process, written by a session from the owner's ledger (`foundations.md`, line 3). It is his by ownership; its own sentences are not his words.
 - **Trial repository:** the throwaway repository in which the process is rehearsed before any product uses it.
 - **Module:** one part of the product, with its own code files, tests and requirements file. The product is one ordered list of modules, and a module may use only modules before it.
 - **Provider and user:** a module that uses another is that module's user; the one used is the provider.
@@ -69,12 +78,12 @@ How the tool, the forms, the walks and each role's starting text are made is wri
 - **Slot:** room for one job to run. Eight by default, counted across the account.
 - **Tranche:** one batch of product work, built on the tranche branch and reaching the main branch only as a whole.
 - **Round:** one pass within a tranche: jobs, then the internal walk, then a deployment and the external walk.
-- **Internal walk:** in the owner's words, it "uses the UX Screens document to confirm that the workflow matches the definition". It is made on the product as built, without deploying it.
-- **External walk:** in the owner's words, it "follows the UX journeys to confirm that all journeys can be completed successfully to produce proper results". It is made on a development deployment.
+- **Internal walk:** in the owner's words (`bob_words_14nov_b.md`), it "uses the UX Screens document to confirm that the workflow matches the definition". It is made on the product as built, without deploying it.
+- **External walk:** in the owner's words (`bob_words_14nov_b.md`), it "follows the UX journeys to confirm that all journeys can be completed successfully to produce proper results". It is made on a development deployment.
 - **The Screens document and the journeys:** the two documents the walks are measured against. A **walking session** makes a walk.
 - **Area:** a named part of what a walk covers (part 3).
 - **Flaw:** one of three things a walk can find (part 3). Anything else a walker notes is an **observation**.
-- **Mechanical edit:** one change that touches many modules in the same trivial way and needs no judgment. The owner's example: "a word table change".
+- **Mechanical edit:** one change that touches many modules in the same trivial way and needs no judgment. The owner's example (`bob_words_14nov_c.md`): "a word table change".
 - **Development site and development deployment:** the product put on a site in its own development account, reaching no one else. It holds no secrets and keeps no permanent record.
 - **Pull request:** a proposed change to a repository, which GitHub can test and then merge. A draft pull request is one not yet offered for merging.
 - **Release:** a public version of the product offered for installing. A development release, made only for development, is not one. **Installed sites** are where releases run for real users.
