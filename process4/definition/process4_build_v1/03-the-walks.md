@@ -193,6 +193,6 @@ Items 6 to 8 are the design's trial items 8 and 14 made smaller. A trial can bre
 
 1. **Which list of journeys counts, and the form of the two documents.** Open already (the design, part 10). Section 2 here needs the documents as pages in the folder, one for each group of screens and each journey.
 2. **What "proper results" means for a journey that uses AI,** where its page does not say. The ruling's words are his; section 5 only says where the answer is written.
-3. **Ruled, 14 Nov 2026.** Whether a tranche can end while a journey that uses AI is left unwalked: in the owner's words, "A tranche can end without an AI enabled run" (`process4/owner_words/bob_words_14nov_c.md`). Kept here so the numbering holds.
+3. **Whether a tranche can end while a journey that uses AI is left unwalked** because no AI account is connected. This bears on "all journeys can be completed".
 4. **A flaw set aside by ARCH.** Section 6 lets ARCH rule that a walker's entry is none of the three things. If he holds that only he, or only a change to the document, can clear a flaw, outcome 3 goes.
 5. **Parts walked by hand.** Section 3 has the walking session judge, in its own words, what no step covers. If he means a walk to be only its written steps, that line goes, and a missing step is then seen by no one.
