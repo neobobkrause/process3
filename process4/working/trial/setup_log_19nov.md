@@ -12,3 +12,4 @@ Kept by the coordinating session (session_012hdw2VXuVnwbRw3NzUotAM).
 - The building session was archived after its three pull requests merged (it had loaded the earlier approvals).
 - 01:43 UTC: the trial's stage 1 session was started on process3-probes, p4-tranche (session_012hdw2VEM4Ko4LLqNhGmuuv), tool at 639677f.
 - Trial stage 1, merge 1: the tool merged pull request 291 in process3-probes into p4-tranche (a399e35), the first Process4 content; module-tests reported and passed on it before being required. Shared state issue 292 made. Finding: `branch` and `open` take the base branch from process.json in the working tree, or the repository's default branch where there is none; the first branch is only right if process.json is written first. To be corrected in the tool.
+- Bob added the ruleset "p4-tranche" in process3-probes (act 10 for the trial): pull request, 0 approvals, merge only, required check module-tests. Reported by him; not readable from this session.
