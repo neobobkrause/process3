@@ -27,7 +27,7 @@ Nothing below can start until these are done. They are his alone.
 
 **Who builds.** The tool is first built by a building session that holds the process's repository alone. It puts there the tool in `tool/`, the workflow in `shims/`, the starting texts in `starting_texts/`, the design's eleven parts in `design/` and the build texts in `build/` (build text 1, section 2). The owner merges each of that session's pull requests himself (the design, part 4, section 11). Until the tool exists it pushes to its own working branch and opens its pull requests by the harness's ordinary means, as the owner's present approvals allow (the design, part 4, section 11).
 
-**Stage 4** cannot start until the owner has given a session the repository that holds the notice's proof.
+**Stage 4** uses the repository that holds the notice's proof. It is public, and a session cloned it for reading on 19 Nov.
 
 ## 3. The stages
 
@@ -83,14 +83,14 @@ Tried:
 
 ### Stage 4. The notice
 
-Needs first: the repository that holds the notice's proof, given to a session by the owner, with the proof's own forms and its 150 recorded changes. Where those forms differ from build texts 2 and 5, they win.
+Needs first: nothing of the owner's. The proof's own forms are now in build texts 2 and 5. Its 150 recorded changes are in its repository; their recorded answers were made with 23 refusals this design does not take, so the answers that rest on those must be recorded again before they can be the tool's tests (`process4/working/readiness_18nov/notice_proof_forms_compared.md`, section 5).
 
 Built: `listing`, `notify`, `check`, with the recorded changes of the notice's proof as the tool's tests; then the related scope and `related`.
 
 Tried:
 1. A provider's interface change tells only the users of the changed entry, in a running round and not only on made-up changes replayed.
 2. A told job reads its uses from its pull request, changes what is needed, and the required run holds to the related tests.
-3. The tool says so when it cannot follow a module, and that module's whole tests then run (build text 5, sections 6 and 7).
+3. The tool says so when it has not followed a module fully, and that module's whole tests then run (build text 5, sections 6 and 7).
 4. A notice to a module whose job is open waits and becomes work for its next job.
 
 ### Stage 5. The walks
@@ -129,7 +129,7 @@ The steps of an account switch, on the sessions' side and on his, are not writte
 | 1 | Start one plain session; act 10, once the run has reported |
 | 2 | Act 9, start ROOT; one edit to his approvals |
 | 3 | One stop; three short marked instructions; one edit to his approvals |
-| 4 | Give a session the repository that holds the notice's proof |
+| 4 | Nothing |
 | 5 | Enter the development copies' hosts among the cloud environment's allowed hosts; connect an AI account, only if a journey that uses AI is tried |
 | 6 | One typed approval of a trial release |
 | 7 | His acts in a second account |
