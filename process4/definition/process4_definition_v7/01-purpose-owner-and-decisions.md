@@ -43,7 +43,7 @@ Length: 83 lines. Last section: "7. Known weaknesses of AI sessions".
 - His latest statement replaces any earlier one, without a question to him. No session sets his older words against his newer ones. **From a session's record:** the design state, line 10.
 - A decision about a product is made through the coordinator. A change to Process4 itself is made through PROCESS. Each keeps its own record and is its only writer (part 5, section 5). **From a session's record:** the design state, line 48. For PROCESS, **Owner:** "Process changes only happen in a separate process lane call PROCESS that I interact with." (`bob_words_14nov_b.md`)
 - The coordinator is his front door. **Owner:** "Yes, the coordinator is the front door." (`bob_words_16_17nov_codex_development.md`)
-- **Owner:** he works directly with ARCH and the lanes. His words: "But interacting with lanes is crucial, as this is where architecture and design decisions are made." (`bob_words_16_17nov_codex_development.md`)
+- **Open (the owner):** he may watch, and sometimes speak to, ARCH and the lanes (**from a session's record:** the design state, line 49). His words: "But interacting with lanes is crucial, as this is where architecture and design decisions are made." (`bob_words_16_17nov_codex_development.md`)
 - A marked message given to ARCH or a lane is followed, and passed to the coordinator exactly as typed for recording. He works with a lane through its design pages, and with PROCESS directly. **From a session's record:** the design state, line 49.
 
 ## 5. How things are put to the owner
