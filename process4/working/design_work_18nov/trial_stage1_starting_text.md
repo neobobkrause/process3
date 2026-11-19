@@ -1,4 +1,4 @@
-Length: 52 lines. Last section: "3. Not proven".
+Length: 48 lines. Last section: "3. Not proven".
 
 # The trial's stage 1 session: starting text
 
