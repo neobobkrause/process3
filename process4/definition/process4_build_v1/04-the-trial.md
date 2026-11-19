@@ -45,7 +45,7 @@ Breaks, if it fails: the tool as each session's only door to GitHub (the design'
 
 ### Stage 1. The first piece of the tool
 
-Built, by the building session in the process's repository: the fetch line; `branch`, `push`, `open`, `ready`, `results`, `merge`; `state read`, and `state write` with `--create`; the required run with three of its five scopes (the tranche's pull request, no module code, whole module); the job's text; the tool's own tests for these.
+Built, by the building session in the process's repository: the fetch line; `branch`, `push`, `open`, `ready`, `results`, `merge`; `state read`, and `state write` with `--create`; the required run with three of its five scopes (the tranche's pull request, no module code, whole module); the job's text; the tool's own tests for these. The process repository's own required run, `tool-tests`, reports on every pull request there and passes at once where no file of the tool changed: in the earlier process a pull request on which the required run never reported waited for ever.
 
 In the trial repository, a plain session started there writes the repository's first content as its first act, by the tool's `branch`, `push`, `open`, `ready` and `merge`: `process.json`, the module list, the workflow, and two made-up modules' entries with their requirements files. The base then has no process config, which build text 1, section 5 allows for. That one session then plays ARCH: it makes the shared state (`state write --create`, in ROOT's place, since no ROOT is started before stage 2) and writes the records that `open --module` and, later, `next-job` need (build text 5, section 2).
 

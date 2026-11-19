@@ -1,6 +1,6 @@
 # Handoff from the walk-through session of 18 Nov 2026
 
-Length: 60 lines. Last section: "Practical notes".
+Length: 61 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff and rules over `handoff_18nov_design_session.md` where they differ. Read this whole, then that one, then the seventh draft and the five build texts whole.
 
@@ -55,6 +55,7 @@ As the earlier handoff lists: the steps of an account switch; what shows archive
 ## Practical notes
 
 - Push only to `claude/process4-design-handoff-7w8nh8`. Commit and push before a turn ends.
-- This session could not read its own fill level. It wrote this handoff on its own estimate that it was near 40 percent.
+- This session could not read its own fill level and wrote this handoff on its own estimate that it was near 40 percent. Bob then said: "The context is only at 29%". It went on working; ask him for the figure and do not estimate it.
+- Also written after this handoff: `working/design_work_18nov/building_session_starting_text.md`, the building session's starting text, taken from Process3's role texts.
 - The four size values are with another session. Do not raise them with Bob.
 - Do not start building the tool without his word.
