@@ -1,6 +1,6 @@
 # Handoff from the walk-through session of 18 Nov 2026
 
-Length: 65 lines. Last section: "Practical notes".
+Length: 69 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff and rules over `handoff_18nov_design_session.md` where they differ. Read this whole, then that one, then the seventh draft and the five build texts whole.
 
@@ -14,6 +14,10 @@ Bob is being walked, one step at a time, through what is needed from him before 
 ## Decided by Bob in this session
 
 - The process gets a new public repository of its own (his answer: "A"). It is `neobobkrause/process4`. On 19 Nov he committed there, on `main`, the first-build approvals and forbidden commands exactly as proposed in `working/design_work_18nov/process_repo_first_build_approvals.md` (read back and compared). The sessions' GitHub login is `believeinoakland`, a collaborator, in his words, "on all the repos you need". Its GitHub settings could not be read from a session; on 19 Nov he said the four settings pages (merge settings, Actions settings, the rule on every branch, the pull-request rule on `main` without a required check) "have already been done earlier in this session". Read back on 19 Nov through GitHub's interface, after he asked that the session be given what it needs to see (`neobobkrause/process4` is attached to that session; it pushes nothing there): public; merge commits only; auto-merge off; delete-on-merge off; the session's account has push and not admin; one ruleset, "Protect every branch", active on all branches, restricting deletions and force pushes. The pull-request rule on `main` was missing; he added it and it was read back the same day: ruleset "process4", active, `main`, pull request required, 0 approvals, merge commits only, no status check yet. It carries a setting GitHub turned on by itself, an extra approval for "unattributed changes"; GitHub's pages say it has no effect at 0 approvals, one outside report says it once blocked a merge at 0. Watch for it at the first pull request he merges. Not readable by any session: the Actions settings, the collaborator list, a ruleset's bypass list. He is, in his words, "not a github user": explain GitHub's terms plainly, and decide technical matters without asking him.
+
+## The trial repository
+
+On 19 Nov he ruled: "The throwaway repo to use is neobobkrause/process3-probes ... You have my permission to use it however you need." It is attached to that session with push. The session made the branch `p4-tranche` there from `main` for the trial, and wrote the wording for its two files as an edit of his own 8 Nov text for that repository: `working/design_work_18nov/trial_repo_approvals.md`, which also records the repository's settings as read. Other sessions' work and the notice's proof are on other branches there; touch none. Still his to do there: turn off squash and rebase merging; commit the two files on `p4-tranche`; later, a rule for `p4-tranche` and the change of `gate` to the Process4 run in the rule on `main`.
 
 ## Put to him and not yet answered
 
