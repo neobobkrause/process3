@@ -1,4 +1,4 @@
-Length: 283 lines. Last section: "9. What could not be settled".
+Length: 296 lines. Last section: "9. What could not be settled".
 
 # Process4 build text 2: the forms of the files the design names
 
@@ -8,20 +8,17 @@ Marks: **Decided here:** a choice made in this text, with what it gives and what
 
 ## 1. What was proven, and in what form
 
-Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full; `schema/` and `tool/`; `process4/working/notice_study/` and `replay/`; the sixth draft's notice sections; `process4/evidence/interface_and_cycle.md`.
+Read for this text: the seventh draft, parts 0, 2, 4, 5 and 6 in full; `schema/` and `tool/`; `process4/working/notice_study/`; and, on 19 Nov, the proof of the notice (`neobobkrause/process3-probes`, branch `notice-proof`, folder `notice-proof/`; "proof:" paths below are in that folder) with the comparison `process4/working/readiness_18nov/notice_proof_forms_compared.md`.
 
-**Measured, on a past record, by the study session (15 Nov), with TypeScript 5.6.3 reading plain JavaScript:**
+**Measured by the study session (15 Nov),** on a past record: TypeScript 5.6.3 wrote out every module's interface from plain JavaScript with no comments added (1,181 source files, none failed). The study's trial forms are not used below.
 
-- The reader wrote out every module's interface with no comments added: 1,181 source files, none failed. The listing was its declaration text with comment blocks taken out, compared line by line. Of 178 recorded changes, 64 listings were identical, 36 only gained lines, 78 lost or altered lines.
-- One provider was commented by a helper (about 1,500 comment lines). The form was JSDoc: `@typedef`, `@property`, `@param`, `@returns`. A bound was written inside a field's description as `[bound <field>: <words>]`, often over several lines. The provider's operations table was one `@typedef {object} AiRunsOps`. Eight recorded changes were replayed against it.
-- Twenty-two user modules were commented with `@param` and `@type {import("…").Kind}`. After one change the reader's own checker pointed at 5 of 11 broken users and at none of 18 unbroken ones.
-- One case each: a comment on inner code that checks a record made the checker complain; a nine-line comment on a helper carrying a call by name made it flag two lines.
+**Proven by the proof session (15 Nov), as its `PROOF_RESULT.md` states it.** On a made-up product of eleven modules and 150 changes, design 7 (Node 22, TypeScript 5.6.3) was run again on "all 133 changes written before it" and "told exactly whom the method's rules say on all 133". On the 17 changes of round 8, written blind against it, 8 holes were found. Holes found, design 1 to design 7: "5, 8, 15, 6, 7, 10, 8. There is no downward trend." Over the 150 it sent 182 notices where telling every declaring module sends 474. Sections 5 and 6 give its forms.
 
-**Proven by the proof session (15 Nov), as the study session reports it:** on eleven made-up modules and 150 changes, the seventh design of the rules told users as its rules say. Its tool, rules and forms are in another repository (`neobobkrause/process3-probes`, branch `notice-proof`), which this session could not open, so its exact forms are not carried here.
+**Not proven, in its words:** "The made-up modules are not the real product." "No real job wrote these comments." "What a told job does was not run." "Design 8 was not built or run."
 
-**Only described, never run:** the bound on its own marked line; the tables "gathered into one list"; "accepts more" confirmed by the type checker (the proof's eighth design, not built); a listing sorted into removed, newly required and newly refused; the tool saying whether it follows a user fully.
+**The form the design takes is design 8** (part 2, section 7): the notice of design 7 without the 23 refusals the owner has not approved, and with the type checker confirming "accepts more". It was described and never built or run; the 133 were measured with the 23 refusals in the tool. Where a form below ran only with one of them, it says so.
 
-**The process before this one** kept its module list as `build/modules.json` (220 modules, each with `id`, `paths`, `tests`, `uses` and a layer), a record for each module as `process/ledger/<id>.json` (a job could change only its own entry's status), requirements as `build/requirements/<module>.md` with `**R<n>**` first on the line, and settings in `process/config.json`. The forms below start there.
+**The process before this one** kept its module list as `build/modules.json` (220 modules) and requirements as `build/requirements/<module>.md`. Sections 2 to 4, 7 and 8 start there.
 
 ## 2. Where everything is
 
@@ -100,105 +97,121 @@ Next number: 4
 
 ## 5. A structured comment
 
-This is the form for plain JavaScript read by TypeScript's reader, the only reader tried. Comments are JSDoc blocks, `/** … */`, which running code never sees.
+These are the proof's forms (proof: `product/money/src/index.mjs`, and `bookings` and `door` beside it), for plain JavaScript under TypeScript's reader, the only reader tried. Comments are JSDoc blocks, which running code never sees.
 
-**What a module accepts and hands back.** Every exported function, every public method of an exported class and every exported value has a block with `@param` and `@returns`, or `@type`. A kind with a name is a `@typedef`.
+**What a module accepts and hands back.** Each export of the module's interface files (section 6) has a block with `@param` and `@returns`, or `@type`. A kind with a name is a `@typedef`. The kinds of error raised are `@throws {Kind}`. A kind of another module is brought in by `/** @import { Price } from '../pricing/index.mjs' */`.
 
 ```js
 /**
- * What `priceOf` is handed.
- * @typedef {object} PriceArgs
- * @property {string} sku  The product code.
- * [bound PriceArgs.sku: 1 to 40 characters, each a letter, a digit or a hyphen]
- * @property {number} [quantity]  Absent is 1.
- * [bound PriceArgs.quantity: a whole number from 1 to 999]
+ * @typedef {Object} PriceArgs
+ * @property {string} sku the product code
+ * @property {number} [quantity] absent is 1
+ * @bound quantity: whole number, 1 to 999
  */
 /**
- * What `priceOf` hands back. A refusal is an answer, not a thrown error.
- * @typedef {{ok: true, pence: number} | {ok: false, code: "NO_SUCH_SKU"|"BAD_QUANTITY"}} PriceAnswer
- * [bound PriceAnswer.pence: a whole number, zero or more]
+ * @typedef {Object} Price
+ * @property {number} pence
+ * @bound pence: whole number, zero or more
  */
 /**
  * @param {PriceArgs} args
- * @returns {PriceAnswer}
+ * @returns {Price}
+ * @throws {RangeError} when the quantity is outside its bound
  */
 export function priceOf(args) { /* … */ }
 ```
 
-**The marked line for a bound.** A bound that a kind cannot express is one whole line of the block, and only that line: `[bound <Kind>.<field>: <the bound in words>]`, or `[bound <name>: …]` for a kind or a function's own argument. It is never wrapped onto a second line. Any change to the words is a change to the interface (part 2, section 7, decision 3).
+**The mark for a bound** is the tag `@bound <words>`, in the block of the kind or function it limits. No kind name is written: the block says whose it is. It runs to the next tag or the block's end and may wrap; its spaces are read as single. In a kind of plain data every bound line goes wherever the kind goes, not with one field. Only in an operations table or a handle kind (an object handed out, whose members are entries) is a line one member's, and only when it begins `member.`; any other line there is every member's. Any change to the words is a change to the interface (part 2, section 7, decision 3).
 
-**Decided here:** the trial's bracket mark is kept and moved onto a line of its own. Gives: the tool finds every bound by one pattern in the reader's own output, as the replay did, and tells a bound from the explanation around it. Costs: long lines. **Unproven:** the one-line form; the trial wrote bounds inside descriptions, wrapped.
-
-**Which kind a piece of code checks or builds.** No new mark. Code that checks a value crossing the interface says so in its `@returns`; code that builds one says so in a `@type`.
+**Which kind a piece of code checks or builds.** One form: a plain `@type {Kind}` on the value, the words after it being for people. This is what makes the two approved refusals possible.
 
 ```js
-/** @param {unknown} v  @returns {v is PriceArgs} */
-function isPriceArgs(v) { /* … */ }
-
-/** @type {PriceAnswer} */
-const answer = { ok: true, pence };
+/** @type {PriceArgs} checks a PriceArgs below */
+const a = args;
+/** @type {Price} builds a Price */
+const price = { pence };
 ```
 
-**Decided here:** these two standard forms and no other. Gives: the reader's own checker then compares the code with the kind, which is what makes the two approved refusals possible. Costs: a check buried in a longer function must be moved into a function of its own. **Unproven** beyond one case.
-
-**The provider's one table of operations.** A module whose operations are called by name publishes one kind named `<Module>Ops` and one exported value `OPS` of that kind. Each row is the name callers send and the function that answers it.
+**The provider's one table of operations** is one kind, of any name, marked `@optable`. Its members are the names callers send, each a pair `req` and `res`. There is no table value.
 
 ```js
 /**
- * @typedef {object} PricingOps
- * @property {(args: PriceArgs) => PriceAnswer} priceof  `priceOf`.
+ * @typedef {{
+ *   priceof: {req: PriceArgs, res: Price}
+ * }} PricingOps
+ * @optable
+ * @bound priceof.pence: for the whole quantity
  */
-/** @type {PricingOps} */
-export const OPS = Object.freeze({ priceof: priceOf });
 ```
 
-**The one list, and the comment tying a call by name to it.** **Decided here:** the list is not a file in the repository. When the tool reads the product it writes, in its working folder, one kind named `ProductOps` that joins every module's `…Ops` kind. A shared piece that carries a call by name has one comment:
+**The one list, and the comment tying a call by name to it.** The list is a kind in the source of the shared piece that carries the calls, which stands after the providers in the module order and declares them. Here it is one more made-up module, `door`, after `pricing`:
 
 ```js
-/** @type {<N extends keyof ProductOps>(name: N, args: Parameters<ProductOps[N]>[0]) => ReturnType<ProductOps[N]>} */
-export const call = (name, args) => door.send(name, args);
+/** @import { PricingOps } from '../pricing/index.mjs' */
+/** @typedef {PricingOps & DatesOps} AllOps */
+/**
+ * @typedef {Object} Door
+ * @property {<K extends keyof AllOps>(op: K, body: AllOps[K]['req']) => Promise<AllOps[K]['res']>} call
+ * @carriesop call
+ */
 ```
 
-After that, `call("priceof", { sku: 7 })` in any module is a use of `pricing`'s `priceof` that the reader can follow. Gives: no committed file that every provider's job would have to write, and no early module importing a later one. Costs: the comment means nothing without the tool; an operation name must be the only one of that name in the product, a rule ARCH applies. **Unproven:** this form. What was shown is one case, where a comment on one helper named one provider's kinds directly.
+The mark `@carriesop <members>`, on the handle's kind or on a function, names what carries a call by name. The tool reads the name from each call's first argument: a text written out, a choice of such texts, or a request line beginning `op=<name>&`. `door.call('priceof', { sku })` in `orders` is a use of `pricing`'s entry `op:priceof`. A name the tool cannot read leaves the user not followed (build text 5, section 6). When a second module starts to answer a name, the tool tells that operation's users.
+
+**Three more marks the proof ran.** A member that may be missing is optional in the listing. A kind sent between two separately running parts is marked `@message stdin` or `@message stdout`. Rows of a shared table are `@storedrows <table>` on the rows' kind, with `@carriestable get list put remove` on the store's handle, and are followed as calls by name are.
+
+**Unproven:** the proven tool held modules to these forms by refusals the design does not take (a module imports only another's interface files; messages and stored rows carry their marks). The forms without those refusals are unproven.
 
 ## 6. An interface listing
 
-The tool writes a listing for one module at one commit, from the reader's declaration output for every source file under the module's `files`. A listing is plain text, kept only in the tool's working folder. Both listings of a comparison are made at the same moment by the same tool and reader versions.
+These are the proof's forms (proof: `tool/p3tool.mjs`, `tool/lib/listing.mjs`, `canon.mjs`, `notice.mjs`). The tool makes a listing from the reader's own checker over the module's **interface files**, the files the module list names as its interface (`public` in the proof's `product/modules.json`). The proven commands are `listing <product folder> <module>` and `notice <product before> <product after> <module that changed>`: two folders, read at the same moment by one tool and reader. **Unproven:** the tool making the two folders from two commits, and taking the reader's version from the process config.
 
-The first line names what was read. Every other line belongs to one **entry**: an exported name of one file. Lines are sorted.
+A listing is an object for each **entry**; the text below is a printing of it. It names no commit; the reader is named on the notice's first line.
 
 ```
-listing pricing a1b2c3d reader typescript 5.6.3
-src/pricing/index.mjs OPS op priceof (args: PriceArgs) => PriceAnswer
-src/pricing/index.mjs PriceAnswer bound pence: a whole number, zero or more
-src/pricing/index.mjs PriceAnswer kind {ok: true, pence: number} | {ok: false, code: "NO_SUCH_SKU"|"BAD_QUANTITY"}
-src/pricing/index.mjs PriceArgs bound quantity: a whole number from 1 to 999
-src/pricing/index.mjs PriceArgs bound sku: 1 to 40 characters, each a letter, a digit or a hyphen
-src/pricing/index.mjs PriceArgs field quantity optional number
-src/pricing/index.mjs PriceArgs field sku required string
-src/pricing/index.mjs priceOf accepts args required PriceArgs
-src/pricing/index.mjs priceOf returns PriceAnswer
+Listing of pricing
+  kind PriceArgs   [src/pricing/index.mjs:6]
+      accepts: { quantity?: number; sku: string }
+      bound: quantity: whole number, 1 to 999
+  function priceOf   [src/pricing/index.mjs:16]
+      accepts: (arg0: { quantity?: number; sku: string })
+      hands back: { pence: number }
+      bound: pence: whole number, zero or more
+      bound: quantity: whole number, 1 to 999
+      throws: RangeError
 ```
 
-Each line is: file, entry, a word for the line's sort, then the rest. The sorts are `accepts` (an argument: name, `required` or `optional`, kind), `returns`, `field` (of a named kind: name, `required` or `optional`, kind), `kind` (a named kind that is not a list of fields), `value` (an exported value's kind), `op` (a row of the operations table), and `bound` (the words of a marked line). Kinds are written as the reader writes them. Explanations in comments are left out, so editing one sends nothing.
+- An entry is named by its name within its module; the file and line beside it are not compared. Beside exports, entries are each member of a handle kind (`Door.call`), each class member (`Name.x` static, `Name#x` otherwise), each operation (`op:priceof`) and each shared table (`table:<name>`).
+- An entry has a sort (function, value, kind, handle kind, method, class, class member, operation table, operation, stored rows) and, as they apply: what it accepts, what it hands back, its bound lines, the kinds of error it raises, a message's channel, whether a member may be missing, and the reader's printed declaration of it with comments removed, kept as a backstop.
+- A kind of plain data is written out in full, fields in name order, in every entry that accepts it or hands it back, and its bound lines go with it without the kind's name. A handle kind is written by name. A kind is accepted, handed back or both by where the module's entries use it.
+- Arguments are `arg0`, `arg1`: compared by place, not by name. Explanations in comments are in no entry. A plain constant's value is content: it is widened to its kind unless its comment states one.
 
-**Comparing two listings.** Identical text: nobody is told. Otherwise, entry by entry:
+**Comparing.** Both listings are made for the provider and for every module after it. A later module whose listing changed though its files did not (it passes on a kind of the provider) is "changed through" it, and its users are told too. Listings are compared as objects, entry by entry. With no difference the notice says `The listing before and after is the same. Nobody is told.` Otherwise each entry that differs gets one or more of the proof's words:
 
-| What differs | It is | Who is told |
+| Word | When | Told |
 |---|---|---|
-| An entry in the old listing is absent from the new | Removed. A rename is a removal and an addition, and reads the same | The old entry's users |
-| An entry only in the new listing | Added | Nobody |
-| A `returns` or `value` line, or the answer side of an `op` line | Hands back something else | The entry's users |
-| A `bound` line added, removed or reworded | The interface changed | The entry's users |
-| An `accepts` or `field` line removed, or its name changed | Removed or renamed | The entry's users |
-| A new `accepts` or `field` line marked `required`, or `optional` become `required` | Newly required | The entry's users |
-| A new `optional` line, or `required` become `optional` | Accepts more | Nobody, if the checker agrees |
-| The kind on an `accepts` or `field` line changed | Accepts more if the checker agrees; otherwise newly refused | Nobody; otherwise the entry's users |
+| `removed` | An entry gone, or a name lost from a handle or table. A renamed function is this and a `new entry` | Its users |
+| `new entry` | An entry only in the new listing | Nobody |
+| `kind renamed, shape unchanged` | Its members are still compared | Users that write the name |
+| `accepts more` | See below | Nobody |
+| `cannot stand in` | Removed or renamed, newly required or newly refused: the tool does not say which. A renamed field is this; a renamed argument is no change | Its users |
+| `hands back differently` | Also the kinds of error, a message's channel, a member that may now be missing | Its users |
+| `bound changed` | A bound line added, removed or reworded | Its users |
+| `parameters moved` | An argument's old name found at another place | Its users |
+| `declaration changed (not classified)` | The comparison found nothing, and the printed declaration differs | Its users |
+| `<module> now answers the same name` | A second module answers an operation's name | That operation's users |
 
-- **"If the checker agrees."** The tool asks the reader's own type checker one question: can a value of the old accepted kind be given where the new one is wanted? It writes a two-line file that does that and reads whether the checker complains. No complaint: accepts more, nobody told. A complaint, or a kind the checker calls "anything": the entry's users are told. **Unproven:** this is the proof's eighth design, described and not built.
-- **Decided here:** a named kind that is reached from any `returns`, `value` or answer is treated as handed back, so any change to its lines tells its users; only a kind reached from arguments alone gets the "accepts more" question. Gives: one plain rule. Costs: some needless notices.
-- **An entry's users** are the modules whose code or comments name it (part 2, section 7, decision 1), together with the users of every entry whose lines name it. In the example a change to `PriceArgs` tells the users of `priceOf` and of the `priceof` row. A user the tool cannot follow fully (build text 5, section 6) is a user of every entry.
-- **Decided here:** a listing is lines of plain text, not the reader's raw output. Gives: "removed, newly required, newly refused" each read off a line's sort, and two listings can be compared by any session by eye. Costs: turning the reader's output into these lines is a new step. **Unproven:** all of it. What was measured is a line-by-line comparison of the raw output: identical, only gained, or lost or altered.
+```
+Notice for a change to pricing (TypeScript 5.6.3)
+  pricing PriceArgs: bound changed -> tells users
+  TOLD orders
+      uses pricing PriceArgs (bound changed) at src/orders/lines.mjs:41
+```
+
+- **"Accepts more."** The design's rule (part 2, section 7, decision 7) is rule 52 of design 8 (proof: `notes/iteration-8-design.md`): the reader's type checker, reading the old and the new interface in one program, must confirm it. For a function or method the new must be assignable to the old; for something a user hands in, the old to the new. Not confirmed, or the entry cannot be found to ask about: `cannot stand in`, and the users are told. **Unproven:** this is design 8, described and not built. The proven tool did not ask the checker. Its own comparison of the two written-out kinds decided (`standsIn`, proof: `tool/lib/canon.mjs:202-252`), with the printed-declaration backstop; a new kind of "anything" or "unknown" counted as accepting more.
+- On `accepts more` the proven tool told a user that hands the function on as a value. The design says accepting more tells no one, so that is not taken here.
+- The proven tool also told on `bound test changed`: a test named for a bound line had its checks changed while the line stayed. That relied on a refusal the design does not take (every bound line has such a test), and it tells where the listings are the same. It is not taken here; the bound without it is unproven.
+- **An entry's users** are found in every later module, declared or not (build text 5, section 6). A user not followed fully is told on any change to the provider's listing, a `new entry` or `accepts more` among them.
 
 ## 7. The process config
 
@@ -275,9 +288,9 @@ The `Decision` line is the one plain line the coordinator gives the owner. A cha
 
 ## 9. What could not be settled
 
-1. **The proof session's own forms.** They are in a repository this session could not open. Where they differ from sections 5 and 6, they have the better claim, having run.
+1. **The proof's forms as the design takes them.** Sections 5 and 6 now give the proof's forms, read from its repository. What ran is design 7 with its 23 refusals; the design takes design 8, which was never built. Which of the 150 recorded answers change without the refusals is not worked out.
 2. **A product in another language.** Sections 5 and 6 are for plain JavaScript under TypeScript's reader. No other reader has been tried.
-3. **Helpers under a module's tests that other modules import.** The listing covers `files`, not `tests`. On the earlier record such helpers were a real route between modules, and one missed effect came through one.
-4. **Messages between two separately running parts.** The study names the need for one written kind shared by both ends; no form is given here.
-5. **How the tool says it "cannot follow" a user.** Now defined in build text 5, section 6, and unproven.
+3. **A module's interface files.** The proof's module list names them; section 3's entry has no field for it. The proof listed a helper for other modules' tests as one, under `src/` (proof: `product/store/src/testing.mjs`).
+4. **Messages between two separately running parts.** The proof's mark is `@message` (section 5).
+5. **"Cannot follow".** The proof's form is in build text 5, section 6.
 6. **A decision record that outgrows the maximum.** The owner's dated words are never edited, so his record only grows. How it is split is the coordinator's and PROCESS's to settle.

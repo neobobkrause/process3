@@ -1,4 +1,4 @@
-Length: 186 lines. Last section: "8. Unproven, and not settled here".
+Length: 204 lines. Last section: "8. Unproven, and not settled here".
 
 # Process4 build text 5: the records, and what the tool follows
 
@@ -122,16 +122,17 @@ The job block, `<!-- process4-job -->`, is written once by ARCH's session, by `o
 
 ```json
 { "module": "orders", "work": ["notice from pricing"], "kind": "told",
-  "uses": [ { "provider": "pricing", "old": "a1b2c3d", "new": "e4f5a6b",
-              "entry": "src/pricing/index.mjs PriceArgs", "change": "bound",
-              "was": "PriceArgs bound quantity: a whole number from 1 to 999",
-              "now": "PriceArgs bound quantity: a whole number from 1 to 99",
-              "places": ["src/orders/lines.mjs:41", "test/orders/lines.test.mjs:17"] } ] }
+  "uses": [ { "module": "pricing", "entry": "PriceArgs", "changes": ["bound changed"],
+              "lines": ["src/orders/lines.mjs:41", "test/orders/lines.test.mjs:17"], "through": null,
+              "before": { "bounds": ["quantity: whole number, 1 to 999"] },
+              "after": { "bounds": ["quantity: whole number, 1 to 99"] } } ] }
 ```
 
 - `work` is the work placed: requirement numbers, notices, and flaws by number and link. The job's starting text carries none of it; it names the pull request.
 - `kind` is `told` only when notices are the module's only work. With other work as well it is `ordinary`: the block still carries the `uses`, which the job reads, and the whole module's tests run (the design, part 2, section 7). A block with no notice has no `uses`.
-- `change` is one of removed, hands back, bound, newly required, newly refused. `now` is the new line or `gone`. `places` is `["everything"]` where the tool could not follow the module (section 6).
+- Each of `uses` is a reason of the proof's notice (proof: `tool/lib/notice.mjs:223-259`; the proof is the one build text 2, section 1 names). `module` is the provider, or a later module changed `through` the provider, which `through` then names. `entry` is the entry's name in that module. `changes` holds the proof's words (build text 2, section 6); the three on the accepting side are one word, `cannot stand in`. `lines` are the places in the told module that use the entry.
+- A module the tool does not follow fully has, in place of that, the proof's reason `{ "module": "pricing", "notFollowed": ["<why>"], "through": null }`, with no lines (section 6).
+- **Decided here:** each reason also carries `before` and `after`, the parts of the entry that differ, taken from the same notice's own entry; and `lines` is the whole list. Gives: the job reads what changed, and section 7 has every place. Costs: the proof's notice kept only the first six lines for an entry, so the whole list in a notice is unproven. **Unproven:** the job block itself; nothing in the proof wrote or read one.
 
 The job's record, `<!-- process4-job-record -->`, is written only by the job's session and holds one of two things:
 
@@ -146,16 +147,33 @@ The job's record, `<!-- process4-job-record -->`, is written only by the job's s
 
 ## 6. "Cannot follow": between modules, at the notice
 
-The reader is the language reader the process config names, with its own type checker. A **use** of an entry of provider P by module U is a place, a file and line under U's `files` or `tests`, where a name in code or in a structured comment resolves, by the reader, to that entry's declaration in P; or a call through a piece typed by `ProductOps` (build text 2, section 5) whose name is that entry's row.
+These are the proof's forms (proof: `tool/lib/usage.mjs`, `tool/lib/notice.mjs:223-259`, `PROOF_RESULT.md`). The proof's words for "cannot follow" are "not followed fully". The reader is the language reader the process config names, with its own type checker.
 
-**Decided here:** the tool cannot follow U, for P, when any of these is so. `notify` then prints `cannot follow <U>: <which>, <file>:<line>`, counts U a user of every entry of P, and writes `"places": ["everything"]`.
+**Who is a user.** Every later module in the order, declared or not. Uses are read from the user's source and tests as they stood before the change. A **use** of an entry of provider P by module U is a file and line in U that the reader resolves to that entry's declaration, or to a declaration inside it. These count:
 
-1. The reader cannot read a file of U.
-2. A file of U takes a file of P by an import whose path is worked out when the code runs.
-3. A file of U takes all of a file of P under one name (`import * as`) or passes it on whole (`export *`), and that name is handed on as a value or is indexed by a name worked out when the code runs.
-4. A call by name in U, through a piece typed by `ProductOps`, has a name that is not written out in the call.
+- a name in code or in a structured comment;
+- a member read, a member filled in an object, a member taken apart;
+- a value handed where a kind of P is expected, which uses the members it fills;
+- objects merged with `...`;
+- a call through a carrier (build text 2, section 5) whose name is that entry's operation or table.
 
-Gives: four cases a program can find. Costs: a use that passes through a value the reader types as "anything" is missed, and the user is not told; the design accepts a missed user (part 2, section 7). **Unproven:** all of it. The proof's own form is in a repository this work could not open.
+A use of a provider that U does not declare is noted on the notice: `note: uses pricing without declaring it`.
+
+**Not followed fully.** For a provider P that U declares, any of four causes:
+
+1. U declares P and no use of P is found in its code.
+2. U reads or calls a value of unknown kind anywhere in its files, unless the value comes from outside the product.
+3. U calls by a name the tool cannot read, and P has operations.
+4. U names a table the tool cannot read, and P has tables.
+
+U is then told on any change to P's listing, also on a new entry or an accepts-more that tells no other user (the design, part 2, section 7, decision 2). The notice says so under the user, and the reason it carries is `{ "module": "pricing", "notFollowed": ["<why>", "<why>"], "through": null }`, with no places:
+
+```
+  TOLD orders
+      not followed fully for pricing: reads or calls values of unknown kind: src/orders/report.mjs:13 source.list
+```
+
+Gives: the forms that ran. Costs: notices for nothing; in the proof 54 of design 7's 111 notices for nothing went to one module with cause 2. A missed user is still possible, and the design accepts one (part 2, section 7). **Unproven:** the proven tool refused an import of a file that is not an interface file, a refusal the design does not take; following without that refusal is unproven. None of this has run on a real product.
 
 ## 7. "Reaches": inside the told module
 
@@ -172,7 +190,7 @@ The related list, made on GitHub's merge of the pull request into its base, is e
 
 1. Where a piece B the list needs is named anywhere in the module other than in a call the reader resolves (handed on as a value, kept in a table, called by a name with no comment tying it), every test file whose imports, followed from file to file, lead to B's file counts as reaching B.
 2. Where a test file has an import the reader cannot resolve, that test file is related.
-3. Where `places` is `["everything"]`, every test file is related: the whole module's tests run.
+3. Where a use is a `notFollowed` reason (section 6), every test file is related: the whole module's tests run.
 
 The run's summary gives, for each file run, which of these put it in the list, and the files left out; `related <pr>` prints the same. An empty list passes at once and says so. Files in the module's `walk/internal/` and `walk/external/` folders are never in the list.
 
@@ -182,5 +200,5 @@ Gives: the list errs toward running a test file. Costs: where a module is one la
 
 1. Every form in sections 1 to 5: nothing is built. Not verified from GitHub: the size a comment holds, that a rewrite notifies no one, and that a locked issue still takes the sessions' writes.
 2. Whether the owner can read the JSON records well enough on the page.
-3. The proof's own forms have the better claim where they differ from sections 6 and 7, having run.
+3. The proof's forms are now in section 5's `uses` and in section 6, read from its repository. As its `PROOF_RESULT.md` states it: on eleven made-up modules, design 7 "told exactly whom the method's rules say" on all 133 changes written before it, and 8 holes were found in the 17 written blind against it. That was measured with 23 refusals the design does not take; the design's form, design 8, "was not built or run". Section 7 has nothing from the proof: "What a told job does was not run."
 4. What is read of the shared state to show that an account switch lost no work is not written (build text 4, stage 7).
