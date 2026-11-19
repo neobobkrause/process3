@@ -85,7 +85,7 @@ Tried:
 
 ### Stage 4. The notice
 
-Needs first: nothing of the owner's. The proof's own forms are now in build texts 2 and 5. Its 150 recorded changes are in its repository; their recorded answers were made with 23 refusals this design does not take, so the answers that rest on those must be recorded again before they can be the tool's tests (`process4/working/readiness_18nov/notice_proof_forms_compared.md`, section 5).
+Needs first: nothing of the owner's. The proof's own forms are now in build texts 2b and 5. Its 150 recorded changes are in its repository; their recorded answers were made with 23 refusals this design does not take, so the answers that rest on those must be recorded again before they can be the tool's tests (`process4/working/readiness_18nov/notice_proof_forms_compared.md`, section 5).
 
 Built: `listing`, `notify`, `check`, with the recorded changes of the notice's proof as the tool's tests; then the related scope and `related`.
 

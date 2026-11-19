@@ -130,7 +130,7 @@ The job block, `<!-- process4-job -->`, is written once by ARCH's session, by `o
 
 - `work` is the work placed: requirement numbers, notices, and flaws by number and link. The job's starting text carries none of it; it names the pull request.
 - `kind` is `told` only when notices are the module's only work. With other work as well it is `ordinary`: the block still carries the `uses`, which the job reads, and the whole module's tests run (the design, part 2, section 7). A block with no notice has no `uses`.
-- Each of `uses` is a reason of the proof's notice (proof: `tool/lib/notice.mjs:223-259`; the proof is the one build text 2, section 1 names). `module` is the provider, or a later module changed `through` the provider, which `through` then names. `entry` is the entry's name in that module. `changes` holds the proof's words (build text 2, section 6); the three on the accepting side are one word, `cannot stand in`. `lines` are the places in the told module that use the entry.
+- Each of `uses` is a reason of the proof's notice (proof: `tool/lib/notice.mjs:223-259`; the proof is the one build text 2, section 1 names). `module` is the provider, or a later module changed `through` the provider, which `through` then names. `entry` is the entry's name in that module. `changes` holds the proof's words (build text 2b, section 6); the three on the accepting side are one word, `cannot stand in`. `lines` are the places in the told module that use the entry.
 - A module the tool does not follow fully has, in place of that, the proof's reason `{ "module": "pricing", "notFollowed": ["<why>"], "through": null }`, with no lines (section 6).
 - **Decided here:** each reason also carries `before` and `after`, the parts of the entry that differ, taken from the same notice's own entry; and `lines` is the whole list. Gives: the job reads what changed, and section 7 has every place. Costs: the proof's notice kept only the first six lines for an entry, so the whole list in a notice is unproven. **Unproven:** the job block itself; nothing in the proof wrote or read one.
 
@@ -155,7 +155,7 @@ These are the proof's forms (proof: `tool/lib/usage.mjs`, `tool/lib/notice.mjs:2
 - a member read, a member filled in an object, a member taken apart;
 - a value handed where a kind of P is expected, which uses the members it fills;
 - objects merged with `...`;
-- a call through a carrier (build text 2, section 5) whose name is that entry's operation or table.
+- a call through a carrier (build text 2b, section 5) whose name is that entry's operation or table.
 
 A use of a provider that U does not declare is noted on the notice: `note: uses pricing without declaring it`.
 

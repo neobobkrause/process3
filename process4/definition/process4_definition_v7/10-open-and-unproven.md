@@ -30,10 +30,10 @@ For a session to do, and to report.
 
 **What a session needs before it can build the tool, and this document does not yet say.** Each is design work, to be written as its own text beside this one and not into it:
 
-4. The tool itself. Written: build text `01-the-tool-and-the-required-run.md`. Not built. Unproven there: a session that holds one repository fetching the tool's copy; and it assumes the process's repository is public.
+4. The tool itself. Written: build texts `01-the-tool-and-the-required-run.md` and `01b-the-commands.md`. Not built. Unproven there: a session that holds one repository fetching the tool's copy; and it assumes the process's repository is public.
 5. Each role's starting text. Drafted: eight texts in the build folder `starting_texts/`, each under 4,096 bytes. None has been put before the permission checker, and each has ten numbered rule lines or fewer, as part 4, section 11 counts them.
-6. The form of a structured comment and of an interface listing. Written: build text `02-the-forms.md`. The forms used when the notice's method was proven are in a repository this work could not open, and win where they differ.
-7. The form of the module list, a requirements file and the process config. Written in the same build text.
+6. The form of a structured comment and of an interface listing. Written: build text `02b-the-comment-and-the-listing.md`. The forms used when the notice's method was proven are in a repository this work could not open, and win where they differ.
+7. The form of the module list, a requirements file and the process config. Written in build text `02-the-forms.md`.
 8. The required test run. Written in build text `01-the-tool-and-the-required-run.md`. Not built.
 9. The walks. Written: build text `03-the-walks.md`. Nothing in it has run.
 10. Left unsettled by the forms text: helpers under one module's tests that another module imports, which the interface listing does not cover; one written form for messages between two separately running parts of a product; and how the owner's record of decisions is split when it outgrows the maximum.

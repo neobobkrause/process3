@@ -2,7 +2,7 @@
 
 Length: 198 lines. Last section: "9. The owner's to settle".
 
-Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here has run.** It stands beside the seventh draft of the design (`process4/definition/process4_definition_v7/`, "the design" below) and answers item 9 of its part 10, section 2. It changes no rule of the design and adds no test, check, gate, review or stop. Words in quotation marks are the owner's unless a line says otherwise. Reconciled the same day with build texts 1 and 2 and with the design; the tool's commands named here are in build text 1, section 4.
+Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here has run.** It stands beside the seventh draft of the design (`process4/definition/process4_definition_v7/`, "the design" below) and answers item 9 of its part 10, section 2. It changes no rule of the design and adds no test, check, gate, review or stop. Words in quotation marks are the owner's unless a line says otherwise. Reconciled the same day with build texts 1 and 2 and with the design; the tool's commands named here are in build text 1b, section 4.
 
 Marks: **Decided here:** a choice made in this text, with what it gives and costs. **Unproven:** never shown to work. **Owner's:** his to settle.
 

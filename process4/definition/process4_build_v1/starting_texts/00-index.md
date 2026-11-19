@@ -21,7 +21,7 @@ How the rules stand against "at most ten". Each text has ten numbered lines or f
 | `job.md` | A job (template the tool fills when ARCH's session opens the pull request: module, branch, pull request; the work, the kind and the uses stay in the job block there) | 3,394 | 10 | 29 | Rules |
 | `walking-session.md` | A walking session (template the tool fills with `walk text`: number, internal or external, tranche, round, the walk issue, the walks' folder, the copy's name and address; its areas stay in the round record and its two commands in the process config) | 3,577 | 10 | 27 | Rules |
 
-The commands named are those of build text 1, section 4. Every text but PROCESS's and ROOT's carries the fetch line as a blank.
+The commands named are those of build text 1b, section 4. Every text but PROCESS's and ROOT's carries the fetch line as a blank.
 
 **As filled in.** A filled text holds names and addresses only (part 4, section 11). Three texts were measured with a made-up fill: a product name of 40 characters, and a fetch line of 198 bytes holding a full repository address and the 40-character commit id once.
 
