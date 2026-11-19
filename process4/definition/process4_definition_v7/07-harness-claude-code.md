@@ -16,7 +16,7 @@ Everything in this part is specific to Claude Code.
 | A message; interrupting | A message sent to a session wakes it. A session can be interrupted |
 | Scheduled wake | A scheduled task on the account |
 | Secret values, the deploy token among them | Settings of Claude's cloud environment, entered by the owner. The only route measured to work |
-| Instruction files loaded at start | `CLAUDE.md` and `settings.json`. The product's `CLAUDE.md` stays under thirty lines |
+| Instruction files loaded at start | `CLAUDE.md` and `settings.json`. The product's `CLAUDE.md` stays under thirty lines (**from a session's record:** the Foundations, `foundations_tranche_9nov.md`, line 184) |
 | Worker | A helper the session starts inside itself. A worker cannot start workers (seen once) |
 | Fill level | The session can read how full its context is |
 | Compaction | A full context is shrunk automatically, which loses what was read |
@@ -39,7 +39,7 @@ Everything in this part is specific to Claude Code.
 
 ## 2. Reading, as measured
 
-From the first measurement of 18 Nov, on one model with a 1,000,000-token window. The owner judged that measurement too weak to rely on; these are what it saw.
+From the first measurement of 18 Nov, on one model with a 1,000,000-token window. By the design state (line 43), the owner judged that measurement too weak to rely on; these are what it saw.
 
 - A plain read returns a file whole up to 25,000 tokens. A larger file comes back cut, and the notice of the cut arrives apart from the read's result.
 - A file over 256 KB is refused, with no lines returned.

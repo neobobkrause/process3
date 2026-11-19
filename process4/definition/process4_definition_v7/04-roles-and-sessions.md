@@ -4,17 +4,17 @@ Length: 158 lines. Last section: "11. Smaller rules a session needs".
 
 ## 1. The roles, and the sessions that hold no standing role
 
-- **ROOT** is the first session. The owner starts it with a plain prompt on the product's repository. It starts the watcher, ARCH and the coordinator, and starts PROCESS when asked. Once an hour a scheduled wake rouses it as a safety net, to wake or replace a session that has stopped. It decides nothing about the product and builds nothing.
-- **The watcher** is a standby session that takes over if ROOT dies. ROOT starts it (section 6).
-- **The coordinator** is the owner's front door for the product. It passes on his marked decisions and instructions exactly as typed and dated, and keeps the product's record of them. It answers his questions in words, never by building anything. It tells him what ARCH decided, one plain line each, puts to him the questions that are his, and gives him the account after each round. On his word it holds or approves one merge, puts a module first, changes the slot number, or stops work. It decides nothing about the product.
-- **ARCH** is the architecture session, one for each product. It decides every technical matter of the product, writes each decision in the product's decision record, and settles a design before anything is built on it. It writes requirement text, keeps the module list, proposes each tranche, names each walk's areas, turns each flaw into work for a named module, makes the development deployment, prepares a release, starts the product's lanes, and writes the tranche report. It never edits the owner's approvals, changes the process, or publishes a release without him.
+- **ROOT** is the first session. The owner starts it with a plain prompt on the product's repository (**from a session's record:** the record of 13 Nov, lines 16 and 22). It starts the watcher, ARCH and the coordinator, and starts PROCESS when asked (section 2). Once an hour a scheduled wake rouses it as a safety net, to wake or replace a session that has stopped (**from a session's record:** the Foundations, `foundations_tranche_9nov.md`, line 82). **Claude decided:** it decides nothing about the product and builds nothing.
+- **The watcher** is a standby session that takes over if ROOT dies. ROOT starts it (section 6). **From a session's record:** the design state, line 83.
+- **The coordinator** is the owner's front door for the product (**Owner:** "Yes, the coordinator is the front door.", `bob_words_16_17nov_codex_development.md`). It passes on his marked decisions and instructions exactly as typed and dated, and keeps the product's record of them. It answers his questions in words, never by building anything. It tells him what ARCH decided, one plain line each, puts to him the questions that are his, and gives him the account after each round (**from a session's record:** the design state, lines 47 to 51 and 61). **Claude decided:** on his word it holds or approves one merge or puts a module first; it decides nothing about the product. **From a session's record:** the record of 13 Nov, line 17: on his word it changes the slot number or stops work.
+- **ARCH** is the architecture session, one for each product. It decides every technical matter of the product, writes each decision in the product's decision record, and settles a design before anything is built on it. It writes requirement text, keeps the module list, proposes each tranche, names each walk's areas, turns each flaw into work for a named module, makes the development deployment, prepares a release, starts the product's lanes, and writes the tranche report. It never edits the owner's approvals, changes the process, or publishes a release without him. **Claude decided**, carried from the sixth draft, except: the deployment and the release, **from a session's record:** the Foundations, as the sixth draft cites them (its line 194); and starting the lanes, the design state, line 85.
 - **A lane** is a standing design responsibility for one area of a product (section 3).
 - **PROCESS** is where the process is changed, and the only place (part 6).
 - **A job** is a session started to do one module's work (part 2).
 - **A walking session** is started by ARCH for a walk (part 3) and uses a job slot (part 2, section 5).
 - **A worker** is a helper that a long-lived role or a job starts inside itself (part 1, section 6).
 
-What the tool does and what ARCH keeps: whatever has one right answer is done by the tool: who takes a free slot, when a notice is sent and to whom, whether a round's jobs are done. ARCH's session keeps what needs judgment. The share of ARCH's work that is passing things on is measured on the first tranche. **Claude decided:** the tool chooses the next job and writes its starting instructions; ARCH's session makes the start, because only a session can start a session.
+What the tool does and what ARCH keeps: whatever has one right answer is done by the tool: who takes a free slot, when a notice is sent and to whom, whether a round's jobs are done. ARCH's session keeps what needs judgment. The share of ARCH's work that is passing things on is measured on the first tranche. **From a session's record:** the design state, line 82. **Claude decided:** the tool chooses the next job and writes its starting instructions; ARCH's session makes the start, because only a session can start a session.
 
 ## 2. Who starts whom
 
@@ -26,20 +26,20 @@ What the tool does and what ARCH keeps: whatever has one right answer is done by
 | PROCESS | Its own lanes (a reading; part 6, section 8) |
 | A long-lived role or a job | Its own workers |
 
-- Under a ROOT the owner started, sessions sit at most three levels deep: ROOT; then ARCH, the coordinator, the watcher and PROCESS; then jobs, walking sessions and lanes. A takeover by the watcher adds a level (section 6).
-- No session starts its own replacement.
-- A session is started with one repository only; from the newest commit of the tranche branch, or for PROCESS of the process repository's main branch; in the harness's unattended mode; and with starting instructions that name every act it may take. PROCESS works in the process's own repository.
+**From a session's record:** ROOT starts ARCH and the coordinator, the record of 13 Nov, line 22; the watcher, and ARCH the lanes, the design state, lines 83 and 85; ARCH starts jobs, the Foundations (`foundations_tranche_9nov.md`, line 77). **Owner:** "ARCH can ask ROOT to start PROCESS if it isn't already running" (`bob_words_14nov_c.md`). **Claude decided:** the rest.
+
+- Under a ROOT the owner started, sessions sit at most three levels deep: ROOT; then ARCH, the coordinator, the watcher and PROCESS; then jobs, walking sessions and lanes. A takeover by the watcher adds a level (section 6). **From a session's record:** the Foundations (`foundations_tranche_9nov.md`, line 60).
+- No session starts its own replacement. **From a session's record:** the Foundations (`foundations_tranche_9nov.md`, line 77).
+- A session is started with one repository only (**from a session's record:** the ledger, as the sixth draft quotes it, its line 418); **Claude decided:** from the newest commit of the tranche branch, or for PROCESS of the process repository's main branch; in the harness's unattended mode; and with starting instructions that name every act it may take. PROCESS works in the process's own repository (the design state, line 85).
 - **Claude decided:** ROOT's first act is to fetch the newest copy of its branch, and to stop if it cannot.
-- Every session passes the owner's suggestion of model and effort on to each session it starts. His ledger note, as the sixth draft quotes it: "always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand".
+- Every session passes the owner's suggestion of model and effort on to each session it starts. **From a session's record:** the ledger (SES-8, `ledger_lines.md`, line 967), where it is given as his own words: "always a model and effort sufficient for quality, and a permissions mode appropriate for the task at hand".
 - **Unproven:** that a ROOT started by a plain prompt, whose instructions name no acts, comes up on the owner's newest approvals and can act as ROOT.
 
 ## 3. Lanes
 
-The owner's rulings:
-
-- ARCH starts a product's design lanes.
-- A lane decides design in its area. ARCH decides whether and when a design is built and whether it can be built as given. A design ARCH cannot build goes back to the lane.
-- The owner works with a lane through its design pages.
+- ARCH starts a product's design lanes. **From a session's record:** the Foundations (`foundations_tranche_9nov.md`, line 60, "Bob's answer, Keep and Drop page, 6 Nov").
+- A lane decides design in its area. ARCH decides whether and when a design is built and whether it can be built as given. A design ARCH cannot build goes back to the lane. **From a session's record:** the design state, line 86.
+- **Open (the owner):** he works with a lane through its design pages (**from a session's record:** the design state, line 49). His words: "interacting with lanes is crucial, as this is where architecture and design decisions are made" (`bob_words_16_17nov_codex_development.md`); "Lanes are an important element of the development process" (`bob_words_14nov_c.md`).
 
 **Reading:** the rest of this section stands as written; the owner has not confirmed each rule one by one.
 
@@ -60,8 +60,8 @@ The owner's rulings:
 ## 4. The shared state
 
 - **Claude decided:** what belongs to one job stays in that job's pull request, and what every role needs is in the shared state.
-- What sessions say to each other, and the process's running records, never build up as files or commits in a repository.
-- Every kind of standing note in the shared state says what ends it, and the tool removes the note when that comes true.
+- What sessions say to each other, and the process's running records, never build up as files or commits in a repository. **From a session's record:** the design state, line 118. His nearest words: "I think that Codex needs to be careful about using github as a communications channel." (`bob_words_16_17nov_codex_development.md`)
+- Every kind of standing note in the shared state says what ends it, and the tool removes the note when that comes true. **From a session's record:** the design state, line 132.
 
 **Claude decided** the rest of this section.
 
@@ -90,19 +90,19 @@ The owner's rulings:
 ## 5. Refresh and replacement
 
 - Each long-lived role is refreshed on purpose, at a natural pause in its work or at the stated fill level (part 5), whichever comes first. It asks its parent. Its successor starts only from the shared state and the repository.
-- ARCH is long-lived.
+- ARCH is long-lived. **From a session's record:** the design state, lines 80 and 81, for these two lines.
 - **Claude decided:** before it asks, the role rewrites its handover record.
-- The parent of ARCH, the coordinator and PROCESS is ROOT. The parent of a product's lane is ARCH. **Claude decided:** ROOT replaces the watcher, and ROOT itself is refreshed by the watcher (section 6).
-- A job that fills up or dies is replaced by ARCH with a new session that continues from the same branch and pull request.
-- A finished session is archived, not deleted. **Claude decided:** the session that started a session archives it; where the starter is gone, ROOT does.
-- Sessions other than ROOT and the watcher are relatively short-lived. **Reading:** a role such as ARCH lasts, while its sessions are refreshed often.
+- The parent of ARCH, the coordinator and PROCESS is ROOT. The parent of a product's lane is ARCH (section 2). **Claude decided:** ROOT replaces the watcher, and ROOT itself is refreshed by the watcher (section 6).
+- **Claude decided:** a job that fills up or dies is replaced by ARCH with a new session that continues from the same branch and pull request.
+- A finished session is archived, not deleted (**from a session's record:** the design state, line 119; his words on it are a question, `bob_words_16_17nov_codex_development.md`). **Claude decided:** the session that started a session archives it; where the starter is gone, ROOT does.
+- Sessions other than ROOT and the watcher are relatively short-lived (the design state, line 127). **Reading:** a role such as ARCH lasts, while its sessions are refreshed often.
 - **Unproven:** replacing ARCH while jobs are open.
 
 ## 6. ROOT and the watcher
 
 **Claude decided** this design. **Unproven:** all of it; it is rehearsed in the trial.
 
-- ROOT starts the watcher as its first act after fetching. The watcher has no other duty.
+- ROOT starts the watcher as its first act after fetching. The watcher has no other duty. That the watcher is kept and ROOT starts it is **from a session's record:** the design state, line 83; his only word on it is a question: "O7: are you certain that the watcher isn't needed?" (`bob_words_14nov_c.md`).
 - The watcher has its own scheduled wake. At each wake it reads the time ROOT last woke.
 - The watcher wakes hourly, half an hour after ROOT. If ROOT has missed two wakes, the watcher takes over. It writes itself into the roles record as ROOT, takes over ROOT's scheduled wake, starts a new watcher, tells the coordinator, and archives the old ROOT session if it still exists.
 - ARCH, the coordinator and PROCESS go on as they were. They name ROOT by role.
@@ -111,33 +111,33 @@ The owner's rulings:
 
 ## 7. The one way back
 
-- After any full stop there is one way back: the owner starts ROOT, and ROOT rebuilds everything from the shared state and the repository.
+- After any full stop there is one way back: the owner starts ROOT, and ROOT rebuilds everything from the shared state and the repository. **From a session's record:** the design state, line 84.
 - **Claude decided:** an edit to the owner's approvals goes with a restart of ROOT by this way. What it does to a running round: the owner first tells the coordinator to stop, and open jobs push and stop; he commits the edit and starts ROOT; ROOT starts the standing roles afresh; ARCH starts a new session for each module with an open pull request, continuing from its branch. The round goes on from the round record.
 - **Claude decided:** a restarted ROOT first archives every session still named in the roles and lanes records, and every open job's session, and then starts the roles afresh.
 - **Claude decided:** the coordinator's session removes a standing note, by the tool, when what ends it comes true. A held merge reaches ARCH by the standing notes, which the tool reads before every merge, and by a message from the coordinator.
-- A switch of account adds only the owner's own acts in the new account. **Unproven:** an account switch that loses no work.
+- A switch of account adds only the owner's own acts in the new account (the design state, line 84). **Unproven:** an account switch that loses no work.
 
 ## 8. Messages
 
-- A message wakes its receiver at once.
-- Whatever the receiver needs is saved before the message is sent. **Claude decided:** it is saved in the sender's pull request, in the repository, in a record of the shared state, or for a walk in that walk's own issue; the message itself is not stored.
+- A message wakes its receiver at once. **Owner:** "a message sent to a session immediately wakes up that session to handle the incoming message" (`bob_words_16_17nov_codex_development.md`).
+- **From a session's record:** the design state, line 128, for the rest of this section. Whatever the receiver needs is saved before the message is sent. **Claude decided:** it is saved in the sender's pull request, in the repository, in a record of the shared state, or for a walk in that walk's own issue; the message itself is not stored.
 - A message from the directing session is an instruction; a message from any other session is information.
 - Where a harness has not been shown to wake a session at once, that is noted as a shortcoming (part 8).
 
 ## 9. What the owner can see
 
-- He can see each open job's progress and status without speaking to it.
-- A product's ROOT, ARCH, coordinator, lanes and jobs are grouped under that product. Workers are left out.
+- He can see each open job's progress and status without speaking to it. **Owner:** "seeing their progress and status is important" (`bob_words_16_17nov_codex_development.md`).
+- A product's ROOT, ARCH, coordinator, lanes and jobs are grouped under that product. Workers are left out. **Owner:** "Only jobs, lanes, ARCH, ROOT, and the process coordinator sessions should be kept in the project." (`bob_words_17nov_project_membership.md`)
 
 ## 10. When something goes wrong
 
 - **A job fails its tests.** The job fixes its module and the tests run again. **Claude decided:** the tool counts the failed runs on a job's pull request from GitHub's own record. After two failed corrections (the third failed run on the pull request) it tells ARCH, which replaces the session with a fresh one. The fresh session first works out why the corrections were made, so as to foresee the others. If the replacement also fails twice (the fifth failed run), the module is recorded as blocked with the reason, its slot is freed, and the matter goes to ARCH as a design question.
 - **A loop that would not end. Claude decided** each end. A walk flaw that two modules' jobs have each handed back as needing no change there is not placed a third time; ARCH decides it as a design question. A job blocked twice by the same other module is the same: the boundary between the two is an architecture bug (part 2, section 8). A design that ARCH has sent back to a lane twice comes to the owner as a question, with both views. A chain of notices ends of itself, because a module is used only by modules after it. A tranche's rounds end on the owner's word (part 3, section 5), and takeovers by the watcher at the limit on depth (section 6). In each case other work goes on.
-- **A session dies or stops.** ROOT's hourly wake finds it, and it is woken or replaced as section 5 says.
-- **A stop nothing called for** is a process fault. Some need no change to Process4, for example a stop caused by a compaction; then the stopped session is woken or replaced. Each such case may be studied and reported to PROCESS. **Reading:** while Process4 is on trial every such stop is reported to PROCESS; the simpler handling applies once it is beyond trial.
-- **The process itself has a fault.** No session building a product fixes it or works round it (part 6, section 6).
-- **The process is completely blocked.** The owner gets one plain message with a numbered list of what is his to do.
-- **A stop on the owner's word.** He tells the coordinator, which writes the stop record and tells ARCH, which interrupts each job. **Claude decided:** it is lifted the same way: he tells the coordinator, which clears the record and tells ARCH, which wakes or replaces each job from its pull request. A stop takes effect in the turn in which a session receives it. ROOT reads the stop record at every wake, so that the hourly wake does not undo it.
+- **A session dies or stops. Claude decided:** ROOT's hourly wake finds it, and it is woken or replaced as section 5 says.
+- **A stop nothing called for** (**from a session's record:** the design state, line 126) is a process fault. Some need no change to Process4, for example a stop caused by a compaction; then the stopped session is woken or replaced. Each such case may be studied and reported to PROCESS. **Reading:** while Process4 is on trial every such stop is reported to PROCESS; the simpler handling applies once it is beyond trial.
+- **The process itself has a fault.** No session building a product fixes it or works round it (part 6, section 6, **Owner**).
+- **The process is completely blocked.** The owner gets one plain message with a numbered list of what is his to do. **From a session's record:** the record of 13 Nov, line 2.
+- **A stop on the owner's word. Claude decided:** he tells the coordinator, which writes the stop record and tells ARCH, which interrupts each job. **Claude decided:** it is lifted the same way: he tells the coordinator, which clears the record and tells ARCH, which wakes or replaces each job from its pull request. A stop takes effect in the turn in which a session receives it (the design state, line 134). ROOT reads the stop record at every wake, so that the hourly wake does not undo it.
 
 ## 11. Smaller rules a session needs
 
@@ -153,6 +153,6 @@ The owner's rulings:
 - **A natural pause** is a moment between two pieces of work, with nothing half done and everything saved.
 - **What ARCH learns from the coordinator** (a held or approved merge, a module put first, a new slot number, a request for a full external walk) comes by the standing notes and a message.
 - **The one message when the process is completely blocked** is sent by the coordinator, or by ROOT where the coordinator is what has stopped.
-- **The tool is first built** by a session on the owner's word, before anything is in force. That session holds the process's repository alone. Until the tool exists it pushes to its own working branch and opens its pull requests by the harness's ordinary means, as the owner's present approvals allow, and the owner merges each one himself. After the first build only PROCESS changes the tool.
-- **"At most ten rules"** counts the numbered rule lines of a starting text, the lines that say what the session never does among them. A line may hold closely related rules. A starting text must name every act its session may take, because a session declines an act its starting text does not name (measured in the process before this one, 6 of 6), and that alone is more than ten single rules for most roles. What keeps a text short is its size limit. The owner left the count to the AI on 19 Nov. The size limit applies to the text as filled in for a session. What is filled in is names and addresses only. A list (the work placed, the uses a notice carries, a walk's areas) stays in the pull request or the round record, which the text names.
+- **The tool is first built** by a session on the owner's word, before anything is in force. That session holds the process's repository alone. Until the tool exists it pushes to its own working branch and opens its pull requests by the harness's ordinary means. The owner changed his approvals in the process's repository on 19 Nov so that sessions merge their pull requests into main there once the required check `tool-tests` passes, without a person's review (**from a session's record:** the report of the session that directed this correction, 19 Nov; his committed `CLAUDE.md` on `main` of `neobobkrause/process4` is the source). **Claude decided**, and withdrawn: that he merges each one himself. After the first build only PROCESS changes the tool.
+- **"At most ten rules"** counts the numbered rule lines of a starting text, the lines that say what the session never does among them. A line may hold closely related rules. A starting text must name every act its session may take, because a session declines an act its starting text does not name (measured in the process before this one, 6 of 6), and that alone is more than ten single rules for most roles. What keeps a text short is its size limit. **From a session's record:** the handoff, line 48, which quotes him on 19 Nov: "Why are you asking me to count lines. You can do that, correct? Keep going." So the count is Claude's. The size limit applies to the text as filled in for a session. What is filled in is names and addresses only. A list (the work placed, the uses a notice carries, a walk's areas) stays in the pull request or the round record, which the text names.
 

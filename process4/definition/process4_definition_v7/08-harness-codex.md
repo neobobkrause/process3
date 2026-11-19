@@ -37,13 +37,13 @@ Everything in this part is specific to Codex. Where the Codex side is not known 
 
 ## 2. Rules of this design that Codex cannot yet be shown to keep
 
-- **A refresh at a stated fill level.** No fill level can be read, so only the natural pause can trigger a refresh. The rule that compaction is never needed (part 5, section 1) is therefore met only by frequent refreshes at pauses. The owner's words: a Codex-based process "requires that we be able to avoid compaction entirely". Nothing signals a compaction if one happens.
+- **A refresh at a stated fill level.** No fill level can be read, so only the natural pause can trigger a refresh. The rule that compaction is never needed (part 5, section 1) is therefore met only by frequent refreshes at pauses. The owner's words (`bob_words_17nov_compaction_avoidance.md`): a Codex-based process "requires that we be able to avoid compaction entirely". Nothing signals a compaction if one happens.
 - **The three things that hold a rule** (part 6, section 1). What carries the approvals, the forbidden commands and the permission checker is not known.
 - **A message wakes its receiver at once.** Shown only for a child in the same chat.
 - **Each role as a session of its own that the owner can open.** On Codex every role was a child inside one chat.
 - **Grouping a product's sessions, and archiving finished ones.**
 - **A notification to the owner's phone.**
-- **Renewing the sign-in before it expires,** which the owner expects Codex to need and the process to support cleanly. How is not known.
+- **Renewing the sign-in before it expires,** which the owner expects Codex to need and the process to support cleanly: "the Codex version of process4 must recognize and cleanly support that act" (`bob_words_16_17nov_codex_development.md`). How is not known.
 
 ## 3. What the owner fills
 
