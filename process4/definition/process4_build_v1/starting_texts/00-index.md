@@ -18,7 +18,7 @@ How the rules stand against "at most ten". Each text has ten numbered lines or f
 | `arch.md` | ARCH | 3,843 | 10 | 26 | Rules |
 | `process.md` | PROCESS | 3,886 | 10 | 29 | Rules |
 | `lane.md` | A lane (template: area, folder, design pages) | 3,286 | 8 | 26 | Rules |
-| `job.md` | A job (template the tool fills when ARCH's session opens the pull request: module, branch, pull request; the work, the kind and the uses stay in the job block there) | 3,394 | 10 | 29 | Rules |
+| `job.md` | A job (template the tool fills when ARCH's session opens the pull request: module, branch, pull request; the work, the kind and the uses stay in the job block there) | 3,438 | 10 | 29 | Rules |
 | `walking-session.md` | A walking session (template the tool fills with `walk text`: number, internal or external, tranche, round, the walk issue, the walks' folder, the copy's name and address; its areas stay in the round record and its two commands in the process config) | 3,577 | 10 | 27 | Rules |
 
 The commands named are those of build text 1b, section 4. Every text but PROCESS's and ROOT's carries the fetch line as a blank.
@@ -28,31 +28,31 @@ The commands named are those of build text 1b, section 4. Every text but PROCESS
 | Text | Filled with | Bytes filled |
 |---|---|---|
 | `arch.md` | Product name, fetch line | 4,060 |
-| `job.md` | The same; a 13-character module; branch `job/<module>/<n>`; the pull request's address | 3,687 |
+| `job.md` | The same; a 13-character module; branch `job/<module>/<n>`; the pull request's address | 3,731 |
 | `walking-session.md` | The same; number, tranche, round; the walk issue's address; the folder; the copy's name and address | 3,805 |
 
 Each passes. `arch.md` has 36 bytes to spare, so a longer product name or fetch line would pass the limit. `root.md` is read unfilled from the copy; with the same product name and a full commit id written in, it is about 4,080 bytes.
 
 ## 2. What each text tells its session to read in full
 
-Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,773; 03 8,790; 04 19,737; 05 5,647; 06 9,068; 07 6,471; 08 4,111; 09 2,340; 10 10,900. All eleven: 101,817. Build texts: 02 23,862; 03 20,072; 05 17,000. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
+Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,773; 03 8,790; 04 19,737; 05 5,647; 06 9,052; 07 6,471; 08 4,111; 09 2,340; 10 10,955. All eleven: 101,856. Build texts: 02 14,730; 02b 10,264; 03 20,073; 05 17,002. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
 
 Each role reads one harness part, 07 or 08. The combined figure is given with 07, the larger; with 08 it is 2,078 less.
 
 | Text | Design parts | Build texts | Combined bytes | Also told to read (sizes not known) |
 |---|---|---|---|---|
-| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,903 | The shared state |
-| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,903 | The roles, wakes and handover records; after a takeover, `root.md` |
-| The coordinator | 00 to 06, 07 or 08 | 05 | 101,466 | The ranking page, the product's record of the owner's decisions, the shared state |
-| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 123,878 | The process config, ranking page, module list, both decision records, the shared state |
-| PROCESS | All eleven | 05; each other one before changing it | 118,817 | The record of the owner's decisions about the design, its own folder, its handover record |
-| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 85,693; the UX lane 105,765 | The ranking page, the research in its folder, its design pages' links, its handover record |
-| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 03 and 05 | 136,610 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
-| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 63,381 internal; 65,721 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
+| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,889 | The shared state |
+| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,889 | The roles, wakes and handover records; after a takeover, `root.md` |
+| The coordinator | 00 to 06, 07 or 08 | 05 | 101,452 | The ranking page, the product's record of the owner's decisions, the shared state |
+| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 123,865 | The process config, ranking page, module list, both decision records, the shared state |
+| PROCESS | All eleven | 05; each other one before changing it | 118,858 | The record of the owner's decisions about the design, its own folder, its handover record |
+| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 85,679; the UX lane 105,752 | The ranking page, the research in its folder, its design pages' links, its handover record |
+| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 02b, 03 and 05 | 137,729 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
+| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 63,366 internal; 65,706 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
 
 Every set is under 175,000 bytes. Whether a set stays under it once the product's own documents are added cannot be said: their sizes are not known, and the design sets no size for a record of decisions or a lane's research. Build text 3 keeps each page of the walks' documents under the single-text maximum.
 
-The build texts are kept with the design in the process's repository, and a session reads those its starting text names (part 0, section 5). A job reads three because it writes structured comments, its entry's `uses`, the `[met]` mark and walk steps, and reads its job block, whose forms are only there. Each role that writes a record of the shared state reads build text 5, where the records' forms are.
+The build texts are kept with the design in the process's repository, and a session reads those its starting text names (part 0, section 5). A job reads four because it writes structured comments, its entry's `uses`, the `[met]` mark and walk steps, and reads its job block, whose forms are only there. Each role that writes a record of the shared state reads build text 5, where the records' forms are.
 
 ## 3. What the earlier process recorded about starting texts
 
