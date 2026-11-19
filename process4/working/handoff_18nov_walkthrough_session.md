@@ -1,8 +1,26 @@
 # Handoff from the walk-through session of 18 Nov 2026
 
-Length: 69 lines. Last section: "Practical notes".
+Length: 87 lines. Last section: "Practical notes".
 
 Written by Claude for the session that takes over. It is the latest handoff and rules over `handoff_18nov_design_session.md` where they differ. Read this whole, then that one, then the seventh draft and the five build texts whole.
+
+## First, for the session that takes over on 19 Nov
+
+Bob's words: "Maybe what we need to do is start a refresh session to continue this work, rather than having me create multiple sessions to first try this and then that." Then: "Go, but will you starting your refresh result in the session depth increasing? Also, if you do create your replacement, have it use the Opus 5.5 model, as Fable usage is too expensive." "Go" is his word that a session may build the tool and that sessions start the sessions the set-up needs. He starts none himself.
+
+What you do, in order, after your reading:
+
+1. Tell Bob in a few plain lines that you have taken over, and what you are doing. Do not ask him anything first.
+2. Start the building session yourself: `create_session` on `https://github.com/neobobkrause/process4` alone, revision `main`, permission mode auto, model `claude-opus-5-5` (this handoff's reading of his words on cost: every session started for this work uses it unless he says otherwise), with the text in `working/design_work_18nov/building_session_starting_text.md`, your own session id filled in. Then tell it by message which stage (stage 1, after the pull request that carries the design over).
+3. Read what it reports. Each of its pull requests into `main` of `neobobkrause/process4` is merged by Bob on GitHub's website, two clicks: tell him plainly when one waits, with its address. Watch the first merge for the rule's "unattributed changes" setting.
+4. Go on through build text 4's stages, starting each trial session yourself, reading each result from the repositories, and correcting the design and build texts where a result calls for it. Come to Bob only for what only he can do: accepting a pull request, an edit to his approvals or to a GitHub rule, a decision about how the process behaves. Put each to him as one matter, explained for someone who is not a GitHub user.
+
+Facts you need:
+
+- Depth. The session that wrote this was at depth 2 of a limit of 8 (`get_session` with no id, field `lineage`). You are at 3, the building session at 4. Each refresh by a session starting its successor adds one. Before 6, tell Bob that one start by his own hand resets it.
+- Fill. `get_session` with no id shows `context_usage`: used and maximum tokens. This session read 397,007 of 1,000,000 when it refreshed. Read it; do not estimate.
+- To read a repository's settings and rules you must attach it: `add_repo` with access "push" for `neobobkrause/process4` and `neobobkrause/process3-probes` (Bob approved both for this work). Then `curl https://api.github.com/repos/<owner>/<repo>/rulesets` works. Push nothing to `process4`; in `process3-probes` Bob's word was "use it however you need".
+- The trial repository's approvals allow the first trial's script only to "the one session I start for the first trial". That trial is done. Stage 1 there needs a session that plays ARCH, started by you; the approvals cover "sessions that other sessions started", and the tool's acts, but the stage 1 session's first content goes in by the tool, which must exist first.
 
 ## Where Bob and this session are
 
