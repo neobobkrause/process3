@@ -1,6 +1,6 @@
 # Part 6. What holds a rule, the tool, and changing the process
 
-Length: 72 lines. Last section: "8. Process4 develops itself".
+Length: 75 lines. Last section: "8. Process4 develops itself".
 
 ## 1. What holds a rule
 

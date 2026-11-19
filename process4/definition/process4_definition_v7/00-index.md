@@ -1,6 +1,6 @@
 # Process4: the design, seventh draft
 
-Length: 93 lines. Last section: "6. Words used".
+Length: 102 lines. Last section: "6. Words used".
 
 Written by Claude on 18 Nov 2026. **Status: proposed. Nothing here is in force and nothing here has run.**
 

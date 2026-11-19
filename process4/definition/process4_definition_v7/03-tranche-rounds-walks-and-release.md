@@ -1,6 +1,6 @@
 # Part 3. The tranche, rounds, walks, and release
 
-Length: 74 lines. Last section: "8. Support beyond the process".
+Length: 76 lines. Last section: "8. Support beyond the process".
 
 ## 1. Opening a tranche
 

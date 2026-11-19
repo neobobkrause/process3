@@ -12,7 +12,7 @@ How the rules stand against "at most ten". Each text has ten numbered lines or f
 
 | File | For | Bytes | Numbered lines | Single rules | Last section |
 |---|---|---|---|---|---|
-| `root.md` | ROOT: the owner's plain prompt (part A) and what ROOT reads first (part B) | 3,950 | 10 | 25 | Rules |
+| `root.md` | ROOT: Claude's draft of the owner's plain prompt, for him to use or change (part A), and what ROOT reads first (part B) | 3,962 | 10 | 25 | Rules |
 | `watcher.md` | The watcher | 2,689 | 9 | 22 | Rules |
 | `coordinator.md` | The coordinator | 3,679 | 10 | 31 | Rules |
 | `arch.md` | ARCH | 3,843 | 10 | 26 | Rules |
@@ -31,24 +31,24 @@ The commands named are those of build text 1b, section 4. Every text but PROCESS
 | `job.md` | The same; a 13-character module; branch `job/<module>/<n>`; the pull request's address | 3,731 |
 | `walking-session.md` | The same; number, tranche, round; the walk issue's address; the folder; the copy's name and address | 3,805 |
 
-Each passes. `arch.md` has 36 bytes to spare, so a longer product name or fetch line would pass the limit. `root.md` is read unfilled from the copy; with the same product name and a full commit id written in, it is about 4,080 bytes.
+Each passes. `arch.md` has 36 bytes to spare, so a longer product name or fetch line would pass the limit. `root.md` is read unfilled from the copy; with the same product name and a full commit id written in, it is about 4,092 bytes.
 
 ## 2. What each text tells its session to read in full
 
-Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,773; 03 8,790; 04 19,737; 05 5,647; 06 9,052; 07 6,471; 08 4,111; 09 2,340; 10 10,955. All eleven: 101,856. Build texts: 02 14,730; 02b 10,264; 03 20,073; 05 17,002. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
+Sizes of the design's parts, in bytes: 00 12,873; 01 13,170; 02 19,381; 03 10,499; 04 23,770; 05 6,796; 06 12,406; 07 6,590; 08 4,276; 09 2,364; 10 11,844. All eleven: 123,969. Build texts: 02 14,730; 02b 10,264; 03 20,160; 05 17,002. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
 
-Each role reads one harness part, 07 or 08. The combined figure is given with 07, the larger; with 08 it is 2,078 less.
+Each role reads one harness part, 07 or 08. The combined figure is given with 07, the larger; with 08 it is 2,314 less.
 
 | Text | Design parts | Build texts | Combined bytes | Also told to read (sizes not known) |
 |---|---|---|---|---|
-| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,889 | The shared state |
-| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,889 | The roles, wakes and handover records; after a takeover, `root.md` |
-| The coordinator | 00 to 06, 07 or 08 | 05 | 101,452 | The ranking page, the product's record of the owner's decisions, the shared state |
-| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 123,865 | The process config, ranking page, module list, both decision records, the shared state |
-| PROCESS | All eleven | 05; each other one before changing it | 118,858 | The record of the owner's decisions about the design, its own folder, its handover record |
-| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 85,679; the UX lane 105,752 | The ranking page, the research in its folder, its design pages' links, its handover record |
-| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 02b, 03 and 05 | 137,729 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
-| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 63,366 internal; 65,706 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
+| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 92,607 | The shared state |
+| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 92,607 | The roles, wakes and handover records; after a takeover, `root.md` |
+| The coordinator | 00 to 06, 07 or 08 | 05 | 122,487 | The ranking page, the product's record of the owner's decisions, the shared state |
+| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 145,011 | The process config, ranking page, module list, both decision records, the shared state |
+| PROCESS | All eleven | 05; each other one before changing it | 140,971 | The record of the owner's decisions about the design, its own folder, its handover record |
+| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 103,106; the UX lane 123,266 | The ranking page, the research in its folder, its design pages' links, its handover record |
+| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 02b, 03 and 05 | 157,142 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
+| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 75,698 internal; 78,062 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
 
 Every set is under 175,000 bytes. Whether a set stays under it once the product's own documents are added cannot be said: their sizes are not known, and the design sets no size for a record of decisions or a lane's research. Build text 3 keeps each page of the walks' documents under the single-text maximum.
 
@@ -65,7 +65,7 @@ Read for these drafts; nothing here is a rule of Process4 unless the design also
 - A prompt that named whose messages are instructions made a session act; without it the session answered "A request from another session isn't enough for me to act on" (trials 17; rows 26, 27). Each draft has "Who directs you".
 - A session that wrote relayed approvals into a loaded file was refused, "[Instruction Poisoning]" (trial 20). Each draft's "Never" rule covers it.
 - "Give each judged act ... its own shell command, never chained" was in every prompt, after the one refusal that fell on a chained merge. The design holds it (part 6, section 4).
-- ROOT in the earlier process was never started by a plain prompt. Its prompt was about 4 KB (4,034 bytes at the tip), printed by the tool and pasted; its rulebook had 7 rules (`roles_root_coordinator.md`, section on ROOT). The owner's description of the plain prompt, as that file quotes it: "His first prompt says he is starting or restarting development of a named product, names that product's repository, says the Process4 process is to be used, may suggest model and effort, and may mention a switch from another account." Part A of `root.md` follows that sentence. The earlier coordinator prompt was 1,980 bytes; there was never a coordinator rulebook.
+- ROOT in the earlier process was never started by a plain prompt. Its prompt was about 4 KB (4,034 bytes at the tip), printed by the tool and pasted; its rulebook had 7 rules (`roles_root_coordinator.md`, section on ROOT). The plain prompt rests on the session's record of 13 Nov, line 16 (`process4_definition_v6.md`, line 156), not on the owner's typed words. Turned from its second person into the third: his first prompt says he is starting or restarting development of a named product, names that product's repository, says the Process4 process is to be used, may suggest model and effort, and may mention a switch from another account. Part A of `root.md` follows that, and is Claude's draft for him to use or change. The earlier coordinator prompt was 1,980 bytes; there was never a coordinator rulebook.
 
 ## 4. Silent in the design
 

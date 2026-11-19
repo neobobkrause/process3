@@ -1,8 +1,10 @@
-Length: 101 lines. Last section: "5. Not proven".
+Length: 103 lines. Last section: "5. Not proven".
 
 # The trial repository's approvals and forbidden commands, taken from his own for that repository
 
-Written by Claude on 19 Nov 2026. **A proposal. Nothing here is the owner's words unless it is quoted from his own files, and no session has loaded any of it.** The trial repository is `neobobkrause/process3-probes`, on his word of 19 Nov: "The throwaway repo to use is neobobkrause/process3-probes ... You have my permission to use it however you need."
+**A note on whose words these are (19 Nov).** The owner committed the block in section 3 exactly as written here, but it is Claude's edit of his 8 Nov text. This sentence in his first person is Claude's, not his: "Until the process's tool exists, the one session I start for the first trial may, without the tool, by a script of a few lines ... push to its own working branch." The paragraph on the tool and its fetch is Claude's too. Every other change is listed in `process4/working/readiness_19nov/attribution_audit_2.md`, section C2.
+
+Written by Claude on 19 Nov 2026. **A proposal. Nothing here is the owner's words unless it is quoted from his own files, and no session has loaded any of it.** The trial repository is `neobobkrause/process3-probes`. That he named it on 19 Nov and gave permission to use it however needed is Claude's record, in `working/handoff_18nov_walkthrough_session.md`, not his typed words. His nearest typed words: "The throwaway repo that you need already exists: process3-probes." (`process4/owner_words/bob_words_14nov_b.md`)
 
 ## 1. The repository as it stands, read on 19 Nov
 

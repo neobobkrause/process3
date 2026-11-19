@@ -1,6 +1,8 @@
-Length: 93 lines. Last section: "5. Not proven".
+Length: 95 lines. Last section: "5. Not proven".
 
 # The process repository's approvals and forbidden commands for the first build, taken from Process3's own
+
+**A note on whose words these are (19 Nov).** The owner committed the block in section 3 exactly as written here, but it is Claude's edit of his 8 Nov text. These words in his first person are Claude's, not his: the sentence "I merge each of their pull requests myself, on GitHub's website." and, in the clause on workflow files, "pull requests that I merge". "They merge nothing." is Claude's too. Every other change is listed in `process4/working/readiness_19nov/attribution_audit_2.md`, section C1. On 19 Nov he changed these approvals so that sessions merge into main once the required check `tool-tests` passes, without a person's review.
 
 Written by Claude on 18 Nov 2026. **Accepted by the owner on 19 Nov 2026: he committed both blocks, as they stand here, on `main` of `neobobkrause/process4` through GitHub's website (commits `a89c80c` and `42ca30a`, read back and compared on 19 Nov). No session has yet loaded them.** It replaces, for the first build only, sections 3c, 3d and 4b of `approvals_proposal_brought_up_to_date.md`, which were written without Process3's own files in hand.
 

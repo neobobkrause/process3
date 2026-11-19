@@ -1,6 +1,6 @@
 # Part 1. Purpose, the owner, his decisions, and working principles
 
-Length: 85 lines. Last section: "7. Known weaknesses of AI sessions".
+Length: 83 lines. Last section: "7. Known weaknesses of AI sessions".
 
 ## 1. What Process4 is for
 

@@ -1,6 +1,6 @@
 # Part 5. Reading in full, and the documents
 
-Length: 61 lines. Last section: "7. Where things are kept now".
+Length: 68 lines. Last section: "7. Where things are kept now".
 
 ## 1. Reading in full
 
