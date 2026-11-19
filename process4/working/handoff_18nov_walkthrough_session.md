@@ -27,7 +27,7 @@ On 19 Nov he ruled: "The throwaway repo to use is neobobkrause/process3-probes .
 
 ## The order of what is needed from him (this session's reading)
 
-Before any building: the repository (decided); a throwaway trial repository; what "at most ten rules" counts; his two files in the new repository; the GitHub set-up; his word that a session may build the tool. Before the notice is built: the three readings on a told job's tests. Before the walks: how a tranche ends; whether ARCH may set aside a walker's entry; whether a walking session walks by hand; the deploy token and allowed hosts. Before release: who publishes, and what "successful" means. The rest can wait.
+Before any building: the repository (decided); a throwaway trial repository (decided); what "at most ten rules" counts (he left it to the AI: "Why are you asking me to count lines. You can do that, correct? Keep going." It counts numbered rule lines; the design says so); his two files in the new repository; the GitHub set-up; his word that a session may build the tool. Before the notice is built: the three readings on a told job's tests. Before the walks: how a tranche ends; whether ARCH may set aside a walker's entry; whether a walking session walks by hand; the deploy token and allowed hosts. Before release: who publishes, and what "successful" means. The rest can wait.
 
 His set-up steps should follow Process3's own guide, `setup/DEVELOPER.md` on the `tranche` branch of this repository (195 lines), not memory. It has the exact pages, among them `https://github.com/apps/claude/installations/select_target` and `https://claude.ai/connect-github` in a private window.
 

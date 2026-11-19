@@ -50,7 +50,7 @@ From the first measurement of 18 Nov, on one model with a 1,000,000-token window
 - Whether approvals that reach a session after its start count the same as approvals read at the start.
 - Whether a session's browser can reach the development site.
 - How many live sessions the account bears. New starts once failed silently at about fifty.
-- Whether a program goes on reaching GitHub from a session at a real rate. Seen once, on 19 Nov, in the trial's first stage: with the ordinary push and every `gh` command refused to the session itself, a script run with `node` that started `gh` and `git` read the repository's pull requests, opened an issue, wrote and rewrote a comment in place, and pushed a branch, acting as the sessions' account. GitHub's other interface (GraphQL) was refused by the session's route; only REST calls work. The report is `process4/working/trial/stage0_report_19nov.md`.
+- Whether a program goes on reaching GitHub from a session at a real rate. Seen once, on 19 Nov, in the trial's first stage: with the ordinary push and every `gh` command refused to the session itself, a script run with `node` that started `gh` and `git` read the repository's pull requests, opened an issue, wrote and rewrote a comment in place, and pushed a branch, acting as the sessions' account. GitHub's other interface (GraphQL) was refused by the session's route; only REST calls work. The owner received no email from GitHub about the issue or its rewritten comment. The report is `process4/working/trial/stage0_report_19nov.md`.
 
 ## 4. The owner's acts to start a product
 

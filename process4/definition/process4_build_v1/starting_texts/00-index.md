@@ -35,20 +35,20 @@ Each passes. `arch.md` has 36 bytes to spare, so a longer product name or fetch 
 
 ## 2. What each text tells its session to read in full
 
-Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,773; 03 8,790; 04 19,360; 05 5,647; 06 9,068; 07 6,389; 08 4,111; 09 2,340; 10 10,926. All eleven: 101,384. Build texts: 02 23,862; 03 20,072; 05 17,000. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
+Sizes of the design's parts, in bytes: 00 10,680; 01 8,300; 02 15,773; 03 8,790; 04 19,737; 05 5,647; 06 9,068; 07 6,471; 08 4,111; 09 2,340; 10 10,900. All eleven: 101,817. Build texts: 02 23,862; 03 20,072; 05 17,000. The set maximum is 175,000. In the copy the design is in `design/` and the build texts in `build/`, and each text's reading line names them so.
 
 Each role reads one harness part, 07 or 08. The combined figure is given with 07, the larger; with 08 it is 2,078 less.
 
 | Text | Design parts | Build texts | Combined bytes | Also told to read (sizes not known) |
 |---|---|---|---|---|
-| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,444 | The shared state |
-| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,444 | The roles, wakes and handover records; after a takeover, `root.md` |
-| The coordinator | 00 to 06, 07 or 08 | 05 | 101,007 | The ranking page, the product's record of the owner's decisions, the shared state |
-| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 123,419 | The process config, ranking page, module list, both decision records, the shared state |
-| PROCESS | All eleven | 05; each other one before changing it | 118,384 | The record of the owner's decisions about the design, its own folder, its handover record |
-| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 85,234; the UX lane 105,306 | The ranking page, the research in its folder, its design pages' links, its handover record |
-| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 03 and 05 | 136,151 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
-| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 63,299 internal; 65,639 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
+| ROOT | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,903 | The shared state |
+| The watcher | 00, 01, 04, 05, 06, 07 or 08 | 05 | 76,903 | The roles, wakes and handover records; after a takeover, `root.md` |
+| The coordinator | 00 to 06, 07 or 08 | 05 | 101,466 | The ranking page, the product's record of the owner's decisions, the shared state |
+| ARCH | 00 to 06, 07 or 08, 09 | 03 and 05 | 123,878 | The process config, ranking page, module list, both decision records, the shared state |
+| PROCESS | All eleven | 05; each other one before changing it | 118,817 | The record of the owner's decisions about the design, its own folder, its handover record |
+| A lane | 00, 01, 03, 04, 05, 06, 07 or 08 | 05; and 03 for the UX lane | 85,693; the UX lane 105,765 | The ranking page, the research in its folder, its design pages' links, its handover record |
+| A job | 00, 01, 02, 04, 05, 06, 07 or 08 | 02, 03 and 05 | 136,610 | The ranking page, the module order file, its module's entry and requirements file (at most 24,000 by rule), its pull request |
+| A walking session | 00, 01, 03, 06, 07 or 08; and 09 for the external walk | 03 | 63,381 internal; 65,721 external | The process config and the ranking page; for each of its areas, its page of the Screens document or the journeys |
 
 Every set is under 175,000 bytes. Whether a set stays under it once the product's own documents are added cannot be said: their sizes are not known, and the design sets no size for a record of decisions or a lane's research. Build text 3 keeps each page of the walks' documents under the single-text maximum.
 
