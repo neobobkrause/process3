@@ -1,3 +1,5 @@
+**Moved, 20 Nov 2026, on Bob's word:** this handoff and the coordinating session's files now live in neobobkrause/process4, folder `coordination/` (merge eaa0ce6). The copy there rules; this one is no longer kept.
+
 # Handoff from the coordinating session, 20 Nov 2026, fifth refresh
 
 Length: 31 lines. Last section: "4. Practical notes".
