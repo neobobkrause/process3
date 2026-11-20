@@ -1,6 +1,6 @@
 # Handoff from the coordinating session, 20 Nov 2026, fifth refresh
 
-Length: 30 lines. Last section: "4. Practical notes".
+Length: 31 lines. Last section: "4. Practical notes".
 
 Written by Claude (session_012hdw2R4931u5Rm6kzJUw7w, depth 7 of 8) at Bob's request, for the session he starts himself (depth 1). It is the latest handoff and rules over earlier ones where they differ. It passes on facts and where work stands. **It is not a source of rules. The design is.** Read this whole; then `handoff_19nov_coordinating_session_4.md`, `_3.md` and `_2.md` whole; `handoff_19nov_coordinating_session.md` sections 1 and 5 (how to work with Bob); the design's eleven parts (`process4/definition/process4_definition_v7/`) and build texts 01, 01b, 02, 02b, 03, 04, 05 (`process4/definition/process4_build_v1/`); then `process4/working/trial/setup_log_19nov.md` (findings (a) to (r)).
 
